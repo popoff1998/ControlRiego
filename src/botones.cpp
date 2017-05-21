@@ -37,21 +37,20 @@ byte shiftInCD4021B(int myDataPin, int myClockPin)
   return myDataIn;
 }
 
-/*
-S_BOTON *leerBotones()
+int bId2bIndex(uint16_t id)
 {
-  for (int i=0;i<NUMBOTONES;i++)
-  {
-    Boton[i].estado = digitalRead(Boton[i].pin);
-    if (Boton[i].estado != Boton[i].ultimo_estado) {
-      Boton[i].ultimo_estado = Boton[i].estado;
-      return(&Boton[i]);
-    }
+  for (int i=0;i<16;i++) {
+    if (Boton[i].id == id) return i;
   }
-  //No ha cambiado de estado ningun boton
-  return NULL;
+  return 99;
 }
-*/
+
+uint16_t getMultiStatus()
+{
+  if (Boton[bId2bIndex(bCESPED)].estado) return bCESPED;
+  if (Boton[bId2bIndex(bGOTEOS)].estado) return bGOTEOS;
+  return bCOMPLETO;
+}
 
 uint16_t readInputs()
 {
@@ -90,12 +89,4 @@ S_BOTON *parseInputs()
     }
   }
   return NULL;
-}
-
-int bId2bIndex(uint16_t id)
-{
-  for (int i=0;i<16;i++) {
-    if (Boton[i].id == id) return i;
-  }
-  return 99;
 }

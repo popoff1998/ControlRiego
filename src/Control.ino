@@ -36,11 +36,10 @@ void setup()
 
 void loop()
 {
-  //Leo los botones
+  //Procesamos los botones
   boton = NULL;
   boton = parseInputs();
 
-  //Procesamos los botones
   if(boton != NULL) {
     //Si estamos en reposo solo nos saca de ese estado
     if (reposo) {
@@ -66,9 +65,8 @@ void loop()
             }
           }
           break;
-
         case bSTOP:
-          if (boton->estado && (Estado.estado == REGANDO || Estado.estado == PAUSE)) {
+          if (boton->estado && (Estado.estado == REGANDO || Estado.estado == MULTIREGANDO || Estado.estado == PAUSE) ) {
             Serial.println("PARANDO EL TIEMPO");
             T.StopTimer();
             bip(3);
@@ -82,40 +80,45 @@ void loop()
           }
           standbyTime = millis();
           break;
-
         case bMULTIRIEGO:
           if (Estado.estado == STANDBY) {
-            bip(3);
-            //Quitar las dos siguientes lineas cuando se implemente
-            T.SetTimer(0,minutes,0);
-            T.StartTimer();
-            Estado.estado = REGANDO;
-
-            if (Boton[bId2bIndex(bCESPED)].estado) riegaCesped();
-            else if (Boton[bId2bIndex(bGOTEOS)].estado) riegaGoteos();
-            else riegaCompleto();
+            bip(4);
+            uint16_t multiStatus = getMultiStatus();
+            multi.actual = 0;
+            switch(multiStatus) {
+              case bCOMPLETO:
+                multi.serie = COMPLETO;
+                multi.size = sizeof(COMPLETO);
+                break;
+              case bCESPED:
+                multi.serie = CESPED;
+                multi.size = sizeof(CESPED);
+                break;
+              case bGOTEOS:
+                multi.serie = GOTEOS;
+                multi.size = sizeof(GOTEOS);
+                break;
+            }
+            Estado.estado = MULTIREGANDO;
           }
           break;
-
         default:
           if (Estado.estado == STANDBY) {
             bip(2);
             T.SetTimer(0,minutes,0);
             T.StartTimer();
-            //Aquí tendremos que mandar el mensaje de regar
-            //---------------
             Estado.estado = REGANDO;
           }
+
       }
     }
   }
-
+  //Procesamos los estados
   switch (Estado.estado){
     case REGANDO:
       tiempoTerminado = T.Timer();
       if (T.TimeHasChanged()) refreshDisplay();
-      if (tiempoTerminado == 0)
-      {
+      if (tiempoTerminado == 0) {
         Serial.println("SE ACABO EL TIEMPO");
         Estado.estado = TERMINANDO;
       }
@@ -125,24 +128,34 @@ void loop()
       if (reposo) {
         standbyTime = millis();
       }
-      else
-      {
-        if (millis() > standbyTime + (1000 * STANDBYSECS)) {
+      else {
+        if (millis() > standbyTime + (1000 * STANDBYSECS) ) {
           reposo = true;
           clearDisplay();
         }
       }
       //Procesamos el encoder
       value += Encoder->getValue();
-      if (value > 99) value = MAXMINUTES;
-      if (value <  0) value = MINMINUTES;
+      if (value > MAXMINUTES) value = MAXMINUTES;
+      if (value <  MINMINUTES) value = MINMINUTES;
       //Serial.print("VALUE: ");Serial.print(value);Serial.print("MINUTES: ");Serial.println(minutes);
-      if (value != minutes)
-      {
+      if (value != minutes) {
         reposo = false;
         minutes = value;
         StaticTimeUpdate();
       }
+      break;
+    case MULTIREGANDO:
+      //Debemos recorrer todos los multiSerie
+      if (multi.actual < multi.size) {
+        tiempoTerminado = T.Timer();
+        if (T.TimeHasChanged()) refreshDisplay();
+        if (tiempoTerminado == 0) {
+          Serial.println("SE ACABO EL TIEMPO");
+          Estado.estado = TERMINANDO;
+        }
+      }
+      multi.actual++;
       break;
     case TERMINANDO:
       //Hacemos un blink del display 5 veces

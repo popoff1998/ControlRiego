@@ -34,7 +34,7 @@ enum {
   TERMINANDO    = 0x08,
   PAUSE         = 0x10,
   STOP          = 0x20,
-  MULTIRIEGO    = 0x40,
+  MULTIREGANDO  = 0x40,
 };
 
 //Para los botones
@@ -90,6 +90,9 @@ enum {
   bMULTIRIEGO = 0x8000,
 };
 
+//Pseudoboton
+#define bCOMPLETO 0xFFFF
+
 #define NUMBOTONES 3
 #ifdef __MAIN__
   S_BOTON Boton [] =  { {bTURBINAS, 0, 0, 0,    ENABLED | ACTION, "TURBINAS"},
@@ -132,33 +135,14 @@ typedef union {
   };
 } U_Estado;
 
-typedef union {
-  uint16_t all;
-  struct {
-    uint16_t  bit1     :1,
-              bit2     :1,
-              bit3     :1,
-              bit4     :1,
-              bit5     :1,
-              bit6     :1,
-              bit7     :1,
-              bit8     :1,
-              bit9     :1,
-              bit10    :1,
-              bit11    :1,
-              bit12    :1,
-              bit13    :1,
-              bit14    :1,
-              bit15    :1,
-              bit16    :1;
-  };
-} U_Mux;
+typedef struct {
+  uint16_t *serie;
+  int size;
+  int actual;
+} S_MULTI;
 
 //Globales
 #ifdef __MAIN__
-  U_Mux mInput;
-  U_Mux mOutput;
-
   //Variables para el display
   int8_t TimeDisp[] = {0x00,0x00,0x00,0x00};
   //int8_t StopDisp[] = {0x6d,0x78,0x5c,0x73};
@@ -175,14 +159,12 @@ typedef union {
   unsigned long standbyTime;
   bool displayOff = false;
   unsigned long lastBlinkPause;
-
+  S_MULTI multi;
+  
   //Prototipos
   S_BOTON *leerBotones(void);
   void initCD4021B(void);
   S_BOTON *parseInputs();
   int bId2bIndex(uint16_t);
-
-#else
-  extern U_Mux mInput;
-  extern U_Mux mOutput;
+  uint16_t getMultiStatus(void);
 #endif
