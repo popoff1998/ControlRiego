@@ -1,88 +1,14 @@
-#include <TimerOne.h>
-#include <ClickEncoder.h>
-#include <Time.h>
-#include <avr/pgmspace.h>
-#include <TM1637.h>
-#include "CountUpDownTimer.h"
 
-//Defines
-#define STANDBYSECS         15
-#define DEFAULTMINUTES      1
-#define DEFAULTBLINK        5
-#define DEFAULTBLINKMILLIS  500
-#define MINMINUTES          1
-#define MAXMINUTES          60
+#define __MAIN__
+#include <Control.h>
 
-//Pins usados
-#define BOTONTURBINAS       2
-#define DISPCLK             3
-#define DISPDIO             4
-#define ENCCLK              5
-#define ENCDT               6
-#define ENCSW               7
-#define BOTONPAUSE          8
-#define BOTONSTOP           9
-#define BUZZER              13
-
-//Estados
-enum {
-  STANDBY       = 0x01,
-  REGANDO       = 0x02,
-  CONFIGURANDO  = 0x04,
-  TERMINANDO    = 0x08,
-  PAUSE         = 0x10,
-  STOP          = 0x20,
-};
-
-typedef struct {
-  int pin;
-  int estado;
-  int ultimo_estado;
-} S_BOTON;
-
-#define NUMBOTONES 3
-
-S_BOTON Boton [] =  { {BOTONPAUSE,  0, 0},
-                      {BOTONSTOP,   0, 0},
-                      {BOTONTURBINAS, 0, 0}
-                    };
-
-
-typedef union {
-  uint8_t estado;
-  struct {
-    uint8_t standby       : 1,
-            regando       : 1,
-            configurando  : 1,
-            terminando    : 1,
-            pausa         : 1,
-            spare2        : 1,
-            spare1        : 1,
-            spare0        : 1;
-  };
-} U_Estado;
-
-//Variables para el display
-int8_t TimeDisp[] = {0x00,0x00,0x00,0x00};
-//int8_t StopDisp[] = {0x6d,0x78,0x5c,0x73};
-int8_t StopDisp[] = {25,26,27,28};
-//Globales
-CountUpDownTimer T(DOWN);
-U_Estado Estado;
-TM1637 tm1637(DISPCLK,DISPDIO);
-ClickEncoder *Encoder;
-int minutes = DEFAULTMINUTES;
-int value = minutes;
-bool tiempoTerminado;
-bool reposo = false;
-unsigned long standbyTime;
-bool displayOff = false;
-unsigned long lastBlinkPause;
+S_BOTON *boton;
 
 void timerIsr()
 {
   Encoder->service();
 }
+
 
 void setup()
 {
@@ -97,33 +23,23 @@ void setup()
   Timer1.initialize(1000);
   Timer1.attachInterrupt(timerIsr);
   //Inicializar los botones
-  for (int i=0;i<NUMBOTONES;i++) {
-    pinMode(Boton[i].pin,INPUT_PULLUP);
-  }
+  //for (int i=0;i<NUMBOTONES;i++) {
+  //  pinMode(Boton[i].pin,INPUT_PULLUP);
+  //}
   //Para el BUZZER
   pinMode(BUZZER, OUTPUT);
+  //Para el CD4021B
+  initCD4021B();
   //Estado inicial
   Estado.estado = STANDBY;
-}
-
-S_BOTON *leerBotones()
-{
-  for (int i=0;i<NUMBOTONES;i++)
-  {
-    Boton[i].estado = digitalRead(Boton[i].pin);
-    if (Boton[i].estado != Boton[i].ultimo_estado) {
-      Boton[i].ultimo_estado = Boton[i].estado;
-      return(&Boton[i]);
-    }
-  }
-  //No ha cambiado de estado ningun boton
-  return NULL;
 }
 
 void loop()
 {
   //Leo los botones
-  S_BOTON *boton = leerBotones();
+  boton = NULL;
+  boton = parseInputs();
+
   //Procesamos los botones
   if(boton != NULL) {
     //Si estamos en reposo solo nos saca de ese estado
@@ -132,10 +48,10 @@ void loop()
       StaticTimeUpdate();
     }
     else {
-      switch (boton->pin){
-        case BOTONPAUSE:
-          if (boton->estado == HIGH && Estado.estado != STOP) {
-            switch (Estado.estado){
+      switch (boton->id) {
+        case bPAUSE:
+          if (Estado.estado != STOP) {
+            switch (Estado.estado) {
               case REGANDO:
                 bip(1);
                 T.PauseTimer();
@@ -149,23 +65,23 @@ void loop()
             }
           }
           break;
-        case BOTONSTOP:
-          if (boton->estado == LOW && Estado.estado == REGANDO) {
+        case bSTOP:
+          if (boton->estado && Estado.estado == REGANDO) {
             Serial.println("PARANDO EL TIEMPO");
             T.StopTimer();
             bip(3);
             blinkStopDisplay(DEFAULTBLINK);
             Estado.estado = STOP;
           }
-          if (boton->estado == HIGH && Estado.estado == STOP) {
+          if (!boton->estado && Estado.estado == STOP) {
             minutes = DEFAULTMINUTES;
             StaticTimeUpdate();
             Estado.estado = STANDBY;
           }
           standbyTime = millis();
           break;
-        case BOTONTURBINAS:
-          if (boton->estado == LOW && Estado.estado == STANDBY) {
+        case bTURBINAS:
+          if (Estado.estado == STANDBY) {
             bip(2);
             T.SetTimer(0,minutes,0);
             T.StartTimer();
