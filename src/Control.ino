@@ -47,8 +47,9 @@ void loop()
       reposo = false;
       StaticTimeUpdate();
     }
-    else {
+    else if (boton->flags.action) {
       switch (boton->id) {
+        //Primero procesamos los botones singulares, el resto van por default
         case bPAUSE:
           if (Estado.estado != STOP) {
             switch (Estado.estado) {
@@ -65,8 +66,9 @@ void loop()
             }
           }
           break;
+
         case bSTOP:
-          if (boton->estado && Estado.estado == REGANDO) {
+          if (boton->estado && (Estado.estado == REGANDO || Estado.estado == PAUSE)) {
             Serial.println("PARANDO EL TIEMPO");
             T.StopTimer();
             bip(3);
@@ -80,14 +82,30 @@ void loop()
           }
           standbyTime = millis();
           break;
-        case bTURBINAS:
+
+        case bMULTIRIEGO:
+          if (Estado.estado == STANDBY) {
+            bip(3);
+            //Quitar las dos siguientes lineas cuando se implemente
+            T.SetTimer(0,minutes,0);
+            T.StartTimer();
+            Estado.estado = REGANDO;
+
+            if (Boton[bId2bIndex(bCESPED)].estado) riegaCesped();
+            else if (Boton[bId2bIndex(bGOTEOS)].estado) riegaGoteos();
+            else riegaCompleto();
+          }
+          break;
+
+        default:
           if (Estado.estado == STANDBY) {
             bip(2);
             T.SetTimer(0,minutes,0);
             T.StartTimer();
+            //Aquí tendremos que mandar el mensaje de regar
+            //---------------
             Estado.estado = REGANDO;
           }
-          break;
       }
     }
   }
@@ -243,4 +261,19 @@ void refreshDisplay()
 {
   TimeUpdate();
   tm1637.display(TimeDisp);
+}
+
+void riegaGoteos()
+{
+  Serial.println("REGANDO GOTEOS");
+}
+
+void riegaCesped()
+{
+  Serial.println("REGANDO CESPED");
+}
+
+void riegaCompleto()
+{
+  Serial.println("REGANDO COMPLETO");
 }

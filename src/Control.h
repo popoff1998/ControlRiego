@@ -6,9 +6,6 @@
 #include <TM1637.h>
 #include <CountUpDownTimer.h>
 
-#define ON 1
-#define OFF 0
-
 #define STANDBYSECS         15
 #define DEFAULTMINUTES      1
 #define DEFAULTBLINK        5
@@ -21,6 +18,7 @@
 #define CD4021B_CLOCK         8
 #define CD4021B_DATA          9
 
+//Para el display
 #define DISPCLK             3
 #define DISPDIO             4
 #define ENCCLK              5
@@ -36,7 +34,9 @@ enum {
   TERMINANDO    = 0x08,
   PAUSE         = 0x10,
   STOP          = 0x20,
+  MULTIRIEGO    = 0x40,
 };
+
 //Para los botones
 typedef union
 {
@@ -75,9 +75,9 @@ enum {
   bTURBINAS   = 0x0001,
   bPORCHE     = 0x0002,
   bCUARTILLO  = 0x0004,
-  bPAUSE  = 0x0008,
-  bSPARE5     = 0x0010,
-  bSPARE6     = 0x0020,
+  bPAUSE      = 0x0008,
+  bGOTEOALTO  = 0x0010,
+  bGOTEOBAJO  = 0x0020,
   bSPARE7     = 0x0040,
   bSTOP       = 0x0080,
   bCESPED     = 0x0100,
@@ -96,12 +96,12 @@ enum {
                         {bPORCHE,   0, 0, 0,    ENABLED | ACTION, "PORCHE"},
                         {bCUARTILLO, 0, 0, 0,   ENABLED | ACTION, "CUARTILLO"},
                         {bPAUSE, 0, 0, 0,   ENABLED | ACTION, "PAUSE"},
-                        {bSPARE5, 0, 0, 0,      DISABLED, "SPARE5"},
-                        {bSPARE6, 0, 0, 0,      DISABLED, "SPARE6"},
+                        {bGOTEOALTO, 0, 0, 0,      DISABLED, "GOTEOALTO"},
+                        {bGOTEOBAJO, 0, 0, 0,      DISABLED, "GOTEOBAJO"},
                         {bSPARE7, 0, 0, 0,      DISABLED, "SPARE7"},
                         {bSTOP, 0, 0, 0,        ENABLED | ACTION | DUAL, "STOP"},
-                        {bCESPED, 0, 0, 0,      ENABLED | ONLYSTATUS, "CESPED"},
-                        {bGOTEOS, 0, 0, 0,      ENABLED | ONLYSTATUS, "GOTEOS"},
+                        {bCESPED, 0, 0, 0,      ENABLED | ONLYSTATUS | DUAL, "CESPED"},
+                        {bGOTEOS, 0, 0, 0,      ENABLED | ONLYSTATUS | DUAL, "GOTEOS"},
                         {bSPARE11, 0, 0, 0,     DISABLED, "SPARE11"},
                         {bSPARE12, 0, 0, 0,     DISABLED, "SPARE12"},
                         {bSPARE13, 0, 0, 0,     DISABLED, "SPARE13"},
@@ -109,6 +109,11 @@ enum {
                         {bSPARE15, 0, 0, 0,     DISABLED, "SPARE15"},
                         {bMULTIRIEGO, 0, 0, 0,  ENABLED | ACTION, "MULTIRIEGO"}
                       };
+
+   uint16_t CESPED[3]    = {bTURBINAS, bPORCHE, bCUARTILLO};
+   uint16_t GOTEOS[2]    = {bGOTEOALTO, bGOTEOBAJO};
+   uint16_t COMPLETO[5]  = {bTURBINAS, bPORCHE, bCUARTILLO, bGOTEOALTO, bGOTEOBAJO};
+
 #else
   extern S_BOTON Boton [];
 #endif
@@ -175,6 +180,7 @@ typedef union {
   S_BOTON *leerBotones(void);
   void initCD4021B(void);
   S_BOTON *parseInputs();
+  int bId2bIndex(uint16_t);
 
 #else
   extern U_Mux mInput;

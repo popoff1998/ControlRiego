@@ -91,3 +91,11 @@ S_BOTON *parseInputs()
   }
   return NULL;
 }
+
+int bId2bIndex(uint16_t id)
+{
+  for (int i=0;i<16;i++) {
+    if (Boton[i].id == id) return i;
+  }
+  return 99;
+}
