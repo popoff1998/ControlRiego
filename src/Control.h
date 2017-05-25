@@ -7,10 +7,11 @@
 #include <CountUpDownTimer.h>
 
 #define STANDBYSECS         15
-#define DEFAULTMINUTES      1
+#define DEFAULTMINUTES      0
+#define DEFAULTSECONDS      5
 #define DEFAULTBLINK        5
 #define DEFAULTBLINKMILLIS  500
-#define MINMINUTES          1
+#define MINMINUTES          0
 #define MAXMINUTES          60
 
 //Para CD4021B
@@ -99,8 +100,8 @@ enum {
                         {bPORCHE,   0, 0, 0,    ENABLED | ACTION, "PORCHE"},
                         {bCUARTILLO, 0, 0, 0,   ENABLED | ACTION, "CUARTILLO"},
                         {bPAUSE, 0, 0, 0,   ENABLED | ACTION, "PAUSE"},
-                        {bGOTEOALTO, 0, 0, 0,      DISABLED, "GOTEOALTO"},
-                        {bGOTEOBAJO, 0, 0, 0,      DISABLED, "GOTEOBAJO"},
+                        {bGOTEOALTO, 0, 0, 0,      ENABLED | ACTION, "GOTEOALTO"},
+                        {bGOTEOBAJO, 0, 0, 0,      ENABLED | ACTION, "GOTEOBAJO"},
                         {bSPARE7, 0, 0, 0,      DISABLED, "SPARE7"},
                         {bSTOP, 0, 0, 0,        ENABLED | ACTION | DUAL, "STOP"},
                         {bCESPED, 0, 0, 0,      ENABLED | ONLYSTATUS | DUAL, "CESPED"},
@@ -139,6 +140,7 @@ typedef struct {
   uint16_t *serie;
   int size;
   int actual;
+  char desc[20];
 } S_MULTI;
 
 //Globales
@@ -153,14 +155,17 @@ typedef struct {
   TM1637 tm1637(DISPCLK,DISPDIO);
   ClickEncoder *Encoder;
   int minutes = DEFAULTMINUTES;
+  int seconds = DEFAULTSECONDS;
   int value = minutes;
   bool tiempoTerminado;
   bool reposo = false;
   unsigned long standbyTime;
   bool displayOff = false;
   unsigned long lastBlinkPause;
+  bool multiriego = false;
+  bool multiSemaforo = false;
   S_MULTI multi;
-  
+
   //Prototipos
   S_BOTON *leerBotones(void);
   void initCD4021B(void);

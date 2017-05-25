@@ -3,6 +3,7 @@
 #include <Control.h>
 
 S_BOTON *boton;
+S_BOTON *ultimoBoton;
 
 void timerIsr()
 {
@@ -36,17 +37,32 @@ void setup()
 
 void loop()
 {
+  procesaBotones();
+  procesaEstados();
+}
+
+void procesaBotones()
+{
   //Procesamos los botones
-  boton = NULL;
-  boton = parseInputs();
+  if (!multiSemaforo) {
+    //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multiriego
+    boton = NULL;
+    boton = parseInputs();
+  }
+  else {
+    multiSemaforo = false;
+    //Serial.println(boton->id);
+  }
 
   if(boton != NULL) {
     //Si estamos en reposo solo nos saca de ese estado
     if (reposo) {
+      Serial.println("Salimos de reposo");
       reposo = false;
       StaticTimeUpdate();
     }
     else if (boton->flags.action) {
+      //Serial.println("***Antes del switch de boton->id");
       switch (boton->id) {
         //Primero procesamos los botones singulares, el resto van por default
         case bPAUSE:
@@ -75,51 +91,77 @@ void loop()
           }
           if (!boton->estado && Estado.estado == STOP) {
             minutes = DEFAULTMINUTES;
+            seconds = DEFAULTSECONDS;
             StaticTimeUpdate();
             Estado.estado = STANDBY;
           }
           standbyTime = millis();
           break;
         case bMULTIRIEGO:
-          if (Estado.estado == STANDBY) {
+          if (Estado.estado == STANDBY && !multiriego) {
             bip(4);
             uint16_t multiStatus = getMultiStatus();
+            multiriego = true;
             multi.actual = 0;
             switch(multiStatus) {
               case bCOMPLETO:
                 multi.serie = COMPLETO;
-                multi.size = sizeof(COMPLETO);
+                multi.size = sizeof(COMPLETO)/2;
+                strcpy("COMPLETO",multi.desc);
                 break;
               case bCESPED:
                 multi.serie = CESPED;
-                multi.size = sizeof(CESPED);
+                multi.size = sizeof(CESPED)/2;
+                strcpy("CESPED",multi.desc);
                 break;
               case bGOTEOS:
                 multi.serie = GOTEOS;
-                multi.size = sizeof(GOTEOS);
+                multi.size = sizeof(GOTEOS)/2;
+                strcpy("GOTEOS",multi.desc);
                 break;
             }
-            Estado.estado = MULTIREGANDO;
+            //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
+            Serial.print("MULTISIZE: ");Serial.println(multi.size);
+            boton = &Boton[bId2bIndex(multi.serie[multi.actual])];
           }
-          break;
+          //Aqui no hay break para que riegue
         default:
+          //Serial.println("***Estamos en default");
           if (Estado.estado == STANDBY) {
             bip(2);
-            T.SetTimer(0,minutes,0);
+            T.SetTimer(0,minutes,seconds);
             T.StartTimer();
+            ultimoBoton = boton;
+            initRiego(boton->id);
             Estado.estado = REGANDO;
           }
 
       }
     }
   }
+}
+
+void initRiego(uint16_t id) {
+  //Esta funcion mandara el mensaje a domoticz de activar el boton
+  Serial.print("Iniciando riego: ");
+  Serial.println(Boton[bId2bIndex(id)].desc);
+}
+
+void stopRiego(uint16_t id) {
+  //Esta funcion mandara el mensaje a domoticz de desactivar el boton
+  Serial.print("Parando riego: ");
+  Serial.println(Boton[bId2bIndex(id)].desc);
+}
+
+void procesaEstados()
+{
   //Procesamos los estados
   switch (Estado.estado){
     case REGANDO:
       tiempoTerminado = T.Timer();
       if (T.TimeHasChanged()) refreshDisplay();
       if (tiempoTerminado == 0) {
-        Serial.println("SE ACABO EL TIEMPO");
+        //Serial.println("SE ACABO EL TIEMPO");
         Estado.estado = TERMINANDO;
       }
       break;
@@ -134,39 +176,49 @@ void loop()
           clearDisplay();
         }
       }
-      //Procesamos el encoder
-      value += Encoder->getValue();
-      if (value > MAXMINUTES) value = MAXMINUTES;
-      if (value <  MINMINUTES) value = MINMINUTES;
-      //Serial.print("VALUE: ");Serial.print(value);Serial.print("MINUTES: ");Serial.println(minutes);
-      if (value != minutes) {
-        reposo = false;
-        minutes = value;
-        StaticTimeUpdate();
-      }
-      break;
-    case MULTIREGANDO:
-      //Debemos recorrer todos los multiSerie
-      if (multi.actual < multi.size) {
-        tiempoTerminado = T.Timer();
-        if (T.TimeHasChanged()) refreshDisplay();
-        if (tiempoTerminado == 0) {
-          Serial.println("SE ACABO EL TIEMPO");
-          Estado.estado = TERMINANDO;
-        }
-      }
-      multi.actual++;
+      procesaEncoder();
       break;
     case TERMINANDO:
       //Hacemos un blink del display 5 veces
-      bip(10);
+      bip(5);
       blinkDisplay(DEFAULTBLINK);
       StaticTimeUpdate();
+      stopRiego(ultimoBoton->id);
       Estado.estado = STANDBY;
+
+      //Comprobamos si estamos en un multiriego
+      if (multiriego) {
+        //Serial.print("Estamos en multiriego, actual: "); Serial.println(multi.actual);
+        multi.actual++;
+        if (multi.actual < multi.size) {
+          //Serial.print("Siguiente multiriego: ");
+          boton = &Boton[bId2bIndex(multi.serie[multi.actual])];
+          //Serial.println(boton->desc);
+          multiSemaforo = true;
+        }
+        else {
+          multiriego = false;
+          Serial.println("MULTIRIEGO TERMINADO");
+        }
+      }
       break;
     case PAUSE:
       blinkPause();
       break;
+  }
+}
+
+void procesaEncoder()
+{
+  //Procesamos el encoder
+  value += Encoder->getValue();
+  if (value > MAXMINUTES) value = MAXMINUTES;
+  if (value <  MINMINUTES) value = MINMINUTES;
+  //Serial.print("VALUE: ");Serial.print(value);Serial.print("MINUTES: ");Serial.println(minutes);
+  if (value != minutes) {
+    reposo = false;
+    minutes = value;
+    StaticTimeUpdate();
   }
 }
 
@@ -234,22 +286,6 @@ void clearDisplay()
   tm1637.point(POINT_ON);
 }
 
-void botonInterrupt()
-{
-    cli();
-    //Si estamos en reposo solo salimos de ese estado
-    if (reposo) {
-      reposo = false;
-      StaticTimeUpdate();
-      return;
-    }
-    //Si no ponemos el timer y comenzamos a regar
-    T.SetTimer(0,minutes,0);
-    T.StartTimer();
-    Estado.estado = REGANDO;
-    sei();
-}
-
 void TimeUpdate(void)
 {
   TimeDisp[2] = T.ShowSeconds() / 10;
@@ -263,8 +299,8 @@ void StaticTimeUpdate(void)
   if (minutes < MINMINUTES) minutes = MINMINUTES;
   if (minutes > MAXMINUTES) minutes = MAXMINUTES;
 
-  TimeDisp[2] = 0;
-  TimeDisp[3] = 0;
+  TimeDisp[2] = seconds / 10;
+  TimeDisp[3] = seconds % 10;
   TimeDisp[0] = minutes / 10;
   TimeDisp[1] = minutes % 10;
   tm1637.display(TimeDisp);
