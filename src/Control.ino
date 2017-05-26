@@ -76,11 +76,17 @@ void procesaBotones()
             switch (Estado.estado) {
               case REGANDO:
                 bip(1);
+                if(ultimoBoton) {
+                  stopRiego(ultimoBoton->id);
+                }
                 T.PauseTimer();
                 Estado.estado = PAUSE;
                 break;
               case PAUSE:
                 bip(2);
+                if(ultimoBoton) {
+                  initRiego(ultimoBoton->id);
+                }
                 T.ResumeTimer();
                 Estado.estado = REGANDO;
                 break;
@@ -90,6 +96,7 @@ void procesaBotones()
         case bSTOP:
           if (boton->estado && (Estado.estado == REGANDO || Estado.estado == MULTIREGANDO || Estado.estado == PAUSE) ) {
             Serial.println("PARANDO EL TIEMPO");
+            stopAllRiego();
             T.StopTimer();
             bip(3);
             blinkStopDisplay(DEFAULTBLINK);
@@ -141,7 +148,6 @@ void procesaBotones()
             initRiego(boton->id);
             Estado.estado = REGANDO;
           }
-
       }
     }
   }
@@ -161,6 +167,15 @@ void stopRiego(uint16_t id) {
   Serial.print("Parando riego: ");
   Serial.println(Boton[bId2bIndex(id)].desc);
   domoticzSwitch(Boton[index].idx,(char *)"Off");
+}
+
+void stopAllRiego() {
+  //Esta funcion pondra a off todos los botones
+  for(unsigned int i=0;i<sizeof(COMPLETO)/2;i++)
+  {
+    int index = bId2bIndex(COMPLETO[i]);
+    domoticzSwitch(Boton[index].idx,(char *)"Off");
+  }
 }
 
 void procesaEstados()
@@ -194,6 +209,8 @@ void procesaEstados()
       blinkDisplay(DEFAULTBLINK);
       StaticTimeUpdate();
       stopRiego(ultimoBoton->id);
+      standbyTime = millis();
+      reposo = false;
       Estado.estado = STANDBY;
 
       //Comprobamos si estamos en un multiriego
@@ -345,7 +362,7 @@ void domoticzSwitch(int idx,char *msg) {
     char JSONMSG[200]="GET /json.htm?type=command&param=switchlight&idx=%d&switchcmd=%s HTTP/1.0\r\n\r\n";
     char message[250];
     sprintf(message,JSONMSG,idx,msg);
-    Serial.println(message);
+    //Serial.println(message);
     if (!client.available())
     {
       clientConnect();

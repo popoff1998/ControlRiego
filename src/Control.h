@@ -18,7 +18,7 @@
 
 #define STANDBYSECS         15
 #define DEFAULTMINUTES      0
-#define DEFAULTSECONDS      30
+#define DEFAULTSECONDS      15
 #define DEFAULTBLINK        5
 #define DEFAULTBLINKMILLIS  500
 #define MINMINUTES          0
