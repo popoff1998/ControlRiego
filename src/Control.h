@@ -1,3 +1,5 @@
+//TIPO DE RED
+#define NET_DIRECT
 //Defines
 #include <TimerOne.h>
 #include <ClickEncoder.h>
@@ -5,27 +7,35 @@
 #include <avr/pgmspace.h>
 #include <TM1637.h>
 #include <CountUpDownTimer.h>
+#include <SPI.h>
+#include <Ethernet.h>
+#ifdef NET_MQTTCLIENT
+  #include <PubSubClient.h>
+#endif
+#ifdef NET_HTTPCLIENT
+  #include <ArduinoHttpClient.h>
+#endif
 
 #define STANDBYSECS         15
 #define DEFAULTMINUTES      0
-#define DEFAULTSECONDS      5
+#define DEFAULTSECONDS      30
 #define DEFAULTBLINK        5
 #define DEFAULTBLINKMILLIS  500
 #define MINMINUTES          0
 #define MAXMINUTES          60
 
 //Para CD4021B
-#define CD4021B_LATCH         7
-#define CD4021B_CLOCK         8
-#define CD4021B_DATA          9
+#define CD4021B_LATCH         43
+#define CD4021B_CLOCK         45
+#define CD4021B_DATA          47
 
 //Para el display
-#define DISPCLK             3
-#define DISPDIO             4
-#define ENCCLK              5
-#define ENCDT               6
-#define ENCSW               2
-#define BUZZER              13
+#define DISPCLK             31
+#define DISPDIO             33
+#define ENCCLK              35
+#define ENCDT               37
+#define ENCSW               39
+#define BUZZER              41
 
 //Estados
 enum {
@@ -62,6 +72,7 @@ typedef struct {
   int   led;
   S_bFLAGS  flags;
   char  desc[30];
+  int   idx;
 } S_BOTON;
 
 enum {
@@ -96,22 +107,22 @@ enum {
 
 #define NUMBOTONES 3
 #ifdef __MAIN__
-  S_BOTON Boton [] =  { {bTURBINAS, 0, 0, 0,    ENABLED | ACTION, "TURBINAS"},
-                        {bPORCHE,   0, 0, 0,    ENABLED | ACTION, "PORCHE"},
-                        {bCUARTILLO, 0, 0, 0,   ENABLED | ACTION, "CUARTILLO"},
-                        {bPAUSE, 0, 0, 0,   ENABLED | ACTION, "PAUSE"},
-                        {bGOTEOALTO, 0, 0, 0,      ENABLED | ACTION, "GOTEOALTO"},
-                        {bGOTEOBAJO, 0, 0, 0,      ENABLED | ACTION, "GOTEOBAJO"},
-                        {bSPARE7, 0, 0, 0,      DISABLED, "SPARE7"},
-                        {bSTOP, 0, 0, 0,        ENABLED | ACTION | DUAL, "STOP"},
-                        {bCESPED, 0, 0, 0,      ENABLED | ONLYSTATUS | DUAL, "CESPED"},
-                        {bGOTEOS, 0, 0, 0,      ENABLED | ONLYSTATUS | DUAL, "GOTEOS"},
-                        {bSPARE11, 0, 0, 0,     DISABLED, "SPARE11"},
-                        {bSPARE12, 0, 0, 0,     DISABLED, "SPARE12"},
-                        {bSPARE13, 0, 0, 0,     DISABLED, "SPARE13"},
-                        {bSPARE14, 0, 0, 0,     DISABLED, "SPARE14"},
-                        {bSPARE15, 0, 0, 0,     DISABLED, "SPARE15"},
-                        {bMULTIRIEGO, 0, 0, 0,  ENABLED | ACTION, "MULTIRIEGO"}
+  S_BOTON Boton [] =  { {bTURBINAS, 0, 0, 0,    ENABLED | ACTION,             "TURBINAS",62},
+                        {bPORCHE,   0, 0, 0,    ENABLED | ACTION,             "PORCHE",63},
+                        {bCUARTILLO, 0, 0, 0,   ENABLED | ACTION,             "CUARTILLO",64},
+                        {bPAUSE, 0, 0, 0,       ENABLED | ACTION,             "PAUSE",0},
+                        {bGOTEOALTO, 0, 0, 0,   ENABLED | ACTION,             "GOTEOALTO",60},
+                        {bGOTEOBAJO, 0, 0, 0,   ENABLED | ACTION,             "GOTEOBAJO",61},
+                        {bSPARE7, 0, 0, 0,      DISABLED,                     "SPARE7",0},
+                        {bSTOP, 0, 0, 0,        ENABLED | ACTION | DUAL,      "STOP",0},
+                        {bCESPED, 0, 0, 0,      ENABLED | ONLYSTATUS | DUAL,  "CESPED",0},
+                        {bGOTEOS, 0, 0, 0,      ENABLED | ONLYSTATUS | DUAL,  "GOTEOS",0},
+                        {bSPARE11, 0, 0, 0,     DISABLED,                     "SPARE11",0},
+                        {bSPARE12, 0, 0, 0,     DISABLED,                     "SPARE12",0},
+                        {bSPARE13, 0, 0, 0,     DISABLED,                     "SPARE13",0},
+                        {bSPARE14, 0, 0, 0,     DISABLED,                     "SPARE14",0},
+                        {bSPARE15, 0, 0, 0,     DISABLED,                     "SPARE15",0},
+                        {bMULTIRIEGO, 0, 0, 0,  ENABLED | ACTION,             "MULTIRIEGO",0}
                       };
 
    uint16_t CESPED[3]    = {bTURBINAS, bPORCHE, bCUARTILLO};
@@ -165,7 +176,30 @@ typedef struct {
   bool multiriego = false;
   bool multiSemaforo = false;
   S_MULTI multi;
-
+  //Para Ethernet
+  byte mac[] = {
+  0xDE, 0xAD, 0xBE, 0xBF, 0xFE, 0xED
+  };
+  IPAddress ip(192, 168, 100, 80);
+  byte gateway[] = {192, 168, 100, 100};
+  byte subnet[] = {255, 255, 255, 0};
+  byte server[] = {192,168,100,60};
+  int port = 8080;
+  EthernetClient client;
+  /*char serverAddress[] = "192.168.100.60";
+  HttpClient httpclient = HttpClient(client,serverAddress,port);
+  */
+  #ifdef NET_MQTTCLIENT
+    #define DEVICE_ID "Control"
+    #define MQTT_SERVER "192.168.100.60"
+    PubSubClient MqttClient;
+    char clientID[50];
+    char topic[50];
+    char msg[50];
+  #endif
+  #ifdef NET_HTTPCLIENT
+    HttpClient httpclient;
+  #endif
   //Prototipos
   S_BOTON *leerBotones(void);
   void initCD4021B(void);

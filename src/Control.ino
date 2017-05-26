@@ -1,6 +1,8 @@
 
 #define __MAIN__
 #include <Control.h>
+#include <SPI.h>
+#include <Ethernet.h>
 
 S_BOTON *boton;
 S_BOTON *ultimoBoton;
@@ -23,14 +25,18 @@ void setup()
   Encoder = new ClickEncoder(ENCCLK,ENCDT,ENCSW);
   Timer1.initialize(1000);
   Timer1.attachInterrupt(timerIsr);
-  //Inicializar los botones
-  //for (int i=0;i<NUMBOTONES;i++) {
-  //  pinMode(Boton[i].pin,INPUT_PULLUP);
-  //}
   //Para el BUZZER
   pinMode(BUZZER, OUTPUT);
   //Para el CD4021B
   initCD4021B();
+  //Para la red
+  delay(1000);
+  #ifdef NET_MQTTCLIENT
+    MqttClient.setClient(client);
+    MqttClient.setServer(MQTT_SERVER,1883);
+  #endif
+    Ethernet.begin(mac,ip,gateway,subnet);
+    delay(1500);
   //Estado inicial
   Estado.estado = STANDBY;
 }
@@ -107,17 +113,17 @@ void procesaBotones()
               case bCOMPLETO:
                 multi.serie = COMPLETO;
                 multi.size = sizeof(COMPLETO)/2;
-                strcpy("COMPLETO",multi.desc);
+                strcpy((char *)"COMPLETO",multi.desc);
                 break;
               case bCESPED:
                 multi.serie = CESPED;
                 multi.size = sizeof(CESPED)/2;
-                strcpy("CESPED",multi.desc);
+                strcpy((char *)"CESPED",multi.desc);
                 break;
               case bGOTEOS:
                 multi.serie = GOTEOS;
                 multi.size = sizeof(GOTEOS)/2;
-                strcpy("GOTEOS",multi.desc);
+                strcpy((char *)"GOTEOS",multi.desc);
                 break;
             }
             //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
@@ -143,14 +149,18 @@ void procesaBotones()
 
 void initRiego(uint16_t id) {
   //Esta funcion mandara el mensaje a domoticz de activar el boton
+  int index = bId2bIndex(id);
   Serial.print("Iniciando riego: ");
-  Serial.println(Boton[bId2bIndex(id)].desc);
+  Serial.println(Boton[index].desc);
+  domoticzSwitch(Boton[index].idx,(char *)"On");
 }
 
 void stopRiego(uint16_t id) {
   //Esta funcion mandara el mensaje a domoticz de desactivar el boton
+  int index = bId2bIndex(id);
   Serial.print("Parando riego: ");
   Serial.println(Boton[bId2bIndex(id)].desc);
+  domoticzSwitch(Boton[index].idx,(char *)"Off");
 }
 
 void procesaEstados()
@@ -326,3 +336,88 @@ void riegaCompleto()
 {
   Serial.println("REGANDO COMPLETO");
 }
+
+void domoticzSwitch(int idx,char *msg) {
+  #if defined(NET_HTTPCLIENT) || defined(NET_DIRECT)
+  #endif
+
+  #ifdef NET_DIRECT
+    char JSONMSG[200]="GET /json.htm?type=command&param=switchlight&idx=%d&switchcmd=%s HTTP/1.0\r\n\r\n";
+    char message[250];
+    sprintf(message,JSONMSG,idx,msg);
+    Serial.println(message);
+    if (!client.available())
+    {
+      clientConnect();
+    }
+    Serial.println(message);
+    client.println(message);
+    client.stop();
+  #endif
+
+  #ifdef NET_HTTPCLIENT
+    char JSONMSG[200]="/json.htm?type=command&param=switchlight&idx=%d&switchcmd=%s";
+    char message[250];
+    sprintf(message,JSONMSG,idx,msg);
+    Serial.println(message);
+    String response;
+    int statusCode = 0;
+    httpclient.get(message);
+    statusCode = httpclient.responseStatusCode();
+    response = httpclient.responseBody();
+    Serial.print("Status code: ");
+    Serial.println(statusCode);
+    Serial.print("Response: ");
+    Serial.println(response);
+  #endif
+
+  #ifdef NET_MQTTCLIENT
+    if (!MqttClient.connected()){
+      mqttReconnect();
+    }
+    MqttClient.publish("out","HOLA");
+    //MqttClient.loop();
+  #endif
+}
+
+#ifdef NET_DIRECT
+void clientConnect()
+{
+  while(1)
+  {
+    delay(1000);
+    Serial.println("Conectando a domoticz ...");
+    if (client.connect(server,port)) {
+      Serial.println("conectado");
+      break;
+    }
+    else {
+      Serial.println("Conexion fallida");
+      client.stop();
+    }
+  }
+}
+#endif
+
+#ifdef NET_MQTTCLIENT
+void mqttReconnect() {
+  // Loop until we're reconnected
+  while (!MqttClient.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    // Attempt to connect
+    if (MqttClient.connect("arduinoClient")) {
+      Serial.println("connected");
+      // Once connected, publish an announcement...
+      MqttClient.publish("outTopic","hello world");
+      // ... and resubscribe
+      MqttClient.subscribe("inTopic");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(MqttClient.state());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
+}
+#endif
