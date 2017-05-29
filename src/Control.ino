@@ -12,23 +12,43 @@ void timerIsr()
   Encoder->service();
 }
 
+void initEeprom() {
+  int i,address;
+  Serial.println(EEPROM.read(0));
+  if(EEPROM.read(0) == 0 || FORCEINITEEPROM == 1) {
+    Serial.println("Inicializando la EEPROM");
+    //Inicializo los idx
+    for(i=0,address=1;i<16;i++,address+=sizeof(Boton[i].idx)) {
+      EEPROM.put(address,Boton[i].idx);
+    }
+  }
+  else {
+    Serial.println("Leyendo valores de la EEPROM");
+    //Leemos los idx
+    for(i=0,address=1;i<16;i++,address+=sizeof(Boton[i].idx)) {
+      EEPROM.get(address,Boton[i].idx);
+    }
+  }
+}
 
 void setup()
 {
   Serial.begin(9600);
-  //Para el display
-  tm1637.set(BRIGHT_TYPICAL);//BRIGHT_TYPICAL = 2,BRIGHT_DARKEST = 0,BRIGHTEST = 7;
-  tm1637.init();
-  tm1637.point(POINT_ON);
-  StaticTimeUpdate();
   //Para el encoder
   Encoder = new ClickEncoder(ENCCLK,ENCDT,ENCSW);
   Timer1.initialize(1000);
   Timer1.attachInterrupt(timerIsr);
+  //Para el display
+  display = new Display(DISPCLK,DISPDIO);
+  display->printTime(minutes, seconds);
+  //Para el Configure le paso encoder y display porque lo usara.
+  configure = new Configure(Encoder,display);
   //Para el BUZZER
   pinMode(BUZZER, OUTPUT);
   //Para el CD4021B
   initCD4021B();
+  //Para el 74HC595
+  initHC595();
   //Para la red
   delay(1000);
   #ifdef NET_MQTTCLIENT
@@ -39,11 +59,19 @@ void setup()
     delay(1500);
   //Estado inicial
   Estado.estado = STANDBY;
+  //Inicializo la EEPROM
+  initEeprom();
 }
+
+bool unavez = true;
 
 void loop()
 {
   procesaBotones();
+  if(unavez) {
+   bip(1);
+   unavez=false;
+  }
   procesaEstados();
 }
 
@@ -73,14 +101,17 @@ void procesaBotones()
         //Primero procesamos los botones singulares, el resto van por default
         case bPAUSE:
           if (Estado.estado != STOP) {
+            //No procesamos los release del boton salvo en STOP
+            if(!boton->estado) break;
+
             switch (Estado.estado) {
               case REGANDO:
                 bip(1);
+                Estado.estado = PAUSE;
                 if(ultimoBoton) {
                   stopRiego(ultimoBoton->id);
                 }
                 T.PauseTimer();
-                Estado.estado = PAUSE;
                 break;
               case PAUSE:
                 bip(2);
@@ -92,22 +123,62 @@ void procesaBotones()
                 break;
             }
           }
+          else {
+            //Si lo tenemos pulsado
+            if(boton->estado) {
+              if(!holdPause) {
+                //Serial.println("EN !HOLDPAUSE");
+                //activamos el contador
+                countHoldPause = millis();
+                holdPause = true;
+              }
+              else {
+                //Comprobamos si hemos llegado a holdtime
+                //Serial.println("EN HOLDPAUSE");
+                if((millis() - countHoldPause) > HOLDTIME) {
+                  configure->start();
+                  Estado.estado = CONFIGURANDO;
+                  holdPause = false;
+                }
+              }
+            }
+            //Si lo hemos soltado quitamos holdPause
+            else {
+              Serial.println("EN RELEASEPAUSE");
+              holdPause = false;
+            }
+          }
           break;
         case bSTOP:
-          if (boton->estado && (Estado.estado == REGANDO || Estado.estado == MULTIREGANDO || Estado.estado == PAUSE) ) {
-            Serial.println("PARANDO EL TIEMPO");
-            stopAllRiego();
-            T.StopTimer();
-            bip(3);
-            blinkStopDisplay(DEFAULTBLINK);
-            Estado.estado = STOP;
+          if (boton->estado) {
+            if (Estado.estado == REGANDO || Estado.estado == MULTIREGANDO || Estado.estado == PAUSE) {
+              //printStopDisplay();
+              display->print("stop");
+              stopAllRiego();
+              T.StopTimer();
+              bip(3);
+              display->blink(DEFAULTBLINK);
+              Estado.estado = STOP;
+            }
+            else {
+              //Lo hemos pulsado en standby, no paramos riegos
+              bip(3);
+              //printStopDisplay();
+              display->print("stop");
+              Estado.estado = STOP;
+            }
           }
-          if (!boton->estado && Estado.estado == STOP) {
+
+          if (!boton->estado && (Estado.estado == STOP || Estado.estado == CONFIGURANDO)
+        ) {
             minutes = DEFAULTMINUTES;
             seconds = DEFAULTSECONDS;
             StaticTimeUpdate();
+            //Borramos el led de config en su caso
+            led(Boton[bId2bIndex(bCONFIG)].led,OFF);
             Estado.estado = STANDBY;
           }
+
           standbyTime = millis();
           break;
         case bMULTIRIEGO:
@@ -120,21 +191,25 @@ void procesaBotones()
               case bCOMPLETO:
                 multi.serie = COMPLETO;
                 multi.size = sizeof(COMPLETO)/2;
+                multi.id = bCOMPLETO;
                 strcpy((char *)"COMPLETO",multi.desc);
                 break;
               case bCESPED:
                 multi.serie = CESPED;
                 multi.size = sizeof(CESPED)/2;
+                multi.id = bCESPED;
                 strcpy((char *)"CESPED",multi.desc);
                 break;
               case bGOTEOS:
                 multi.serie = GOTEOS;
                 multi.size = sizeof(GOTEOS)/2;
+                multi.id = bGOTEOS;
                 strcpy((char *)"GOTEOS",multi.desc);
                 break;
             }
             //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
             Serial.print("MULTISIZE: ");Serial.println(multi.size);
+            led(Boton[bId2bIndex(multi.id)].led,ON);
             boton = &Boton[bId2bIndex(multi.serie[multi.actual])];
           }
           //Aqui no hay break para que riegue
@@ -146,7 +221,11 @@ void procesaBotones()
             T.StartTimer();
             ultimoBoton = boton;
             initRiego(boton->id);
-            Estado.estado = REGANDO;
+            //Estado.estado = REGANDO;
+          }
+          //Configuramos el idx
+          if (Estado.estado == CONFIGURANDO) {
+            configure->idx(&Boton[bId2bIndex(boton->id)]);
           }
       }
     }
@@ -158,30 +237,34 @@ void initRiego(uint16_t id) {
   int index = bId2bIndex(id);
   Serial.print("Iniciando riego: ");
   Serial.println(Boton[index].desc);
+  led(Boton[index].led,ON);
   domoticzSwitch(Boton[index].idx,(char *)"On");
 }
 
 void stopRiego(uint16_t id) {
   //Esta funcion mandara el mensaje a domoticz de desactivar el boton
   int index = bId2bIndex(id);
-  Serial.print("Parando riego: ");
-  Serial.println(Boton[bId2bIndex(id)].desc);
+  //Serial.print("Parando riego: ");
+  //Serial.println(Boton[bId2bIndex(id)].desc);
+  if(Estado.estado != PAUSE) led(Boton[index].led,OFF);
   domoticzSwitch(Boton[index].idx,(char *)"Off");
 }
 
 void stopAllRiego() {
   //Esta funcion pondra a off todos los botones
   for(unsigned int i=0;i<sizeof(COMPLETO)/2;i++)
-  {
-    int index = bId2bIndex(COMPLETO[i]);
-    domoticzSwitch(Boton[index].idx,(char *)"Off");
-  }
+    stopRiego(COMPLETO[i]);
 }
 
 void procesaEstados()
 {
   //Procesamos los estados
   switch (Estado.estado){
+    case ERROR:
+      display->print(" err");
+      display->blink(DEFAULTBLINK);
+      //blinkErrorDisplay(5);
+      break;
     case REGANDO:
       tiempoTerminado = T.Timer();
       if (T.TimeHasChanged()) refreshDisplay();
@@ -198,20 +281,25 @@ void procesaEstados()
       else {
         if (millis() > standbyTime + (1000 * STANDBYSECS) ) {
           reposo = true;
-          clearDisplay();
+          //clearDisplay();
+          display->clearDisplay();
         }
       }
       procesaEncoder();
       break;
+    case CONFIGURANDO:
+      led(Boton[bId2bIndex(bCONFIG)].led,ON);
+      break;
     case TERMINANDO:
       //Hacemos un blink del display 5 veces
       bip(5);
-      blinkDisplay(DEFAULTBLINK);
-      StaticTimeUpdate();
       stopRiego(ultimoBoton->id);
+      display->blink(DEFAULTBLINK);
+      //blinkDisplay(DEFAULTBLINK);
+      StaticTimeUpdate();
       standbyTime = millis();
       reposo = false;
-      Estado.estado = STANDBY;
+      if(Estado.estado != ERROR) Estado.estado = STANDBY;
 
       //Comprobamos si estamos en un multiriego
       if (multiriego) {
@@ -225,9 +313,16 @@ void procesaEstados()
         }
         else {
           multiriego = false;
+          multiSemaforo = false;
+          //Apagamos el led
           Serial.println("MULTIRIEGO TERMINADO");
+          //apagaLeds();
+          led(Boton[bId2bIndex(multi.id)].led,OFF);
         }
       }
+      break;
+    case STOP:
+      //Aprovechamos el estado STOP para configurar
       break;
     case PAUSE:
       blinkPause();
@@ -259,13 +354,24 @@ void bip(int veces)
   }
 }
 
+void longbip(int veces)
+{
+  for (int i=0; i<veces;i++) {
+    analogWrite(BUZZER, 255);
+    delay(750);
+    analogWrite(BUZZER, 0);
+    delay(100);
+  }
+}
+
 void blinkPause()
 {
 
   //Hacemos blink en el caso de estar en PAUSE
   if (!displayOff) {
     if (millis() > lastBlinkPause + DEFAULTBLINKMILLIS) {
-      clearDisplay();
+      //clearDisplay();
+      display->clearDisplay();
       displayOff = true;
       lastBlinkPause = millis();
     }
@@ -279,64 +385,17 @@ void blinkPause()
   }
 }
 
-void blinkDisplay(int veces)
-{
-  for (int i=0; i<veces; i++) {
-    clearDisplay();
-    delay(500);
-    refreshDisplay();
-    delay(500);
-  }
-}
-
-void blinkStopDisplay(int veces)
-{
-  for (int i=0; i<veces; i++) {
-    clearDisplay();
-    delay(500);
-    printStopDisplay();
-    delay(500);
-  }
-}
-
-void printStopDisplay()
-{
-  tm1637.point(POINT_OFF);
-  tm1637.display(StopDisp);
-  tm1637.point(POINT_ON);
-}
-
-void clearDisplay()
-{
-  tm1637.point(POINT_OFF);
-  tm1637.clearDisplay();
-  tm1637.point(POINT_ON);
-}
-
-void TimeUpdate(void)
-{
-  TimeDisp[2] = T.ShowSeconds() / 10;
-  TimeDisp[3] = T.ShowSeconds() % 10;
-  TimeDisp[0] = T.ShowMinutes() / 10;
-  TimeDisp[1] = T.ShowMinutes() % 10;
-}
 
 void StaticTimeUpdate(void)
 {
   if (minutes < MINMINUTES) minutes = MINMINUTES;
   if (minutes > MAXMINUTES) minutes = MAXMINUTES;
-
-  TimeDisp[2] = seconds / 10;
-  TimeDisp[3] = seconds % 10;
-  TimeDisp[0] = minutes / 10;
-  TimeDisp[1] = minutes % 10;
-  tm1637.display(TimeDisp);
+  display->printTime(minutes, seconds);
 }
 
 void refreshDisplay()
 {
-  TimeUpdate();
-  tm1637.display(TimeDisp);
+  display->printTime(T.ShowMinutes(),T.ShowSeconds());
 }
 
 void riegaGoteos()
@@ -355,11 +414,8 @@ void riegaCompleto()
 }
 
 void domoticzSwitch(int idx,char *msg) {
-  #if defined(NET_HTTPCLIENT) || defined(NET_DIRECT)
-  #endif
-
   #ifdef NET_DIRECT
-    char JSONMSG[200]="GET /json.htm?type=command&param=switchlight&idx=%d&switchcmd=%s HTTP/1.0\r\n\r\n";
+    char JSONMSG[200]="GET /json.htm?type=command&param=switchlight&idx=%d&switchcmd=%s HTTP/1.1\r\n\r\n";
     char message[250];
     sprintf(message,JSONMSG,idx,msg);
     //Serial.println(message);
@@ -369,6 +425,8 @@ void domoticzSwitch(int idx,char *msg) {
     }
     Serial.println(message);
     client.println(message);
+    char c = client.read();
+    Serial.println(c)
     client.stop();
   #endif
 
@@ -376,16 +434,29 @@ void domoticzSwitch(int idx,char *msg) {
     char JSONMSG[200]="/json.htm?type=command&param=switchlight&idx=%d&switchcmd=%s";
     char message[250];
     sprintf(message,JSONMSG,idx,msg);
-    Serial.println(message);
+    //Serial.println(message);
     String response;
     int statusCode = 0;
     httpclient.get(message);
     statusCode = httpclient.responseStatusCode();
     response = httpclient.responseBody();
-    Serial.print("Status code: ");
-    Serial.println(statusCode);
-    Serial.print("Response: ");
-    Serial.println(response);
+    //Si se produce un status diferente de 200 algo ha pasado
+    if(statusCode != 200){
+      Serial.print("Status code: ");
+      Serial.println(statusCode);
+      Estado.estado = ERROR;
+      httpclient.stop();
+    }
+    //Serial.print("Response: ");
+    //Serial.println(response);
+    int pos = response.indexOf("\"status\" : \"ERR\"");
+    //Serial.print("POS: ");Serial.println(pos);
+    if(pos != -1) {
+      Serial.println("SE HA DEVUELTO ERROR");
+      Estado.estado = ERROR;
+    }
+    httpclient.stop();
+    if(Estado.estado != ERROR && strcmp(msg,"On") == 0) Estado.estado = REGANDO;
   #endif
 
   #ifdef NET_MQTTCLIENT

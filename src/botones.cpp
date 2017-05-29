@@ -6,6 +6,45 @@
 byte    switchVar1 = 72;
 byte    switchVar2 = 159;
 
+//Para el 74HC595
+volatile uint16_t ledStatus = 0;
+
+void apagaLeds() {
+  Serial.println("APAGANDO LEDS");
+  digitalWrite(HC595_LATCH, LOW);
+  shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, 0);
+  shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, 0);
+  digitalWrite(HC595_LATCH, HIGH);
+  delay(500);
+}
+
+void initHC595() {
+  pinMode(HC595_CLOCK, OUTPUT);
+  pinMode(HC595_DATA, OUTPUT);
+  pinMode(HC595_LATCH, OUTPUT);
+  //Los pongo todos a 0
+  apagaLeds();
+}
+
+void led(uint8_t id,int estado) {
+    //Por seguridad no hacemos nada si id=0
+    Serial.print("ESTADO: ");Serial.print(estado);
+    Serial.print(" ID: ");Serial.print(id);
+    Serial.print(" LEDSTATUS: ");Serial.print(ledStatus);
+    if(id==0) return;
+    if(estado == ON) ledStatus |= 1 << (id-1);
+    else ledStatus &= ~(1 << (id-1));
+    Serial.print(" +LEDSTATUS: ");Serial.println(ledStatus);
+    //convertimos a la parte baja y alta
+    uint8_t bajo = (uint8_t)((ledStatus & 0x00FF));
+    uint8_t alto = (uint8_t)((ledStatus & 0xFF00) >> 8);
+    digitalWrite(HC595_LATCH, LOW);
+    shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, alto);
+    shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, bajo);
+    digitalWrite(HC595_LATCH, HIGH);
+    delay(500);
+}
+
 void initCD4021B() {
   pinMode(CD4021B_LATCH, OUTPUT);
   pinMode(CD4021B_CLOCK, OUTPUT);
@@ -79,11 +118,11 @@ S_BOTON *parseInputs()
     if (!Boton[i].flags.enabled) continue;
     Boton[i].estado = inputs & Boton[i].id;
     //Solo si el estado ha cambiado
-    if (Boton[i].estado != Boton[i].ultimo_estado)
+    if ((Boton[i].estado != Boton[i].ultimo_estado) || (Boton[i].estado && Boton[i].flags.hold))
     {
       Boton[i].ultimo_estado = Boton[i].estado;
       if (Boton[i].estado || Boton[i].flags.dual) {
-        Serial.println(Boton[i].desc);
+        //Serial.println(Boton[i].desc);
         return &Boton[i];
       }
     }
