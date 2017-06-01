@@ -3,9 +3,22 @@
 #include <Control.h>
 #include <SPI.h>
 #include <Ethernet.h>
+#include <EthernetUdp.h>
+#include <NTPClient.h>
+#include <Time.h>
+#include <Timezone.h>
 
 S_BOTON *boton;
 S_BOTON *ultimoBoton;
+EthernetUDP ntpUDP;
+NTPClient timeClient(ntpUDP,"192.168.100.60");
+
+//Central European Time (Frankfurt, Paris)
+TimeChangeRule CEST = {"CEST", Last, Sun, Mar, 2, 120};     //Central European Summer Time
+TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};       //Central European Standard Time
+Timezone CE(CEST, CET);
+TimeChangeRule *tcr;        //pointer to the time change rule, use to get the TZ abbrev
+time_t utc;
 
 void timerIsr()
 {
@@ -13,34 +26,40 @@ void timerIsr()
 }
 
 void initEeprom() {
-  int i,address;
+  int i;
   Serial.println(EEPROM.read(0));
-  if(EEPROM.read(0) == 0 || FORCEINITEEPROM == 1) {
+  if(eeprom_data.initialized == 0 || FORCEINITEEPROM == 1) {
     Serial.println("Inicializando la EEPROM");
     //Inicializo los idx
-    for(i=0,address=1;i<16;i++,address+=sizeof(Boton[i].idx)) {
-      EEPROM.put(address,Boton[i].idx);
+    for(i=0;i<16;i++) {
+      eeprom_data.botonIdx[i]  = Boton[i].idx;
     }
+    eeprom_data.minutes = DEFAULTMINUTES;
+    eeprom_data.seconds = DEFAULTSECONDS;
   }
   else {
     Serial.println("Leyendo valores de la EEPROM");
     //Leemos los idx
-    for(i=0,address=1;i<16;i++,address+=sizeof(Boton[i].idx)) {
-      EEPROM.get(address,Boton[i].idx);
+   for(i=0;i<16;i++) {
+      Boton[i].idx = eeprom_data.botonIdx[i];
     }
+    minutes = eeprom_data.minutes;
+    seconds = eeprom_data.seconds;
+    value = ((seconds==0)?minutes:seconds);
+    StaticTimeUpdate();
   }
 }
 
 void setup()
 {
   Serial.begin(9600);
+  //Para el display
+  display = new Display(DISPCLK,DISPDIO);
+  display->print("----");
   //Para el encoder
   Encoder = new ClickEncoder(ENCCLK,ENCDT,ENCSW);
   Timer1.initialize(1000);
   Timer1.attachInterrupt(timerIsr);
-  //Para el display
-  display = new Display(DISPCLK,DISPDIO);
-  display->printTime(minutes, seconds);
   //Para el Configure le paso encoder y display porque lo usara.
   configure = new Configure(Encoder,display);
   //Para el BUZZER
@@ -57,13 +76,44 @@ void setup()
   #endif
     Ethernet.begin(mac,ip,gateway,subnet);
     delay(1500);
+  //Ponemos en hora
+  timeClient.begin();
+  timeClient.update();
+  setTime(timeClient.getEpochTime());
   //Estado inicial
   Estado.estado = STANDBY;
   //Inicializo la EEPROM
   initEeprom();
+  //Iniciamos lastRiegos
+  for(int i=0;i<5;i++) {
+    lastRiegos[i] = 0;
+  }
 }
 
 bool unavez = true;
+
+void ultimosRiegos(int modo)
+{
+  switch(modo) {
+    case SHOW:
+      time_t t,tHoy;
+      utc = timeClient.getEpochTime();
+      t = CE.toLocal(utc,&tcr);
+      display->printTime(hour(t),minute(t));
+      for(int i=0;i<5;i++) {
+        if(lastRiegos[i] > previousMidnight(t)) {
+            led(Boton[bId2bIndex(COMPLETO[i])].led,ON);
+        }
+      }
+      break;
+    case HIDE:
+      StaticTimeUpdate();
+      for(unsigned int i=0;i<sizeof(COMPLETO)/2;i++) {
+        led(Boton[bId2bIndex(COMPLETO[i])].led,OFF);
+      }
+      break;
+  }
+}
 
 void loop()
 {
@@ -90,7 +140,7 @@ void procesaBotones()
 
   if(boton != NULL) {
     //Si estamos en reposo solo nos saca de ese estado
-    if (reposo) {
+    if (reposo && boton->id != bSTOP) {
       Serial.println("Salimos de reposo");
       reposo = false;
       StaticTimeUpdate();
@@ -121,6 +171,17 @@ void procesaBotones()
                 T.ResumeTimer();
                 Estado.estado = REGANDO;
                 break;
+              case CONFIGURANDO:
+                configure->defaultTime();
+                break;
+              case STANDBY:
+                ultimosRiegos(SHOW);
+                boton = NULL;
+                while(1) {
+                  boton = parseInputs();
+                  if(boton->id == bPAUSE && !boton->estado) break;
+                }
+                ultimosRiegos(HIDE);
             }
           }
           else {
@@ -137,6 +198,7 @@ void procesaBotones()
                 //Serial.println("EN HOLDPAUSE");
                 if((millis() - countHoldPause) > HOLDTIME) {
                   configure->start();
+                  longbip(1);
                   Estado.estado = CONFIGURANDO;
                   holdPause = false;
                 }
@@ -163,22 +225,22 @@ void procesaBotones()
             else {
               //Lo hemos pulsado en standby, no paramos riegos
               bip(3);
-              //printStopDisplay();
               display->print("stop");
+              reposo = false;
               Estado.estado = STOP;
             }
           }
 
-          if (!boton->estado && (Estado.estado == STOP || Estado.estado == CONFIGURANDO)
-        ) {
-            minutes = DEFAULTMINUTES;
-            seconds = DEFAULTSECONDS;
+          if (!boton->estado && (Estado.estado == STOP || Estado.estado == CONFIGURANDO)) {
+            if (Estado.estado == CONFIGURANDO) {
+              minutes = eeprom_data.minutes;
+              seconds = eeprom_data.seconds;
+            }
             StaticTimeUpdate();
             //Borramos el led de config en su caso
             led(Boton[bId2bIndex(bCONFIG)].led,OFF);
             Estado.estado = STANDBY;
           }
-
           standbyTime = millis();
           break;
         case bMULTIRIEGO:
@@ -244,16 +306,23 @@ void initRiego(uint16_t id) {
 void stopRiego(uint16_t id) {
   //Esta funcion mandara el mensaje a domoticz de desactivar el boton
   int index = bId2bIndex(id);
-  //Serial.print("Parando riego: ");
-  //Serial.println(Boton[bId2bIndex(id)].desc);
-  if(Estado.estado != PAUSE) led(Boton[index].led,OFF);
+  for (int i=0;i<5;i++) {
+    if(COMPLETO[i] == id) {
+      time_t t;
+      utc = timeClient.getEpochTime();
+      t = CE.toLocal(utc,&tcr);
+      lastRiegos[i] = t;
+    }
+  }
   domoticzSwitch(Boton[index].idx,(char *)"Off");
 }
 
 void stopAllRiego() {
   //Esta funcion pondra a off todos los botones
-  for(unsigned int i=0;i<sizeof(COMPLETO)/2;i++)
+  for(unsigned int i=0;i<sizeof(COMPLETO)/2;i++) {
+    led(Boton[bId2bIndex(COMPLETO[i])].led,OFF);
     stopRiego(COMPLETO[i]);
+  }
 }
 
 void procesaEstados()
@@ -263,7 +332,6 @@ void procesaEstados()
     case ERROR:
       display->print(" err");
       display->blink(DEFAULTBLINK);
-      //blinkErrorDisplay(5);
       break;
     case REGANDO:
       tiempoTerminado = T.Timer();
@@ -280,8 +348,8 @@ void procesaEstados()
       }
       else {
         if (millis() > standbyTime + (1000 * STANDBYSECS) ) {
+          Serial.println("Entramos en reposo");
           reposo = true;
-          //clearDisplay();
           display->clearDisplay();
         }
       }
@@ -295,7 +363,8 @@ void procesaEstados()
       bip(5);
       stopRiego(ultimoBoton->id);
       display->blink(DEFAULTBLINK);
-      //blinkDisplay(DEFAULTBLINK);
+      led(Boton[bId2bIndex(ultimoBoton->id)].led,OFF);
+
       StaticTimeUpdate();
       standbyTime = millis();
       reposo = false;
@@ -312,6 +381,7 @@ void procesaEstados()
           multiSemaforo = true;
         }
         else {
+          longbip(3);
           multiriego = false;
           multiSemaforo = false;
           //Apagamos el led
@@ -332,16 +402,41 @@ void procesaEstados()
 
 void procesaEncoder()
 {
+  if(!reposo) StaticTimeUpdate();
   //Procesamos el encoder
-  value += Encoder->getValue();
-  if (value > MAXMINUTES) value = MAXMINUTES;
-  if (value <  MINMINUTES) value = MINMINUTES;
-  //Serial.print("VALUE: ");Serial.print(value);Serial.print("MINUTES: ");Serial.println(minutes);
-  if (value != minutes) {
-    reposo = false;
-    minutes = value;
-    StaticTimeUpdate();
+  value -= Encoder->getValue();
+  //Estamos en el rango de minutos
+  if(seconds == 0 && value>0) {
+    if (value > MAXMINUTES)  value = MAXMINUTES;
+    if (value != minutes) {
+      minutes = value;
+    } else return;
   }
+  else {
+    //o bien estamos en el rango de segundos o acabamos de entrar en el
+    if(value<60 && value>=MINSECONDS) {
+      if (value != seconds) {
+        seconds = value;
+      } else return;
+    }
+    else if (value >=60) {
+      value = minutes = 1;
+      seconds = 0;
+    }
+    else if(minutes == 1) {
+      value = seconds = 59;
+      minutes = 0;
+    }
+    else
+    {
+      value = seconds = MINSECONDS;
+      minutes = 0;
+    }
+  }
+  reposo = false;
+  StaticTimeUpdate();
+  standbyTime = millis();
+  //Serial.print("VALUE: ");Serial.print(value);Serial.print("MINUTES: ");Serial.print(minutes);Serial.print(" SECONDS: ");Serial.println(seconds);
 }
 
 void bip(int veces)
@@ -366,7 +461,6 @@ void longbip(int veces)
 
 void blinkPause()
 {
-
   //Hacemos blink en el caso de estar en PAUSE
   if (!displayOff) {
     if (millis() > lastBlinkPause + DEFAULTBLINKMILLIS) {

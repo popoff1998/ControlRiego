@@ -9,11 +9,13 @@ class Configure
     class ClickEncoder *encoder;
     class Display *display;
     int clkvalue;
+    struct S_BOTON *confBoton;
 
   public:
     Configure(class ClickEncoder *,class Display *);
     void start(void);
     void idx(struct S_BOTON *);
+    void defaultTime(void);
 };
 
 #endif

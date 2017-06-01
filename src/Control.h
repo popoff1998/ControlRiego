@@ -21,6 +21,15 @@
 //Para mis clases
 #include "Display.h"
 #include "Configure.h"
+#include <eewrap.h>
+
+//Estructura de mi eeprom
+struct __eeprom_data {
+  uint8_e initialized;
+  uint16_e  botonIdx[16];
+  uint8_e   minutes;
+  uint8_e   seconds;
+};
 
 #define ADDRBASE_BOTON      1
 
@@ -31,6 +40,7 @@
 #define DEFAULTBLINKMILLIS  500
 #define MINMINUTES          0
 #define MAXMINUTES          60
+#define MINSECONDS          5
 #define HOLDTIME            3000
 #define FORCEINITEEPROM     0
 
@@ -50,6 +60,9 @@
 
 #define ON  1
 #define OFF 0
+
+#define SHOW 1
+#define HIDE 0
 
 //Estados
 enum {
@@ -106,7 +119,7 @@ enum {
   bPAUSE      = 0x0008,
   bGOTEOALTO  = 0x0010,
   bGOTEOBAJO  = 0x0020,
-  bSPARE7     = 0x0040,
+  bENCODER    = 0x0040,
   bSTOP       = 0x0080,
   bCESPED     = 0x0100,
   bGOTEOS     = 0x0200,
@@ -130,10 +143,10 @@ enum {
                         {bPAUSE, 0, 0, 0,       ENABLED | ACTION | DUAL | HOLD, "PAUSE",0},
                         {bGOTEOALTO, 0, 0, 4,   ENABLED | ACTION,               "GOTEOALTO",60},
                         {bGOTEOBAJO, 0, 0, 5,   ENABLED | ACTION,               "GOTEOBAJO",61},
-                        {bSPARE7, 0, 0, 0,      DISABLED,                       "SPARE7",0},
+                        {bENCODER, 0, 0, 0,     DISABLED | ACTION,               "ENCODER",0},
                         {bSTOP, 0, 0, 0,        ENABLED | ACTION | DUAL,        "STOP",0},
-                        {bCESPED, 0, 0, 8,      ENABLED | ONLYSTATUS | DUAL,    "CESPED",0},
-                        {bGOTEOS, 0, 0, 6,      ENABLED | ONLYSTATUS | DUAL,    "GOTEOS",0},
+                        {bCESPED, 0, 0, 6,      ENABLED | ONLYSTATUS | DUAL,    "CESPED",0},
+                        {bGOTEOS, 0, 0, 8,      ENABLED | ONLYSTATUS | DUAL,    "GOTEOS",0},
                         {bSPARE11, 0, 0, 0,     DISABLED,                       "SPARE11",0},
                         {bSPARE12, 0, 0, 0,     DISABLED,                       "SPARE12",0},
                         {bSPARE13, 0, 0, 0,     DISABLED,                       "SPARE13",0},
@@ -145,6 +158,7 @@ enum {
    uint16_t CESPED[3]    = {bTURBINAS, bPORCHE, bCUARTILLO};
    uint16_t GOTEOS[2]    = {bGOTEOALTO, bGOTEOBAJO};
    uint16_t COMPLETO[5]  = {bTURBINAS, bPORCHE, bCUARTILLO, bGOTEOALTO, bGOTEOBAJO};
+   time_t lastRiegos[5];
 
 #else
   extern S_BOTON Boton [];
@@ -221,9 +235,6 @@ typedef union {
   byte server[] = {192,168,100,60};
   int port = 8080;
   EthernetClient client;
-  /*char serverAddress[] = "192.168.100.60";
-  HttpClient httpclient = HttpClient(client,serverAddress,port);
-  */
   #ifdef NET_MQTTCLIENT
     #define DEVICE_ID "Control"
     #define MQTT_SERVER "192.168.100.60"
@@ -236,8 +247,13 @@ typedef union {
     char serverAddress[] = "192.168.100.60";
     HttpClient httpclient = HttpClient(client,serverAddress,port);
   #endif
-
+  __eeprom_data eeprom_data EEMEM;
+#else
+  extern __eeprom_data eeprom_data EEMEM;
+  extern int minutes;
+  extern int seconds;
 #endif
+
 //Prototipos
 S_BOTON *leerBotones(void);
 void initCD4021B(void);
@@ -248,5 +264,6 @@ uint16_t getMultiStatus(void);
 void led(uint8_t,int);
 void apagaLeds(void);
 void longbip(int);
+void procesaEncoder(void);
 
 #endif
