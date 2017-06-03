@@ -264,6 +264,7 @@ uint16_t getMultiStatus(void);
 void led(uint8_t,int);
 void apagaLeds(void);
 void longbip(int);
+void bip(int);
 void procesaEncoder(void);
 
 #endif

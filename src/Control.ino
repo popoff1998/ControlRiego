@@ -12,6 +12,7 @@ S_BOTON *boton;
 S_BOTON *ultimoBoton;
 EthernetUDP ntpUDP;
 NTPClient timeClient(ntpUDP,"192.168.100.60");
+bool ret;
 
 //Central European Time (Frankfurt, Paris)
 TimeChangeRule CEST = {"CEST", Last, Sun, Mar, 2, 120};     //Central European Summer Time
@@ -28,7 +29,10 @@ void timerIsr()
 void initEeprom() {
   int i;
   Serial.println(EEPROM.read(0));
-  if(eeprom_data.initialized == 0 || FORCEINITEEPROM == 1) {
+  //Lo hago en dos pasos porque el operador sobrecargado == no está bien definido
+  //en la librería y da warnings.
+  bool eeinitialized = eeprom_data.initialized;
+  if( eeinitialized == 0 || FORCEINITEEPROM == 1) {
     Serial.println("Inicializando la EEPROM");
     //Inicializo los idx
     for(i=0;i<16;i++) {
@@ -96,7 +100,7 @@ void ultimosRiegos(int modo)
 {
   switch(modo) {
     case SHOW:
-      time_t t,tHoy;
+      time_t t;
       utc = timeClient.getEpochTime();
       t = CE.toLocal(utc,&tcr);
       display->printTime(hour(t),minute(t));
@@ -172,7 +176,12 @@ void procesaBotones()
                 Estado.estado = REGANDO;
                 break;
               case CONFIGURANDO:
-                configure->defaultTime();
+                ret = configure->defaultTime();
+                if (!ret) {
+                  Estado.estado = STANDBY;
+                  led(Boton[bId2bIndex(bCONFIG)].led,OFF);
+                  standbyTime = millis();
+                }
                 break;
               case STANDBY:
                 ultimosRiegos(SHOW);
@@ -220,6 +229,8 @@ void procesaBotones()
               T.StopTimer();
               bip(3);
               display->blink(DEFAULTBLINK);
+              multiriego = false;
+              multiSemaforo = false;
               Estado.estado = STOP;
             }
             else {
@@ -287,7 +298,12 @@ void procesaBotones()
           }
           //Configuramos el idx
           if (Estado.estado == CONFIGURANDO) {
-            configure->idx(&Boton[bId2bIndex(boton->id)]);
+            ret = configure->idx(&Boton[bId2bIndex(boton->id)]);
+            if (!ret) {
+              Estado.estado = STANDBY;
+              led(Boton[bId2bIndex(bCONFIG)].led,OFF);
+              standbyTime = millis();
+            }
           }
       }
     }
@@ -300,12 +316,6 @@ void initRiego(uint16_t id) {
   Serial.print("Iniciando riego: ");
   Serial.println(Boton[index].desc);
   led(Boton[index].led,ON);
-  domoticzSwitch(Boton[index].idx,(char *)"On");
-}
-
-void stopRiego(uint16_t id) {
-  //Esta funcion mandara el mensaje a domoticz de desactivar el boton
-  int index = bId2bIndex(id);
   for (int i=0;i<5;i++) {
     if(COMPLETO[i] == id) {
       time_t t;
@@ -314,11 +324,20 @@ void stopRiego(uint16_t id) {
       lastRiegos[i] = t;
     }
   }
+  domoticzSwitch(Boton[index].idx,(char *)"On");
+}
+
+void stopRiego(uint16_t id) {
+  //Esta funcion mandara el mensaje a domoticz de desactivar el boton
+  int index = bId2bIndex(id);
   domoticzSwitch(Boton[index].idx,(char *)"Off");
 }
 
 void stopAllRiego() {
   //Esta funcion pondra a off todos los botones
+  //Apago los leds de multiriego
+  led(Boton[bId2bIndex(multi.id)].led,OFF);
+  //Apago los leds de riego
   for(unsigned int i=0;i<sizeof(COMPLETO)/2;i++) {
     led(Boton[bId2bIndex(COMPLETO[i])].led,OFF);
     stopRiego(COMPLETO[i]);

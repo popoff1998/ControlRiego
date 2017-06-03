@@ -14,8 +14,8 @@ class Configure
   public:
     Configure(class ClickEncoder *,class Display *);
     void start(void);
-    void idx(struct S_BOTON *);
-    void defaultTime(void);
+    bool idx(struct S_BOTON *);
+    bool defaultTime(void);
 };
 
 #endif
