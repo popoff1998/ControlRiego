@@ -4,9 +4,15 @@
 #include <Control.h>
 
 //Para el display
-#define DISPCLK             31
-#define DISPDIO             33
+#ifdef MEGA256
+  #define DISPCLK             31
+  #define DISPDIO             33
+#endif
 
+#ifdef NODEMCU
+  #define DISPCLK             D0
+  #define DISPDIO             D1
+#endif
 class Display
 {
   private:

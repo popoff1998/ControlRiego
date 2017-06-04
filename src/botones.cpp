@@ -58,8 +58,8 @@ byte shiftInCD4021B(int myDataPin, int myClockPin)
   //int pinState;
   int myDataIn = 0;
 
-  pinMode(myClockPin, OUTPUT);
-  pinMode(myDataPin, INPUT);
+  //pinMode(myClockPin, OUTPUT);
+  //pinMode(myDataPin, INPUT);
 
   for (i=7;i>=0;i--)
   {

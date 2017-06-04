@@ -1,34 +1,51 @@
 //TIPO DE RED
 #ifndef control_h
 #define control_h
-
 #define NET_HTTPCLIENT
-//Defines
-#include <TimerOne.h>
-#include <ClickEncoder.h>
-#include <Time.h>
-#include <avr/pgmspace.h>
-#include <CountUpDownTimer.h>
+//#define MEGA2561
+
+#ifdef NODEMCU
+  #include <ESP8266WiFi.h>
+  #include <ESP8266WiFiMulti.h>
+  #include <WifiUdp.h>
+  #ifdef NET_HTTPCLIENT
+    #include <ESP8266HTTPClient.h>
+  #endif
+#endif
+
+#ifdef MEGA256
+  #include <Ethernet.h>
+  #include <EthernetUdp.h>
+  #ifdef NET_HTTPCLIENT
+    #include <ArduinoHttpClient.h>
+  #endif
+#endif
+
 #include <SPI.h>
-#include <Ethernet.h>
-#include <EEPROM.h>
+#include <NTPClient.h>
+#include <Time.h>
+#include <Timezone.h>
+#ifdef MEGA256
+  #include <TimerOne.h>
+#endif
+#include <ClickEncoder.h>
+#include <CountUpDownTimer.h>
+#include <Streaming.h>
+
 #ifdef NET_MQTTCLIENT
   #include <PubSubClient.h>
 #endif
-#ifdef NET_HTTPCLIENT
-  #include <ArduinoHttpClient.h>
-#endif
+
 //Para mis clases
 #include "Display.h"
 #include "Configure.h"
-#include <eewrap.h>
 
 //Estructura de mi eeprom
 struct __eeprom_data {
-  uint8_e initialized;
-  uint16_e  botonIdx[16];
-  uint8_e   minutes;
-  uint8_e   seconds;
+  uint8_t initialized;
+  uint16_t  botonIdx[16];
+  uint8_t   minutes;
+  uint8_t   seconds;
 };
 
 #define ADDRBASE_BOTON      1
@@ -44,19 +61,33 @@ struct __eeprom_data {
 #define HOLDTIME            3000
 #define FORCEINITEEPROM     0
 
-//Para CD4021B
-#define CD4021B_LATCH         43
-#define CD4021B_CLOCK         45
-#define CD4021B_DATA          47
 
 #define HC595_DATA            26
 #define HC595_LATCH           28
-#define HC595_CLOCK           30
+#define HC595_CLOCK           45
 
-#define ENCCLK              35
-#define ENCDT               37
-#define ENCSW               24
-#define BUZZER              41
+#ifdef MEGA256
+  #define CD4021B_LATCH         43
+  #define CD4021B_CLOCK         45
+  #define CD4021B_DATA          47
+
+  #define ENCCLK              35
+  #define ENCDT               37
+  #define ENCSW               24
+  #define BUZZER              41
+#endif
+
+#ifdef NODEMCU
+  #define ENCCLK              D2
+  #define ENCDT               D3
+  #define ENCSW               100
+  #define BUZZER              D8
+  #define CD4021B_LATCH         D5
+  #define CD4021B_CLOCK         D6
+  #define CD4021B_DATA          D7
+
+#endif
+
 
 #define ON  1
 #define OFF 0
@@ -100,7 +131,7 @@ typedef struct S_BOTON {
   int   led;
   S_bFLAGS  flags;
   char  desc[30];
-  int   idx;
+  uint16_t   idx;
 } S_BOTON;
 
 enum {
@@ -186,19 +217,6 @@ typedef struct {
   char desc[20];
 } S_MULTI;
 
-//Para la EEPROM
-
-struct myEEPROM {
-  //Para los 16 botones
-  byte initIdx;
-  int idx[16];
-};
-
-typedef union {
-  int value;
-  byte array[2];
-} U_NVlong;
-
 //Globales
 #ifdef __MAIN__
   //Variables para el display
@@ -206,14 +224,23 @@ typedef union {
   int8_t StopDisp[] = {0,25,26,27,28};
   int8_t ErrorDisp[] = {0,17,14,19,19};
 
+  //Segun la arquitectura
+  #ifdef MEGA256
+    EthernetClient client;
+  #endif
+
+  #ifdef NODEMCU
+    WiFiClient client;
+  #endif
+
   //Globales
   CountUpDownTimer T(DOWN);
   U_Estado Estado;
   ClickEncoder *Encoder;
   Display     *display;
   Configure *configure;
-  int minutes = DEFAULTMINUTES;
-  int seconds = DEFAULTSECONDS;
+  uint8_t minutes = DEFAULTMINUTES;
+  uint8_t seconds = DEFAULTSECONDS;
   int value = minutes;
   bool tiempoTerminado;
   bool reposo = false;
@@ -234,7 +261,6 @@ typedef union {
   byte subnet[] = {255, 255, 255, 0};
   byte server[] = {192,168,100,60};
   int port = 8080;
-  EthernetClient client;
   #ifdef NET_MQTTCLIENT
     #define DEVICE_ID "Control"
     #define MQTT_SERVER "192.168.100.60"
@@ -245,13 +271,16 @@ typedef union {
   #endif
   #ifdef NET_HTTPCLIENT
     char serverAddress[] = "192.168.100.60";
-    HttpClient httpclient = HttpClient(client,serverAddress,port);
+    #ifdef MEGA256
+      HttpClient httpclient = HttpClient(client,serverAddress,port);
+    #endif
+    #ifdef NODEMCU
+      HTTPClient httpclient;
+    #endif
   #endif
-  __eeprom_data eeprom_data EEMEM;
 #else
-  extern __eeprom_data eeprom_data EEMEM;
-  extern int minutes;
-  extern int seconds;
+  extern uint8_t minutes;
+  extern uint8_t seconds;
 #endif
 
 //Prototipos

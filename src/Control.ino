@@ -1,16 +1,24 @@
 
 #define __MAIN__
 #include <Control.h>
-#include <SPI.h>
-#include <Ethernet.h>
-#include <EthernetUdp.h>
-#include <NTPClient.h>
-#include <Time.h>
-#include <Timezone.h>
+#include <EEPROM.h>
+
+
 
 S_BOTON *boton;
 S_BOTON *ultimoBoton;
-EthernetUDP ntpUDP;
+
+#ifdef MEGA256
+  EthernetUDP ntpUDP;
+#endif
+
+#ifdef NODEMCU
+  WiFiUDP ntpUDP;
+  char ssid[] = "ORDENA";
+  char pass[] = "28duque28";
+#endif
+
+
 NTPClient timeClient(ntpUDP,"192.168.100.60");
 bool ret;
 
@@ -28,27 +36,33 @@ void timerIsr()
 
 void initEeprom() {
   int i;
+  bool eeinitialized;
+  int botonAddr;
+
   Serial.println(EEPROM.read(0));
-  //Lo hago en dos pasos porque el operador sobrecargado == no está bien definido
-  //en la librería y da warnings.
-  bool eeinitialized = eeprom_data.initialized;
+
+  EEPROM.get(0,eeinitialized);
+  botonAddr = offsetof(__eeprom_data, botonIdx[0]);
   if( eeinitialized == 0 || FORCEINITEEPROM == 1) {
     Serial.println("Inicializando la EEPROM");
     //Inicializo los idx
     for(i=0;i<16;i++) {
-      eeprom_data.botonIdx[i]  = Boton[i].idx;
+      EEPROM.put(botonAddr,Boton[i].idx);
+      botonAddr += 2;
     }
-    eeprom_data.minutes = DEFAULTMINUTES;
-    eeprom_data.seconds = DEFAULTSECONDS;
+    EEPROM.put(offsetof(__eeprom_data, minutes),DEFAULTMINUTES);
+    EEPROM.put(offsetof(__eeprom_data, seconds),DEFAULTSECONDS);
   }
   else {
     Serial.println("Leyendo valores de la EEPROM");
     //Leemos los idx
    for(i=0;i<16;i++) {
-      Boton[i].idx = eeprom_data.botonIdx[i];
+      EEPROM.get(botonAddr,Boton[i].idx);
+      //Serial << "leido boton " << i << " : " << Boton[i].idx << " address: " << botonAddr << endl;
+      botonAddr += 2;
     }
-    minutes = eeprom_data.minutes;
-    seconds = eeprom_data.seconds;
+    EEPROM.get(offsetof(__eeprom_data, minutes),minutes);
+    EEPROM.get(offsetof(__eeprom_data, seconds),seconds);
     value = ((seconds==0)?minutes:seconds);
     StaticTimeUpdate();
   }
@@ -62,8 +76,13 @@ void setup()
   display->print("----");
   //Para el encoder
   Encoder = new ClickEncoder(ENCCLK,ENCDT,ENCSW);
-  Timer1.initialize(1000);
-  Timer1.attachInterrupt(timerIsr);
+  #ifdef MEGA256
+    Timer1.initialize(1000);
+    Timer1.attachInterrupt(timerIsr);
+  #endif
+  #ifdef NODEMCU
+    //No se que clase de timer probar
+  #endif
   //Para el Configure le paso encoder y display porque lo usara.
   configure = new Configure(Encoder,display);
   //Para el BUZZER
@@ -78,8 +97,13 @@ void setup()
     MqttClient.setClient(client);
     MqttClient.setServer(MQTT_SERVER,1883);
   #endif
+  #ifdef MEGA256
     Ethernet.begin(mac,ip,gateway,subnet);
-    delay(1500);
+  #endif
+  #ifdef NODEMCU
+    WiFi.begin(ssid,pass);
+  #endif
+  delay(1500);
   //Ponemos en hora
   timeClient.begin();
   timeClient.update();
@@ -234,9 +258,10 @@ void procesaBotones()
               Estado.estado = STOP;
             }
             else {
-              //Lo hemos pulsado en standby, no paramos riegos
+              //Lo hemos pulsado en standby
               bip(3);
               display->print("stop");
+              stopAllRiego();
               reposo = false;
               Estado.estado = STOP;
             }
@@ -244,8 +269,8 @@ void procesaBotones()
 
           if (!boton->estado && (Estado.estado == STOP || Estado.estado == CONFIGURANDO)) {
             if (Estado.estado == CONFIGURANDO) {
-              minutes = eeprom_data.minutes;
-              seconds = eeprom_data.seconds;
+              //minutes = eeprom_data.minutes;
+              //seconds = eeprom_data.seconds;
             }
             StaticTimeUpdate();
             //Borramos el led de config en su caso
@@ -421,6 +446,9 @@ void procesaEstados()
 
 void procesaEncoder()
 {
+  #ifdef NODEMCU
+    Encoder->service();
+  #endif
   if(!reposo) StaticTimeUpdate();
   //Procesamos el encoder
   value -= Encoder->getValue();
@@ -550,15 +578,19 @@ void domoticzSwitch(int idx,char *msg) {
     //Serial.println(message);
     String response;
     int statusCode = 0;
-    httpclient.get(message);
-    statusCode = httpclient.responseStatusCode();
-    response = httpclient.responseBody();
+    #ifdef MEGA256
+      httpclient.get(message);
+      statusCode = httpclient.responseStatusCode();
+      response = httpclient.responseBody();
+    #endif
     //Si se produce un status diferente de 200 algo ha pasado
     if(statusCode != 200){
       Serial.print("Status code: ");
       Serial.println(statusCode);
       Estado.estado = ERROR;
-      httpclient.stop();
+      #ifdef MEGA256
+        httpclient.stop();
+      #endif
     }
     //Serial.print("Response: ");
     //Serial.println(response);
@@ -568,7 +600,9 @@ void domoticzSwitch(int idx,char *msg) {
       Serial.println("SE HA DEVUELTO ERROR");
       Estado.estado = ERROR;
     }
-    httpclient.stop();
+    #ifdef MEGA256
+      httpclient.stop();
+    #endif
     if(Estado.estado != ERROR && strcmp(msg,"On") == 0) Estado.estado = REGANDO;
   #endif
 
