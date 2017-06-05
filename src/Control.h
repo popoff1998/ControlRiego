@@ -62,14 +62,15 @@ struct __eeprom_data {
 #define FORCEINITEEPROM     0
 
 
-#define HC595_DATA            26
-#define HC595_LATCH           28
-#define HC595_CLOCK           45
 
 #ifdef MEGA256
   #define CD4021B_LATCH         43
   #define CD4021B_CLOCK         45
   #define CD4021B_DATA          47
+
+  #define HC595_DATA            26
+  #define HC595_LATCH           28
+  #define HC595_CLOCK           45
 
   #define ENCCLK              35
   #define ENCDT               37
@@ -82,9 +83,14 @@ struct __eeprom_data {
   #define ENCDT               D3
   #define ENCSW               100
   #define BUZZER              D8
+
   #define CD4021B_LATCH         D5
   #define CD4021B_CLOCK         D6
   #define CD4021B_DATA          D7
+
+  #define HC595_DATA            44
+  #define HC595_LATCH           46
+  #define HC595_CLOCK           45
 
 #endif
 
