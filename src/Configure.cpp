@@ -17,6 +17,7 @@ Configure::Configure(class Display *disp)
 }
 
 void Configure::start() {
+  Serial << "Conf start" << endl;
   bip(1);
   _configuringIdx = false;
   _configuringTime = false;
@@ -24,6 +25,7 @@ void Configure::start() {
 }
 
 void Configure::stop() {
+  Serial << "Conf stop" << endl;
   bip(1);
   _configuringIdx = false;
   _configuringTime = false;
@@ -31,22 +33,28 @@ void Configure::stop() {
 }
 
 bool Configure::configuringTime() {
+  //Serial << "configuringTime: " << _configuringTime << endl;
   return _configuringTime;
 }
 
 bool Configure::configuringIdx() {
+  //Serial << "configuringIdx: " << _configuringIdx << endl;
   return _configuringIdx;
 }
 
 void Configure::configureIdx(int index)
 {
+  Serial << "configureIdx" << endl;
   _configuringIdx = true;
+  _configuringTime = false;
   _actualIdxIndex = index;
 }
 
 void Configure::configureTime(void)
 {
+  Serial << "configureTine" << endl;
   _configuringTime = true;
+  _configuringIdx = false;
 }
 
 int Configure::getActualIdxIndex(void)

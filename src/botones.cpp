@@ -5,6 +5,8 @@
 
 byte    switchVar1 = 72;
 byte    switchVar2 = 159;
+unsigned long lastMillis;
+#define DEBOUNCEMILLIS 20
 
 //Para el 74HC595
 volatile uint16_t ledStatus = 0;
@@ -111,6 +113,11 @@ uint16_t readInputs()
 S_BOTON *parseInputs()
 {
   int i;
+  //Para el debounce
+  unsigned long currentMillis = millis();
+  if(currentMillis < (lastMillis + DEBOUNCEMILLIS)) return NULL;
+  else lastMillis = currentMillis;
+
   uint16_t inputs = readInputs();
 
   for (i=0;i<16;i++) {
@@ -118,7 +125,7 @@ S_BOTON *parseInputs()
     if (!Boton[i].flags.enabled) continue;
     Boton[i].estado = inputs & Boton[i].id;
     //Solo si el estado ha cambiado
-    if ((Boton[i].estado != Boton[i].ultimo_estado) || (Boton[i].estado && Boton[i].flags.hold))
+    if ((Boton[i].estado != Boton[i].ultimo_estado) || (Boton[i].estado && Boton[i].flags.hold && !Boton[i].flags.holddisabled))
     {
       Boton[i].ultimo_estado = Boton[i].estado;
       if (Boton[i].estado || Boton[i].flags.dual) {

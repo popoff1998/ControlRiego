@@ -51,8 +51,8 @@ struct __eeprom_data {
 #define ADDRBASE_BOTON      1
 
 #define STANDBYSECS         15
-#define DEFAULTMINUTES      0
-#define DEFAULTSECONDS      5
+#define DEFAULTMINUTES      10
+#define DEFAULTSECONDS      0
 #define DEFAULTBLINK        5
 #define DEFAULTBLINKMILLIS  500
 #define MINMINUTES          0
@@ -119,14 +119,14 @@ typedef union
   uint8_t all_flags;
   struct
   {
-    uint8_t enabled     : 1,
-            disabled    : 1,
-            onlystatus  : 1,
-            action      : 1,
-            dual        : 1,
-            hold        : 1,
-            spare1      : 1,
-            spare0      : 1;
+    uint8_t enabled       : 1,
+            disabled      : 1,
+            onlystatus    : 1,
+            action        : 1,
+            dual          : 1,
+            hold          : 1,
+            holddisabled  : 1,
+            spare0        : 1;
   };
 } S_bFLAGS;
 

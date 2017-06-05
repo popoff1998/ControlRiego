@@ -46,6 +46,7 @@ void Display::print(const char *str) {
 }
 
 void Display::print(int n) {
+  ledDisp.point(POINT_OFF);
   ledDisp.display((int16_t) n);
 }
 
