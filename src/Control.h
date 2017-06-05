@@ -242,6 +242,7 @@ typedef struct {
   uint8_t minutes = DEFAULTMINUTES;
   uint8_t seconds = DEFAULTSECONDS;
   int value = minutes;
+  int savedValue;
   bool tiempoTerminado;
   bool reposo = false;
   unsigned long standbyTime;

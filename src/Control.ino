@@ -2,7 +2,7 @@
 #define __MAIN__
 #include <Control.h>
 #include <EEPROM.h>
-
+#line 5
 
 
 S_BOTON *boton;
@@ -84,7 +84,7 @@ void setup()
     //No se que clase de timer probar
   #endif
   //Para el Configure le paso encoder y display porque lo usara.
-  configure = new Configure(Encoder,display);
+  configure = new Configure(display);
   //Para el BUZZER
   pinMode(BUZZER, OUTPUT);
   //Para el CD4021B
@@ -167,6 +167,8 @@ void procesaBotones()
   }
 
   if(boton != NULL) {
+    //Si estamos en configurando salimos de aquí para procesarlo en los estados
+    if (Estado.estado == CONFIGURANDO) return;
     //Si estamos en reposo solo nos saca de ese estado
     if (reposo && boton->id != bSTOP) {
       Serial.println("Salimos de reposo");
@@ -200,12 +202,7 @@ void procesaBotones()
                 Estado.estado = REGANDO;
                 break;
               case CONFIGURANDO:
-                ret = configure->defaultTime();
-                if (!ret) {
-                  Estado.estado = STANDBY;
-                  led(Boton[bId2bIndex(bCONFIG)].led,OFF);
-                  standbyTime = millis();
-                }
+                configure->configureTime();
                 break;
               case STANDBY:
                 ultimosRiegos(SHOW);
@@ -323,56 +320,53 @@ void procesaBotones()
           }
           //Configuramos el idx
           if (Estado.estado == CONFIGURANDO) {
-            ret = configure->idx(&Boton[bId2bIndex(boton->id)]);
-            if (!ret) {
-              Estado.estado = STANDBY;
-              led(Boton[bId2bIndex(bCONFIG)].led,OFF);
-              standbyTime = millis();
-            }
+            //Salvamos la posicion del encoder
+            savedValue = value;
+            configure->configureIdx(bId2bIndex(boton->id));
+            value = boton->idx;
           }
       }
     }
   }
 }
 
-void initRiego(uint16_t id) {
-  //Esta funcion mandara el mensaje a domoticz de activar el boton
-  int index = bId2bIndex(id);
-  Serial.print("Iniciando riego: ");
-  Serial.println(Boton[index].desc);
-  led(Boton[index].led,ON);
-  for (int i=0;i<5;i++) {
-    if(COMPLETO[i] == id) {
-      time_t t;
-      utc = timeClient.getEpochTime();
-      t = CE.toLocal(utc,&tcr);
-      lastRiegos[i] = t;
-    }
-  }
-  domoticzSwitch(Boton[index].idx,(char *)"On");
-}
-
-void stopRiego(uint16_t id) {
-  //Esta funcion mandara el mensaje a domoticz de desactivar el boton
-  int index = bId2bIndex(id);
-  domoticzSwitch(Boton[index].idx,(char *)"Off");
-}
-
-void stopAllRiego() {
-  //Esta funcion pondra a off todos los botones
-  //Apago los leds de multiriego
-  led(Boton[bId2bIndex(multi.id)].led,OFF);
-  //Apago los leds de riego
-  for(unsigned int i=0;i<sizeof(COMPLETO)/2;i++) {
-    led(Boton[bId2bIndex(COMPLETO[i])].led,OFF);
-    stopRiego(COMPLETO[i]);
-  }
-}
-
 void procesaEstados()
 {
   //Procesamos los estados
-  switch (Estado.estado){
+  switch (Estado.estado) {
+    case CONFIGURANDO:
+      if (boton != NULL) {
+        if (boton->flags.action) {
+          switch(boton->id) {
+            case bMULTIRIEGO:
+              break;
+            case bPAUSE:
+              if(!boton->estado) return;
+              if(configure->configuringTime()) {
+                EEPROM.put(offsetof(__eeprom_data, minutes),minutes);
+                EEPROM.put(offsetof(__eeprom_data, seconds),seconds);
+              }
+              if(configure->configuringIdx()) {
+                Boton[configure->getActualIdxIndex()].idx = value;
+                EEPROM.put(offsetof(__eeprom_data, botonIdx[0]) + 2*configure->getActualIdxIndex(),value);
+                value = savedValue;
+              }
+              longbip(2);
+              configure->stop();
+              break;
+            case bSTOP:
+              if(!boton->estado) {
+                configure->stop();
+                Estado.estado = STANDBY;
+                standbyTime = millis();
+              }
+              break;
+            default:
+              break;
+          }
+        }
+      }
+      break;
     case ERROR:
       display->print(" err");
       display->blink(DEFAULTBLINK);
@@ -398,9 +392,6 @@ void procesaEstados()
         }
       }
       procesaEncoder();
-      break;
-    case CONFIGURANDO:
-      led(Boton[bId2bIndex(bCONFIG)].led,ON);
       break;
     case TERMINANDO:
       //Hacemos un blink del display 5 veces
@@ -449,41 +440,82 @@ void procesaEncoder()
   #ifdef NODEMCU
     Encoder->service();
   #endif
-  if(!reposo) StaticTimeUpdate();
-  //Procesamos el encoder
-  value -= Encoder->getValue();
-  //Estamos en el rango de minutos
-  if(seconds == 0 && value>0) {
-    if (value > MAXMINUTES)  value = MAXMINUTES;
-    if (value != minutes) {
-      minutes = value;
-    } else return;
+  if(Estado.estado == CONFIGURANDO && configure->configuringIdx()) {
+      value -= Encoder->getValue();
+      if (value > 1000) value = 1000;
+      if (value <  1) value = 1;
+      display->print(value);
   }
   else {
-    //o bien estamos en el rango de segundos o acabamos de entrar en el
-    if(value<60 && value>=MINSECONDS) {
-      if (value != seconds) {
-        seconds = value;
+    if(!reposo) StaticTimeUpdate();
+    //Procesamos el encoder
+    value -= Encoder->getValue();
+    //Estamos en el rango de minutos
+    if(seconds == 0 && value>0) {
+      if (value > MAXMINUTES)  value = MAXMINUTES;
+      if (value != minutes) {
+        minutes = value;
       } else return;
     }
-    else if (value >=60) {
-      value = minutes = 1;
-      seconds = 0;
+    else {
+      //o bien estamos en el rango de segundos o acabamos de entrar en el
+      if(value<60 && value>=MINSECONDS) {
+        if (value != seconds) {
+          seconds = value;
+        } else return;
+      }
+      else if (value >=60) {
+        value = minutes = 1;
+        seconds = 0;
+      }
+      else if(minutes == 1) {
+        value = seconds = 59;
+        minutes = 0;
+      }
+      else
+      {
+        value = seconds = MINSECONDS;
+        minutes = 0;
+      }
     }
-    else if(minutes == 1) {
-      value = seconds = 59;
-      minutes = 0;
-    }
-    else
-    {
-      value = seconds = MINSECONDS;
-      minutes = 0;
+    reposo = false;
+    StaticTimeUpdate();
+    standbyTime = millis();
+  }
+}
+
+void initRiego(uint16_t id) {
+  //Esta funcion mandara el mensaje a domoticz de activar el boton
+  int index = bId2bIndex(id);
+  Serial.print("Iniciando riego: ");
+  Serial.println(Boton[index].desc);
+  led(Boton[index].led,ON);
+  for (int i=0;i<5;i++) {
+    if(COMPLETO[i] == id) {
+      time_t t;
+      utc = timeClient.getEpochTime();
+      t = CE.toLocal(utc,&tcr);
+      lastRiegos[i] = t;
     }
   }
-  reposo = false;
-  StaticTimeUpdate();
-  standbyTime = millis();
-  //Serial.print("VALUE: ");Serial.print(value);Serial.print("MINUTES: ");Serial.print(minutes);Serial.print(" SECONDS: ");Serial.println(seconds);
+  domoticzSwitch(Boton[index].idx,(char *)"On");
+}
+
+void stopRiego(uint16_t id) {
+  //Esta funcion mandara el mensaje a domoticz de desactivar el boton
+  int index = bId2bIndex(id);
+  domoticzSwitch(Boton[index].idx,(char *)"Off");
+}
+
+void stopAllRiego() {
+  //Esta funcion pondra a off todos los botones
+  //Apago los leds de multiriego
+  led(Boton[bId2bIndex(multi.id)].led,OFF);
+  //Apago los leds de riego
+  for(unsigned int i=0;i<sizeof(COMPLETO)/2;i++) {
+    led(Boton[bId2bIndex(COMPLETO[i])].led,OFF);
+    stopRiego(COMPLETO[i]);
+  }
 }
 
 void bip(int veces)

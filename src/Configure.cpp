@@ -2,17 +2,61 @@
 #include "Control.h"
 #include <EEPROM.h>
 
-
+/*
 Configure::Configure(class ClickEncoder *enc, class Display *disp) {
   display = disp;
   encoder = enc;
 }
+*/
+
+Configure::Configure(class Display *disp)
+{
+  _configuringIdx = false;
+  _configuringTime = false;
+  display = disp;
+}
 
 void Configure::start() {
+  bip(1);
+  _configuringIdx = false;
+  _configuringTime = false;
   display->print("conf");
 }
 
-bool Configure::idx(struct S_BOTON *boton) {
+void Configure::stop() {
+  bip(1);
+  _configuringIdx = false;
+  _configuringTime = false;
+  display->print("conf");
+}
+
+bool Configure::configuringTime() {
+  return _configuringTime;
+}
+
+bool Configure::configuringIdx() {
+  return _configuringIdx;
+}
+
+void Configure::configureIdx(int index)
+{
+  _configuringIdx = true;
+  _actualIdxIndex = index;
+}
+
+void Configure::configureTime(void)
+{
+  _configuringTime = true;
+}
+
+int Configure::getActualIdxIndex(void)
+{
+  return _actualIdxIndex;
+}
+
+/*
+bool Configure::idx(struct S_BOTON *boton)
+{
   //Procesamos el encoder
   clkvalue = boton->idx;
   confBoton = NULL;
@@ -36,13 +80,14 @@ bool Configure::idx(struct S_BOTON *boton) {
         display->print("conf");
         return true;
       case bSTOP:
-        bip(1);
-        display->print("conf");
+        stop();
         return false;
       }
   }
 }
+*/
 
+/*
 bool Configure::defaultTime(void)
 {
   delay(500);
@@ -59,9 +104,9 @@ bool Configure::defaultTime(void)
         display->print("conf");
         return true;
       case bSTOP:
-        bip(1);
-        display->print("conf");
+        stop();
         return false;
     }
   }
 }
+*/
