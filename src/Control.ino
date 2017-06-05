@@ -219,6 +219,7 @@ void procesaBotones()
                 boton = NULL;
                 while(1) {
                   boton = parseInputs();
+                  yield();
                   if(boton->id == bPAUSE && !boton->estado) break;
                 }
                 ultimosRiegos(HIDE);
@@ -331,6 +332,7 @@ void procesaBotones()
           //Configuramos el idx
           if (Estado.estado == CONFIGURANDO) {
             //Salvamos la posicion del encoder
+            Serial << "Boton IDX en configurando";
             savedValue = value;
             configure->configureIdx(bId2bIndex(boton->id));
             value = boton->idx;
@@ -347,16 +349,23 @@ void procesaEstados()
     case CONFIGURANDO:
       if (boton != NULL) {
         if (boton->flags.action) {
+          Serial << "En estado CONFIGURANDO pulsado ACTION" << endl;
           switch(boton->id) {
             case bMULTIRIEGO:
               break;
             case bPAUSE:
-              if(!boton->estado) return;
+              if(!boton->estado)
+              {
+                Serial << "Release de Pause" << endl;
+                return;
+              }
               if(configure->configuringTime()) {
+                Serial << "SAVE EEPROM TIME" << endl;
                 EEPROM.put(offsetof(__eeprom_data, minutes),minutes);
                 EEPROM.put(offsetof(__eeprom_data, seconds),seconds);
               }
               if(configure->configuringIdx()) {
+                Serial << "SAVE EEPROM IDX" << endl;
                 Boton[configure->getActualIdxIndex()].idx = value;
                 EEPROM.put(offsetof(__eeprom_data, botonIdx[0]) + 2*configure->getActualIdxIndex(),value);
                 value = savedValue;
@@ -376,6 +385,7 @@ void procesaEstados()
           }
         }
       }
+      else procesaEncoder();
       break;
     case ERROR:
       display->blink(DEFAULTBLINK);
@@ -450,6 +460,7 @@ void procesaEncoder()
     Encoder->service();
   #endif
   if(Estado.estado == CONFIGURANDO && configure->configuringIdx()) {
+      Serial << "En procesaencoder idx";
       value -= Encoder->getValue();
       if (value > 1000) value = 1000;
       if (value <  1) value = 1;
