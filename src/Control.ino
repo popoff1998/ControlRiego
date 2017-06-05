@@ -14,6 +14,7 @@ S_BOTON *ultimoBoton;
 
 #ifdef NODEMCU
   WiFiUDP ntpUDP;
+  ESP8266WiFiMulti WiFiMulti;
   char ssid[] = "ORDENA";
   char pass[] = "28duque28";
 #endif
@@ -81,7 +82,16 @@ void setup()
     Timer1.attachInterrupt(timerIsr);
   #endif
   #ifdef NODEMCU
-    //No se que clase de timer probar
+    WiFiMulti.addAP(ssid,pass);
+    while(WiFiMulti.run() != WL_CONNECTED) {
+       Serial.print(".");
+       delay(500);
+    }
+    Serial.println("");
+    Serial.println("WiFi connected");
+    Serial.println("IP address: ");
+    Serial.println(WiFi.localIP());
+    delay(500);
   #endif
   //Para el Configure le paso encoder y display porque lo usara.
   configure = new Configure(display);
@@ -368,7 +378,6 @@ void procesaEstados()
       }
       break;
     case ERROR:
-      display->print(" err");
       display->blink(DEFAULTBLINK);
       break;
     case REGANDO:
@@ -587,6 +596,16 @@ void riegaCompleto()
 }
 
 void domoticzSwitch(int idx,char *msg) {
+  #ifdef NODEMCU
+  //Comprobamos si estamos conectados, error en caso contrario
+  if(WiFiMulti.run() != WL_CONNECTED) {
+    Serial.println("Error: No estamos conectados a la wifi");
+    display->print("Err0");
+    Estado.estado = ERROR;
+    return;
+  }
+  #endif
+
   #ifdef NET_DIRECT
     char JSONMSG[200]="GET /json.htm?type=command&param=switchlight&idx=%d&switchcmd=%s HTTP/1.1\r\n\r\n";
     char message[250];
@@ -614,26 +633,46 @@ void domoticzSwitch(int idx,char *msg) {
       httpclient.get(message);
       statusCode = httpclient.responseStatusCode();
       response = httpclient.responseBody();
-    #endif
-    //Si se produce un status diferente de 200 algo ha pasado
-    if(statusCode != 200){
-      Serial.print("Status code: ");
-      Serial.println(statusCode);
-      Estado.estado = ERROR;
-      #ifdef MEGA256
+      if(statusCode != 200){
+        Serial.print("Status code: ");
+        Serial.println(statusCode);
+        display->print("Err1");
+        Estado.estado = ERROR;
         httpclient.stop();
-      #endif
-    }
-    //Serial.print("Response: ");
-    //Serial.println(response);
+        return;
+      }
+    #endif
+    #ifdef NODEMCU
+      String tmpStr = "http://" + String(serverAddress) + ":8080" + String(message);
+      httpclient.begin(tmpStr);
+      int httpCode = httpclient.GET();
+      if(httpCode > 0) {
+        if(httpCode == HTTP_CODE_OK) {
+          response = httpclient.getString();
+          Serial.println(response);
+        }
+      }
+      else {
+        Estado.estado = ERROR;
+        display->print("Err1");
+        Serial.printf("[HTTP] GET... failed, error: %s\n", httpclient.errorToString(httpCode).c_str());
+        return;
+      }
+    #endif
+
     int pos = response.indexOf("\"status\" : \"ERR\"");
-    //Serial.print("POS: ");Serial.println(pos);
+    Serial.print("POS: ");Serial.println(pos);
     if(pos != -1) {
       Serial.println("SE HA DEVUELTO ERROR");
+      display->print("Err2");
       Estado.estado = ERROR;
+      return;
     }
     #ifdef MEGA256
       httpclient.stop();
+    #endif
+    #ifdef NODEMCU
+      httpclient.end();
     #endif
     if(Estado.estado != ERROR && strcmp(msg,"On") == 0) Estado.estado = REGANDO;
   #endif
