@@ -7,6 +7,7 @@
 
 S_BOTON *boton;
 S_BOTON *ultimoBoton;
+unsigned long loopCounter = 0;
 
 #ifdef MEGA256
   EthernetUDP ntpUDP;
@@ -59,11 +60,14 @@ void initEeprom() {
     //Leemos los idx
    for(i=0;i<16;i++) {
       EEPROM.get(botonAddr,Boton[i].idx);
-      //Serial << "leido boton " << i << " : " << Boton[i].idx << " address: " << botonAddr << endl;
+      Serial << "leido boton " << i << " : " << Boton[i].idx << " address: " << botonAddr << endl;
       botonAddr += 2;
     }
     EEPROM.get(offsetof(__eeprom_data, minutes),minutes);
     EEPROM.get(offsetof(__eeprom_data, seconds),seconds);
+    Serial << "READ EEPROM TIME, minutes: " << minutes << " seconds: " << seconds << endl;
+
+
     value = ((seconds==0)?minutes:seconds);
     StaticTimeUpdate();
   }
@@ -111,7 +115,7 @@ void setup()
     Ethernet.begin(mac,ip,gateway,subnet);
   #endif
   #ifdef NODEMCU
-    WiFi.begin(ssid,pass);
+    //WiFi.begin(ssid,pass);
   #endif
   delay(1500);
   //Ponemos en hora
@@ -126,6 +130,8 @@ void setup()
   for(int i=0;i<5;i++) {
     lastRiegos[i] = 0;
   }
+  //Deshabilitamos el hold de Pause
+  Boton[bId2bIndex(bPAUSE)].flags.holddisabled = true;
 }
 
 bool unavez = true;
@@ -161,6 +167,7 @@ void loop()
    unavez=false;
   }
   procesaEstados();
+  loopCounter ++;
 }
 
 void procesaBotones()
@@ -178,7 +185,7 @@ void procesaBotones()
 
   if(boton != NULL) {
     //Si estamos en configurando salimos de aquí para procesarlo en los estados
-    if (Estado.estado == CONFIGURANDO) return;
+    //if (Estado.estado == CONFIGURANDO) return;
     //Si estamos en reposo solo nos saca de ese estado
     if (reposo && boton->id != bSTOP) {
       Serial.println("Salimos de reposo");
@@ -192,10 +199,13 @@ void procesaBotones()
         case bPAUSE:
           if (Estado.estado != STOP) {
             //No procesamos los release del boton salvo en STOP
-            if(!boton->estado) break;
-
+            if(!boton->estado) {
+              //delay(500);
+              break;
+            }
             switch (Estado.estado) {
               case REGANDO:
+                Serial << "PAUSE-REGANDO: " << loopCounter << endl;
                 bip(1);
                 Estado.estado = PAUSE;
                 if(ultimoBoton) {
@@ -204,6 +214,7 @@ void procesaBotones()
                 T.PauseTimer();
                 break;
               case PAUSE:
+                Serial << "PAUSE-PAUSE: " << loopCounter << endl;
                 bip(2);
                 if(ultimoBoton) {
                   initRiego(ultimoBoton->id);
@@ -212,16 +223,17 @@ void procesaBotones()
                 Estado.estado = REGANDO;
                 break;
               case CONFIGURANDO:
-                configure->configureTime();
+                if(!configure->configuringIdx() && !configure->configuringTime()) {
+                  Serial << "Llamando a configuring Time" << endl;
+                  configure->configureTime();
+                  delay(1000);
+                  boton = NULL;
+                }
                 break;
               case STANDBY:
                 ultimosRiegos(SHOW);
                 boton = NULL;
-                while(1) {
-                  boton = parseInputs();
-                  yield();
-                  if(boton->id == bPAUSE && !boton->estado) break;
-                }
+                delay(3000);
                 ultimosRiegos(HIDE);
             }
           }
@@ -229,18 +241,15 @@ void procesaBotones()
             //Si lo tenemos pulsado
             if(boton->estado) {
               if(!holdPause) {
-                //Serial.println("EN !HOLDPAUSE");
-                //activamos el contador
                 countHoldPause = millis();
                 holdPause = true;
               }
               else {
-                //Comprobamos si hemos llegado a holdtime
-                //Serial.println("EN HOLDPAUSE");
                 if((millis() - countHoldPause) > HOLDTIME) {
                   configure->start();
                   longbip(1);
                   Estado.estado = CONFIGURANDO;
+                  boton = NULL;
                   holdPause = false;
                 }
               }
@@ -349,29 +358,36 @@ void procesaEstados()
     case CONFIGURANDO:
       if (boton != NULL) {
         if (boton->flags.action) {
-          Serial << "En estado CONFIGURANDO pulsado ACTION" << endl;
+          //Serial << "En estado CONFIGURANDO pulsado ACTION" << endl;
           switch(boton->id) {
             case bMULTIRIEGO:
               break;
             case bPAUSE:
               if(!boton->estado)
               {
-                Serial << "Release de Pause" << endl;
+                //Serial << "Release de Pause" << endl;
                 return;
               }
               if(configure->configuringTime()) {
-                Serial << "SAVE EEPROM TIME" << endl;
+                uint8_t m,s;
+                Serial << "SAVE EEPROM TIME, minutes: " << minutes << " seconds: " << seconds << endl;
                 EEPROM.put(offsetof(__eeprom_data, minutes),minutes);
                 EEPROM.put(offsetof(__eeprom_data, seconds),seconds);
+                longbip(2);
+                EEPROM.get(offsetof(__eeprom_data, minutes),m);
+                EEPROM.get(offsetof(__eeprom_data, seconds),s);
+                Serial << "OFFm: " << offsetof(__eeprom_data, minutes) << " OFFs: " << offsetof(__eeprom_data, seconds) << endl;
+                Serial << "READ EEPROM TIME, minutes: " << m << " seconds: " << s << endl;
+                configure->stop();
               }
               if(configure->configuringIdx()) {
                 Serial << "SAVE EEPROM IDX" << endl;
                 Boton[configure->getActualIdxIndex()].idx = value;
                 EEPROM.put(offsetof(__eeprom_data, botonIdx[0]) + 2*configure->getActualIdxIndex(),value);
                 value = savedValue;
+                longbip(2);
+                configure->stop();
               }
-              longbip(2);
-              configure->stop();
               break;
             case bSTOP:
               if(!boton->estado) {
@@ -399,6 +415,7 @@ void procesaEstados()
       }
       break;
     case STANDBY:
+      Boton[bId2bIndex(bPAUSE)].flags.holddisabled = true;
       //Apagamos el display si ha pasado el lapso
       if (reposo) {
         standbyTime = millis();
@@ -447,6 +464,7 @@ void procesaEstados()
       break;
     case STOP:
       //Aprovechamos el estado STOP para configurar
+      Boton[bId2bIndex(bPAUSE)].flags.holddisabled = false;
       break;
     case PAUSE:
       blinkPause();
@@ -460,48 +478,50 @@ void procesaEncoder()
     Encoder->service();
   #endif
   if(Estado.estado == CONFIGURANDO && configure->configuringIdx()) {
-      Serial << "En procesaencoder idx";
+      //Serial << "En procesaencoder idx";
       value -= Encoder->getValue();
       if (value > 1000) value = 1000;
       if (value <  1) value = 1;
       display->print(value);
+      return;
+  }
+
+  if (Estado.estado == CONFIGURANDO && !configure->configuringTime()) return;
+
+  if(!reposo) StaticTimeUpdate();
+  //Procesamos el encoder
+  value -= Encoder->getValue();
+  //Estamos en el rango de minutos
+  if(seconds == 0 && value>0) {
+    if (value > MAXMINUTES)  value = MAXMINUTES;
+    if (value != minutes) {
+      minutes = value;
+    } else return;
   }
   else {
-    if(!reposo) StaticTimeUpdate();
-    //Procesamos el encoder
-    value -= Encoder->getValue();
-    //Estamos en el rango de minutos
-    if(seconds == 0 && value>0) {
-      if (value > MAXMINUTES)  value = MAXMINUTES;
-      if (value != minutes) {
-        minutes = value;
+    //o bien estamos en el rango de segundos o acabamos de entrar en el
+    if(value<60 && value>=MINSECONDS) {
+      if (value != seconds) {
+        seconds = value;
       } else return;
     }
-    else {
-      //o bien estamos en el rango de segundos o acabamos de entrar en el
-      if(value<60 && value>=MINSECONDS) {
-        if (value != seconds) {
-          seconds = value;
-        } else return;
-      }
-      else if (value >=60) {
-        value = minutes = 1;
-        seconds = 0;
-      }
-      else if(minutes == 1) {
-        value = seconds = 59;
-        minutes = 0;
-      }
-      else
-      {
-        value = seconds = MINSECONDS;
-        minutes = 0;
-      }
+    else if (value >=60) {
+      value = minutes = 1;
+      seconds = 0;
     }
-    reposo = false;
-    StaticTimeUpdate();
-    standbyTime = millis();
+    else if(minutes == 1) {
+      value = seconds = 59;
+      minutes = 0;
+    }
+    else
+    {
+      value = seconds = MINSECONDS;
+      minutes = 0;
+    }
   }
+  reposo = false;
+  StaticTimeUpdate();
+  standbyTime = millis();
 }
 
 void initRiego(uint16_t id) {
@@ -608,12 +628,23 @@ void riegaCompleto()
 
 void domoticzSwitch(int idx,char *msg) {
   #ifdef NODEMCU
+/*
+  while(WiFiMulti.run() != WL_CONNECTED) {
+     Serial.print(".");
+     delay(200);
+  }
+*/
+  int i=0;
   //Comprobamos si estamos conectados, error en caso contrario
-  if(WiFiMulti.run() != WL_CONNECTED) {
-    Serial.println("Error: No estamos conectados a la wifi");
-    display->print("Err0");
-    Estado.estado = ERROR;
-    return;
+  while(WiFiMulti.run() != WL_CONNECTED) {
+    i++;
+    if(i<5) continue;
+    else {
+      Serial.println("Error: No estamos conectados a la wifi");
+      display->print("Err1");
+      Estado.estado = ERROR;
+      return;
+    }
   }
   #endif
 
@@ -647,7 +678,7 @@ void domoticzSwitch(int idx,char *msg) {
       if(statusCode != 200){
         Serial.print("Status code: ");
         Serial.println(statusCode);
-        display->print("Err1");
+        display->print("Err2");
         Estado.estado = ERROR;
         httpclient.stop();
         return;
@@ -665,7 +696,7 @@ void domoticzSwitch(int idx,char *msg) {
       }
       else {
         Estado.estado = ERROR;
-        display->print("Err1");
+        display->print("Err3");
         Serial.printf("[HTTP] GET... failed, error: %s\n", httpclient.errorToString(httpCode).c_str());
         return;
       }
@@ -675,7 +706,7 @@ void domoticzSwitch(int idx,char *msg) {
     Serial.print("POS: ");Serial.println(pos);
     if(pos != -1) {
       Serial.println("SE HA DEVUELTO ERROR");
-      display->print("Err2");
+      display->print("Err4");
       Estado.estado = ERROR;
       return;
     }
