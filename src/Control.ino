@@ -1,13 +1,11 @@
-
 #define __MAIN__
 #include <Control.h>
 #include <EEPROM.h>
-#line 5
-
+#include <wifissid.h>
 
 S_BOTON *boton;
 S_BOTON *ultimoBoton;
-unsigned long loopCounter = 0;
+bool ret;
 
 #ifdef MEGA256
   EthernetUDP ntpUDP;
@@ -16,19 +14,14 @@ unsigned long loopCounter = 0;
 #ifdef NODEMCU
   WiFiUDP ntpUDP;
   ESP8266WiFiMulti WiFiMulti;
-  char ssid[] = "ORDENA";
-  char pass[] = "28duque28";
 #endif
 
-
 NTPClient timeClient(ntpUDP,"192.168.100.60");
-bool ret;
 
-//Central European Time (Frankfurt, Paris)
-TimeChangeRule CEST = {"CEST", Last, Sun, Mar, 2, 120};     //Central European Summer Time
-TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};       //Central European Standard Time
+TimeChangeRule CEST = {"CEST", Last, Sun, Mar, 2, 120};
+TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};
 Timezone CE(CEST, CET);
-TimeChangeRule *tcr;        //pointer to the time change rule, use to get the TZ abbrev
+TimeChangeRule *tcr;
 time_t utc;
 
 void timerIsr()
@@ -37,37 +30,36 @@ void timerIsr()
 }
 
 void initEeprom() {
-  int i;
+  int i,botonAddr;
   bool eeinitialized;
-  int botonAddr;
 
-  Serial.println(EEPROM.read(0));
-
+  #ifdef NODEMCU
+    EEPROM.begin(sizeof(__eeprom_data));
+  #endif
   EEPROM.get(0,eeinitialized);
   botonAddr = offsetof(__eeprom_data, botonIdx[0]);
   if( eeinitialized == 0 || FORCEINITEEPROM == 1) {
     Serial.println("Inicializando la EEPROM");
-    //Inicializo los idx
     for(i=0;i<16;i++) {
       EEPROM.put(botonAddr,Boton[i].idx);
       botonAddr += 2;
     }
     EEPROM.put(offsetof(__eeprom_data, minutes),DEFAULTMINUTES);
     EEPROM.put(offsetof(__eeprom_data, seconds),DEFAULTSECONDS);
+    #ifdef NODEMCU
+      EEPROM.commit();
+    #endif
   }
   else {
     Serial.println("Leyendo valores de la EEPROM");
-    //Leemos los idx
-   for(i=0;i<16;i++) {
+    for(i=0;i<16;i++) {
       EEPROM.get(botonAddr,Boton[i].idx);
-      Serial << "leido boton " << i << " : " << Boton[i].idx << " address: " << botonAddr << endl;
-      botonAddr += 2;
+      //Serial << "leido boton " << i << " : " << Boton[i].idx << " address: " << botonAddr << endl;
+      botonAddr += sizeof(Boton[i].idx);
     }
     EEPROM.get(offsetof(__eeprom_data, minutes),minutes);
     EEPROM.get(offsetof(__eeprom_data, seconds),seconds);
-    Serial << "READ EEPROM TIME, minutes: " << minutes << " seconds: " << seconds << endl;
-
-
+    //Serial << "READ EEPROM TIME, minutes: " << minutes << " seconds: " << seconds << endl;
     value = ((seconds==0)?minutes:seconds);
     StaticTimeUpdate();
   }
@@ -89,13 +81,13 @@ void setup()
     WiFiMulti.addAP(ssid,pass);
     while(WiFiMulti.run() != WL_CONNECTED) {
        Serial.print(".");
-       delay(500);
+       delay(200);
     }
     Serial.println("");
-    Serial.println("WiFi connected");
+    Serial.println("WiFi connectado");
     Serial.println("IP address: ");
     Serial.println(WiFi.localIP());
-    delay(500);
+    delay(200);
   #endif
   //Para el Configure le paso encoder y display porque lo usara.
   configure = new Configure(display);
@@ -114,9 +106,6 @@ void setup()
   #ifdef MEGA256
     Ethernet.begin(mac,ip,gateway,subnet);
   #endif
-  #ifdef NODEMCU
-    //WiFi.begin(ssid,pass);
-  #endif
   delay(1500);
   //Ponemos en hora
   timeClient.begin();
@@ -132,9 +121,8 @@ void setup()
   }
   //Deshabilitamos el hold de Pause
   Boton[bId2bIndex(bPAUSE)].flags.holddisabled = true;
+  bip(1);
 }
-
-bool unavez = true;
 
 void ultimosRiegos(int modo)
 {
@@ -162,12 +150,7 @@ void ultimosRiegos(int modo)
 void loop()
 {
   procesaBotones();
-  if(unavez) {
-   bip(1);
-   unavez=false;
-  }
   procesaEstados();
-  loopCounter ++;
 }
 
 void procesaBotones()
@@ -180,12 +163,9 @@ void procesaBotones()
   }
   else {
     multiSemaforo = false;
-    //Serial.println(boton->id);
   }
 
   if(boton != NULL) {
-    //Si estamos en configurando salimos de aquí para procesarlo en los estados
-    //if (Estado.estado == CONFIGURANDO) return;
     //Si estamos en reposo solo nos saca de ese estado
     if (reposo && boton->id != bSTOP) {
       Serial.println("Salimos de reposo");
@@ -193,40 +173,29 @@ void procesaBotones()
       StaticTimeUpdate();
     }
     else if (boton->flags.action) {
-      //Serial.println("***Antes del switch de boton->id");
       switch (boton->id) {
         //Primero procesamos los botones singulares, el resto van por default
         case bPAUSE:
           if (Estado.estado != STOP) {
             //No procesamos los release del boton salvo en STOP
-            if(!boton->estado) {
-              //delay(500);
-              break;
-            }
+            if(!boton->estado) break;
             switch (Estado.estado) {
               case REGANDO:
-                Serial << "PAUSE-REGANDO: " << loopCounter << endl;
                 bip(1);
                 Estado.estado = PAUSE;
-                if(ultimoBoton) {
-                  stopRiego(ultimoBoton->id);
-                }
+                if(ultimoBoton) stopRiego(ultimoBoton->id);
                 T.PauseTimer();
                 break;
               case PAUSE:
-                Serial << "PAUSE-PAUSE: " << loopCounter << endl;
                 bip(2);
-                if(ultimoBoton) {
-                  initRiego(ultimoBoton->id);
-                }
+                if(ultimoBoton) initRiego(ultimoBoton->id);
                 T.ResumeTimer();
                 Estado.estado = REGANDO;
                 break;
               case CONFIGURANDO:
                 if(!configure->configuringIdx() && !configure->configuringTime()) {
-                  Serial << "Llamando a configuring Time" << endl;
                   configure->configureTime();
-                  delay(1000);
+                  delay(500);
                   boton = NULL;
                 }
                 break;
@@ -238,7 +207,7 @@ void procesaBotones()
             }
           }
           else {
-            //Si lo tenemos pulsado
+            //Procesamos el posible hold del boton pause
             if(boton->estado) {
               if(!holdPause) {
                 countHoldPause = millis();
@@ -255,16 +224,12 @@ void procesaBotones()
               }
             }
             //Si lo hemos soltado quitamos holdPause
-            else {
-              Serial.println("EN RELEASEPAUSE");
-              holdPause = false;
-            }
+            else holdPause = false;
           }
           break;
         case bSTOP:
           if (boton->estado) {
             if (Estado.estado == REGANDO || Estado.estado == MULTIREGANDO || Estado.estado == PAUSE) {
-              //printStopDisplay();
               display->print("stop");
               stopAllRiego();
               T.StopTimer();
@@ -285,12 +250,7 @@ void procesaBotones()
           }
 
           if (!boton->estado && (Estado.estado == STOP || Estado.estado == CONFIGURANDO)) {
-            if (Estado.estado == CONFIGURANDO) {
-              //minutes = eeprom_data.minutes;
-              //seconds = eeprom_data.seconds;
-            }
             StaticTimeUpdate();
-            //Borramos el led de config en su caso
             led(Boton[bId2bIndex(bCONFIG)].led,OFF);
             Estado.estado = STANDBY;
           }
@@ -323,13 +283,11 @@ void procesaBotones()
                 break;
             }
             //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
-            Serial.print("MULTISIZE: ");Serial.println(multi.size);
             led(Boton[bId2bIndex(multi.id)].led,ON);
             boton = &Boton[bId2bIndex(multi.serie[multi.actual])];
           }
           //Aqui no hay break para que riegue
         default:
-          //Serial.println("***Estamos en default");
           if (Estado.estado == STANDBY) {
             bip(2);
             T.SetTimer(0,minutes,seconds);
@@ -340,8 +298,6 @@ void procesaBotones()
           }
           //Configuramos el idx
           if (Estado.estado == CONFIGURANDO) {
-            //Salvamos la posicion del encoder
-            Serial << "Boton IDX en configurando";
             savedValue = value;
             configure->configureIdx(bId2bIndex(boton->id));
             value = boton->idx;
@@ -353,26 +309,23 @@ void procesaBotones()
 
 void procesaEstados()
 {
-  //Procesamos los estados
   switch (Estado.estado) {
     case CONFIGURANDO:
       if (boton != NULL) {
         if (boton->flags.action) {
-          //Serial << "En estado CONFIGURANDO pulsado ACTION" << endl;
           switch(boton->id) {
             case bMULTIRIEGO:
               break;
             case bPAUSE:
-              if(!boton->estado)
-              {
-                //Serial << "Release de Pause" << endl;
-                return;
-              }
+              if(!boton->estado) return;
               if(configure->configuringTime()) {
                 uint8_t m,s;
                 Serial << "SAVE EEPROM TIME, minutes: " << minutes << " seconds: " << seconds << endl;
                 EEPROM.put(offsetof(__eeprom_data, minutes),minutes);
                 EEPROM.put(offsetof(__eeprom_data, seconds),seconds);
+                #ifdef NODEMCU
+                  EEPROM.commit();
+                #endif
                 longbip(2);
                 EEPROM.get(offsetof(__eeprom_data, minutes),m);
                 EEPROM.get(offsetof(__eeprom_data, seconds),s);
@@ -384,6 +337,9 @@ void procesaEstados()
                 Serial << "SAVE EEPROM IDX" << endl;
                 Boton[configure->getActualIdxIndex()].idx = value;
                 EEPROM.put(offsetof(__eeprom_data, botonIdx[0]) + 2*configure->getActualIdxIndex(),value);
+                #ifdef NODEMCU
+                  EEPROM.commit();
+                #endif
                 value = savedValue;
                 longbip(2);
                 configure->stop();
@@ -395,8 +351,6 @@ void procesaEstados()
                 Estado.estado = STANDBY;
                 standbyTime = millis();
               }
-              break;
-            default:
               break;
           }
         }
@@ -410,16 +364,13 @@ void procesaEstados()
       tiempoTerminado = T.Timer();
       if (T.TimeHasChanged()) refreshDisplay();
       if (tiempoTerminado == 0) {
-        //Serial.println("SE ACABO EL TIEMPO");
         Estado.estado = TERMINANDO;
       }
       break;
     case STANDBY:
       Boton[bId2bIndex(bPAUSE)].flags.holddisabled = true;
       //Apagamos el display si ha pasado el lapso
-      if (reposo) {
-        standbyTime = millis();
-      }
+      if (reposo) standbyTime = millis();
       else {
         if (millis() > standbyTime + (1000 * STANDBYSECS) ) {
           Serial.println("Entramos en reposo");
@@ -430,12 +381,10 @@ void procesaEstados()
       procesaEncoder();
       break;
     case TERMINANDO:
-      //Hacemos un blink del display 5 veces
       bip(5);
       stopRiego(ultimoBoton->id);
       display->blink(DEFAULTBLINK);
       led(Boton[bId2bIndex(ultimoBoton->id)].led,OFF);
-
       StaticTimeUpdate();
       standbyTime = millis();
       reposo = false;
@@ -443,27 +392,22 @@ void procesaEstados()
 
       //Comprobamos si estamos en un multiriego
       if (multiriego) {
-        //Serial.print("Estamos en multiriego, actual: "); Serial.println(multi.actual);
         multi.actual++;
         if (multi.actual < multi.size) {
-          //Serial.print("Siguiente multiriego: ");
           boton = &Boton[bId2bIndex(multi.serie[multi.actual])];
-          //Serial.println(boton->desc);
           multiSemaforo = true;
         }
         else {
           longbip(3);
           multiriego = false;
           multiSemaforo = false;
-          //Apagamos el led
           Serial.println("MULTIRIEGO TERMINADO");
-          //apagaLeds();
           led(Boton[bId2bIndex(multi.id)].led,OFF);
         }
       }
       break;
     case STOP:
-      //Aprovechamos el estado STOP para configurar
+      //En stop activamos el comportamiento hold de pausa
       Boton[bId2bIndex(bPAUSE)].flags.holddisabled = false;
       break;
     case PAUSE:
@@ -478,7 +422,6 @@ void procesaEncoder()
     Encoder->service();
   #endif
   if(Estado.estado == CONFIGURANDO && configure->configuringIdx()) {
-      //Serial << "En procesaencoder idx";
       value -= Encoder->getValue();
       if (value > 1000) value = 1000;
       if (value <  1) value = 1;
@@ -489,7 +432,6 @@ void procesaEncoder()
   if (Estado.estado == CONFIGURANDO && !configure->configuringTime()) return;
 
   if(!reposo) StaticTimeUpdate();
-  //Procesamos el encoder
   value -= Encoder->getValue();
   //Estamos en el rango de minutos
   if(seconds == 0 && value>0) {
@@ -524,15 +466,16 @@ void procesaEncoder()
   standbyTime = millis();
 }
 
-void initRiego(uint16_t id) {
+void initRiego(uint16_t id)
+{
   //Esta funcion mandara el mensaje a domoticz de activar el boton
   int index = bId2bIndex(id);
-  Serial.print("Iniciando riego: ");
-  Serial.println(Boton[index].desc);
+  time_t t;
+
+  Serial << "Iniciando riego: " << Boton[index].desc << endl;
   led(Boton[index].led,ON);
   for (int i=0;i<5;i++) {
     if(COMPLETO[i] == id) {
-      time_t t;
       utc = timeClient.getEpochTime();
       t = CE.toLocal(utc,&tcr);
       lastRiegos[i] = t;
@@ -541,13 +484,15 @@ void initRiego(uint16_t id) {
   domoticzSwitch(Boton[index].idx,(char *)"On");
 }
 
-void stopRiego(uint16_t id) {
+void stopRiego(uint16_t id)
+{
   //Esta funcion mandara el mensaje a domoticz de desactivar el boton
   int index = bId2bIndex(id);
   domoticzSwitch(Boton[index].idx,(char *)"Off");
 }
 
-void stopAllRiego() {
+void stopAllRiego()
+{
   //Esta funcion pondra a off todos los botones
   //Apago los leds de multiriego
   led(Boton[bId2bIndex(multi.id)].led,OFF);
@@ -580,10 +525,8 @@ void longbip(int veces)
 
 void blinkPause()
 {
-  //Hacemos blink en el caso de estar en PAUSE
   if (!displayOff) {
     if (millis() > lastBlinkPause + DEFAULTBLINKMILLIS) {
-      //clearDisplay();
       display->clearDisplay();
       displayOff = true;
       lastBlinkPause = millis();
@@ -598,7 +541,6 @@ void blinkPause()
   }
 }
 
-
 void StaticTimeUpdate(void)
 {
   if (minutes < MINMINUTES) minutes = MINMINUTES;
@@ -611,29 +553,9 @@ void refreshDisplay()
   display->printTime(T.ShowMinutes(),T.ShowSeconds());
 }
 
-void riegaGoteos()
+void domoticzSwitch(int idx,char *msg)
 {
-  Serial.println("REGANDO GOTEOS");
-}
-
-void riegaCesped()
-{
-  Serial.println("REGANDO CESPED");
-}
-
-void riegaCompleto()
-{
-  Serial.println("REGANDO COMPLETO");
-}
-
-void domoticzSwitch(int idx,char *msg) {
   #ifdef NODEMCU
-/*
-  while(WiFiMulti.run() != WL_CONNECTED) {
-     Serial.print(".");
-     delay(200);
-  }
-*/
   int i=0;
   //Comprobamos si estamos conectados, error en caso contrario
   while(WiFiMulti.run() != WL_CONNECTED) {
@@ -684,6 +606,7 @@ void domoticzSwitch(int idx,char *msg) {
         return;
       }
     #endif
+
     #ifdef NODEMCU
       String tmpStr = "http://" + String(serverAddress) + ":8080" + String(message);
       httpclient.begin(tmpStr);
@@ -703,19 +626,21 @@ void domoticzSwitch(int idx,char *msg) {
     #endif
 
     int pos = response.indexOf("\"status\" : \"ERR\"");
-    Serial.print("POS: ");Serial.println(pos);
     if(pos != -1) {
       Serial.println("SE HA DEVUELTO ERROR");
       display->print("Err4");
       Estado.estado = ERROR;
       return;
     }
+
     #ifdef MEGA256
       httpclient.stop();
     #endif
+
     #ifdef NODEMCU
       httpclient.end();
     #endif
+
     if(Estado.estado != ERROR && strcmp(msg,"On") == 0) Estado.estado = REGANDO;
   #endif
 
@@ -748,7 +673,8 @@ void clientConnect()
 #endif
 
 #ifdef NET_MQTTCLIENT
-void mqttReconnect() {
+void mqttReconnect()
+{
   // Loop until we're reconnected
   while (!MqttClient.connected()) {
     Serial.print("Attempting MQTT connection...");

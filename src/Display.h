@@ -13,16 +13,15 @@
   #define DISPCLK             D0
   #define DISPDIO             D1
 #endif
+
 class Display
 {
   private:
-    //uint8_t *actual;
     TM1637 ledDisp;
     uint8_t actual[5];
 
   public:
     Display(uint8_t clk,uint8_t dio);
-
     void printRaw(uint8_t *);
     void print(const char *);
     void print(int);
