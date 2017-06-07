@@ -23,6 +23,15 @@ TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};
 Timezone CE(CEST, CET);
 TimeChangeRule *tcr;
 time_t utc;
+void test()
+{
+  for(int i=1;i<17;i++) {
+    led(i,ON);
+    delay(2000);
+    led(i,OFF);
+    delay(1000);
+  }
+}
 
 void timerIsr()
 {
@@ -92,13 +101,14 @@ void setup()
   //Para el Configure le paso encoder y display porque lo usara.
   configure = new Configure(display);
   //Para el BUZZER
-  pinMode(BUZZER, OUTPUT);
+  //pinMode(BUZZER, OUTPUT);
   //Para el CD4021B
   initCD4021B();
   //Para el 74HC595
   initHC595();
   //Para la red
   delay(1000);
+  test();
   #ifdef NET_MQTTCLIENT
     MqttClient.setClient(client);
     MqttClient.setServer(MQTT_SERVER,1883);
@@ -506,9 +516,9 @@ void stopAllRiego()
 void bip(int veces)
 {
   for (int i=0; i<veces;i++) {
-    analogWrite(BUZZER, 255);
+    led(BUZZER,ON);
     delay(50);
-    analogWrite(BUZZER, 0);
+    led(BUZZER,OFF);
     delay(50);
   }
 }
@@ -516,9 +526,9 @@ void bip(int veces)
 void longbip(int veces)
 {
   for (int i=0; i<veces;i++) {
-    analogWrite(BUZZER, 255);
+    led(BUZZER,ON);
     delay(750);
-    analogWrite(BUZZER, 0);
+    led(BUZZER,OFF);
     delay(100);
   }
 }

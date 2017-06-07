@@ -28,11 +28,11 @@ void initHC595()
 void led(uint8_t id,int estado)
 {
     //Por seguridad no hacemos nada si id=0
-    //Serial.print("ESTADO: ");Serial.print(estado);
-    //Serial.print(" ID: ");Serial.print(id);
-    //Serial.print(" LEDSTATUS: ");Serial.print(ledStatus);
+    Serial.print("ESTADO: ");Serial.print(estado);
+    Serial.print(" ID: ");Serial.print(id);
+    Serial.print(" LEDSTATUS: ");Serial.println(ledStatus);
     if(id==0) return;
-    if(estado == ON) ledStatus |= 1 << (id-1);
+    if(estado == ON) ledStatus |= (1 << (id-1));
     else ledStatus &= ~(1 << (id-1));
     //convertimos a la parte baja y alta
     uint8_t bajo = (uint8_t)((ledStatus & 0x00FF));

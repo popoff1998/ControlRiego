@@ -78,15 +78,15 @@ struct __eeprom_data {
   #define ENCCLK              D2
   #define ENCDT               D3
   #define ENCSW               100
-  #define BUZZER              D8
+  #define BUZZER              14
 
   #define CD4021B_LATCH         D5
   #define CD4021B_CLOCK         D6
   #define CD4021B_DATA          D7
 
-  #define HC595_DATA            44
-  #define HC595_LATCH           46
-  #define HC595_CLOCK           45
+  #define HC595_DATA            D8
+  #define HC595_LATCH           D4
+  #define HC595_CLOCK           D6
 #endif
 
 //Para legibilidad del codigo
