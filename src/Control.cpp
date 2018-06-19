@@ -332,6 +332,7 @@ void procesaBotones()
         default:
           if (Estado.estado == STANDBY) {
             bip(2);
+            //TODO: Aquí tendré que cambiar minutes y seconds en funcion del factor de cada sector de riego
             T.SetTimer(0,minutes,seconds);
             T.StartTimer();
             ultimoBoton = boton;
