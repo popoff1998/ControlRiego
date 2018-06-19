@@ -9,14 +9,47 @@ volatile uint16_t ledStatus = 0;
 
 void apagaLeds()
 {
-  Serial.println("APAGANDO LEDS");
   digitalWrite(HC595_LATCH, LOW);
   shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, 0);
   shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, 0);
   digitalWrite(HC595_LATCH, HIGH);
-  delay(500);
+  ledStatus = 0;
+  delay(200);
 }
+/*
+void enciendeLeds()
+{
+  digitalWrite(HC595_LATCH, LOW);
+  shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, 0xFF);
+  shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, 0xFF);
+  digitalWrite(HC595_LATCH, HIGH);
+  ledStatus = 0xFFFF;
+  delay(200);
+}
+*/
+/*
+void initLeds()
+{
+  int i;
 
+  for(i=1;i<=16;i++) {
+    led(i,ON);
+    delay(2);
+    led(i,OFF);
+  }
+
+  for(i=16;i>0;i--) {
+    led(i,ON);
+    delay(2);
+    led(i,OFF);
+  }
+
+  for (i=0;i<5;i++) {
+    enciendeLeds();
+    apagaLeds();
+  }
+}
+*/
 void initHC595()
 {
   pinMode(HC595_CLOCK, OUTPUT);
@@ -25,22 +58,32 @@ void initHC595()
   apagaLeds();
 }
 
+void ledRGB(int  R, int G, int B)
+{
+  led(LEDR,R);
+  led(LEDG,G);
+  led(LEDB,B);
+}
+
 void led(uint8_t id,int estado)
 {
     //Por seguridad no hacemos nada si id=0
-    Serial.print("ESTADO: ");Serial.print(estado);
-    Serial.print(" ID: ");Serial.print(id);
-    Serial.print(" LEDSTATUS: ");Serial.println(ledStatus);
+    //Serial.print("ESTADO: ");Serial.print(estado);
+    //Serial.print(" ID: ");Serial.print(id);
+    //Serial.print(" LEDSTATUSANTES: ");Serial.print(ledStatus,BIN);
     if(id==0) return;
     if(estado == ON) ledStatus |= (1 << (id-1));
     else ledStatus &= ~(1 << (id-1));
+    //Serial.print(" LEDSTATUSDESPUES: ");Serial.println(ledStatus,BIN);
     //convertimos a la parte baja y alta
     uint8_t bajo = (uint8_t)((ledStatus & 0x00FF));
     uint8_t alto = (uint8_t)((ledStatus & 0xFF00) >> 8);
+    //Serial.print("ALTO: ");Serial.print(alto,BIN);Serial.print(" BAJO: ");Serial.println(bajo,BIN);
     digitalWrite(HC595_LATCH, LOW);
     shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, alto);
     shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, bajo);
     digitalWrite(HC595_LATCH, HIGH);
+    delay(5);
 }
 
 void initCD4021B()
@@ -59,7 +102,7 @@ byte shiftInCD4021B(int myDataPin, int myClockPin)
   for (i=7;i>=0;i--)
   {
     digitalWrite(myClockPin,0);
-    delayMicroseconds(0.2);
+    delayMicroseconds(2);
     temp = digitalRead(myDataPin);
     if(temp) myDataIn = myDataIn | (1 << i);
     digitalWrite(myClockPin,1);
@@ -91,6 +134,11 @@ uint16_t readInputs()
   //Leemos
   switchVar1 = shiftInCD4021B(CD4021B_DATA, CD4021B_CLOCK);
   switchVar2 = shiftInCD4021B(CD4021B_DATA, CD4021B_CLOCK);
+/*
+  Serial.println(switchVar1,BIN);
+  Serial.println(switchVar2,BIN);
+  Serial.println("-----------------");
+*/
   return switchVar2 | (switchVar1 << 8);
 }
 

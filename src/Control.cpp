@@ -14,6 +14,7 @@ bool ret;
 #ifdef NODEMCU
   WiFiUDP ntpUDP;
   ESP8266WiFiMulti WiFiMulti;
+  bool connected;
 #endif
 
 NTPClient timeClient(ntpUDP,"192.168.100.60");
@@ -23,6 +24,7 @@ TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};
 Timezone CE(CEST, CET);
 TimeChangeRule *tcr;
 time_t utc;
+/*
 void test()
 {
   for(int i=1;i<17;i++) {
@@ -32,7 +34,7 @@ void test()
     delay(1000);
   }
 }
-
+*/
 void timerIsr()
 {
   Encoder->service();
@@ -74,6 +76,7 @@ void initEeprom() {
   }
 }
 
+
 void setup()
 {
   Serial.begin(9600);
@@ -86,18 +89,6 @@ void setup()
     Timer1.initialize(1000);
     Timer1.attachInterrupt(timerIsr);
   #endif
-  #ifdef NODEMCU
-    WiFiMulti.addAP(ssid,pass);
-    while(WiFiMulti.run() != WL_CONNECTED) {
-       Serial.print(".");
-       delay(200);
-    }
-    Serial.println("");
-    Serial.println("WiFi connectado");
-    Serial.println("IP address: ");
-    Serial.println(WiFi.localIP());
-    delay(200);
-  #endif
   //Para el Configure le paso encoder y display porque lo usara.
   configure = new Configure(display);
   //Para el BUZZER
@@ -106,9 +97,12 @@ void setup()
   initCD4021B();
   //Para el 74HC595
   initHC595();
+  //led endencido
+  led(LEDR,ON);
+  //initLeds();
   //Para la red
   delay(1000);
-  test();
+  //test();
   #ifdef NET_MQTTCLIENT
     MqttClient.setClient(client);
     MqttClient.setServer(MQTT_SERVER,1883);
@@ -116,22 +110,58 @@ void setup()
   #ifdef MEGA256
     Ethernet.begin(mac,ip,gateway,subnet);
   #endif
+  #ifdef NODEMCU
+    for (int i=0;i<4;i++) {
+      int j=0;
+      WiFiMulti.addAP(ssid[i],pass);
+      connected = true;
+      while(WiFiMulti.run() != WL_CONNECTED) {
+        led(LEDG,ON);
+        Serial.print(".");
+        delay(200);
+        led(LEDG,OFF);
+        delay(200);
+        j++;
+        if(j == MAXCONNECTRETRY) {
+          connected = false;
+          break;
+        }
+      }
+      if(connected) {
+        Serial.println("");
+        Serial.println("WiFi connectado");
+        Serial.println("IP address: ");
+        Serial.println(WiFi.localIP());
+        led(LEDG,ON);
+        break;
+      }
+    }
+  #endif
   delay(1500);
   //Ponemos en hora
   timeClient.begin();
   timeClient.update();
   setTime(timeClient.getEpochTime());
-  //Estado inicial
-  Estado.estado = STANDBY;
   //Inicializo la EEPROM
   initEeprom();
   //Iniciamos lastRiegos
-  for(int i=0;i<5;i++) {
+  for(int i=0;i<NUMRIEGOS;i++) {
     lastRiegos[i] = 0;
   }
   //Deshabilitamos el hold de Pause
   Boton[bId2bIndex(bPAUSE)].flags.holddisabled = true;
-  bip(1);
+  if(!connected) {
+    Serial.println("ERROR DE CONEXION WIFI");
+    Estado.estado = ERROR;
+    display->print("Err9");
+    longbip(3);
+  }
+  else {
+    Estado.estado = STANDBY;
+    bip(1);
+  }
+  standbyTime = millis();
+  reposo = false;
 }
 
 void ultimosRiegos(int modo)
@@ -141,12 +171,12 @@ void ultimosRiegos(int modo)
       time_t t;
       utc = timeClient.getEpochTime();
       t = CE.toLocal(utc,&tcr);
-      display->printTime(hour(t),minute(t));
-      for(int i=0;i<5;i++) {
+      for(int i=0;i<NUMRIEGOS;i++) {
         if(lastRiegos[i] > previousMidnight(t)) {
             led(Boton[bId2bIndex(COMPLETO[i])].led,ON);
         }
       }
+      display->printTime(hour(t),minute(t));
       break;
     case HIDE:
       StaticTimeUpdate();
@@ -165,6 +195,8 @@ void loop()
 
 void procesaBotones()
 {
+  //En estado error Salimos
+  if(Estado.estado == ERROR) return;
   //Procesamos los botones
   if (!multiSemaforo) {
     //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multiriego
@@ -323,11 +355,16 @@ void procesaEstados()
     case CONFIGURANDO:
       if (boton != NULL) {
         if (boton->flags.action) {
+          Serial << "En estado CONFIGURANDO pulsado ACTION" << endl;
           switch(boton->id) {
             case bMULTIRIEGO:
               break;
             case bPAUSE:
-              if(!boton->estado) return;
+              if(!boton->estado)
+              {
+                Serial << "Release de Pause" << endl;
+                return;
+              }
               if(configure->configuringTime()) {
                 uint8_t m,s;
                 Serial << "SAVE EEPROM TIME, minutes: " << minutes << " seconds: " << seconds << endl;
@@ -432,6 +469,7 @@ void procesaEncoder()
     Encoder->service();
   #endif
   if(Estado.estado == CONFIGURANDO && configure->configuringIdx()) {
+      //Serial << "En procesaencoder idx";
       value -= Encoder->getValue();
       if (value > 1000) value = 1000;
       if (value <  1) value = 1;
@@ -484,7 +522,7 @@ void initRiego(uint16_t id)
 
   Serial << "Iniciando riego: " << Boton[index].desc << endl;
   led(Boton[index].led,ON);
-  for (int i=0;i<5;i++) {
+  for (int i=0;i<NUMRIEGOS;i++) {
     if(COMPLETO[i] == id) {
       utc = timeClient.getEpochTime();
       t = CE.toLocal(utc,&tcr);
@@ -618,7 +656,7 @@ void domoticzSwitch(int idx,char *msg)
     #endif
 
     #ifdef NODEMCU
-      String tmpStr = "http://" + String(serverAddress) + ":8080" + String(message);
+      String tmpStr = "http://" + String(serverAddress) + ":" + DOMOTICZPORT + String(message);
       httpclient.begin(tmpStr);
       int httpCode = httpclient.GET();
       if(httpCode > 0) {

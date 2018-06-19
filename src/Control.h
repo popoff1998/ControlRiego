@@ -47,6 +47,20 @@ struct __eeprom_data {
   uint8_t   seconds;
 };
 
+//Funciones
+void StaticTimeUpdate(void);
+void domoticzSwitch(int,char *);
+void refreshDisplay(void);
+void stopRiego(uint16_t);
+void stopAllRiego(void);
+void bip(int);
+void longbip(int);
+void blinkPause(void);
+void procesaBotones(void);
+void procesaEstados(void);
+void initRiego(uint16_t);
+
+
 //Comportamiento General
 #define STANDBYSECS         15
 #define DEFAULTMINUTES      10
@@ -58,6 +72,9 @@ struct __eeprom_data {
 #define MINSECONDS          5
 #define HOLDTIME            3000
 #define FORCEINITEEPROM     0
+#define MAXCONNECTRETRY     10
+#define DOMOTICZPORT        3380
+
 
 #ifdef MEGA256
   #define CD4021B_LATCH         43
@@ -75,18 +92,23 @@ struct __eeprom_data {
 #endif
 
 #ifdef NODEMCU
-  #define ENCCLK              D2
-  #define ENCDT               D3
+  #define ENCCLK              D0
+  #define ENCDT               D1
   #define ENCSW               100
-  #define BUZZER              14
+  #define BUZZER              2
 
-  #define CD4021B_LATCH         D5
-  #define CD4021B_CLOCK         D6
+  #define CD4021B_LATCH         D6
+  #define CD4021B_CLOCK         D5
   #define CD4021B_DATA          D7
 
   #define HC595_DATA            D8
   #define HC595_LATCH           D4
-  #define HC595_CLOCK           D6
+  #define HC595_CLOCK           D5
+
+  #define LEDR                  7
+  #define LEDG                  6
+  #define LEDB                  12
+
 #endif
 
 //Para legibilidad del codigo
@@ -120,19 +142,19 @@ enum {
   bTURBINAS   = 0x0001,
   bPORCHE     = 0x0002,
   bCUARTILLO  = 0x0004,
-  bPAUSE      = 0x0008,
-  bGOTEOALTO  = 0x0010,
-  bGOTEOBAJO  = 0x0020,
-  bENCODER    = 0x0040,
-  bSTOP       = 0x0080,
-  bCESPED     = 0x0100,
+  bGOTEOALTO  = 0x0008,
+  bOLIVOS     = 0x0010,
+  bMULTIRIEGO = 0x0020,
+  bROCALLA    = 0x0040,
+  bGOTEOBAJO  = 0x0080,
+  bSPARE13    = 0x0100,
   bGOTEOS     = 0x0200,
-  bSPARE11    = 0x0400,
-  bSPARE12    = 0x0800,
-  bSPARE13    = 0x1000,
-  bSPARE14    = 0x2000,
-  bSPARE15    = 0x4000,
-  bMULTIRIEGO = 0x8000,
+  bCESPED     = 0x0400,
+  bSTOP       = 0x0800,
+  bSPARE14    = 0x1000,
+  bSPARE15    = 0x2000,
+  bSPARE16    = 0x4000,
+  bPAUSE      = 0x8000,
 };
 
 //Pseudobotones
@@ -187,30 +209,31 @@ typedef struct {
   int actual;
   char desc[20];
 } S_MULTI;
-
+#define NUMRIEGOS sizeof(COMPLETO)/sizeof(COMPLETO[0])
 #ifdef __MAIN__
-  S_BOTON Boton [] =  { {bTURBINAS, 0, 0, 1,    ENABLED | ACTION,               "TURBINAS",62},
-                        {bPORCHE,   0, 0, 2,    ENABLED | ACTION,               "PORCHE",63},
-                        {bCUARTILLO, 0, 0, 3,   ENABLED | ACTION,               "CUARTILLO",64},
+  //                     ID,        S,uS, LED,    FLAGS,                        ,DESC,      IDX
+  S_BOTON Boton [] =  { {bTURBINAS, 0, 0, 15,    ENABLED | ACTION,               "TURBINAS",25},
+                        {bPORCHE,   0, 0, 14,    ENABLED | ACTION,               "PORCHE",27},
+                        {bCUARTILLO, 0, 0, 13,   ENABLED | ACTION,               "CUARTILLO",58},
                         {bPAUSE, 0, 0, 0,       ENABLED | ACTION | DUAL | HOLD, "PAUSE",0},
-                        {bGOTEOALTO, 0, 0, 4,   ENABLED | ACTION,               "GOTEOALTO",60},
-                        {bGOTEOBAJO, 0, 0, 5,   ENABLED | ACTION,               "GOTEOBAJO",61},
-                        {bENCODER, 0, 0, 0,     DISABLED | ACTION,              "ENCODER",0},
+                        {bGOTEOALTO, 0, 0, 16,   ENABLED | ACTION,               "GOTEOALTO",59},
+                        {bGOTEOBAJO, 0, 0, 10,   ENABLED | ACTION,               "GOTEOBAJO",24},
+                        {bSPARE16, 0, 0, 0,     DISABLED | ACTION,              "ENCODER",0},
                         {bSTOP, 0, 0, 0,        ENABLED | ACTION | DUAL,        "STOP",0},
-                        {bCESPED, 0, 0, 6,      ENABLED | ONLYSTATUS | DUAL,    "CESPED",0},
-                        {bGOTEOS, 0, 0, 8,      ENABLED | ONLYSTATUS | DUAL,    "GOTEOS",0},
-                        {bSPARE11, 0, 0, 0,     DISABLED,                       "SPARE11",0},
-                        {bSPARE12, 0, 0, 0,     DISABLED,                       "SPARE12",0},
+                        {bCESPED, 0, 0, 8,      ENABLED | ONLYSTATUS | DUAL,    "CESPED",0},
+                        {bGOTEOS, 0, 0, 3,      ENABLED | ONLYSTATUS | DUAL,    "GOTEOS",0},
+                        {bOLIVOS, 0, 0, 11,     ENABLED | ACTION,               "OLIVOS",61},
+                        {bROCALLA, 0, 0, 0,     ENABLED | ACTION,               "ROCALLA",100},
                         {bSPARE13, 0, 0, 0,     DISABLED,                       "SPARE13",0},
-                        {bCONFIG, 0, 0, 16,     DISABLED,                       "CONFIG",0},
-                        {bCOMPLETO, 0, 0, 7,    DISABLED,                       "COMPLETO",0},
+                        {bCONFIG, 0, 0, 0,     DISABLED,                       "CONFIG",0},
+                        {bCOMPLETO, 0, 0, 5,    DISABLED,                       "COMPLETO",0},
                         {bMULTIRIEGO, 0, 0, 0,  ENABLED | ACTION,               "MULTIRIEGO",0}
                       };
 
    uint16_t CESPED[]    = {bTURBINAS, bPORCHE, bCUARTILLO};
-   uint16_t GOTEOS[]    = {bGOTEOALTO, bGOTEOBAJO};
-   uint16_t COMPLETO[]  = {bTURBINAS, bPORCHE, bCUARTILLO, bGOTEOALTO, bGOTEOBAJO};
-   time_t lastRiegos[5];
+   uint16_t GOTEOS[]    = {bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA };
+   uint16_t COMPLETO[]  = {bTURBINAS, bPORCHE, bCUARTILLO, bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA};
+   time_t lastRiegos[NUMRIEGOS];
 #else
   extern S_BOTON Boton [];
 #endif
@@ -254,7 +277,7 @@ typedef struct {
   byte gateway[] = {192, 168, 100, 100};
   byte subnet[] = {255, 255, 255, 0};
   byte server[] = {192,168,100,60};
-  int port = 8080;
+  int port = DOMOTICZPORT;
 
   #ifdef NET_MQTTCLIENT
     #define DEVICE_ID "Control"
@@ -284,8 +307,11 @@ int bId2bIndex(uint16_t);
 uint16_t getMultiStatus(void);
 void led(uint8_t,int);
 void apagaLeds(void);
+void enciendeLeds(void);
+void initLeds(void);
 void longbip(int);
 void bip(int);
 void procesaEncoder(void);
+void ledRGB(int,int,int);
 
 #endif
