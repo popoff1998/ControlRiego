@@ -234,7 +234,8 @@ typedef struct {
    uint16_t CESPED[]    = {bTURBINAS, bPORCHE, bCUARTILLO};
    uint16_t GOTEOS[]    = {bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA };
    uint16_t COMPLETO[]  = {bTURBINAS, bPORCHE, bCUARTILLO, bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA};
-   time_t lastRiegos[NUMRIEGOS];
+   time_t   lastRiegos[NUMRIEGOS];
+   uint     factorRiegos[NUMRIEGOS];
 #else
   extern S_BOTON Boton [];
 #endif

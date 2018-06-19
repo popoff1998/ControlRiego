@@ -35,6 +35,15 @@ void test()
   }
 }
 */
+
+uint idarrayRiego(uint16_t id)
+{
+  for (uint i=0;i<NUMRIEGOS;i++) {
+    if(COMPLETO[i] == id) return i;
+  }
+  return 999;
+}
+
 void timerIsr()
 {
   Encoder->service();
@@ -515,21 +524,21 @@ void procesaEncoder()
   standbyTime = millis();
 }
 
+
+
 void initRiego(uint16_t id)
 {
   //Esta funcion mandara el mensaje a domoticz de activar el boton
   int index = bId2bIndex(id);
+  uint arrayIndex = idarrayRiego(id);
   time_t t;
 
+  if(arrayIndex == 999) return;
   Serial << "Iniciando riego: " << Boton[index].desc << endl;
   led(Boton[index].led,ON);
-  for (uint i=0;i<NUMRIEGOS;i++) {
-    if(COMPLETO[i] == id) {
-      utc = timeClient.getEpochTime();
-      t = CE.toLocal(utc,&tcr);
-      lastRiegos[i] = t;
-    }
-  }
+  utc = timeClient.getEpochTime();
+  t = CE.toLocal(utc,&tcr);
+  lastRiegos[arrayIndex] = t;
   domoticzSwitch(Boton[index].idx,(char *)"On");
 }
 
