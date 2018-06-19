@@ -209,6 +209,7 @@ typedef struct {
   int actual;
   char desc[20];
 } S_MULTI;
+
 #define NUMRIEGOS sizeof(COMPLETO)/sizeof(COMPLETO[0])
 #ifdef __MAIN__
   //                     ID,        S,uS, LED,    FLAGS,                        ,DESC,      IDX

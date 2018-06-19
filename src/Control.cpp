@@ -42,7 +42,7 @@ void timerIsr()
 
 void initEeprom() {
   int i,botonAddr;
-  bool eeinitialized;
+  bool eeinitialized=0;
 
   #ifdef NODEMCU
     EEPROM.begin(sizeof(__eeprom_data));
@@ -145,7 +145,7 @@ void setup()
   //Inicializo la EEPROM
   initEeprom();
   //Iniciamos lastRiegos
-  for(int i=0;i<NUMRIEGOS;i++) {
+  for(uint i=0;i<NUMRIEGOS;i++) {
     lastRiegos[i] = 0;
   }
   //Deshabilitamos el hold de Pause
@@ -171,7 +171,7 @@ void ultimosRiegos(int modo)
       time_t t;
       utc = timeClient.getEpochTime();
       t = CE.toLocal(utc,&tcr);
-      for(int i=0;i<NUMRIEGOS;i++) {
+      for(uint i=0;i<NUMRIEGOS;i++) {
         if(lastRiegos[i] > previousMidnight(t)) {
             led(Boton[bId2bIndex(COMPLETO[i])].led,ON);
         }
@@ -522,7 +522,7 @@ void initRiego(uint16_t id)
 
   Serial << "Iniciando riego: " << Boton[index].desc << endl;
   led(Boton[index].led,ON);
-  for (int i=0;i<NUMRIEGOS;i++) {
+  for (uint i=0;i<NUMRIEGOS;i++) {
     if(COMPLETO[i] == id) {
       utc = timeClient.getEpochTime();
       t = CE.toLocal(utc,&tcr);
@@ -640,8 +640,8 @@ void domoticzSwitch(int idx,char *msg)
     sprintf(message,JSONMSG,idx,msg);
     //Serial.println(message);
     String response;
-    int statusCode = 0;
     #ifdef MEGA256
+      int statusCode = 0;
       httpclient.get(message);
       statusCode = httpclient.responseStatusCode();
       response = httpclient.responseBody();
