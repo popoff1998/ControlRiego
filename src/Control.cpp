@@ -24,6 +24,9 @@ TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};
 Timezone CE(CEST, CET);
 TimeChangeRule *tcr;
 time_t utc;
+
+//Para JSON
+StaticJsonBuffer<2000> jsonBuffer;
 /*
 void test()
 {
@@ -89,7 +92,7 @@ void initFactorRiegos()
 {
   //Primero lo ponemos a 100 para probar
   for(uint i=0;i<NUMRIEGOS;i++) {
-    factorRiegos[i]=100;
+    factorRiegos[i]=getFactor(Boton[bId2bIndex(COMPLETO[i])].idx);
   }
 }
 
@@ -635,9 +638,8 @@ void refreshDisplay()
   display->printTime(T.ShowMinutes(),T.ShowSeconds());
 }
 
-void domoticzSwitch(int idx,char *msg)
+bool checkWifiConnected()
 {
-  #ifdef NODEMCU
   int i=0;
   //Comprobamos si estamos conectados, error en caso contrario
   while(WiFiMulti.run() != WL_CONNECTED) {
@@ -647,9 +649,60 @@ void domoticzSwitch(int idx,char *msg)
       Serial.println("Error: No estamos conectados a la wifi");
       display->print("Err1");
       Estado.estado = ERROR;
-      return;
+      return false;
     }
   }
+  return true;
+}
+
+int getFactor(int idx)
+{
+  #ifdef NODEMCU
+    if(!checkWifiConnected()) return 100;
+  #endif
+
+  char JSONMSG[200]="json.htm?type=devices&rid=%d";
+  char message[250];
+  sprintf(message,JSONMSG,idx);
+  String response;
+
+  #ifdef NODEMCU
+    String tmpStr = "http://" + String(serverAddress) + ":" + DOMOTICZPORT + String(message);
+    httpclient.begin(tmpStr);
+    int httpCode = httpclient.GET();
+    if(httpCode > 0) {
+      if(httpCode == HTTP_CODE_OK) {
+        response = httpclient.getString();
+        Serial.println(response);
+      }
+    }
+    else {
+      Estado.estado = ERROR;
+      display->print("Err8");
+      Serial.printf("[HTTP] GET... failed, error: %s\n", httpclient.errorToString(httpCode).c_str());
+      return 100;
+    }
+  #endif
+  //Teoricamente ya tenemos en response el JSON, lo procesamos
+  const size_t bufferSize = 2*JSON_ARRAY_SIZE(1) + JSON_OBJECT_SIZE(16) + JSON_OBJECT_SIZE(46) + 1500;
+  DynamicJsonBuffer jsonBuffer(bufferSize);
+
+  JsonObject& root = jsonBuffer.parseObject(response);
+  if (!root.success()) {
+    Serial.println("parseObject() failed");
+    return 100;
+  }
+
+  const char *factorstr = root["result"][0]["Description"];
+  long int factor = strtol(factorstr,NULL,10);
+  if(factor == 0L) return 100;
+  else return (int)factor;
+}
+
+void domoticzSwitch(int idx,char *msg)
+{
+  #ifdef NODEMCU
+    if(!checkWifiConnected()) return;
   #endif
 
   #ifdef NET_DIRECT

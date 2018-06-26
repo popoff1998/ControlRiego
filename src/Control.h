@@ -34,6 +34,7 @@
 #ifdef NET_MQTTCLIENT
   #include <PubSubClient.h>
 #endif
+#include <ArduinoJson.h>
 
 //Para mis clases
 #include "Display.h"
@@ -315,5 +316,6 @@ void longbip(int);
 void bip(int);
 void procesaEncoder(void);
 void ledRGB(int,int,int);
+int  getFactor(int);
 
 #endif
