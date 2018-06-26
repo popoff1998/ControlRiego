@@ -85,6 +85,25 @@ void initEeprom() {
   }
 }
 
+void initFactorRiegos()
+{
+  //Primero lo ponemos a 100 para probar
+  for(uint i=0;i<NUMRIEGOS;i++) {
+    factorRiegos[i]=100;
+  }
+}
+
+void timeByFactor(int factor,uint8_t fminutes, uint8_t fseconds)
+{
+  //Aqui convertimos minutes y seconds por el factorRiegos
+  uint tseconds = (60*minutes) + seconds;
+  //factorizamos
+  tseconds = (tseconds*factor)/100;
+  //reconvertimos
+  fminutes = tseconds/60;
+  fseconds = tseconds%60;
+}
+
 
 void setup()
 {
@@ -157,6 +176,8 @@ void setup()
   for(uint i=0;i<NUMRIEGOS;i++) {
     lastRiegos[i] = 0;
   }
+  //Iniciamos factorRTiegos
+  initFactorRiegos();
   //Deshabilitamos el hold de Pause
   Boton[bId2bIndex(bPAUSE)].flags.holddisabled = true;
   if(!connected) {
@@ -342,7 +363,10 @@ void procesaBotones()
           if (Estado.estado == STANDBY) {
             bip(2);
             //TODO: Aquí tendré que cambiar minutes y seconds en funcion del factor de cada sector de riego
-            T.SetTimer(0,minutes,seconds);
+            uint8_t fminutes=0,fseconds=0;
+            timeByFactor(factorRiegos[idarrayRiego(boton->id)],fminutes,fseconds);
+            //
+            T.SetTimer(0,fminutes,fseconds);
             T.StartTimer();
             ultimoBoton = boton;
             initRiego(boton->id);
