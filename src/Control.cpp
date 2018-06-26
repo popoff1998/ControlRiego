@@ -657,6 +657,7 @@ bool checkWifiConnected()
 
 int getFactor(int idx)
 {
+  //Ante cualquier problema devolvemos 100% para no factorizar ese riego
   #ifdef NODEMCU
     if(!checkWifiConnected()) return 100;
   #endif

@@ -225,7 +225,7 @@ typedef struct {
                         {bCESPED, 0, 0, 8,      ENABLED | ONLYSTATUS | DUAL,    "CESPED",0},
                         {bGOTEOS, 0, 0, 3,      ENABLED | ONLYSTATUS | DUAL,    "GOTEOS",0},
                         {bOLIVOS, 0, 0, 11,     ENABLED | ACTION,               "OLIVOS",61},
-                        {bROCALLA, 0, 0, 0,     ENABLED | ACTION,               "ROCALLA",100},
+                        {bROCALLA, 0, 0, 0,     ENABLED | ACTION,               "ROCALLA",30},
                         {bSPARE13, 0, 0, 0,     DISABLED,                       "SPARE13",0},
                         {bCONFIG, 0, 0, 0,     DISABLED,                       "CONFIG",0},
                         {bCOMPLETO, 0, 0, 5,    DISABLED,                       "COMPLETO",0},
