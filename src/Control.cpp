@@ -94,33 +94,51 @@ void initFactorRiegos()
   for(uint i=0;i<NUMRIEGOS;i++) {
     factorRiegos[i]=getFactor(Boton[bId2bIndex(COMPLETO[i])].idx);
   }
+  #ifdef DEBUG
+  //Leemos los valores para comprobar que lo hizo bien
+  for(uint i=0;i<NUMRIEGOS;i++) {
+    Serial.printf("FACTOR %d: %d \n",i,factorRiegos[i]);
+  }
+  #endif
 }
 
-void timeByFactor(int factor,uint8_t fminutes, uint8_t fseconds)
+void timeByFactor(int factor,uint8_t *fminutes, uint8_t *fseconds)
 {
   //Aqui convertimos minutes y seconds por el factorRiegos
   uint tseconds = (60*minutes) + seconds;
   //factorizamos
   tseconds = (tseconds*factor)/100;
   //reconvertimos
-  fminutes = tseconds/60;
-  fseconds = tseconds%60;
+  *fminutes = tseconds/60;
+  *fseconds = tseconds%60;
 }
 
 
 void setup()
 {
   Serial.begin(9600);
+  Serial.println("CONTROL RIEGO V2");
   //Para el display
+  #ifdef DEBUG
+   Serial.println("Inicializando display");
+  #endif
   display = new Display(DISPCLK,DISPDIO);
   display->print("----");
   //Para el encoder
+  #ifdef DEBUG
+   Serial.println("Inicializando Encoder");
+   display->print("----");
+  #endif
   Encoder = new ClickEncoder(ENCCLK,ENCDT,ENCSW);
   #ifdef MEGA256
     Timer1.initialize(1000);
     Timer1.attachInterrupt(timerIsr);
   #endif
   //Para el Configure le paso encoder y display porque lo usara.
+  #ifdef DEBUG
+   Serial.println("Inicializando Configure");
+   display->print("----");
+  #endif
   configure = new Configure(display);
   //Para el BUZZER
   //pinMode(BUZZER, OUTPUT);
@@ -367,13 +385,18 @@ void procesaBotones()
             bip(2);
             //TODO: Aquí tendré que cambiar minutes y seconds en funcion del factor de cada sector de riego
             uint8_t fminutes=0,fseconds=0;
-            timeByFactor(factorRiegos[idarrayRiego(boton->id)],fminutes,fseconds);
+            timeByFactor(factorRiegos[idarrayRiego(boton->id)],&fminutes,&fseconds);
             //
             T.SetTimer(0,fminutes,fseconds);
             T.StartTimer();
             ultimoBoton = boton;
             initRiego(boton->id);
-            //Estado.estado = REGANDO;
+            #ifdef DEBUG
+              Serial.printf("Minutos: %d Segundos: %d FMinutos: %d FSegundos: %d\n",minutes,seconds,fminutes,fseconds);
+            #endif
+            #ifdef DEBUG
+              Estado.estado = REGANDO;
+            #endif
           }
           //Configuramos el idx
           if (Estado.estado == CONFIGURANDO) {
@@ -655,35 +678,75 @@ bool checkWifiConnected()
   return true;
 }
 
-int getFactor(int idx)
+int getFactor(uint16_t idx)
 {
   //Ante cualquier problema devolvemos 100% para no factorizar ese riego
   #ifdef NODEMCU
     if(!checkWifiConnected()) return 100;
   #endif
 
-  char JSONMSG[200]="json.htm?type=devices&rid=%d";
+  char JSONMSG[200]="/json.htm?type=devices&rid=%d";
   char message[250];
   sprintf(message,JSONMSG,idx);
   String response;
 
   #ifdef NODEMCU
     String tmpStr = "http://" + String(serverAddress) + ":" + DOMOTICZPORT + String(message);
+    #ifdef DEBUG
+      Serial.print("TMPSTR: ");Serial.println(tmpStr);
+    #endif
     httpclient.begin(tmpStr);
     int httpCode = httpclient.GET();
     if(httpCode > 0) {
       if(httpCode == HTTP_CODE_OK) {
         response = httpclient.getString();
-        Serial.println(response);
+        #ifdef EXTRADEBUG
+          Serial.print("RESPONSE: ");Serial.println(response);
+        #endif
       }
     }
     else {
       Estado.estado = ERROR;
       display->print("Err8");
-      Serial.printf("[HTTP] GET... failed, error: %s\n", httpclient.errorToString(httpCode).c_str());
+      Serial.printf("GETFACTOR IDX: %d [HTTP] GET... failed, error: %s\n", idx,httpclient.errorToString(httpCode).c_str());
       return 100;
     }
   #endif
+
+  #ifdef MEGA256
+    int statusCode = 0;
+    httpclient.get(message);
+    statusCode = httpclient.responseStatusCode();
+    response = httpclient.responseBody();
+    if(statusCode != 200){
+      Serial.print("Status code: ");
+      Serial.println(statusCode);
+      display->print("Err2");
+      Estado.estado = ERROR;
+      httpclient.stop();
+      return 100;
+    }
+  #endif
+
+  //Procesamos
+  int pos = response.indexOf("\"status\" : \"ERR\"");
+  if(pos != -1) {
+    Serial.println("SE HA DEVUELTO ERROR");
+    display->print("Err4");
+    Estado.estado = ERROR;
+    return 100;
+  }
+
+  #ifdef MEGA256
+    httpclient.stop();
+  #endif
+
+  #ifdef NODEMCU
+    httpclient.end();
+  #endif
+
+  //if(Estado.estado != ERROR && strcmp(msg,"On") == 0) Estado.estado = REGANDO;
+
   //Teoricamente ya tenemos en response el JSON, lo procesamos
   const size_t bufferSize = 2*JSON_ARRAY_SIZE(1) + JSON_OBJECT_SIZE(16) + JSON_OBJECT_SIZE(46) + 1500;
   DynamicJsonBuffer jsonBuffer(bufferSize);
@@ -750,13 +813,15 @@ void domoticzSwitch(int idx,char *msg)
       if(httpCode > 0) {
         if(httpCode == HTTP_CODE_OK) {
           response = httpclient.getString();
-          Serial.println(response);
+          #ifdef EXTRADEBUG
+            Serial.println(response);
+          #endif
         }
       }
       else {
         Estado.estado = ERROR;
         display->print("Err3");
-        Serial.printf("[HTTP] GET... failed, error: %s\n", httpclient.errorToString(httpCode).c_str());
+        Serial.printf("DOMOTICZSWITH IDX: %d [HTTP] GET... failed, error: %s\n", idx, httpclient.errorToString(httpCode).c_str());
         return;
       }
     #endif

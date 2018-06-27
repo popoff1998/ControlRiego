@@ -1,7 +1,9 @@
 //TIPO DE RED
 #ifndef control_h
 #define control_h
+//Modelo de red que vamos a usar
 #define NET_HTTPCLIENT
+
 
 #ifdef NODEMCU
   #include <ESP8266WiFi.h>
@@ -40,6 +42,12 @@
 #include "Display.h"
 #include "Configure.h"
 
+//COMPORTAMIENTO GENERAL. DESCOMENTAR LO QUE CORRESPONDA
+//#define DEBUG
+//#define EXTRADEBUG
+//No olvidarse de que para una nodemcu nueva es conveniente poner FORCEINITEEPROM a 1 la primera vez, después a 0
+#define FORCEINITEEPROM     0
+
 //Estructura de mi eeprom
 struct __eeprom_data {
   uint8_t initialized;
@@ -61,7 +69,6 @@ void procesaBotones(void);
 void procesaEstados(void);
 void initRiego(uint16_t);
 
-
 //Comportamiento General
 #define STANDBYSECS         15
 #define DEFAULTMINUTES      10
@@ -72,7 +79,6 @@ void initRiego(uint16_t);
 #define MAXMINUTES          60
 #define MINSECONDS          5
 #define HOLDTIME            3000
-#define FORCEINITEEPROM     0
 #define MAXCONNECTRETRY     10
 #define DOMOTICZPORT        3380
 
@@ -213,15 +219,16 @@ typedef struct {
 
 #define NUMRIEGOS sizeof(COMPLETO)/sizeof(COMPLETO[0])
 #ifdef __MAIN__
+  #ifdef DEBUG
   //                     ID,        S,uS, LED,    FLAGS,                        ,DESC,      IDX
   S_BOTON Boton [] =  { {bTURBINAS, 0, 0, 15,    ENABLED | ACTION,               "TURBINAS",25},
                         {bPORCHE,   0, 0, 14,    ENABLED | ACTION,               "PORCHE",27},
                         {bCUARTILLO, 0, 0, 13,   ENABLED | ACTION,               "CUARTILLO",58},
-                        {bPAUSE, 0, 0, 0,       ENABLED | ACTION | DUAL | HOLD, "PAUSE",0},
+                        {bPAUSE, 0, 0, 0,       DISABLED | ACTION | DUAL | HOLD, "PAUSE",0},
                         {bGOTEOALTO, 0, 0, 16,   ENABLED | ACTION,               "GOTEOALTO",59},
                         {bGOTEOBAJO, 0, 0, 10,   ENABLED | ACTION,               "GOTEOBAJO",24},
                         {bSPARE16, 0, 0, 0,     DISABLED | ACTION,              "ENCODER",0},
-                        {bSTOP, 0, 0, 0,        ENABLED | ACTION | DUAL,        "STOP",0},
+                        {bSTOP, 0, 0, 0,        DISABLED | ACTION | DUAL,        "STOP",0},
                         {bCESPED, 0, 0, 8,      ENABLED | ONLYSTATUS | DUAL,    "CESPED",0},
                         {bGOTEOS, 0, 0, 3,      ENABLED | ONLYSTATUS | DUAL,    "GOTEOS",0},
                         {bOLIVOS, 0, 0, 11,     ENABLED | ACTION,               "OLIVOS",61},
@@ -231,7 +238,26 @@ typedef struct {
                         {bCOMPLETO, 0, 0, 5,    DISABLED,                       "COMPLETO",0},
                         {bMULTIRIEGO, 0, 0, 0,  ENABLED | ACTION,               "MULTIRIEGO",0}
                       };
-
+   #else
+   //                     ID,        S,uS, LED,    FLAGS,                        ,DESC,      IDX
+   S_BOTON Boton [] =  { {bTURBINAS, 0, 0, 15,    ENABLED | ACTION,               "TURBINAS",25},
+                         {bPORCHE,   0, 0, 14,    ENABLED | ACTION,               "PORCHE",27},
+                         {bCUARTILLO, 0, 0, 13,   ENABLED | ACTION,               "CUARTILLO",58},
+                         {bPAUSE, 0, 0, 0,       ENABLED | ACTION | DUAL | HOLD, "PAUSE",0},
+                         {bGOTEOALTO, 0, 0, 16,   ENABLED | ACTION,               "GOTEOALTO",59},
+                         {bGOTEOBAJO, 0, 0, 10,   ENABLED | ACTION,               "GOTEOBAJO",24},
+                         {bSPARE16, 0, 0, 0,     DISABLED | ACTION,              "ENCODER",0},
+                         {bSTOP, 0, 0, 0,        ENABLED | ACTION | DUAL,        "STOP",0},
+                         {bCESPED, 0, 0, 8,      ENABLED | ONLYSTATUS | DUAL,    "CESPED",0},
+                         {bGOTEOS, 0, 0, 3,      ENABLED | ONLYSTATUS | DUAL,    "GOTEOS",0},
+                         {bOLIVOS, 0, 0, 11,     ENABLED | ACTION,               "OLIVOS",61},
+                         {bROCALLA, 0, 0, 0,     ENABLED | ACTION,               "ROCALLA",30},
+                         {bSPARE13, 0, 0, 0,     DISABLED,                       "SPARE13",0},
+                         {bCONFIG, 0, 0, 0,     DISABLED,                       "CONFIG",0},
+                         {bCOMPLETO, 0, 0, 5,    DISABLED,                       "COMPLETO",0},
+                         {bMULTIRIEGO, 0, 0, 0,  ENABLED | ACTION,               "MULTIRIEGO",0}
+                       };
+   #endif
    uint16_t CESPED[]    = {bTURBINAS, bPORCHE, bCUARTILLO};
    uint16_t GOTEOS[]    = {bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA };
    uint16_t COMPLETO[]  = {bTURBINAS, bPORCHE, bCUARTILLO, bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA};
@@ -316,6 +342,6 @@ void longbip(int);
 void bip(int);
 void procesaEncoder(void);
 void ledRGB(int,int,int);
-int  getFactor(int);
+int  getFactor(uint16_t);
 
 #endif
