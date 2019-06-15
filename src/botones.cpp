@@ -16,7 +16,7 @@ void apagaLeds()
   ledStatus = 0;
   delay(200);
 }
-/*
+
 void enciendeLeds()
 {
   digitalWrite(HC595_LATCH, LOW);
@@ -26,30 +26,50 @@ void enciendeLeds()
   ledStatus = 0xFFFF;
   delay(200);
 }
-*/
-/*
+
+
 void initLeds()
 {
   int i;
 
-  for(i=1;i<=16;i++) {
-    led(i,ON);
-    delay(2);
-    led(i,OFF);
+  size_t numLeds = 12;
+  apagaLeds();
+  delay(200);
+
+  for(i=0;i<numLeds;i++) {
+    led(ledOrder[i],ON);
+    delay(300);
+    led(ledOrder[i],OFF);
   }
 
-  for(i=16;i>0;i--) {
-    led(i,ON);
-    delay(2);
-    led(i,OFF);
+  delay(200);
+  enciendeLeds();
+  delay(200);
+  apagaLeds();
+  delay(200);
+
+  for(i=numLeds-1;i>=0;i--) 
+  {
+    led(ledOrder[i],ON);
+    delay(300);
+    led(ledOrder[i],OFF);
   }
 
-  for (i=0;i<5;i++) {
+  delay(200);
+  enciendeLeds();
+  delay(200);
+  apagaLeds();
+  delay(200);
+
+  for (i=0;i<3;i++) {
     enciendeLeds();
+    delay(300);
     apagaLeds();
+    delay(300);
   }
+  led(LEDR,ON);
 }
-*/
+
 void initHC595()
 {
   pinMode(HC595_CLOCK, OUTPUT);

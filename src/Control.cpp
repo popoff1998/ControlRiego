@@ -24,20 +24,19 @@ TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};
 Timezone CE(CEST, CET);
 TimeChangeRule *tcr;
 time_t utc;
+// Initial check
+void check(void)
+{
+  initLeds();
+  display->check();
+}
+//CheckBuzzer
+void checkBuzzer(void)
+{
 
+}
 //Para JSON
 StaticJsonBuffer<2000> jsonBuffer;
-/*
-void test()
-{
-  for(int i=1;i<17;i++) {
-    led(i,ON);
-    delay(2000);
-    led(i,OFF);
-    delay(1000);
-  }
-}
-*/
 
 uint idarrayRiego(uint16_t id)
 {
@@ -123,6 +122,9 @@ void setup()
    Serial.println("Inicializando display");
   #endif
   display = new Display(DISPCLK,DISPDIO);
+  #ifdef DEBUG
+   Serial.println("Display inicializado");
+  #endif
   display->print("----");
   //Para el encoder
   #ifdef DEBUG
@@ -148,10 +150,10 @@ void setup()
   initHC595();
   //led endencido
   led(LEDR,ON);
-  //initLeds();
+  //Chequeo de perifericos de salida
+  check();
   //Para la red
   delay(1000);
-  //test();
   #ifdef NET_MQTTCLIENT
     MqttClient.setClient(client);
     MqttClient.setServer(MQTT_SERVER,1883);
@@ -322,6 +324,7 @@ void procesaBotones()
           break;
         case bSTOP:
           if (boton->estado) {
+            //De alguna manera esta regando y hay que parar
             if (Estado.estado == REGANDO || Estado.estado == MULTIREGANDO || Estado.estado == PAUSE) {
               display->print("stop");
               stopAllRiego();
@@ -333,7 +336,7 @@ void procesaBotones()
               Estado.estado = STOP;
             }
             else {
-              //Lo hemos pulsado en standby
+              //Lo hemos pulsado en standby - seguro antinenes
               bip(3);
               display->print("stop");
               stopAllRiego();
@@ -341,7 +344,7 @@ void procesaBotones()
               Estado.estado = STOP;
             }
           }
-
+          //Salimos del estado stop o de configuracion
           if (!boton->estado && (Estado.estado == STOP || Estado.estado == CONFIGURANDO)) {
             StaticTimeUpdate();
             led(Boton[bId2bIndex(bCONFIG)].led,OFF);
@@ -376,6 +379,7 @@ void procesaBotones()
                 break;
             }
             //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
+            //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
             led(Boton[bId2bIndex(multi.id)].led,ON);
             boton = &Boton[bId2bIndex(multi.serie[multi.actual])];
           }
@@ -385,7 +389,13 @@ void procesaBotones()
             bip(2);
             //TODO: Aquí tendré que cambiar minutes y seconds en funcion del factor de cada sector de riego
             uint8_t fminutes=0,fseconds=0;
-            timeByFactor(factorRiegos[idarrayRiego(boton->id)],&fminutes,&fseconds);
+            if(multiriego) {
+              timeByFactor(factorRiegos[idarrayRiego(boton->id)],&fminutes,&fseconds);
+            }
+            else {
+              fminutes = minutes;
+              fseconds = seconds;
+            }
             //
             T.SetTimer(0,fminutes,fseconds);
             T.StartTimer();
@@ -501,6 +511,7 @@ void procesaEstados()
       if (multiriego) {
         multi.actual++;
         if (multi.actual < multi.size) {
+          //Simular la pulsacion del siguiente boton de la serie de multiriego
           boton = &Boton[bId2bIndex(multi.serie[multi.actual])];
           multiSemaforo = true;
         }
@@ -508,7 +519,9 @@ void procesaEstados()
           longbip(3);
           multiriego = false;
           multiSemaforo = false;
-          Serial.println("MULTIRIEGO TERMINADO");
+          #ifdef DEBUG
+            Serial.println("MULTIRIEGO TERMINADO");
+          #endif
           led(Boton[bId2bIndex(multi.id)].led,OFF);
         }
       }
@@ -609,6 +622,11 @@ void stopAllRiego()
     led(Boton[bId2bIndex(COMPLETO[i])].led,OFF);
     stopRiego(COMPLETO[i]);
   }
+}
+
+void checkBuzzzer(void)
+{
+
 }
 
 void bip(int veces)
@@ -751,7 +769,7 @@ int getFactor(uint16_t idx)
   const size_t bufferSize = 2*JSON_ARRAY_SIZE(1) + JSON_OBJECT_SIZE(16) + JSON_OBJECT_SIZE(46) + 1500;
   DynamicJsonBuffer jsonBuffer(bufferSize);
 
-  JsonObject& root = jsonBuffer.parseObject(response);
+  JsonObject &root = jsonBuffer.parseObject(response);
   if (!root.success()) {
     Serial.println("parseObject() failed");
     return 100;

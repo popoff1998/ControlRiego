@@ -43,7 +43,7 @@
 #include "Configure.h"
 
 //COMPORTAMIENTO GENERAL. DESCOMENTAR LO QUE CORRESPONDA
-//#define DEBUG
+#define DEBUG
 //#define EXTRADEBUG
 //No olvidarse de que para una nodemcu nueva es conveniente poner FORCEINITEEPROM a 1 la primera vez, después a 0
 #define FORCEINITEEPROM     0
@@ -57,11 +57,13 @@ struct __eeprom_data {
 };
 
 //Funciones
+void check(void);
 void StaticTimeUpdate(void);
 void domoticzSwitch(int,char *);
 void refreshDisplay(void);
 void stopRiego(uint16_t);
 void stopAllRiego(void);
+void checkBuzzer(void);
 void bip(int);
 void longbip(int);
 void blinkPause(void);
@@ -219,52 +221,33 @@ typedef struct {
 
 #define NUMRIEGOS sizeof(COMPLETO)/sizeof(COMPLETO[0])
 #ifdef __MAIN__
-  #ifdef DEBUG
-  //                     ID,        S,uS, LED,    FLAGS,                        ,DESC,      IDX
-  S_BOTON Boton [] =  { {bTURBINAS, 0, 0, 15,    ENABLED | ACTION,               "TURBINAS",25},
-                        {bPORCHE,   0, 0, 14,    ENABLED | ACTION,               "PORCHE",27},
-                        {bCUARTILLO, 0, 0, 13,   ENABLED | ACTION,               "CUARTILLO",58},
-                        {bPAUSE, 0, 0, 0,       DISABLED | ACTION | DUAL | HOLD, "PAUSE",0},
-                        {bGOTEOALTO, 0, 0, 16,   ENABLED | ACTION,               "GOTEOALTO",59},
-                        {bGOTEOBAJO, 0, 0, 10,   ENABLED | ACTION,               "GOTEOBAJO",24},
-                        {bSPARE16, 0, 0, 0,     DISABLED | ACTION,              "ENCODER",0},
-                        {bSTOP, 0, 0, 0,        DISABLED | ACTION | DUAL,        "STOP",0},
-                        {bCESPED, 0, 0, 8,      ENABLED | ONLYSTATUS | DUAL,    "CESPED",0},
-                        {bGOTEOS, 0, 0, 3,      ENABLED | ONLYSTATUS | DUAL,    "GOTEOS",0},
-                        {bOLIVOS, 0, 0, 11,     ENABLED | ACTION,               "OLIVOS",61},
-                        {bROCALLA, 0, 0, 0,     ENABLED | ACTION,               "ROCALLA",30},
-                        {bSPARE13, 0, 0, 0,     DISABLED,                       "SPARE13",0},
-                        {bCONFIG, 0, 0, 0,     DISABLED,                       "CONFIG",0},
-                        {bCOMPLETO, 0, 0, 5,    DISABLED,                       "COMPLETO",0},
-                        {bMULTIRIEGO, 0, 0, 0,  ENABLED | ACTION,               "MULTIRIEGO",0}
+  //                     ID,          S   uS  LED   FLAGS                             DESC          IDX
+  S_BOTON Boton [] =  { {bTURBINAS,   0,  0,  15,   ENABLED | ACTION,                 "TURBINAS",   25},
+                        {bPORCHE,     0,  0,  14,   ENABLED | ACTION,                 "PORCHE",     27},
+                        {bCUARTILLO,  0,  0,  13,   ENABLED | ACTION,                 "CUARTILLO",  58},
+                        {bPAUSE,      0,  0,  0,    DISABLED | ACTION | DUAL | HOLD,  "PAUSE",      0},
+                        {bGOTEOALTO,  0,  0,  16,   ENABLED | ACTION,                 "GOTEOALTO",  59},
+                        {bGOTEOBAJO,  0,  0,  10,   ENABLED | ACTION,                 "GOTEOBAJO",  24},
+                        {bSPARE16,    0,  0,  0,    DISABLED | ACTION,                "ENCODER",    0},
+                        {bSTOP,       0,  0,  0,    DISABLED | ACTION | DUAL,         "STOP",       0},
+                        {bCESPED,     0,  0,  8,    ENABLED | ONLYSTATUS | DUAL,      "CESPED",     0},
+                        {bGOTEOS,     0,  0,  3,    ENABLED | ONLYSTATUS | DUAL,      "GOTEOS",     0},
+                        {bOLIVOS,     0,  0,  11,   ENABLED | ACTION,                 "OLIVOS",     61},
+                        {bROCALLA,    0,  0,  12,   ENABLED | ACTION,                 "ROCALLA",    30},
+                        {bSPARE13,    0,  0,  0,    DISABLED,                         "SPARE13",    0},
+                        {bCONFIG,     0,  0,  0,    DISABLED,                         "CONFIG",     0},
+                        {bCOMPLETO,   0,  0,  5,    DISABLED,                         "COMPLETO",   0},
+                        {bMULTIRIEGO, 0,  0,  0,    ENABLED | ACTION,                 "MULTIRIEGO", 0}
                       };
-   #else
-   //                     ID,        S,uS, LED,    FLAGS,                        ,DESC,      IDX
-   S_BOTON Boton [] =  { {bTURBINAS, 0, 0, 15,    ENABLED | ACTION,               "TURBINAS",25},
-                         {bPORCHE,   0, 0, 14,    ENABLED | ACTION,               "PORCHE",27},
-                         {bCUARTILLO, 0, 0, 13,   ENABLED | ACTION,               "CUARTILLO",58},
-                         {bPAUSE, 0, 0, 0,       ENABLED | ACTION | DUAL | HOLD, "PAUSE",0},
-                         {bGOTEOALTO, 0, 0, 16,   ENABLED | ACTION,               "GOTEOALTO",59},
-                         {bGOTEOBAJO, 0, 0, 10,   ENABLED | ACTION,               "GOTEOBAJO",24},
-                         {bSPARE16, 0, 0, 0,     DISABLED | ACTION,              "ENCODER",0},
-                         {bSTOP, 0, 0, 0,        ENABLED | ACTION | DUAL,        "STOP",0},
-                         {bCESPED, 0, 0, 8,      ENABLED | ONLYSTATUS | DUAL,    "CESPED",0},
-                         {bGOTEOS, 0, 0, 3,      ENABLED | ONLYSTATUS | DUAL,    "GOTEOS",0},
-                         {bOLIVOS, 0, 0, 11,     ENABLED | ACTION,               "OLIVOS",61},
-                         {bROCALLA, 0, 0, 0,     ENABLED | ACTION,               "ROCALLA",30},
-                         {bSPARE13, 0, 0, 0,     DISABLED,                       "SPARE13",0},
-                         {bCONFIG, 0, 0, 0,     DISABLED,                       "CONFIG",0},
-                         {bCOMPLETO, 0, 0, 5,    DISABLED,                       "COMPLETO",0},
-                         {bMULTIRIEGO, 0, 0, 0,  ENABLED | ACTION,               "MULTIRIEGO",0}
-                       };
-   #endif
    uint16_t CESPED[]    = {bTURBINAS, bPORCHE, bCUARTILLO};
    uint16_t GOTEOS[]    = {bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA };
    uint16_t COMPLETO[]  = {bTURBINAS, bPORCHE, bCUARTILLO, bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA};
    time_t   lastRiegos[NUMRIEGOS];
    uint     factorRiegos[NUMRIEGOS];
+   uint ledOrder[] = {15,14,13,16,10,11,12,7,6,8,5,3};
 #else
   extern S_BOTON Boton [];
+  extern uint ledOrder[];
 #endif
 
 //Globales
