@@ -56,10 +56,6 @@ void initLeds()
   }
 
   delay(200);
-  enciendeLeds();
-  delay(200);
-  apagaLeds();
-  delay(200);
 
   for (i=0;i<3;i++) {
     enciendeLeds();

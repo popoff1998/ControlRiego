@@ -38,12 +38,12 @@ Display::Display(uint8_t clk,uint8_t data) : ledDisp(clk,data)
   #endif
 }  
 
-void Display::check(void)
+void Display::check(int veces)
 {
   uint8_t t[5];
   t[4]=0;
 
-  for(int repeat=0;repeat<3;repeat++)
+  for(int repeat=0;repeat<veces;repeat++)
   {
     clearDisplay();
     for(int i=0;i<10;i++)
@@ -51,7 +51,7 @@ void Display::check(void)
       for(int j=0;j<4;j++)
         t[j]=i;
       printRaw(t);
-      delay(500);
+      delay(300);
     }
     print("----");
   }

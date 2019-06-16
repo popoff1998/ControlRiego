@@ -1,5 +1,5 @@
 #define __MAIN__
-#include <Control.h>
+#include "Control.h"
 #include <EEPROM.h>
 #include <wifissid.h>
 
@@ -28,7 +28,7 @@ time_t utc;
 void check(void)
 {
   initLeds();
-  display->check();
+  display->check(2);
 }
 //CheckBuzzer
 void checkBuzzer(void)

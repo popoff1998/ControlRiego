@@ -28,7 +28,7 @@ class Display
     void printTime(int,int);
     void blink(int);
     void clearDisplay(void);
-    void check(void);
+    void check(int);
 };
 
 #endif

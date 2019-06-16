@@ -43,7 +43,7 @@
 #include "Configure.h"
 
 //COMPORTAMIENTO GENERAL. DESCOMENTAR LO QUE CORRESPONDA
-#define DEBUG
+//#define DEBUG
 //#define EXTRADEBUG
 //No olvidarse de que para una nodemcu nueva es conveniente poner FORCEINITEEPROM a 1 la primera vez, después a 0
 #define FORCEINITEEPROM     0
