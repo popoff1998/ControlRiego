@@ -177,7 +177,9 @@ void TM1637::display(double Decimal)
   }
   DecPoint = i;
 
-  Serial.println(Decimal);
+  #ifdef DEBUG
+    Serial.println(Decimal);
+  #endif
   BlankingFlag = 0;
   display(temp);
 

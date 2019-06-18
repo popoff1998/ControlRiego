@@ -6,6 +6,7 @@
 S_BOTON *boton;
 S_BOTON *ultimoBoton;
 bool ret;
+bool NONETWORK=false;
 
 #ifdef MEGA256
   EthernetUDP ntpUDP;
@@ -94,10 +95,10 @@ void initFactorRiegos()
     factorRiegos[i]=getFactor(Boton[bId2bIndex(COMPLETO[i])].idx);
   }
   #ifdef DEBUG
-  //Leemos los valores para comprobar que lo hizo bien
-  for(uint i=0;i<NUMRIEGOS;i++) {
-    Serial.printf("FACTOR %d: %d \n",i,factorRiegos[i]);
-  }
+    //Leemos los valores para comprobar que lo hizo bien
+    for(uint i=0;i<NUMRIEGOS;i++) {
+      Serial.printf("FACTOR %d: %d \n",i,factorRiegos[i]);
+    }
   #endif
 }
 
@@ -129,8 +130,8 @@ void setup()
   //Para el encoder
   #ifdef DEBUG
    Serial.println("Inicializando Encoder");
-   display->print("----");
   #endif
+   display->print("----");
   Encoder = new ClickEncoder(ENCCLK,ENCDT,ENCSW);
   #ifdef MEGA256
     Timer1.initialize(1000);
@@ -139,8 +140,8 @@ void setup()
   //Para el Configure le paso encoder y display porque lo usara.
   #ifdef DEBUG
    Serial.println("Inicializando Configure");
-   display->print("----");
   #endif
+  display->print("----");
   configure = new Configure(display);
   //Para el BUZZER
   //pinMode(BUZZER, OUTPUT);
@@ -205,9 +206,11 @@ void setup()
   Boton[bId2bIndex(bPAUSE)].flags.holddisabled = true;
   if(!connected) {
     Serial.println("ERROR DE CONEXION WIFI");
-    Estado.estado = ERROR;
-    display->print("Err9");
-    longbip(3);
+    if(!NONETWORK) {
+      Estado.estado = ERROR;
+      display->print("Err9");
+      longbip(3);
+    }
   }
   else {
     Estado.estado = STANDBY;
@@ -215,6 +218,8 @@ void setup()
   }
   standbyTime = millis();
   reposo = false;
+  //Llamo a parseInputs una vez para eliminar prepulsaciones antes del bucle loop
+  parseInputs();
 }
 
 void ultimosRiegos(int modo)
@@ -248,8 +253,7 @@ void loop()
 
 void procesaBotones()
 {
-  //En estado error Salimos
-  if(Estado.estado == ERROR) return;
+
   //Procesamos los botones
   if (!multiSemaforo) {
     //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multiriego
@@ -260,6 +264,19 @@ void procesaBotones()
     multiSemaforo = false;
   }
 
+  //En estado error salimos a menos que pulsemos bPause y pasamos a modo NONETWORK
+  if(Estado.estado == ERROR) 
+  {
+    if(boton != NULL) {
+      //Si estamos en error y pulsamos pausa, nos ponemos en estado NONETWORK para test
+      if(boton->id == bPAUSE) {
+        Estado.estado = STANDBY;
+        NONETWORK = true;
+        StaticTimeUpdate();
+      }
+    }
+    return;
+  }
   if(boton != NULL) {
     //Si estamos en reposo solo nos saca de ese estado
     if (reposo && boton->id != bSTOP) {
@@ -404,9 +421,7 @@ void procesaBotones()
             #ifdef DEBUG
               Serial.printf("Minutos: %d Segundos: %d FMinutos: %d FSegundos: %d\n",minutes,seconds,fminutes,fseconds);
             #endif
-            #ifdef DEBUG
-              Estado.estado = REGANDO;
-            #endif
+            Estado.estado = REGANDO;
           }
           //Configuramos el idx
           if (Estado.estado == CONFIGURANDO) {
@@ -475,11 +490,11 @@ void procesaEstados()
       else procesaEncoder();
       break;
     case ERROR:
-      display->blink(DEFAULTBLINK);
+      blinkPause();
       break;
     case REGANDO:
       tiempoTerminado = T.Timer();
-      if (T.TimeHasChanged()) refreshDisplay();
+      if (T.TimeHasChanged()) refreshTime();
       if (tiempoTerminado == 0) {
         Estado.estado = TERMINANDO;
       }
@@ -676,18 +691,27 @@ void StaticTimeUpdate(void)
 
 void refreshDisplay()
 {
+  display->refreshDisplay();
+  //display->printTime(T.ShowMinutes(),T.ShowSeconds());
+}
+
+void refreshTime()
+{
   display->printTime(T.ShowMinutes(),T.ShowSeconds());
 }
 
 bool checkWifiConnected()
 {
   int i=0;
+  if(NONETWORK) return false;
   //Comprobamos si estamos conectados, error en caso contrario
   while(WiFiMulti.run() != WL_CONNECTED) {
     i++;
     if(i<5) continue;
     else {
-      Serial.println("Error: No estamos conectados a la wifi");
+      #ifdef DEBUG
+        Serial.println("Error: No estamos conectados a la wifi");
+      #endif
       display->print("Err1");
       Estado.estado = ERROR;
       return false;
@@ -724,9 +748,13 @@ int getFactor(uint16_t idx)
       }
     }
     else {
-      Estado.estado = ERROR;
-      display->print("Err8");
-      Serial.printf("GETFACTOR IDX: %d [HTTP] GET... failed, error: %s\n", idx,httpclient.errorToString(httpCode).c_str());
+      if(!NONETWORK && Estado.estado != ERROR) {
+        Estado.estado = ERROR;
+        display->print("Err8");
+        #ifdef DEBUG
+          Serial.printf("GETFACTOR IDX: %d [HTTP] GET... failed, error: %s\n", idx,httpclient.errorToString(httpCode).c_str());
+        #endif
+      }
       return 100;
     }
   #endif
@@ -737,8 +765,10 @@ int getFactor(uint16_t idx)
     statusCode = httpclient.responseStatusCode();
     response = httpclient.responseBody();
     if(statusCode != 200){
-      Serial.print("Status code: ");
-      Serial.println(statusCode);
+      #ifdef DEBUG
+        Serial.print("Status code: ");
+        Serial.println(statusCode);
+      #endif
       display->print("Err2");
       Estado.estado = ERROR;
       httpclient.stop();
@@ -749,7 +779,10 @@ int getFactor(uint16_t idx)
   //Procesamos
   int pos = response.indexOf("\"status\" : \"ERR\"");
   if(pos != -1) {
-    Serial.println("SE HA DEVUELTO ERROR");
+    if(NONETWORK) return 100;
+    #ifdef DEBUG
+      Serial.println("SE HA DEVUELTO ERROR");
+    #endif
     display->print("Err4");
     Estado.estado = ERROR;
     return 100;
@@ -771,7 +804,9 @@ int getFactor(uint16_t idx)
 
   JsonObject &root = jsonBuffer.parseObject(response);
   if (!root.success()) {
-    Serial.println("parseObject() failed");
+    #ifdef DEBUG
+      Serial.println("parseObject() failed");
+    #endif
     return 100;
   }
 
@@ -791,15 +826,18 @@ void domoticzSwitch(int idx,char *msg)
     char JSONMSG[200]="GET /json.htm?type=command&param=switchlight&idx=%d&switchcmd=%s HTTP/1.1\r\n\r\n";
     char message[250];
     sprintf(message,JSONMSG,idx,msg);
-    //Serial.println(message);
     if (!client.available())
     {
       clientConnect();
     }
-    Serial.println(message);
+    #ifdef DEBUG
+      Serial.println(message);
+    #endif
     client.println(message);
     char c = client.read();
-    Serial.println(c)
+    #ifdef DEBUG
+      Serial.println(c)
+    #endif
     client.stop();
   #endif
 
@@ -807,7 +845,6 @@ void domoticzSwitch(int idx,char *msg)
     char JSONMSG[200]="/json.htm?type=command&param=switchlight&idx=%d&switchcmd=%s";
     char message[250];
     sprintf(message,JSONMSG,idx,msg);
-    //Serial.println(message);
     String response;
     #ifdef MEGA256
       int statusCode = 0;
@@ -815,8 +852,10 @@ void domoticzSwitch(int idx,char *msg)
       statusCode = httpclient.responseStatusCode();
       response = httpclient.responseBody();
       if(statusCode != 200){
-        Serial.print("Status code: ");
-        Serial.println(statusCode);
+        #ifdef DEBUG
+          Serial.print("Status code: ");
+          Serial.println(statusCode);
+        #endif
         display->print("Err2");
         Estado.estado = ERROR;
         httpclient.stop();
@@ -837,16 +876,22 @@ void domoticzSwitch(int idx,char *msg)
         }
       }
       else {
+        if(NONETWORK) return;
         Estado.estado = ERROR;
         display->print("Err3");
-        Serial.printf("DOMOTICZSWITH IDX: %d [HTTP] GET... failed, error: %s\n", idx, httpclient.errorToString(httpCode).c_str());
+        #ifdef DEBUG
+          Serial.printf("DOMOTICZSWITH IDX: %d [HTTP] GET... failed, error: %s\n", idx, httpclient.errorToString(httpCode).c_str());
+        #endif
         return;
       }
     #endif
 
     int pos = response.indexOf("\"status\" : \"ERR\"");
     if(pos != -1) {
-      Serial.println("SE HA DEVUELTO ERROR");
+      if(NONETWORK) return;
+      #ifdef DEBUG
+        Serial.println("SE HA DEVUELTO ERROR");
+      #endif
       display->print("Err4");
       Estado.estado = ERROR;
       return;

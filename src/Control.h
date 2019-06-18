@@ -61,6 +61,7 @@ void check(void);
 void StaticTimeUpdate(void);
 void domoticzSwitch(int,char *);
 void refreshDisplay(void);
+void refreshTime(void);
 void stopRiego(uint16_t);
 void stopAllRiego(void);
 void checkBuzzer(void);
@@ -225,11 +226,11 @@ typedef struct {
   S_BOTON Boton [] =  { {bTURBINAS,   0,  0,  15,   ENABLED | ACTION,                 "TURBINAS",   25},
                         {bPORCHE,     0,  0,  14,   ENABLED | ACTION,                 "PORCHE",     27},
                         {bCUARTILLO,  0,  0,  13,   ENABLED | ACTION,                 "CUARTILLO",  58},
-                        {bPAUSE,      0,  0,  0,    DISABLED | ACTION | DUAL | HOLD,  "PAUSE",      0},
+                        {bPAUSE,      0,  0,  0,    ENABLED | ACTION | DUAL | HOLD,   "PAUSE",      0},
                         {bGOTEOALTO,  0,  0,  16,   ENABLED | ACTION,                 "GOTEOALTO",  59},
                         {bGOTEOBAJO,  0,  0,  10,   ENABLED | ACTION,                 "GOTEOBAJO",  24},
                         {bSPARE16,    0,  0,  0,    DISABLED | ACTION,                "ENCODER",    0},
-                        {bSTOP,       0,  0,  0,    DISABLED | ACTION | DUAL,         "STOP",       0},
+                        {bSTOP,       0,  0,  0,    ENABLED | ACTION | DUAL,          "STOP",       0},
                         {bCESPED,     0,  0,  8,    ENABLED | ONLYSTATUS | DUAL,      "CESPED",     0},
                         {bGOTEOS,     0,  0,  3,    ENABLED | ONLYSTATUS | DUAL,      "GOTEOS",     0},
                         {bOLIVOS,     0,  0,  11,   ENABLED | ACTION,                 "OLIVOS",     61},

@@ -29,6 +29,8 @@ class Display
     void blink(int);
     void clearDisplay(void);
     void check(int);
+    void refreshDisplay(void);
+    
 };
 
 #endif

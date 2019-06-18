@@ -108,11 +108,15 @@ void Display::clearDisplay()
 void Display::printTime(int m,int s)
 {
   uint8_t t[5];
-  //Serial.print("M: ");Serial.print(m);Serial.print(" S: ");Serial.println(s);
   t[4] = 1;
   t[2] = s / 10;
   t[3] = s % 10;
   t[0] = m / 10;
   t[1] = m % 10;
   printRaw(t);
+}
+
+void Display::refreshDisplay(void)
+{
+  printRaw(actual);
 }

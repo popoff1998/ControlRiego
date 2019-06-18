@@ -84,17 +84,12 @@ void ledRGB(int  R, int G, int B)
 void led(uint8_t id,int estado)
 {
     //Por seguridad no hacemos nada si id=0
-    //Serial.print("ESTADO: ");Serial.print(estado);
-    //Serial.print(" ID: ");Serial.print(id);
-    //Serial.print(" LEDSTATUSANTES: ");Serial.print(ledStatus,BIN);
     if(id==0) return;
     if(estado == ON) ledStatus |= (1 << (id-1));
     else ledStatus &= ~(1 << (id-1));
-    //Serial.print(" LEDSTATUSDESPUES: ");Serial.println(ledStatus,BIN);
     //convertimos a la parte baja y alta
     uint8_t bajo = (uint8_t)((ledStatus & 0x00FF));
     uint8_t alto = (uint8_t)((ledStatus & 0xFF00) >> 8);
-    //Serial.print("ALTO: ");Serial.print(alto,BIN);Serial.print(" BAJO: ");Serial.println(bajo,BIN);
     digitalWrite(HC595_LATCH, LOW);
     shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, alto);
     shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, bajo);
@@ -150,11 +145,6 @@ uint16_t readInputs()
   //Leemos
   switchVar1 = shiftInCD4021B(CD4021B_DATA, CD4021B_CLOCK);
   switchVar2 = shiftInCD4021B(CD4021B_DATA, CD4021B_CLOCK);
-/*
-  Serial.println(switchVar1,BIN);
-  Serial.println(switchVar2,BIN);
-  Serial.println("-----------------");
-*/
   return switchVar2 | (switchVar1 << 8);
 }
 
@@ -177,6 +167,11 @@ S_BOTON *parseInputs()
     {
       Boton[i].ultimo_estado = Boton[i].estado;
       if (Boton[i].estado || Boton[i].flags.dual) {
+        #ifdef DEBUG
+          Serial.print("BOTON idx: ");Serial.println(Boton[i].idx);
+          Serial.print("BOTON id: ");Serial.println(Boton[i].id);
+          bip(1);
+        #endif
         return &Boton[i];
       }
     }
