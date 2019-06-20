@@ -90,11 +90,15 @@ void initEeprom() {
 
 void initFactorRiegos()
 {
+  #ifdef TRACE
+    Serial.println("TRACE: in initFactorRiegos");
+  #endif
+
   //Primero lo ponemos a 100 para probar
   for(uint i=0;i<NUMRIEGOS;i++) {
     factorRiegos[i]=getFactor(Boton[bId2bIndex(COMPLETO[i])].idx);
   }
-  #ifdef DEBUG
+  #ifdef VERBOSE
     //Leemos los valores para comprobar que lo hizo bien
     for(uint i=0;i<NUMRIEGOS;i++) {
       Serial.printf("FACTOR %d: %d \n",i,factorRiegos[i]);
@@ -118,6 +122,9 @@ void setup()
 {
   Serial.begin(9600);
   Serial.println("CONTROL RIEGO V2");
+  #ifdef TRACE
+    Serial.println("TRACE: in setup");
+  #endif
   //Para el display
   #ifdef DEBUG
    Serial.println("Inicializando display");
@@ -247,13 +254,19 @@ void ultimosRiegos(int modo)
 
 void loop()
 {
+  #ifdef EXTRATRACE
+    Serial.println("TRACE: in loop");
+  #endif
+
   procesaBotones();
   procesaEstados();
 }
 
 void procesaBotones()
 {
-
+  #ifdef EXTRATRACE
+    Serial.println("TRACE: in procesaBotones");
+  #endif
   //Procesamos los botones
   if (!multiSemaforo) {
     //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multiriego
@@ -436,6 +449,10 @@ void procesaBotones()
 
 void procesaEstados()
 {
+  #ifdef EXTRATRACE
+    Serial.println("TRACE: in loop");
+  #endif
+
   switch (Estado.estado) {
     case CONFIGURANDO:
       if (boton != NULL) {
@@ -702,6 +719,9 @@ void refreshTime()
 
 bool checkWifiConnected()
 {
+  #ifdef TRACE
+    Serial.println("TRACE: in checkWifiConnected");
+  #endif
   int i=0;
   if(NONETWORK) return false;
   //Comprobamos si estamos conectados, error en caso contrario
@@ -722,6 +742,9 @@ bool checkWifiConnected()
 
 int getFactor(uint16_t idx)
 {
+  #ifdef TRACE
+    Serial.println("TRACE: in getFactor");
+  #endif
   //Ante cualquier problema devolvemos 100% para no factorizar ese riego
   #ifdef NODEMCU
     if(!checkWifiConnected()) return 100;
@@ -799,6 +822,8 @@ int getFactor(uint16_t idx)
   //if(Estado.estado != ERROR && strcmp(msg,"On") == 0) Estado.estado = REGANDO;
 
   //Teoricamente ya tenemos en response el JSON, lo procesamos
+  //pero acabo de darme cuenta que si preguntamos por un rid como el 0 que devuelve cosas, puede dar una excepcion
+  //asi que hay que controlarlo
   const size_t bufferSize = 2*JSON_ARRAY_SIZE(1) + JSON_OBJECT_SIZE(16) + JSON_OBJECT_SIZE(46) + 1500;
   DynamicJsonBuffer jsonBuffer(bufferSize);
 
@@ -809,8 +834,16 @@ int getFactor(uint16_t idx)
     #endif
     return 100;
   }
-
+  //Tenemos que controlar para que no resetee en caso de no haber leido por un rid malo
   const char *factorstr = root["result"][0]["Description"];
+  if(factorstr == NULL) {
+    //El rid (idx) seguramente era 0 o parecido, así que devolvemos 100
+    #ifdef VERBOSE
+      Serial.printf("El idx %d no se ha podido leer del JSON\n",idx);
+    #endif
+    return 100;
+  }
+
   long int factor = strtol(factorstr,NULL,10);
   if(factor == 0L) return 100;
   else return (int)factor;
@@ -818,6 +851,10 @@ int getFactor(uint16_t idx)
 
 void domoticzSwitch(int idx,char *msg)
 {
+  #ifdef TRACE
+    Serial.println("TRACE: in domoticzSwitch");
+  #endif
+
   #ifdef NODEMCU
     if(!checkWifiConnected()) return;
   #endif

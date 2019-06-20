@@ -45,6 +45,9 @@
 //COMPORTAMIENTO GENERAL. DESCOMENTAR LO QUE CORRESPONDA
 //#define DEBUG
 //#define EXTRADEBUG
+//#define TRACE
+//#define EXTRATRACE
+#define VERBOSE
 //No olvidarse de que para una nodemcu nueva es conveniente poner FORCEINITEEPROM a 1 la primera vez, después a 0
 #define FORCEINITEEPROM     0
 
