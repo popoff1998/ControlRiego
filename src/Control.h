@@ -120,7 +120,7 @@ void initRiego(uint16_t);
 
   #define LEDR                  7
   #define LEDG                  6
-  #define LEDB                  12
+  #define LEDB                  0 //No se está usando ningun led RGB
 
 #endif
 
