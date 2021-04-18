@@ -2,8 +2,8 @@
 
 static char CharTab[] = { '0','1','2','3',
                           '4','5','6','7',
-                          '8','9','a','b',
-                          'c','d','e','f',
+                          '8','9','A','b',
+                          'C','d','E','F',
                           '-',' ','*','r',
                           'h','n','t','u','+',
                           's','t','o','p'};
@@ -21,9 +21,40 @@ static int8_t TubeTab[] = {0x3f,0x06,0x5b,0x4f,
 
 Display::Display(uint8_t clk,uint8_t data) : ledDisp(clk,data)
 {
+  #ifdef DEBUG
+   Serial.println("DISPLAY: set brigth");
+  #endif
   ledDisp.set(BRIGHT_TYPICAL);//BRIGHT_TYPICAL = 2,BRIGHT_DARKEST = 0,BRIGHTEST = 7;
+  #ifdef DEBUG
+   Serial.println("DISPLAY: init");
+  #endif
   ledDisp.init();
+  #ifdef DEBUG
+   Serial.println("DISPLAY: point");
+  #endif
   ledDisp.point(POINT_ON);
+  #ifdef DEBUG
+   Serial.println("DISPLAY: exit constructor");
+  #endif
+}  
+
+void Display::check(int veces)
+{
+  uint8_t t[5];
+  t[4]=0;
+
+  for(int repeat=0;repeat<veces;repeat++)
+  {
+    clearDisplay();
+    for(int i=0;i<10;i++)
+    {
+      for(int j=0;j<4;j++)
+        t[j]=i;
+      printRaw(t);
+      delay(300);
+    }
+    print("----");
+  }
 }
 
 void Display::print(const char *str)
@@ -77,11 +108,15 @@ void Display::clearDisplay()
 void Display::printTime(int m,int s)
 {
   uint8_t t[5];
-  //Serial.print("M: ");Serial.print(m);Serial.print(" S: ");Serial.println(s);
   t[4] = 1;
   t[2] = s / 10;
   t[3] = s % 10;
   t[0] = m / 10;
   t[1] = m % 10;
   printRaw(t);
+}
+
+void Display::refreshDisplay(void)
+{
+  printRaw(actual);
 }

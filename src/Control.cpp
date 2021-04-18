@@ -1,11 +1,12 @@
 #define __MAIN__
-#include <Control.h>
+#include "Control.h"
 #include <EEPROM.h>
 #include <wifissid.h>
 
 S_BOTON *boton;
 S_BOTON *ultimoBoton;
 bool ret;
+bool NONETWORK=false;
 
 #ifdef MEGA256
   EthernetUDP ntpUDP;
@@ -24,17 +25,19 @@ TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};
 Timezone CE(CEST, CET);
 TimeChangeRule *tcr;
 time_t utc;
-/*
-void test()
+// Initial check
+void check(void)
 {
-  for(int i=1;i<17;i++) {
-    led(i,ON);
-    delay(2000);
-    led(i,OFF);
-    delay(1000);
-  }
+  initLeds();
+  display->check(2);
 }
-*/
+//CheckBuzzer
+void checkBuzzer(void)
+{
+
+}
+//Para JSON
+StaticJsonBuffer<2000> jsonBuffer;
 
 uint idarrayRiego(uint16_t id)
 {
@@ -85,20 +88,67 @@ void initEeprom() {
   }
 }
 
+void initFactorRiegos()
+{
+  #ifdef TRACE
+    Serial.println("TRACE: in initFactorRiegos");
+  #endif
+
+  //Primero lo ponemos a 100 para probar
+  for(uint i=0;i<NUMRIEGOS;i++) {
+    factorRiegos[i]=getFactor(Boton[bId2bIndex(COMPLETO[i])].idx);
+  }
+  #ifdef VERBOSE
+    //Leemos los valores para comprobar que lo hizo bien
+    for(uint i=0;i<NUMRIEGOS;i++) {
+      Serial.printf("FACTOR %d: %d \n",i,factorRiegos[i]);
+    }
+  #endif
+}
+
+void timeByFactor(int factor,uint8_t *fminutes, uint8_t *fseconds)
+{
+  //Aqui convertimos minutes y seconds por el factorRiegos
+  uint tseconds = (60*minutes) + seconds;
+  //factorizamos
+  tseconds = (tseconds*factor)/100;
+  //reconvertimos
+  *fminutes = tseconds/60;
+  *fseconds = tseconds%60;
+}
+
 
 void setup()
 {
   Serial.begin(9600);
+  Serial.println("CONTROL RIEGO V2");
+  #ifdef TRACE
+    Serial.println("TRACE: in setup");
+  #endif
   //Para el display
+  #ifdef DEBUG
+   Serial.println("Inicializando display");
+  #endif
   display = new Display(DISPCLK,DISPDIO);
+  #ifdef DEBUG
+   Serial.println("Display inicializado");
+  #endif
   display->print("----");
   //Para el encoder
+  #ifdef DEBUG
+   Serial.println("Inicializando Encoder");
+  #endif
+   display->print("----");
   Encoder = new ClickEncoder(ENCCLK,ENCDT,ENCSW);
   #ifdef MEGA256
     Timer1.initialize(1000);
     Timer1.attachInterrupt(timerIsr);
   #endif
   //Para el Configure le paso encoder y display porque lo usara.
+  #ifdef DEBUG
+   Serial.println("Inicializando Configure");
+  #endif
+  display->print("----");
   configure = new Configure(display);
   //Para el BUZZER
   //pinMode(BUZZER, OUTPUT);
@@ -108,10 +158,10 @@ void setup()
   initHC595();
   //led endencido
   led(LEDR,ON);
-  //initLeds();
+  //Chequeo de perifericos de salida
+  check();
   //Para la red
   delay(1000);
-  //test();
   #ifdef NET_MQTTCLIENT
     MqttClient.setClient(client);
     MqttClient.setServer(MQTT_SERVER,1883);
@@ -157,13 +207,17 @@ void setup()
   for(uint i=0;i<NUMRIEGOS;i++) {
     lastRiegos[i] = 0;
   }
+  //Iniciamos factorRTiegos
+  initFactorRiegos();
   //Deshabilitamos el hold de Pause
   Boton[bId2bIndex(bPAUSE)].flags.holddisabled = true;
   if(!connected) {
     Serial.println("ERROR DE CONEXION WIFI");
-    Estado.estado = ERROR;
-    display->print("Err9");
-    longbip(3);
+    if(!NONETWORK) {
+      Estado.estado = ERROR;
+      display->print("Err9");
+      longbip(3);
+    }
   }
   else {
     Estado.estado = STANDBY;
@@ -171,6 +225,8 @@ void setup()
   }
   standbyTime = millis();
   reposo = false;
+  //Llamo a parseInputs una vez para eliminar prepulsaciones antes del bucle loop
+  parseInputs();
 }
 
 void ultimosRiegos(int modo)
@@ -198,14 +254,19 @@ void ultimosRiegos(int modo)
 
 void loop()
 {
+  #ifdef EXTRATRACE
+    Serial.println("TRACE: in loop");
+  #endif
+
   procesaBotones();
   procesaEstados();
 }
 
 void procesaBotones()
 {
-  //En estado error Salimos
-  if(Estado.estado == ERROR) return;
+  #ifdef EXTRATRACE
+    Serial.println("TRACE: in procesaBotones");
+  #endif
   //Procesamos los botones
   if (!multiSemaforo) {
     //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multiriego
@@ -216,6 +277,19 @@ void procesaBotones()
     multiSemaforo = false;
   }
 
+  //En estado error salimos a menos que pulsemos bPause y pasamos a modo NONETWORK
+  if(Estado.estado == ERROR) 
+  {
+    if(boton != NULL) {
+      //Si estamos en error y pulsamos pausa, nos ponemos en estado NONETWORK para test
+      if(boton->id == bPAUSE) {
+        Estado.estado = STANDBY;
+        NONETWORK = true;
+        StaticTimeUpdate();
+      }
+    }
+    return;
+  }
   if(boton != NULL) {
     //Si estamos en reposo solo nos saca de ese estado
     if (reposo && boton->id != bSTOP) {
@@ -280,6 +354,7 @@ void procesaBotones()
           break;
         case bSTOP:
           if (boton->estado) {
+            //De alguna manera esta regando y hay que parar
             if (Estado.estado == REGANDO || Estado.estado == MULTIREGANDO || Estado.estado == PAUSE) {
               display->print("stop");
               stopAllRiego();
@@ -291,7 +366,7 @@ void procesaBotones()
               Estado.estado = STOP;
             }
             else {
-              //Lo hemos pulsado en standby
+              //Lo hemos pulsado en standby - seguro antinenes
               bip(3);
               display->print("stop");
               stopAllRiego();
@@ -299,7 +374,7 @@ void procesaBotones()
               Estado.estado = STOP;
             }
           }
-
+          //Salimos del estado stop o de configuracion
           if (!boton->estado && (Estado.estado == STOP || Estado.estado == CONFIGURANDO)) {
             StaticTimeUpdate();
             led(Boton[bId2bIndex(bCONFIG)].led,OFF);
@@ -334,6 +409,7 @@ void procesaBotones()
                 break;
             }
             //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
+            //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
             led(Boton[bId2bIndex(multi.id)].led,ON);
             boton = &Boton[bId2bIndex(multi.serie[multi.actual])];
           }
@@ -342,11 +418,23 @@ void procesaBotones()
           if (Estado.estado == STANDBY) {
             bip(2);
             //TODO: Aquí tendré que cambiar minutes y seconds en funcion del factor de cada sector de riego
-            T.SetTimer(0,minutes,seconds);
+            uint8_t fminutes=0,fseconds=0;
+            if(multiriego) {
+              timeByFactor(factorRiegos[idarrayRiego(boton->id)],&fminutes,&fseconds);
+            }
+            else {
+              fminutes = minutes;
+              fseconds = seconds;
+            }
+            //
+            T.SetTimer(0,fminutes,fseconds);
             T.StartTimer();
             ultimoBoton = boton;
             initRiego(boton->id);
-            //Estado.estado = REGANDO;
+            #ifdef DEBUG
+              Serial.printf("Minutos: %d Segundos: %d FMinutos: %d FSegundos: %d\n",minutes,seconds,fminutes,fseconds);
+            #endif
+            Estado.estado = REGANDO;
           }
           //Configuramos el idx
           if (Estado.estado == CONFIGURANDO) {
@@ -361,6 +449,10 @@ void procesaBotones()
 
 void procesaEstados()
 {
+  #ifdef EXTRATRACE
+    Serial.println("TRACE: in loop");
+  #endif
+
   switch (Estado.estado) {
     case CONFIGURANDO:
       if (boton != NULL) {
@@ -415,11 +507,11 @@ void procesaEstados()
       else procesaEncoder();
       break;
     case ERROR:
-      display->blink(DEFAULTBLINK);
+      blinkPause();
       break;
     case REGANDO:
       tiempoTerminado = T.Timer();
-      if (T.TimeHasChanged()) refreshDisplay();
+      if (T.TimeHasChanged()) refreshTime();
       if (tiempoTerminado == 0) {
         Estado.estado = TERMINANDO;
       }
@@ -451,6 +543,7 @@ void procesaEstados()
       if (multiriego) {
         multi.actual++;
         if (multi.actual < multi.size) {
+          //Simular la pulsacion del siguiente boton de la serie de multiriego
           boton = &Boton[bId2bIndex(multi.serie[multi.actual])];
           multiSemaforo = true;
         }
@@ -458,7 +551,9 @@ void procesaEstados()
           longbip(3);
           multiriego = false;
           multiSemaforo = false;
-          Serial.println("MULTIRIEGO TERMINADO");
+          #ifdef DEBUG
+            Serial.println("MULTIRIEGO TERMINADO");
+          #endif
           led(Boton[bId2bIndex(multi.id)].led,OFF);
         }
       }
@@ -561,6 +656,11 @@ void stopAllRiego()
   }
 }
 
+void checkBuzzzer(void)
+{
+
+}
+
 void bip(int veces)
 {
   for (int i=0; i<veces;i++) {
@@ -608,39 +708,173 @@ void StaticTimeUpdate(void)
 
 void refreshDisplay()
 {
+  display->refreshDisplay();
+  //display->printTime(T.ShowMinutes(),T.ShowSeconds());
+}
+
+void refreshTime()
+{
   display->printTime(T.ShowMinutes(),T.ShowSeconds());
 }
 
-void domoticzSwitch(int idx,char *msg)
+bool checkWifiConnected()
 {
-  #ifdef NODEMCU
+  #ifdef TRACE
+    Serial.println("TRACE: in checkWifiConnected");
+  #endif
   int i=0;
+  if(NONETWORK) return false;
   //Comprobamos si estamos conectados, error en caso contrario
   while(WiFiMulti.run() != WL_CONNECTED) {
     i++;
     if(i<5) continue;
     else {
-      Serial.println("Error: No estamos conectados a la wifi");
+      #ifdef DEBUG
+        Serial.println("Error: No estamos conectados a la wifi");
+      #endif
       display->print("Err1");
       Estado.estado = ERROR;
-      return;
+      return false;
     }
   }
+  return true;
+}
+
+int getFactor(uint16_t idx)
+{
+  #ifdef TRACE
+    Serial.println("TRACE: in getFactor");
+  #endif
+  //Ante cualquier problema devolvemos 100% para no factorizar ese riego
+  #ifdef NODEMCU
+    if(!checkWifiConnected()) return 100;
+  #endif
+
+  char JSONMSG[200]="/json.htm?type=devices&rid=%d";
+  char message[250];
+  sprintf(message,JSONMSG,idx);
+  String response;
+
+  #ifdef NODEMCU
+    String tmpStr = "http://" + String(serverAddress) + ":" + DOMOTICZPORT + String(message);
+    #ifdef DEBUG
+      Serial.print("TMPSTR: ");Serial.println(tmpStr);
+    #endif
+    httpclient.begin(tmpStr);
+    int httpCode = httpclient.GET();
+    if(httpCode > 0) {
+      if(httpCode == HTTP_CODE_OK) {
+        response = httpclient.getString();
+        #ifdef EXTRADEBUG
+          Serial.print("RESPONSE: ");Serial.println(response);
+        #endif
+      }
+    }
+    else {
+      if(!NONETWORK && Estado.estado != ERROR) {
+        Estado.estado = ERROR;
+        display->print("Err8");
+        #ifdef DEBUG
+          Serial.printf("GETFACTOR IDX: %d [HTTP] GET... failed, error: %s\n", idx,httpclient.errorToString(httpCode).c_str());
+        #endif
+      }
+      return 100;
+    }
+  #endif
+
+  #ifdef MEGA256
+    int statusCode = 0;
+    httpclient.get(message);
+    statusCode = httpclient.responseStatusCode();
+    response = httpclient.responseBody();
+    if(statusCode != 200){
+      #ifdef DEBUG
+        Serial.print("Status code: ");
+        Serial.println(statusCode);
+      #endif
+      display->print("Err2");
+      Estado.estado = ERROR;
+      httpclient.stop();
+      return 100;
+    }
+  #endif
+
+  //Procesamos
+  int pos = response.indexOf("\"status\" : \"ERR\"");
+  if(pos != -1) {
+    if(NONETWORK) return 100;
+    #ifdef DEBUG
+      Serial.println("SE HA DEVUELTO ERROR");
+    #endif
+    display->print("Err4");
+    Estado.estado = ERROR;
+    return 100;
+  }
+
+  #ifdef MEGA256
+    httpclient.stop();
+  #endif
+
+  #ifdef NODEMCU
+    httpclient.end();
+  #endif
+
+  //if(Estado.estado != ERROR && strcmp(msg,"On") == 0) Estado.estado = REGANDO;
+
+  //Teoricamente ya tenemos en response el JSON, lo procesamos
+  //pero acabo de darme cuenta que si preguntamos por un rid como el 0 que devuelve cosas, puede dar una excepcion
+  //asi que hay que controlarlo
+  const size_t bufferSize = 2*JSON_ARRAY_SIZE(1) + JSON_OBJECT_SIZE(16) + JSON_OBJECT_SIZE(46) + 1500;
+  DynamicJsonBuffer jsonBuffer(bufferSize);
+
+  JsonObject &root = jsonBuffer.parseObject(response);
+  if (!root.success()) {
+    #ifdef DEBUG
+      Serial.println("parseObject() failed");
+    #endif
+    return 100;
+  }
+  //Tenemos que controlar para que no resetee en caso de no haber leido por un rid malo
+  const char *factorstr = root["result"][0]["Description"];
+  if(factorstr == NULL) {
+    //El rid (idx) seguramente era 0 o parecido, así que devolvemos 100
+    #ifdef VERBOSE
+      Serial.printf("El idx %d no se ha podido leer del JSON\n",idx);
+    #endif
+    return 100;
+  }
+
+  long int factor = strtol(factorstr,NULL,10);
+  if(factor == 0L) return 100;
+  else return (int)factor;
+}
+
+void domoticzSwitch(int idx,char *msg)
+{
+  #ifdef TRACE
+    Serial.println("TRACE: in domoticzSwitch");
+  #endif
+
+  #ifdef NODEMCU
+    if(!checkWifiConnected()) return;
   #endif
 
   #ifdef NET_DIRECT
     char JSONMSG[200]="GET /json.htm?type=command&param=switchlight&idx=%d&switchcmd=%s HTTP/1.1\r\n\r\n";
     char message[250];
     sprintf(message,JSONMSG,idx,msg);
-    //Serial.println(message);
     if (!client.available())
     {
       clientConnect();
     }
-    Serial.println(message);
+    #ifdef DEBUG
+      Serial.println(message);
+    #endif
     client.println(message);
     char c = client.read();
-    Serial.println(c)
+    #ifdef DEBUG
+      Serial.println(c)
+    #endif
     client.stop();
   #endif
 
@@ -648,7 +882,6 @@ void domoticzSwitch(int idx,char *msg)
     char JSONMSG[200]="/json.htm?type=command&param=switchlight&idx=%d&switchcmd=%s";
     char message[250];
     sprintf(message,JSONMSG,idx,msg);
-    //Serial.println(message);
     String response;
     #ifdef MEGA256
       int statusCode = 0;
@@ -656,8 +889,10 @@ void domoticzSwitch(int idx,char *msg)
       statusCode = httpclient.responseStatusCode();
       response = httpclient.responseBody();
       if(statusCode != 200){
-        Serial.print("Status code: ");
-        Serial.println(statusCode);
+        #ifdef DEBUG
+          Serial.print("Status code: ");
+          Serial.println(statusCode);
+        #endif
         display->print("Err2");
         Estado.estado = ERROR;
         httpclient.stop();
@@ -672,20 +907,28 @@ void domoticzSwitch(int idx,char *msg)
       if(httpCode > 0) {
         if(httpCode == HTTP_CODE_OK) {
           response = httpclient.getString();
-          Serial.println(response);
+          #ifdef EXTRADEBUG
+            Serial.println(response);
+          #endif
         }
       }
       else {
+        if(NONETWORK) return;
         Estado.estado = ERROR;
         display->print("Err3");
-        Serial.printf("[HTTP] GET... failed, error: %s\n", httpclient.errorToString(httpCode).c_str());
+        #ifdef DEBUG
+          Serial.printf("DOMOTICZSWITH IDX: %d [HTTP] GET... failed, error: %s\n", idx, httpclient.errorToString(httpCode).c_str());
+        #endif
         return;
       }
     #endif
 
     int pos = response.indexOf("\"status\" : \"ERR\"");
     if(pos != -1) {
-      Serial.println("SE HA DEVUELTO ERROR");
+      if(NONETWORK) return;
+      #ifdef DEBUG
+        Serial.println("SE HA DEVUELTO ERROR");
+      #endif
       display->print("Err4");
       Estado.estado = ERROR;
       return;

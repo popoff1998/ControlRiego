@@ -58,7 +58,7 @@ void TM1637::init(uint8_t DispType)
 
 void TM1637::writeByte(int8_t wr_data)
 {
-  uint8_t i,count1;
+  uint8_t i,count1=0;
   for(i=0;i<8;i++)        //sent 8bit data
   {
     digitalWrite(Clkpin,LOW);
@@ -177,7 +177,9 @@ void TM1637::display(double Decimal)
   }
   DecPoint = i;
 
-  Serial.println(Decimal);
+  #ifdef DEBUG
+    Serial.println(Decimal);
+  #endif
   BlankingFlag = 0;
   display(temp);
 

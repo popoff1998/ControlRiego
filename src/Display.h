@@ -28,6 +28,9 @@ class Display
     void printTime(int,int);
     void blink(int);
     void clearDisplay(void);
+    void check(int);
+    void refreshDisplay(void);
+    
 };
 
 #endif

@@ -15,7 +15,7 @@ void Configure::start()
   bip(1);
   _configuringIdx = false;
   _configuringTime = false;
-  display->print("conf");
+  display->print("ConF");
 }
 
 void Configure::stop()
@@ -24,7 +24,7 @@ void Configure::stop()
   bip(1);
   _configuringIdx = false;
   _configuringTime = false;
-  display->print("conf");
+  display->print("ConF");
 }
 
 bool Configure::configuringTime()
