@@ -226,8 +226,7 @@ typedef struct {
 #define NUMRIEGOS sizeof(COMPLETO)/sizeof(COMPLETO[0])
 #ifdef __MAIN__
   //                     ID,          S   uS  LED   FLAGS                             DESC          IDX
-  S_BOTON Boton [] =  { 
-                        {bTURBINAS,   0,  0,  15,   ENABLED | ACTION,                 "TURBINAS",   25},
+  S_BOTON Boton [] =  { {bTURBINAS,   0,  0,  15,   ENABLED | ACTION,                 "TURBINAS",   25},
                         {bPORCHE,     0,  0,  14,   ENABLED | ACTION,                 "PORCHE",     27},
                         {bCUARTILLO,  0,  0,  13,   ENABLED | ACTION,                 "CUARTILLO",  58},
                         {bPAUSE,      0,  0,  0,    ENABLED | ACTION | DUAL | HOLD,   "PAUSE",      0},
