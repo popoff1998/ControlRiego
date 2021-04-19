@@ -10,8 +10,13 @@
 #endif
 
 #ifdef NODEMCU
-  #define DISPCLK             D2
-  #define DISPDIO             D3
+  #ifdef NEWPCB
+    #define DISPCLK             D3
+    #define DISPDIO             D2
+  #else
+    #define DISPCLK             D2
+    #define DISPDIO             D3
+  #endif
 #endif
 
 class Display
