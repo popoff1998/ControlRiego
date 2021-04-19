@@ -44,8 +44,8 @@
 
 //COMPORTAMIENTO GENERAL. DESCOMENTAR LO QUE CORRESPONDA
 #define DEBUG
-//#define EXTRADEBUG
-//#define TRACE
+#define EXTRADEBUG
+#define TRACE
 //#define EXTRATRACE
 #define VERBOSE
 //No olvidarse de que para una nodemcu nueva es conveniente poner FORCEINITEEPROM a 1 la primera vez, después a 0
@@ -111,16 +111,45 @@ void initRiego(uint16_t);
   #define BUZZER              2
 
   #define CD4021B_LATCH         D6
-  #define CD4021B_CLOCK         D5
   #define CD4021B_DATA          D7
 
   #define HC595_DATA            D8
-  #define HC595_LATCH           D4
-  #define HC595_CLOCK           D5
 
-  #define LEDR                  7
-  #define LEDG                  6
-  #define LEDB                  0 //No se está usando ningun led RGB
+  #ifdef NEWPCB
+   #define HC595_LATCH           D5
+   #define HC595_CLOCK           D4
+   #define CD4021B_CLOCK         D4
+   #define LEDR                  4
+   #define LEDG                  5
+   #define LEDB                  0 //No se está usando ningun led RGB
+   #define lCESPED               6
+   #define lCOMPLETO             7
+   #define lGOTEOS               8
+   #define lTURBINAS             10
+   #define lPORCHE               11
+   #define lCUARTILLO            12
+   #define lGOTEOALTO            13
+   #define lGOTEOBAJO            14
+   #define lOLIVOS               15
+   #define lROCALLA              16
+  #else
+   #define HC595_LATCH           D4
+   #define HC595_CLOCK           D5
+   #define CD4021B_CLOCK         D5
+   #define LEDR                  7
+   #define LEDG                  6
+   #define LEDB                  0 //No se está usando ningun led RGB
+   #define lCESPED               8
+   #define lCOMPLETO             5
+   #define lGOTEOS               3
+   #define lTURBINAS             15
+   #define lPORCHE               14
+   #define lCUARTILLO            13
+   #define lGOTEOALTO            16
+   #define lGOTEOBAJO            10
+   #define lOLIVOS               11
+   #define lROCALLA              12
+  #endif
 
 #endif
 
@@ -226,29 +255,33 @@ typedef struct {
 #define NUMRIEGOS sizeof(COMPLETO)/sizeof(COMPLETO[0])
 #ifdef __MAIN__
   //                     ID,          S   uS  LED   FLAGS                             DESC          IDX
-  S_BOTON Boton [] =  { {bTURBINAS,   0,  0,  15,   ENABLED | ACTION,                 "TURBINAS",   25},
-                        {bPORCHE,     0,  0,  14,   ENABLED | ACTION,                 "PORCHE",     27},
-                        {bCUARTILLO,  0,  0,  13,   ENABLED | ACTION,                 "CUARTILLO",  58},
-                        {bPAUSE,      0,  0,  0,    ENABLED | ACTION | DUAL | HOLD,   "PAUSE",      0},
-                        {bGOTEOALTO,  0,  0,  16,   ENABLED | ACTION,                 "GOTEOALTO",  59},
-                        {bGOTEOBAJO,  0,  0,  10,   ENABLED | ACTION,                 "GOTEOBAJO",  24},
-                        {bSPARE16,    0,  0,  0,    DISABLED | ACTION,                "ENCODER",    0},
-                        {bSTOP,       0,  0,  0,    ENABLED | ACTION | DUAL,          "STOP",       0},
-                        {bCESPED,     0,  0,  8,    ENABLED | ONLYSTATUS | DUAL,      "CESPED",     0},
-                        {bGOTEOS,     0,  0,  3,    ENABLED | ONLYSTATUS | DUAL,      "GOTEOS",     0},
-                        {bOLIVOS,     0,  0,  11,   ENABLED | ACTION,                 "OLIVOS",     61},
-                        {bROCALLA,    0,  0,  12,   ENABLED | ACTION,                 "ROCALLA",    30},
-                        {bSPARE13,    0,  0,  0,    DISABLED,                         "SPARE13",    0},
-                        {bCONFIG,     0,  0,  0,    DISABLED,                         "CONFIG",     0},
-                        {bCOMPLETO,   0,  0,  5,    DISABLED,                         "COMPLETO",   0},
-                        {bMULTIRIEGO, 0,  0,  0,    ENABLED | ACTION,                 "MULTIRIEGO", 0}
+    S_BOTON Boton [] =  { 
+      //ID,          S   uS  LED          FLAGS                             DESC          IDX
+       {bTURBINAS,   0,  0,  lTURBINAS,   ENABLED | ACTION,                 "TURBINAS",   25},
+       {bPORCHE,     0,  0,  lPORCHE,     ENABLED | ACTION,                 "PORCHE",     27},
+       {bCUARTILLO,  0,  0,  lCUARTILLO,  ENABLED | ACTION,                 "CUARTILLO",  58},
+       {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE",       0},
+       {bGOTEOALTO,  0,  0,  lGOTEOALTO,  ENABLED | ACTION,                 "GOTEOALTO",  59},
+       {bGOTEOBAJO,  0,  0,  lGOTEOBAJO,  ENABLED | ACTION,                 "GOTEOBAJO",  24},
+       {bSPARE16,    0,  0,  0,           DISABLED | ACTION,                "ENCODER",     0},
+       {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",        0},
+       {bCESPED,     0,  0,  lCESPED,     ENABLED | ONLYSTATUS | DUAL,      "CESPED",      0},
+       {bGOTEOS,     0,  0,  lGOTEOS,     ENABLED | ONLYSTATUS | DUAL,      "GOTEOS",      0},
+       {bOLIVOS,     0,  0,  lOLIVOS,     ENABLED | ACTION,                 "OLIVOS",     61},
+       {bROCALLA,    0,  0,  lROCALLA,    ENABLED | ACTION,                 "ROCALLA",    30},
+       {bSPARE13,    0,  0,  0,           DISABLED,                         "SPARE13",     0},
+       {bCONFIG,     0,  0,  0,           DISABLED,                         "CONFIG",      0},
+       {bCOMPLETO,   0,  0,  lCOMPLETO,   DISABLED,                         "COMPLETO",    0},
+       {bMULTIRIEGO, 0,  0,  0,           ENABLED | ACTION,                 "MULTIRIEGO",  0}
                       };
    uint16_t CESPED[]    = {bTURBINAS, bPORCHE, bCUARTILLO};
    uint16_t GOTEOS[]    = {bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA };
    uint16_t COMPLETO[]  = {bTURBINAS, bPORCHE, bCUARTILLO, bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA};
    time_t   lastRiegos[NUMRIEGOS];
    uint     factorRiegos[NUMRIEGOS];
-   uint ledOrder[] = {15,14,13,16,10,11,12,7,6,8,5,3};
+   //uint ledOrder[] = {15,14,13,16,10,11,12,7,6,8,5,3};
+   uint ledOrder[] = {lTURBINAS, lPORCHE, lCUARTILLO, lGOTEOALTO, lGOTEOBAJO, lOLIVOS, lROCALLA,
+                      LEDR, LEDG, lCESPED, lCOMPLETO, lGOTEOS};
 #else
   extern S_BOTON Boton [];
   extern uint ledOrder[];

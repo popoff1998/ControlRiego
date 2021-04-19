@@ -6,7 +6,8 @@
 S_BOTON *boton;
 S_BOTON *ultimoBoton;
 bool ret;
-bool NONETWORK=false;
+//bool NONETWORK=false;
+bool NONETWORK=true;
 
 #ifdef MEGA256
   EthernetUDP ntpUDP;
@@ -450,7 +451,7 @@ void procesaBotones()
 void procesaEstados()
 {
   #ifdef EXTRATRACE
-    Serial.println("TRACE: in loop");
+    Serial.println("TRACE: in procesaEstados");
   #endif
 
   switch (Estado.estado) {
