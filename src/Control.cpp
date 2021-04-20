@@ -6,8 +6,14 @@
 S_BOTON *boton;
 S_BOTON *ultimoBoton;
 bool ret;
-//bool NONETWORK=false;
-bool NONETWORK=true;
+
+#ifdef RELEASE
+ bool NONETWORK=false;
+#endif
+
+#ifdef DEVELOP
+ bool NONETWORK=true;
+#endif
 
 #ifdef MEGA256
   EthernetUDP ntpUDP;

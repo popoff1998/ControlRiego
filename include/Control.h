@@ -42,12 +42,24 @@
 #include "Display.h"
 #include "Configure.h"
 
-//COMPORTAMIENTO GENERAL. DESCOMENTAR LO QUE CORRESPONDA
-#define DEBUG
-#define EXTRADEBUG
-#define TRACE
-//#define EXTRATRACE
-#define VERBOSE
+#ifdef DEVELOP
+ //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
+ #define DEBUG
+ #define EXTRADEBUG
+ #define TRACE
+ //#define EXTRATRACE
+ #define VERBOSE
+#endif
+
+#ifdef RELEASE
+ //Comportamiento general para uso normal . DESCOMENTAR LO QUE CORRESPONDA
+ //#define DEBUG
+ //#define EXTRADEBUG
+ //#define TRACE
+ //#define EXTRATRACE
+ #define VERBOSE
+#endif
+
 //No olvidarse de que para una nodemcu nueva es conveniente poner FORCEINITEEPROM a 1 la primera vez, después a 0
 #define FORCEINITEEPROM     0
 
@@ -77,8 +89,14 @@ void initRiego(uint16_t);
 
 //Comportamiento General
 #define STANDBYSECS         15
-#define DEFAULTMINUTES      10
-#define DEFAULTSECONDS      0
+#ifdef RELEASE
+ #define DEFAULTMINUTES      10
+ #define DEFAULTSECONDS      0
+#endif
+#ifdef DEVELOP
+ #define DEFAULTMINUTES      0
+ #define DEFAULTSECONDS      6
+#endif
 #define DEFAULTBLINK        5
 #define DEFAULTBLINKMILLIS  500
 #define MINMINUTES          0
@@ -87,7 +105,6 @@ void initRiego(uint16_t);
 #define HOLDTIME            3000
 #define MAXCONNECTRETRY     10
 #define DOMOTICZPORT        3380
-
 
 #ifdef MEGA256
   #define CD4021B_LATCH         43
@@ -109,16 +126,13 @@ void initRiego(uint16_t);
   #define ENCDT               D1
   #define ENCSW               100
   #define BUZZER              2
-
-  #define CD4021B_LATCH         D6
-  #define CD4021B_DATA          D7
-
-  #define HC595_DATA            D8
-
   #ifdef NEWPCB
-   #define HC595_LATCH           D5
-   #define HC595_CLOCK           D4
-   #define CD4021B_CLOCK         D4
+   #define HC595_DATA            D8
+   #define HC595_LATCH           D4
+   #define HC595_CLOCK           D5
+   #define CD4021B_CLOCK         D5
+   #define CD4021B_LATCH         D6
+   #define CD4021B_DATA          D7
    #define LEDR                  4
    #define LEDG                  5
    #define LEDB                  0 //No se está usando ningun led RGB
@@ -133,9 +147,12 @@ void initRiego(uint16_t);
    #define lOLIVOS               15
    #define lROCALLA              16
   #else
+   #define HC595_DATA            D8
    #define HC595_LATCH           D4
    #define HC595_CLOCK           D5
    #define CD4021B_CLOCK         D5
+   #define CD4021B_LATCH         D6
+   #define CD4021B_DATA          D7
    #define LEDR                  7
    #define LEDG                  6
    #define LEDB                  0 //No se está usando ningun led RGB
