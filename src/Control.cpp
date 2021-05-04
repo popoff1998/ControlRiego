@@ -12,7 +12,7 @@ bool ret;
 #endif
 
 #ifdef DEVELOP
- bool NONETWORK=true;
+ bool NONETWORK=false;
 #endif
 
 #ifdef MEGA256
@@ -177,9 +177,13 @@ void setup()
     Ethernet.begin(mac,ip,gateway,subnet);
   #endif
   #ifdef NODEMCU
-    for (int i=0;i<4;i++) {
+    for (int i=0;i < sizeof(ssid)/sizeof(ssid[0]); i++) {
       int j=0;
       WiFiMulti.addAP(ssid[i],pass);
+      #ifdef DEBUG
+              Serial.println("Intentando conectar a: ");
+              Serial.print(ssid[i]);
+      #endif
       connected = true;
       while(WiFiMulti.run() != WL_CONNECTED) {
         led(LEDG,ON);
@@ -195,9 +199,10 @@ void setup()
       }
       if(connected) {
         Serial.println("");
-        Serial.println("WiFi connectado");
+        Serial.printf("Wifi conectado a SSID: %s\n", WiFi.SSID().c_str());
         Serial.println("IP address: ");
         Serial.println(WiFi.localIP());
+        Serial.printf("RSSI: %d dBm\n", WiFi.RSSI());
         led(LEDG,ON);
         break;
       }
@@ -224,6 +229,13 @@ void setup()
       Estado.estado = ERROR;
       display->print("Err9");
       longbip(3);
+    }
+    // Si estamos en modo NONETWORK pasamos a STANDBY aunque no exista conexión wifi y
+    // encendemos led wifi en color azul
+    else {
+      Estado.estado = STANDBY;
+      bip(2);
+      led(LEDB,ON);
     }
   }
   else {
@@ -292,6 +304,9 @@ void procesaBotones()
       if(boton->id == bPAUSE) {
         Estado.estado = STANDBY;
         NONETWORK = true;
+        Serial.println("estado en ERROR y PAUSA pulsada pasamos a modo NONETWORK");
+        bip(2);
+        led(LEDB,ON);
         StaticTimeUpdate();
       }
     }
@@ -648,7 +663,9 @@ void stopRiego(uint16_t id)
 {
   //Esta funcion mandara el mensaje a domoticz de desactivar el boton
   int index = bId2bIndex(id);
+  Serial << "Terminando riego: " << Boton[index].desc << endl;
   domoticzSwitch(Boton[index].idx,(char *)"Off");
+  if (Estado.estado != ERROR) Serial << "Terminado OK riego: " << Boton[index].desc << endl;
 }
 
 void stopAllRiego()
@@ -706,8 +723,10 @@ void blinkPause()
   }
 }
 
+// modificacion 1 para que en caso de estado ERROR no borre el código de error del display
 void StaticTimeUpdate(void)
 {
+  if (Estado.estado == ERROR) return;
   if (minutes < MINMINUTES) minutes = MINMINUTES;
   if (minutes > MAXMINUTES) minutes = MAXMINUTES;
   display->printTime(minutes, seconds);
@@ -730,7 +749,10 @@ bool checkWifiConnected()
     Serial.println("TRACE: in checkWifiConnected");
   #endif
   int i=0;
-  if(NONETWORK) return false;
+  if(NONETWORK) {
+     led(LEDB,ON);
+     return false;
+  }
   //Comprobamos si estamos conectados, error en caso contrario
   while(WiFiMulti.run() != WL_CONNECTED) {
     i++;
@@ -741,9 +763,11 @@ bool checkWifiConnected()
       #endif
       display->print("Err1");
       Estado.estado = ERROR;
+      led(LEDG,OFF);
       return false;
     }
   }
+  led(LEDG,ON);
   return true;
 }
 

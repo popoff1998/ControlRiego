@@ -135,7 +135,7 @@ void initRiego(uint16_t);
    #define CD4021B_DATA          D7
    #define LEDR                  4
    #define LEDG                  5
-   #define LEDB                  0 //No se está usando ningun led RGB
+   #define LEDB                  3 
    #define lCESPED               6
    #define lCOMPLETO             7
    #define lGOTEOS               8
