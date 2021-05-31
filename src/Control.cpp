@@ -15,6 +15,10 @@ bool ret;
  bool NONETWORK=false;
 #endif
 
+#ifdef DEMO
+ bool NONETWORK=true;
+#endif
+
 #ifdef MEGA256
   EthernetUDP ntpUDP;
 #endif
@@ -75,7 +79,13 @@ void initEeprom() {
       botonAddr += 2;
     }
     EEPROM.put(offsetof(__eeprom_data, minutes),DEFAULTMINUTES);
+    Serial << "escrito DEFAULTMINUTES : " << DEFAULTMINUTES << endl;
     EEPROM.put(offsetof(__eeprom_data, seconds),DEFAULTSECONDS);
+    Serial << "escrito DEFAULTSECONDS : " << DEFAULTSECONDS << endl;
+    EEPROM.put(0,1);   // marca la eeprom como inicializada
+    minutes = DEFAULTMINUTES;
+    seconds = DEFAULTSECONDS;
+    value = ((seconds==0)?minutes:seconds); //para que use esos valores
     #ifdef NODEMCU
       EEPROM.commit();
     #endif
@@ -84,12 +94,12 @@ void initEeprom() {
     Serial.println("Leyendo valores de la EEPROM");
     for(i=0;i<16;i++) {
       EEPROM.get(botonAddr,Boton[i].idx);
-      //Serial << "leido boton " << i << " : " << Boton[i].idx << " address: " << botonAddr << endl;
+      Serial << "leido boton " << i << " : " << Boton[i].idx << " address: " << botonAddr << endl;
       botonAddr += sizeof(Boton[i].idx);
     }
     EEPROM.get(offsetof(__eeprom_data, minutes),minutes);
     EEPROM.get(offsetof(__eeprom_data, seconds),seconds);
-    //Serial << "READ EEPROM TIME, minutes: " << minutes << " seconds: " << seconds << endl;
+    Serial << "READ EEPROM TIME, minutes: " << minutes << " seconds: " << seconds << endl;
     value = ((seconds==0)?minutes:seconds);
     StaticTimeUpdate();
   }
@@ -101,7 +111,6 @@ void initFactorRiegos()
     Serial.println("TRACE: in initFactorRiegos");
   #endif
 
-  //Primero lo ponemos a 100 para probar
   for(uint i=0;i<NUMRIEGOS;i++) {
     factorRiegos[i]=getFactor(Boton[bId2bIndex(COMPLETO[i])].idx);
   }
@@ -163,7 +172,7 @@ void setup()
   initCD4021B();
   //Para el 74HC595
   initHC595();
-  //led endencido
+  //led encendido
   led(LEDR,ON);
   //Chequeo de perifericos de salida
   check();
@@ -304,9 +313,12 @@ void procesaBotones()
       if(boton->id == bPAUSE) {
         Estado.estado = STANDBY;
         NONETWORK = true;
-        Serial.println("estado en ERROR y PAUSA pulsada pasamos a modo NONETWORK");
+        Serial.println("estado en ERROR y PAUSA pulsada pasamos a modo NONETWORK y reseteamos");
         bip(2);
         led(LEDB,ON);
+        //TODO: ¿es necesario mas reseteo de estados o leds?
+        multiriego = false;
+        multiSemaforo = false;
         StaticTimeUpdate();
       }
     }
@@ -337,7 +349,7 @@ void procesaBotones()
                 bip(2);
                 if(ultimoBoton) initRiego(ultimoBoton->id);
                 T.ResumeTimer();
-                Estado.estado = REGANDO;
+                if(Estado.estado != ERROR) Estado.estado = REGANDO; // para que no borre ERROR
                 break;
               case CONFIGURANDO:
                 if(!configure->configuringIdx() && !configure->configuringTime()) {
@@ -456,7 +468,7 @@ void procesaBotones()
             #ifdef DEBUG
               Serial.printf("Minutos: %d Segundos: %d FMinutos: %d FSegundos: %d\n",minutes,seconds,fminutes,fseconds);
             #endif
-            Estado.estado = REGANDO;
+            if(Estado.estado != ERROR) Estado.estado = REGANDO; // para que no borre ERROR
           }
           //Configuramos el idx
           if (Estado.estado == CONFIGURANDO) {
@@ -657,6 +669,10 @@ void initRiego(uint16_t id)
   t = CE.toLocal(utc,&tcr);
   lastRiegos[arrayIndex] = t;
   domoticzSwitch(Boton[index].idx,(char *)"On");
+  #ifdef DEBUG
+    Serial.print("initRiego acaba en estado: ");
+    Serial.println(Estado.estado);
+  #endif
 }
 
 void stopRiego(uint16_t id)
@@ -666,6 +682,10 @@ void stopRiego(uint16_t id)
   Serial << "Terminando riego: " << Boton[index].desc << endl;
   domoticzSwitch(Boton[index].idx,(char *)"Off");
   if (Estado.estado != ERROR) Serial << "Terminado OK riego: " << Boton[index].desc << endl;
+  #ifdef DEBUG
+    Serial.print("stopRiego acaba en estado: ");
+    Serial.println(Estado.estado);
+  #endif
 }
 
 void stopAllRiego()

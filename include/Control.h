@@ -60,8 +60,18 @@
  #define VERBOSE
 #endif
 
+#ifdef DEMO
+ //Comportamiento general para DEMO . DESCOMENTAR LO QUE CORRESPONDA
+ #define DEBUG
+ #define EXTRADEBUG
+ #define TRACE
+ //#define EXTRATRACE
+ #define VERBOSE
+#endif
+
+
 //No olvidarse de que para una nodemcu nueva es conveniente poner FORCEINITEEPROM a 1 la primera vez, después a 0
-#define FORCEINITEEPROM     0
+#define FORCEINITEEPROM     1
 
 //Estructura de mi eeprom
 struct __eeprom_data {
@@ -95,7 +105,11 @@ void initRiego(uint16_t);
 #endif
 #ifdef DEVELOP
  #define DEFAULTMINUTES      0
- #define DEFAULTSECONDS      6
+ #define DEFAULTSECONDS      10
+#endif
+#ifdef DEMO
+ #define DEFAULTMINUTES      0
+ #define DEFAULTSECONDS      7
 #endif
 #define DEFAULTBLINK        5
 #define DEFAULTBLINKMILLIS  500
@@ -296,7 +310,6 @@ typedef struct {
    uint16_t COMPLETO[]  = {bTURBINAS, bPORCHE, bCUARTILLO, bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA};
    time_t   lastRiegos[NUMRIEGOS];
    uint     factorRiegos[NUMRIEGOS];
-   //uint ledOrder[] = {15,14,13,16,10,11,12,7,6,8,5,3};
    uint ledOrder[] = {lTURBINAS, lPORCHE, lCUARTILLO, lGOTEOALTO, lGOTEOBAJO, lOLIVOS, lROCALLA,
                       LEDR, LEDG, lCESPED, lCOMPLETO, lGOTEOS};
 #else
