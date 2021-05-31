@@ -78,17 +78,23 @@ void initEeprom() {
       EEPROM.put(botonAddr,Boton[i].idx);
       botonAddr += 2;
     }
-    EEPROM.put(offsetof(__eeprom_data, minutes),DEFAULTMINUTES);
-    Serial << "escrito DEFAULTMINUTES : " << DEFAULTMINUTES << endl;
-    EEPROM.put(offsetof(__eeprom_data, seconds),DEFAULTSECONDS);
-    Serial << "escrito DEFAULTSECONDS : " << DEFAULTSECONDS << endl;
-    EEPROM.put(0,1);   // marca la eeprom como inicializada
+    uint8_t mr,sr;
     minutes = DEFAULTMINUTES;
     seconds = DEFAULTSECONDS;
     value = ((seconds==0)?minutes:seconds); //para que use esos valores
+    Serial << "SAVE EEPROM TIME, minutes: " << minutes << " seconds: " << seconds << endl;
+    EEPROM.put(offsetof(__eeprom_data, minutes),minutes);
+    EEPROM.put(offsetof(__eeprom_data, seconds),seconds);
+    EEPROM.put(0,1);   // marca la eeprom como inicializada
     #ifdef NODEMCU
-      EEPROM.commit();
-    #endif
+      bool bRc = EEPROM.commit();
+      if(bRc) Serial.println("Write eeprom successfully");
+      else    Serial.println("Write eeprom error");
+    #endif                
+    EEPROM.get(offsetof(__eeprom_data, minutes),mr);
+    EEPROM.get(offsetof(__eeprom_data, seconds),sr);
+    Serial << "OFFm: " << offsetof(__eeprom_data, minutes) << " OFFs: " << offsetof(__eeprom_data, seconds) << endl;
+    Serial << "READ EEPROM TIME, minutes: " << mr << " seconds: " << sr << endl;
   }
   else {
     Serial.println("Leyendo valores de la EEPROM");
@@ -451,7 +457,7 @@ void procesaBotones()
         default:
           if (Estado.estado == STANDBY) {
             bip(2);
-            //TODO: Aquí tendré que cambiar minutes y seconds en funcion del factor de cada sector de riego
+            //cambia minutes y seconds en funcion del factor de cada sector de riego
             uint8_t fminutes=0,fseconds=0;
             if(multiriego) {
               timeByFactor(factorRiegos[idarrayRiego(boton->id)],&fminutes,&fseconds);
