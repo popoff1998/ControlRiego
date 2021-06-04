@@ -78,6 +78,7 @@ void initEeprom() {
       EEPROM.put(botonAddr,Boton[i].idx);
       botonAddr += 2;
     }
+<<<<<<< HEAD
     uint8_t mr,sr;
     minutes = DEFAULTMINUTES;
     seconds = DEFAULTSECONDS;
@@ -86,6 +87,16 @@ void initEeprom() {
     EEPROM.put(offsetof(__eeprom_data, minutes),minutes);
     EEPROM.put(offsetof(__eeprom_data, seconds),seconds);
     EEPROM.put(0,1);   // marca la eeprom como inicializada
+=======
+    EEPROM.put(offsetof(__eeprom_data, minutes),DEFAULTMINUTES);
+    Serial << "escrito DEFAULTMINUTES : " << DEFAULTMINUTES << endl;
+    EEPROM.put(offsetof(__eeprom_data, seconds),DEFAULTSECONDS);
+    Serial << "escrito DEFAULTSECONDS : " << DEFAULTSECONDS << endl;
+    EEPROM.put(0,1);   // marca la eeprom como inicializada
+    minutes = DEFAULTMINUTES;
+    seconds = DEFAULTSECONDS;
+    value = ((seconds==0)?minutes:seconds); //para que use esos valores
+>>>>>>> a53593ad42c75bc180090e205057c81725736fe4
     #ifdef NODEMCU
       bool bRc = EEPROM.commit();
       if(bRc) Serial.println("Write eeprom successfully");
