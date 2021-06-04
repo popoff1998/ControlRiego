@@ -444,21 +444,25 @@ void procesaBotones()
                 multi.serie = COMPLETO;
                 multi.size = sizeof(COMPLETO)/2;
                 multi.id = bCOMPLETO;
-                strcpy((char *)"COMPLETO",multi.desc);
+                strcpy(multi.desc,(char *)"COMPLETO");
                 break;
               case bCESPED:
                 multi.serie = CESPED;
                 multi.size = sizeof(CESPED)/2;
                 multi.id = bCESPED;
-                strcpy((char *)"CESPED",multi.desc);
+                //strcpy((char *)"CESPED",multi.desc);
+                strcpy(multi.desc,(char *)"CESPED");
                 break;
               case bGOTEOS:
                 multi.serie = GOTEOS;
                 multi.size = sizeof(GOTEOS)/2;
                 multi.id = bGOTEOS;
-                strcpy((char *)"GOTEOS",multi.desc);
+                strcpy(multi.desc,(char *)"GOTEOS");
                 break;
             }
+            #ifdef DEBUG
+              Serial.printf("MULTIRRIEGO iniciado: %s \n", multi.desc);
+            #endif            
             //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
             //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
             led(Boton[bId2bIndex(multi.id)].led,ON);
@@ -603,7 +607,7 @@ void procesaEstados()
           multiriego = false;
           multiSemaforo = false;
           #ifdef DEBUG
-            Serial.println("MULTIRIEGO TERMINADO");
+            Serial.printf("MULTIRRIEGO %s terminado \n", multi.desc);
           #endif
           led(Boton[bId2bIndex(multi.id)].led,OFF);
         }

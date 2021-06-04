@@ -71,7 +71,7 @@
 
 
 //No olvidarse de que para una nodemcu nueva es conveniente poner FORCEINITEEPROM a 1 la primera vez, después a 0
-#define FORCEINITEEPROM     1
+#define FORCEINITEEPROM     0
 
 //Estructura de mi eeprom
 struct __eeprom_data {

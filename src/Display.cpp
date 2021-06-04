@@ -24,7 +24,8 @@ Display::Display(uint8_t clk,uint8_t data) : ledDisp(clk,data)
   #ifdef DEBUG
    Serial.println("DISPLAY: set brigth");
   #endif
-  ledDisp.set(BRIGHT_TYPICAL);//BRIGHT_TYPICAL = 2,BRIGHT_DARKEST = 0,BRIGHTEST = 7;
+  ledDisp.set(BRIGHT_TYPICAL); //BRIGHT_TYPICAL = 2,BRIGHT_DARKEST = 0,BRIGHTEST = 7
+  //ledDisp.set(BRIGHTEST); //para leds verdes
   #ifdef DEBUG
    Serial.println("DISPLAY: init");
   #endif
