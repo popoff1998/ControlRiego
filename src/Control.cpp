@@ -72,10 +72,18 @@ void initEeprom() {
   #endif
   EEPROM.get(0,eeinitialized);
   botonAddr = offsetof(__eeprom_data, botonIdx[0]);
+  #ifdef DEBUG
+    Serial << endl;
+    Serial << "sizeof(__eeprom_data)= " << sizeof(__eeprom_data) << endl;
+    Serial << "eeinitialized= " << eeinitialized << endl;
+    Serial << "FORCEINITEEPROM= " << FORCEINITEEPROM << endl;
+    Serial << "boton0 offset= " << botonAddr << endl;
+  #endif
   if( eeinitialized == 0 || FORCEINITEEPROM == 1) {
     Serial.println("Inicializando la EEPROM");
     for(i=0;i<16;i++) {
       EEPROM.put(botonAddr,Boton[i].idx);
+      Serial << "escribiendo boton " << i << " : " << Boton[i].idx << " address: " << botonAddr << endl;
       botonAddr += 2;
     }
     uint8_t mr,sr;
@@ -85,7 +93,7 @@ void initEeprom() {
     Serial << "SAVE EEPROM TIME, minutes: " << minutes << " seconds: " << seconds << endl;
     EEPROM.put(offsetof(__eeprom_data, minutes),minutes);
     EEPROM.put(offsetof(__eeprom_data, seconds),seconds);
-    EEPROM.put(0,1);   // marca la eeprom como inicializada
+    EEPROM.put(offsetof(__eeprom_data, initialized),(uint8_t)1);   // marca la eeprom como inicializada
     #ifdef NODEMCU
       bool bRc = EEPROM.commit();
       if(bRc) Serial.println("Write eeprom successfully");
@@ -93,8 +101,20 @@ void initEeprom() {
     #endif                
     EEPROM.get(offsetof(__eeprom_data, minutes),mr);
     EEPROM.get(offsetof(__eeprom_data, seconds),sr);
-    Serial << "OFFm: " << offsetof(__eeprom_data, minutes) << " OFFs: " << offsetof(__eeprom_data, seconds) << endl;
-    Serial << "READ EEPROM TIME, minutes: " << mr << " seconds: " << sr << endl;
+    #ifdef DEBUG
+      uint16_t boton0;  //dbg
+      uint16_t boton1;  //dbg
+      int boton0Addr, boton1Addr; //dbg    
+      Serial << "OFFinitialized: " << offsetof(__eeprom_data, initialized) << endl;
+      boton0Addr = offsetof(__eeprom_data, botonIdx[0]);  //dbg
+      EEPROM.get(offsetof(__eeprom_data, botonIdx[0]), boton0);  //dbg
+      boton1Addr = offsetof(__eeprom_data, botonIdx[1]);  //dbg
+      EEPROM.get(offsetof(__eeprom_data, botonIdx[1]), boton1);  //dbg
+      Serial << "leido boton 0 : " << boton0 << " address: " << boton0Addr << endl;  //dbg
+      Serial << "leido boton 1 : " << boton1 << " address: " << boton1Addr << endl;  //dbg
+      Serial << "OFFm: " << offsetof(__eeprom_data, minutes) << " OFFs: " << offsetof(__eeprom_data, seconds) << endl;
+      Serial << "READ EEPROM TIME, minutes: " << mr << " seconds: " << sr << endl;
+    #endif
   }
   else {
     Serial.println("Leyendo valores de la EEPROM");
@@ -143,6 +163,7 @@ void timeByFactor(int factor,uint8_t *fminutes, uint8_t *fseconds)
 void setup()
 {
   Serial.begin(9600);
+  Serial.println(" ");
   Serial.println("CONTROL RIEGO V2");
   #ifdef TRACE
     Serial.println("TRACE: in setup");
@@ -196,7 +217,8 @@ void setup()
       int j=0;
       WiFiMulti.addAP(ssid[i],pass);
       #ifdef DEBUG
-              Serial.println("Intentando conectar a: ");
+              Serial.println("");
+              Serial.print("Intentando conectar a:   ");
               Serial.print(ssid[i]);
       #endif
       connected = true;
@@ -215,7 +237,7 @@ void setup()
       if(connected) {
         Serial.println("");
         Serial.printf("Wifi conectado a SSID: %s\n", WiFi.SSID().c_str());
-        Serial.println("IP address: ");
+        Serial.print("IP address: ");
         Serial.println(WiFi.localIP());
         Serial.printf("RSSI: %d dBm\n", WiFi.RSSI());
         led(LEDG,ON);
@@ -448,11 +470,9 @@ void procesaBotones()
                 strcpy(multi.desc,(char *)"GOTEOS");
                 break;
             }
-            #ifdef DEBUG
-              Serial.printf("MULTIRRIEGO iniciado: %s \n", multi.desc);
-            #endif                 
             //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
             //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
+            Serial.printf("MULTIRRIEGO iniciado: %s \n", multi.desc);
             led(Boton[bId2bIndex(multi.id)].led,ON);
             boton = &Boton[bId2bIndex(multi.serie[multi.actual])];
           }
@@ -561,10 +581,10 @@ void procesaEstados()
       break;
     case STANDBY:
       Boton[bId2bIndex(bPAUSE)].flags.holddisabled = true;
-      //Apagamos el display si ha pasado el lapso
+      //Apagamos el display si ha pasado el lapso y no estamos en error
       if (reposo) standbyTime = millis();
       else {
-        if (millis() > standbyTime + (1000 * STANDBYSECS) ) {
+        if (millis() > standbyTime + (1000 * STANDBYSECS) && Estado.estado != ERROR ) {
           Serial.println("Entramos en reposo");
           reposo = true;
           display->clearDisplay();
@@ -594,9 +614,7 @@ void procesaEstados()
           longbip(3);
           multiriego = false;
           multiSemaforo = false;
-          #ifdef DEBUG
-Serial.printf("MULTIRRIEGO %s terminado \n", multi.desc);
-          #endif
+            Serial.printf("MULTIRRIEGO %s terminado \n", multi.desc);
           led(Boton[bId2bIndex(multi.id)].led,OFF);
         }
       }
@@ -688,7 +706,9 @@ void stopRiego(uint16_t id)
 {
   //Esta funcion mandara el mensaje a domoticz de desactivar el boton
   int index = bId2bIndex(id);
+  #ifdef DEBUG
   Serial << "Terminando riego: " << Boton[index].desc << endl;
+  #endif
   domoticzSwitch(Boton[index].idx,(char *)"Off");
   if (Estado.estado != ERROR) Serial << "Terminado OK riego: " << Boton[index].desc << endl;
   #ifdef DEBUG
