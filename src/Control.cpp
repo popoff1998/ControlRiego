@@ -180,6 +180,7 @@ void setup()
   //Para el encoder
   #ifdef DEBUG
    Serial.println("Inicializando Encoder");
+   //Serial.println("NUM_S_BOTON:"); Serial.println(NUM_S_BOTON);
   #endif
    display->print("----");
   Encoder = new ClickEncoder(ENCCLK,ENCDT,ENCSW);
@@ -193,8 +194,6 @@ void setup()
   #endif
   display->print("----");
   configure = new Configure(display);
-  //Para el BUZZER
-  //pinMode(BUZZER, OUTPUT);
   //Para el CD4021B
   initCD4021B();
   //Para el 74HC595
@@ -559,6 +558,7 @@ void procesaEstados()
               break;
             case bSTOP:
               if(!boton->estado) {
+                value = savedValue;  // para que restaure reloj aunque no salvemos con pause el valor
                 configure->stop();
                 Estado.estado = STANDBY;
                 standbyTime = millis();

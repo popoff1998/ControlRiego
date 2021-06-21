@@ -123,7 +123,7 @@ byte shiftInCD4021B(int myDataPin, int myClockPin)
 
 int bId2bIndex(uint16_t id)
 {
-  for (int i=0;i<16;i++) {
+  for (int i=0;i<18;i++) {
     if (Boton[i].id == id) return i;
   }
   return 999;
@@ -158,18 +158,19 @@ S_BOTON *parseInputs()
 
   uint16_t inputs = readInputs();
 
-  for (i=0;i<16;i++) {
+  for (i=0;i<18;i++) {
     //Nos saltamos los DISABLED
     if (!Boton[i].flags.enabled) continue;
     Boton[i].estado = inputs & Boton[i].id;
-    //Solo si el estado ha cambiado
+    //Solo si el estado del boton ha cambiado devuelve cual ha sido 
     if ((Boton[i].estado != Boton[i].ultimo_estado) || (Boton[i].estado && Boton[i].flags.hold && !Boton[i].flags.holddisabled))
     {
       Boton[i].ultimo_estado = Boton[i].estado;
       if (Boton[i].estado || Boton[i].flags.dual) {
         #ifdef DEBUG
-          Serial.print("BOTON idx: ");Serial.println(Boton[i].idx);
-          Serial.print("BOTON id: ");Serial.println(Boton[i].id);
+          Serial.print("BOTON: ");Serial.print(Boton[i].desc);
+          Serial.print("   BOTON id:  0x");Serial.print(Boton[i].id,HEX);
+          Serial.print("   BOTON idx: ");Serial.println(Boton[i].idx);
           bip(1);
         #endif
         return &Boton[i];

@@ -224,7 +224,7 @@ enum {
   bGOTEOS     = 0x0200,
   bCESPED     = 0x0400,
   bSTOP       = 0x0800,
-  bSPARE14    = 0x1000,
+  bENCODER    = 0x1000,
   bSPARE15    = 0x2000,
   bSPARE16    = 0x4000,
   bPAUSE      = 0x8000,
@@ -284,6 +284,7 @@ typedef struct {
 } S_MULTI;
 
 #define NUMRIEGOS sizeof(COMPLETO)/sizeof(COMPLETO[0])
+#define NUM_S_BOTON sizeof(Boton)/sizeof(Boton[0])
 #ifdef __MAIN__
   
     S_BOTON Boton [] =  { 
@@ -291,19 +292,21 @@ typedef struct {
        {bTURBINAS,   0,  0,  lTURBINAS,   ENABLED | ACTION,                 "TURBINAS",   25},
        {bPORCHE,     0,  0,  lPORCHE,     ENABLED | ACTION,                 "PORCHE",     27},
        {bCUARTILLO,  0,  0,  lCUARTILLO,  ENABLED | ACTION,                 "CUARTILLO",  58},
-       {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE",       0},
        {bGOTEOALTO,  0,  0,  lGOTEOALTO,  ENABLED | ACTION,                 "GOTEOALTO",  59},
-       {bGOTEOBAJO,  0,  0,  lGOTEOBAJO,  ENABLED | ACTION,                 "GOTEOBAJO",  24},
-       {bSPARE16,    0,  0,  0,           DISABLED | ACTION,                "ENCODER",     0},
-       {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",        0},
-       {bCESPED,     0,  0,  lCESPED,     ENABLED | ONLYSTATUS | DUAL,      "CESPED",      0},
-       {bGOTEOS,     0,  0,  lGOTEOS,     ENABLED | ONLYSTATUS | DUAL,      "GOTEOS",      0},
        {bOLIVOS,     0,  0,  lOLIVOS,     ENABLED | ACTION,                 "OLIVOS",     61},
+       {bMULTIRIEGO, 0,  0,  0,           ENABLED | ACTION,                 "MULTIRIEGO",  0},
        {bROCALLA,    0,  0,  lROCALLA,    ENABLED | ACTION,                 "ROCALLA",    30},
+       {bGOTEOBAJO,  0,  0,  lGOTEOBAJO,  ENABLED | ACTION,                 "GOTEOBAJO",  24},
        {bSPARE13,    0,  0,  0,           DISABLED,                         "SPARE13",     0},
-       {bCONFIG,     0,  0,  0,           DISABLED,                         "CONFIG",      0},
+       {bGOTEOS,     0,  0,  lGOTEOS,     ENABLED | ONLYSTATUS | DUAL,      "GOTEOS",      0},
+       {bCESPED,     0,  0,  lCESPED,     ENABLED | ONLYSTATUS | DUAL,      "CESPED",      0},
+       {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",        0},
+       {bENCODER,    0,  0,  0,           ENABLED | ONLYSTATUS | DUAL,      "ENCODER",     0},
+       {bSPARE15,    0,  0,  0,           DISABLED,                         "SPARE15",     0},
+       {bSPARE16,    0,  0,  0,           DISABLED,                         "SPARE16",     0},
+       {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE",       0},
        {bCOMPLETO,   0,  0,  lCOMPLETO,   DISABLED,                         "COMPLETO",    0},
-       {bMULTIRIEGO, 0,  0,  0,           ENABLED | ACTION,                 "MULTIRIEGO",  0}
+       {bCONFIG,     0,  0,  0,           DISABLED,                         "CONFIG",      0}
                       };
    uint16_t CESPED[]    = {bTURBINAS, bPORCHE, bCUARTILLO};
    uint16_t GOTEOS[]    = {bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA };
@@ -315,6 +318,7 @@ typedef struct {
 #else
   extern S_BOTON Boton [];
   extern uint ledOrder[];
+  //extern NUM_S_BOTON;
 #endif
 
 //Globales
