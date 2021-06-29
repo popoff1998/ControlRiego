@@ -6,6 +6,7 @@
 S_BOTON *boton;
 S_BOTON *ultimoBoton;
 bool ret;
+int ledState = LOW;
 
 #ifdef RELEASE
  bool NONETWORK=false;
@@ -314,7 +315,9 @@ void loop()
   #endif
 
   procesaBotones();
+  dimmerLeds();
   procesaEstados();
+  dimmerLeds();
 }
 
 void procesaBotones()
@@ -629,6 +632,35 @@ void procesaEstados()
   }
 }
 
+/*void dimmerLeds()
+{
+  if (reposo) { 
+     //conmuta estado LEDR (y LEDG) para atenuarlos
+         // if the LED is off turn it on and vice-versa:
+    if (ledState == HIGH) {
+      ledState = LOW;
+      led(LEDR,OFF);
+      led(LEDG,OFF);
+     } else {
+      ledState = HIGH;
+      led(LEDR,ON);
+      led(LEDG,ON);
+     }
+    }   
+} */
+void dimmerLeds()
+{
+  if (reposo) { 
+     //conmuta estado LEDR (y LEDG) para atenuarlos
+     led(LEDR,OFF);
+     led(LEDG,OFF);
+     delay(1);
+     led(LEDR,ON);
+     led(LEDG,ON);
+     //standbyTime = millis();
+  }   
+}
+
 void procesaEncoder()
 {
   #ifdef NODEMCU
@@ -840,7 +872,8 @@ int getFactor(uint16_t idx)
     #ifdef DEBUG
       Serial.print("TMPSTR: ");Serial.println(tmpStr);
     #endif
-    httpclient.begin(tmpStr);
+    //httpclient.begin(tmpStr);
+    httpclient.begin(client, tmpStr); // para v3.0.0 de platform esp8266
     int httpCode = httpclient.GET();
     if(httpCode > 0) {
       if(httpCode == HTTP_CODE_OK) {
@@ -982,7 +1015,8 @@ void domoticzSwitch(int idx,char *msg)
 
     #ifdef NODEMCU
       String tmpStr = "http://" + String(serverAddress) + ":" + DOMOTICZPORT + String(message);
-      httpclient.begin(tmpStr);
+      //httpclient.begin(tmpStr);
+      httpclient.begin(client, tmpStr); // para v3.0.0 de platform esp8266
       int httpCode = httpclient.GET();
       if(httpCode > 0) {
         if(httpCode == HTTP_CODE_OK) {
