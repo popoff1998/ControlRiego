@@ -95,6 +95,7 @@ void longbip(int);
 void blinkPause(void);
 void procesaBotones(void);
 void procesaEstados(void);
+void dimmerLeds(void);
 void initRiego(uint16_t);
 
 //Comportamiento General
