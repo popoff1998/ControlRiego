@@ -163,7 +163,7 @@ void timeByFactor(int factor,uint8_t *fminutes, uint8_t *fseconds)
 
 void setup()
 {
-  Serial.begin(9600);
+  Serial.begin(115200);
   Serial.println(" ");
   Serial.println("CONTROL RIEGO V2");
   #ifdef TRACE
