@@ -117,11 +117,48 @@ void timeByFactor(int factor,uint8_t *fminutes, uint8_t *fseconds)
   *fseconds = tseconds%60;
 }
 
+void connectWifi()
+{
+  for (int i = 0; i < 4; i++)
+  {
+    int j = 0;
+    WiFiMulti.addAP(ssid[i], pass);
+    connected = true;
+    while (WiFiMulti.run() != WL_CONNECTED)
+    {
+      led(LEDG, ON);
+      Serial.print(".");
+      delay(200);
+      led(LEDG, OFF);
+      delay(200);
+      j++;
+      if (j == MAXCONNECTRETRY)
+      {
+        connected = false;
+        break;
+      }
+    }
+    if (connected)
+    {
+      Serial.println("");
+      Serial.println("WiFi connectado");
+      Serial.println("IP address: ");
+      Serial.println(WiFi.localIP());
+      led(LEDG, ON);
+      break;
+    }
+  }
+}
 
 void setup()
 {
   Serial.begin(9600);
   Serial.println("CONTROL RIEGO V2");
+  #ifdef WEBSERVER
+    bool webServer = true;
+  #else
+    bool webServer = false;
+  #endif
   #ifdef TRACE
     Serial.println("TRACE: in setup");
   #endif
@@ -170,30 +207,9 @@ void setup()
     Ethernet.begin(mac,ip,gateway,subnet);
   #endif
   #ifdef NODEMCU
-    for (int i=0;i<4;i++) {
-      int j=0;
-      WiFiMulti.addAP(ssid[i],pass);
-      connected = true;
-      while(WiFiMulti.run() != WL_CONNECTED) {
-        led(LEDG,ON);
-        Serial.print(".");
-        delay(200);
-        led(LEDG,OFF);
-        delay(200);
-        j++;
-        if(j == MAXCONNECTRETRY) {
-          connected = false;
-          break;
-        }
-      }
-      if(connected) {
-        Serial.println("");
-        Serial.println("WiFi connectado");
-        Serial.println("IP address: ");
-        Serial.println(WiFi.localIP());
-        led(LEDG,ON);
-        break;
-      }
+    connectWifi();
+    if (!connected && webServer) {
+      startAP();
     }
   #endif
   delay(1500);

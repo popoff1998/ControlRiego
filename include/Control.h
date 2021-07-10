@@ -9,6 +9,7 @@
   #include <ESP8266WiFi.h>
   #include <ESP8266WiFiMulti.h>
   #include <WifiUdp.h>
+  #include "webserver.h"
   #ifdef NET_HTTPCLIENT
     #include <ESP8266HTTPClient.h>
   #endif
@@ -140,6 +141,7 @@ enum {
   STOP          = 0x20,
   MULTIREGANDO  = 0x40,
   ERROR         = 0x80,
+  AP            = 0xFF,
 };
 
 enum {
@@ -330,5 +332,4 @@ void bip(int);
 void procesaEncoder(void);
 void ledRGB(int,int,int);
 int  getFactor(uint16_t);
-
 #endif
