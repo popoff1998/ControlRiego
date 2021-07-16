@@ -202,7 +202,8 @@ void setup()
   //led encendido
   led(LEDR,ON);
   //Chequeo de perifericos de salida
-  check();
+  // lo eliminamos para las pruebas:  TMB
+  //check();
   //Para la red
   delay(1000);
   #ifdef NET_MQTTCLIENT
@@ -458,7 +459,14 @@ void procesaBotones()
             #ifdef DEBUG
               Serial << "en MULTIRRIEGO, encoderSW status: " << encoderSW << endl;
             #endif
-            switch(multiStatus) {
+            /*switch(multiStatus) {
+              
+              Ya no tenemos que tener un switch, tendremos que llamar a una funcion de multiriego.cpp
+              donde le pasaremos el indicador del boton y un puntero a multi y nos rellenará multi con
+              lo adecuado para no tener que modificar mas codigo por debajo
+
+              multi = getMulti(multistatus);
+              
               case bCOMPLETO:
                 multi.serie = COMPLETO;
                 multi.size = sizeof(COMPLETO)/2;
@@ -477,7 +485,14 @@ void procesaBotones()
                 multi.id = bGOTEOS;
                 strcpy(multi.desc,(char *)"GOTEOS");
                 break;
-            }
+            } */
+
+            multi = getMulti(multiStatus);
+            #ifdef DEBUG
+              Serial << "en MULTIRRIEGO, getMulti devuelve: " << multi.desc << endl;
+              Serial << "                       multi.size: " << multi.desc << endl;
+            #endif            
+
             // si esta pulsado el boton del encoder --> solo hacemos encendido de los leds del grupo
             if (encoderSW) {
               displayGrupo(multi.serie, multi.size);

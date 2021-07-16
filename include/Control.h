@@ -69,8 +69,13 @@
  #define VERBOSE
 #endif
 
-
-//No olvidarse de que para una nodemcu nueva es conveniente poner FORCEINITEEPROM a 1 la primera vez, después a 0
+/* NOTA1: es necesario ejecutar una vez con FORCEINITEEPROM=1 para actualizar los valores asignados en el 
+   programa a:
+        - estructura BOTONES (idX)
+        - estructura multiGroup (botones y tamaño de cada grupo de multirriegos)
+        - tiempo por defecto para el riego
+    ya que estos valores se graban en la eeprom y se usan los leidos de ella en setup.    
+   después poner a 0 y volver a cargar */
 #define FORCEINITEEPROM     1
 
 //Estructura de mi eeprom
@@ -80,6 +85,15 @@ struct __eeprom_data {
   uint8_t   minutes;
   uint8_t   seconds;
 };
+
+//movido
+typedef struct S_MULTI {
+  uint16_t id;
+  uint16_t *serie;
+  int size;
+  int actual;
+  char desc[20];
+} S_MULTI;
 
 //Funciones
 void check(void);
@@ -96,6 +110,7 @@ void blinkPause(void);
 void procesaBotones(void);
 void procesaEstados(void);
 void displayGrupo(uint16_t *, int);
+S_MULTI getMulti(uint16_t);
 void dimmerLeds(void);
 void initRiego(uint16_t);
 
@@ -277,13 +292,10 @@ typedef union {
   };
 } U_Estado;
 
-typedef struct {
-  uint16_t id;
-  uint16_t *serie;
-  int size;
-  int actual;
-  char desc[20];
-} S_MULTI;
+
+
+//mantenemos aqui definicion completo a efectos de display de lo regado:
+
 
 #define NUMRIEGOS sizeof(COMPLETO)/sizeof(COMPLETO[0])
 #define NUM_S_BOTON sizeof(Boton)/sizeof(Boton[0])
@@ -310,17 +322,24 @@ typedef struct {
        {bCOMPLETO,   0,  0,  lCOMPLETO,   DISABLED,                         "COMPLETO",    0},
        {bCONFIG,     0,  0,  0,           DISABLED,                         "CONFIG",      0}
                       };
-   uint16_t CESPED[]    = {bTURBINAS, bPORCHE, bCUARTILLO};
+   //metodo antiguo asignacion botones a grupos de multirriego:
+/*   uint16_t CESPED[]    = {bTURBINAS, bPORCHE, bCUARTILLO};
    uint16_t GOTEOS[]    = {bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA };
+   uint16_t COMPLETO[]  = {bTURBINAS, bPORCHE, bCUARTILLO, bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA};
+*/   
    uint16_t COMPLETO[]  = {bTURBINAS, bPORCHE, bCUARTILLO, bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA};
    time_t   lastRiegos[NUMRIEGOS];
    uint     factorRiegos[NUMRIEGOS];
    uint ledOrder[] = {lTURBINAS, lPORCHE, lCUARTILLO, lGOTEOALTO, lGOTEOBAJO, lOLIVOS, lROCALLA,
                       LEDR, LEDG, lCESPED, lCOMPLETO, lGOTEOS};
+  S_MULTI multi;
+
 #else
   extern S_BOTON Boton [];
   extern uint ledOrder[];
-  //extern NUM_S_BOTON;
+  extern S_MULTI sCESPED;
+  extern S_MULTI sCOMPLETO;
+  extern S_MULTI sGOTEOS;
 #endif
 
 //Globales
@@ -354,7 +373,7 @@ typedef struct {
   bool holdPause = false;
   bool encoderSW = false;
   unsigned long countHoldPause;
-  S_MULTI multi;
+
   //Para Ethernet
   byte mac[] = {
   0xDE, 0xAD, 0xBE, 0xBF, 0xFE, 0xED

@@ -1,8 +1,6 @@
 #include <Control.h>
 
 //Globales a este modulo
-byte    switchVar1 = 72;
-byte    switchVar2 = 159;
 unsigned long lastMillis;
 #define DEBOUNCEMILLIS 20
 volatile uint16_t ledStatus = 0;
@@ -64,19 +62,6 @@ void initLeds()
     delay(300);
   }
   led(LEDR,ON);
-}
-
-void displayGrupo(uint16_t *serie, int serieSize)
-{
-  // esto es solo una ñapa para probar.
-  int i;
-  //size_t numLeds = 7;
-  
-  for(i=0;i<serieSize;i++) {
-    led(Boton[bId2bIndex(serie[i])].led,ON);
-    delay(300);
-    led(Boton[bId2bIndex(serie[i])].led,OFF);
-  }
 }
 
 void initHC595()
@@ -151,6 +136,9 @@ uint16_t getMultiStatus()
 
 uint16_t readInputs()
 {
+  byte    switchVar1;
+  byte    switchVar2;
+
   //Activamos el latch para leer
   digitalWrite(CD4021B_LATCH,1);
   delayMicroseconds(20);
