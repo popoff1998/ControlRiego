@@ -325,6 +325,9 @@ void procesaBotones()
   #ifdef EXTRATRACE
     Serial.println("TRACE: in procesaBotones");
   #endif
+  // almacenamos estado pulsador del encoder
+  if (!Boton[bId2bIndex(bENCODER)].estado) encoderSW = true;
+  else encoderSW = false;
   //Procesamos los botones
   if (!multiSemaforo) {
     //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multiriego
@@ -452,6 +455,9 @@ void procesaBotones()
             uint16_t multiStatus = getMultiStatus();
             multiriego = true;
             multi.actual = 0;
+            #ifdef DEBUG
+              Serial << "en MULTIRRIEGO, encoderSW status: " << encoderSW << endl;
+            #endif
             switch(multiStatus) {
               case bCOMPLETO:
                 multi.serie = COMPLETO;
@@ -472,13 +478,24 @@ void procesaBotones()
                 strcpy(multi.desc,(char *)"GOTEOS");
                 break;
             }
-            //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
-            //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
-            Serial.printf("MULTIRRIEGO iniciado: %s \n", multi.desc);
-            led(Boton[bId2bIndex(multi.id)].led,ON);
-            boton = &Boton[bId2bIndex(multi.serie[multi.actual])];
+            // si esta pulsado el boton del encoder --> solo hacemos encendido de los leds del grupo
+            if (encoderSW) {
+              displayGrupo(multi.serie, multi.size);
+              multiriego = false;
+              #ifdef DEBUG
+                Serial << "en MULTIRRIEGO + encoderSW, display de grupo: " << multi.desc << endl;
+              #endif            
+              break;              
+            }  
+            else {
+              //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
+              //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
+              Serial.printf("MULTIRRIEGO iniciado: %s \n", multi.desc);
+              led(Boton[bId2bIndex(multi.id)].led,ON);
+              boton = &Boton[bId2bIndex(multi.serie[multi.actual])];
+            }
+            //Aqui no hay break para que comience multirriego por default
           }
-          //Aqui no hay break para que riegue
         default:
           if (Estado.estado == STANDBY) {
             bip(2);

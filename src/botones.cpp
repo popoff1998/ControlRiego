@@ -66,6 +66,19 @@ void initLeds()
   led(LEDR,ON);
 }
 
+void displayGrupo(uint16_t *serie, int serieSize)
+{
+  // esto es solo una ñapa para probar.
+  int i;
+  //size_t numLeds = 7;
+  
+  for(i=0;i<serieSize;i++) {
+    led(Boton[bId2bIndex(serie[i])].led,ON);
+    delay(300);
+    led(Boton[bId2bIndex(serie[i])].led,OFF);
+  }
+}
+
 void initHC595()
 {
   pinMode(HC595_CLOCK, OUTPUT);

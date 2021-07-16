@@ -95,6 +95,7 @@ void longbip(int);
 void blinkPause(void);
 void procesaBotones(void);
 void procesaEstados(void);
+void displayGrupo(uint16_t *, int);
 void dimmerLeds(void);
 void initRiego(uint16_t);
 
@@ -351,6 +352,7 @@ typedef struct {
   bool multiriego = false;
   bool multiSemaforo = false;
   bool holdPause = false;
+  bool encoderSW = false;
   unsigned long countHoldPause;
   S_MULTI multi;
   //Para Ethernet
