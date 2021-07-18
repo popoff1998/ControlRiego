@@ -25,6 +25,21 @@ void enciendeLeds()
   delay(200);
 }
 
+void eepromWriteSignal(uint veces)
+{
+  #ifdef TRACE
+    Serial.println("TRACE: in eepromWriteSignal");
+  #endif
+  uint i;
+  for(i=0;i<veces;i++) {
+    led(LEDR,ON);
+    led(LEDG,ON);
+    delay(300);
+    led(LEDR,OFF);
+    led(LEDG,OFF);
+    delay(300);
+  }
+}
 
 void initLeds()
 {
@@ -45,7 +60,8 @@ void initLeds()
   delay(200);
   apagaLeds();
   delay(200);
-
+  
+  /*
   for(i=numLeds-1;i>=0;i--) 
   {
     led(ledOrder[i],ON);
@@ -61,6 +77,8 @@ void initLeds()
     apagaLeds();
     delay(300);
   }
+  */
+
   led(LEDR,ON);
 }
 
@@ -149,6 +167,21 @@ uint16_t readInputs()
   return switchVar2 | (switchVar1 << 8);
 }
 
+bool testButton(uint16_t id,bool state)
+{
+  //testea estado instantaneo del boton(id) pasado
+  //devolviendo 1 si es igual a state y 0 en caso contrario 
+  uint16_t buttons = readInputs();
+  bool result = ((buttons & id) == 0)?0:1;
+  #ifdef DEBUG
+    Serial << "testButtons id = " << id << endl;
+    Serial << "testButtons buttons = " << buttons << endl;
+    Serial << "testButtons result = " << result << endl;
+  #endif
+  if (result == state) return 1;
+   else return 0;
+}
+
 S_BOTON *parseInputs()
 {
   int i;
@@ -170,6 +203,7 @@ S_BOTON *parseInputs()
       if (Boton[i].estado || Boton[i].flags.dual) {
         #ifdef DEBUG
           Serial.print("BOTON: ");Serial.print(Boton[i].desc);
+          Serial.print("   BOTON.estado: ");Serial.println(Boton[i].estado);
           Serial.print("   BOTON id:  0x");Serial.print(Boton[i].id,HEX);
           Serial.print("   BOTON idx: ");Serial.println(Boton[i].idx);
           bip(1);

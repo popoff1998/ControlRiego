@@ -76,17 +76,22 @@
         - tiempo por defecto para el riego
     ya que estos valores se graban en la eeprom y se usan los leidos de ella en setup.    
    después poner a 0 y volver a cargar */
-#define FORCEINITEEPROM     1
+#define FORCEINITEEPROM     0
 
 //Estructura de mi eeprom
 struct __eeprom_data {
-  uint8_t initialized;
-  uint16_t  botonIdx[16];
-  uint8_t   minutes;
-  uint8_t   seconds;
+  uint8_t   initialized;
+  uint16_t  botonIdx[16]; // IDX de cada boton para el Domoticz
+  uint8_t   minutes;      // minutos de riego por defecto 
+  uint8_t   seconds;      // segundos de riego por defecto
+  uint16_t  G1[16];       // grupo 1 de multirriegos (CESPED)
+  uint16_t  G2[16];       // grupo 2 de multirriegos (GOTEOS)
+  uint16_t  G3[16];       // grupo 3 de multirriegos (COMPLETO)
+  int       size_G1;      // numero elementos grupo1
+  int       size_G2;      // numero elementos grupo2
+  int       size_G3;      // numero elementos grupo3
 };
 
-//movido
 typedef struct S_MULTI {
   uint16_t id;
   uint16_t *serie;
@@ -103,7 +108,6 @@ void refreshDisplay(void);
 void refreshTime(void);
 void stopRiego(uint16_t);
 void stopAllRiego(void);
-void checkBuzzer(void);
 void bip(int);
 void longbip(int);
 void blinkPause(void);
@@ -113,6 +117,8 @@ void displayGrupo(uint16_t *, int);
 S_MULTI getMulti(uint16_t);
 void dimmerLeds(void);
 void initRiego(uint16_t);
+void eepromWriteSignal(uint);
+bool testButton(uint16_t, bool);
 
 //Comportamiento General
 #define STANDBYSECS         15
@@ -323,10 +329,12 @@ typedef union {
        {bCONFIG,     0,  0,  0,           DISABLED,                         "CONFIG",      0}
                       };
    //metodo antiguo asignacion botones a grupos de multirriego:
-/*   uint16_t CESPED[]    = {bTURBINAS, bPORCHE, bCUARTILLO};
+   /*
+   uint16_t CESPED[]    = {bTURBINAS, bPORCHE, bCUARTILLO};
    uint16_t GOTEOS[]    = {bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA };
    uint16_t COMPLETO[]  = {bTURBINAS, bPORCHE, bCUARTILLO, bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA};
-*/   
+  */   
+
    uint16_t COMPLETO[]  = {bTURBINAS, bPORCHE, bCUARTILLO, bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA};
    time_t   lastRiegos[NUMRIEGOS];
    uint     factorRiegos[NUMRIEGOS];
@@ -334,12 +342,25 @@ typedef union {
                       LEDR, LEDG, lCESPED, lCOMPLETO, lGOTEOS};
   S_MULTI multi;
 
+  //valores de las series por defecto (ojo ver NOTA1 en Control.h --> FORCEINITEEPROM=1 para actualizarlos)
+  uint16_t Grupo1[16]    = {bTURBINAS, bPORCHE, bCUARTILLO};
+  uint16_t Grupo2[16]    = {bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA };
+  uint16_t Grupo3[16]    = {bTURBINAS, bPORCHE, bCUARTILLO, bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA};
+  //tamaño de las series por defecto de multirriego:
+  int size_Grupo1 = 3;
+  int size_Grupo2 = 4;
+  int size_Grupo3 = 7;
+
+
 #else
   extern S_BOTON Boton [];
   extern uint ledOrder[];
-  extern S_MULTI sCESPED;
-  extern S_MULTI sCOMPLETO;
-  extern S_MULTI sGOTEOS;
+  extern uint16_t Grupo1[16];
+  extern uint16_t Grupo2[16];
+  extern uint16_t Grupo3[16];
+  extern int size_Grupo1;
+  extern int size_Grupo2;
+  extern int size_Grupo3;
 #endif
 
 //Globales

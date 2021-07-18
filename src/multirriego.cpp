@@ -2,16 +2,12 @@
 
 //metodo NUEVO asignacion botones a grupos de multirriego (valores iniciales) en Control.cpp
 
-//valores de las series por defecto (ojo ver NOTA1 en Control.h --> FORCEINITEEPROM=1 para actualizarlos)
-uint16_t Grupo1[]    = {bTURBINAS, bPORCHE, bCUARTILLO};
-uint16_t Grupo2[]    = {bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA };
-uint16_t Grupo3[]    = {bTURBINAS, bPORCHE, bCUARTILLO, bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA};
 
 S_MULTI multiGroup [] =  { 
-    //id,        serie   size   actual     descripcion
-    { bCESPED,   Grupo1,    3,    0,       "CESPED"},
-    { bGOTEOS,   Grupo2,    4,    0,       "GOTEOS"},
-    { bCOMPLETO, Grupo3,    7,    0,       "COMPLETO"}
+    //id,        serie        size        actual     descripcion
+    { bCESPED,   Grupo1,    size_Grupo1,    0,       "CESPED"},
+    { bGOTEOS,   Grupo2,    size_Grupo2,    0,       "GOTEOS"},
+    { bCOMPLETO, Grupo3,    size_Grupo3,    0,       "COMPLETO"}
 };
 
 

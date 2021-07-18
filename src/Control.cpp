@@ -41,13 +41,9 @@ time_t utc;
 void check(void)
 {
   initLeds();
-  display->check(2);
+  display->check(1);
 }
-//CheckBuzzer
-void checkBuzzer(void)
-{
 
-}
 //Para JSON
 StaticJsonBuffer<2000> jsonBuffer;
 
@@ -67,10 +63,17 @@ void timerIsr()
 void initEeprom() {
   int i,botonAddr;
   bool eeinitialized=0;
+  //verificamos si encoderSW esta pulsado (estado OFF) --> en ese caso inicializariamos la eeprom
+  if (testButton(bENCODER, OFF)) {
+    encoderSW = true;
+    Serial.println("encoderSW pulsado --> Inicializando la EEPROM");
+  }
+  else encoderSW = false;  
 
   #ifdef NODEMCU
     EEPROM.begin(sizeof(__eeprom_data));
   #endif
+
   EEPROM.get(0,eeinitialized);
   botonAddr = offsetof(__eeprom_data, botonIdx[0]);
   #ifdef DEBUG
@@ -78,30 +81,40 @@ void initEeprom() {
     Serial << "sizeof(__eeprom_data)= " << sizeof(__eeprom_data) << endl;
     Serial << "eeinitialized= " << eeinitialized << endl;
     Serial << "FORCEINITEEPROM= " << FORCEINITEEPROM << endl;
+    Serial << "encoderSW= " << encoderSW << endl;
     Serial << "boton0 offset= " << botonAddr << endl;
   #endif
-  if( eeinitialized == 0 || FORCEINITEEPROM == 1) {
-    Serial.println("Inicializando la EEPROM");
+  if( eeinitialized == 0 || FORCEINITEEPROM == 1 || encoderSW) {
+    Serial.println(">>>>>>>>>>>>>>  Inicializando la EEPROM  <<<<<<<<<<<<<<");
+    //escribe valores de los IDX de los botones
     for(i=0;i<16;i++) {
       EEPROM.put(botonAddr,Boton[i].idx);
       Serial << "escribiendo boton " << i << " : " << Boton[i].idx << " address: " << botonAddr << endl;
       botonAddr += 2;
     }
-    uint8_t mr,sr;
+    //escribe tiempo de riego por defecto
     minutes = DEFAULTMINUTES;
     seconds = DEFAULTSECONDS;
-    value = ((seconds==0)?minutes:seconds); //para que use esos valores
-    Serial << "SAVE EEPROM TIME, minutes: " << minutes << " seconds: " << seconds << endl;
+    Serial << "escrito tiempo riego por defecto, minutos: " << minutes << " segundos: " << seconds << endl;
     EEPROM.put(offsetof(__eeprom_data, minutes),minutes);
     EEPROM.put(offsetof(__eeprom_data, seconds),seconds);
-    EEPROM.put(offsetof(__eeprom_data, initialized),(uint8_t)1);   // marca la eeprom como inicializada
+    // marca la eeprom como inicializada
+    EEPROM.put(offsetof(__eeprom_data, initialized),(uint8_t)1);   
+    //escribe grupos de multirriego y su tamaño
+    EEPROM.put(offsetof(__eeprom_data, G1),Grupo1);
+    EEPROM.put(offsetof(__eeprom_data, size_G1),size_Grupo1);
+    Serial << "escribiendo GRUPO1 multirriego tamaño: " << size_Grupo1 << " elementos " << endl;
+    EEPROM.put(offsetof(__eeprom_data, G2),Grupo2);
+    EEPROM.put(offsetof(__eeprom_data, size_G2),size_Grupo2);
+    Serial << "escribiendo GRUPO2 multirriego tamaño: " << size_Grupo2 << " elementos " << endl;
+    EEPROM.put(offsetof(__eeprom_data, G3),Grupo3);
+    EEPROM.put(offsetof(__eeprom_data, size_G3),size_Grupo1);
+    Serial << "escribiendo GRUPO3 multirriego tamaño: " << size_Grupo3 << " elementos " << endl;
     #ifdef NODEMCU
       bool bRc = EEPROM.commit();
-      if(bRc) Serial.println("Write eeprom successfully");
+      if(bRc) Serial.println("Write eeprom OK");
       else    Serial.println("Write eeprom error");
     #endif                
-    EEPROM.get(offsetof(__eeprom_data, minutes),mr);
-    EEPROM.get(offsetof(__eeprom_data, seconds),sr);
     #ifdef DEBUG
       uint16_t boton0;  //dbg
       uint16_t boton1;  //dbg
@@ -114,22 +127,39 @@ void initEeprom() {
       Serial << "leido boton 0 : " << boton0 << " address: " << boton0Addr << endl;  //dbg
       Serial << "leido boton 1 : " << boton1 << " address: " << boton1Addr << endl;  //dbg
       Serial << "OFFm: " << offsetof(__eeprom_data, minutes) << " OFFs: " << offsetof(__eeprom_data, seconds) << endl;
-      Serial << "READ EEPROM TIME, minutes: " << mr << " seconds: " << sr << endl;
     #endif
-  }
-  else {
-    Serial.println("Leyendo valores de la EEPROM");
-    for(i=0;i<16;i++) {
-      EEPROM.get(botonAddr,Boton[i].idx);
-      Serial << "leido boton " << i << " : " << Boton[i].idx << " address: " << botonAddr << endl;
-      botonAddr += sizeof(Boton[i].idx);
+    //señala la escritura de la eeprom
+    if(bRc) {
+      eepromWriteSignal(5);
+      longbip(3);
     }
-    EEPROM.get(offsetof(__eeprom_data, minutes),minutes);
-    EEPROM.get(offsetof(__eeprom_data, seconds),seconds);
-    Serial << "READ EEPROM TIME, minutes: " << minutes << " seconds: " << seconds << endl;
-    value = ((seconds==0)?minutes:seconds);
-    StaticTimeUpdate();
   }
+  //siempre leemos valores de la eeprom para cargar las variables correspondientes:
+  Serial.println("<<<<<<<<<<<<<<<<<<<<<   Leyendo valores de la EEPROM   >>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+  //leemos valores de los IDX de los botones
+  botonAddr = offsetof(__eeprom_data, botonIdx[0]);
+  for(i=0;i<16;i++) {
+    EEPROM.get(botonAddr,Boton[i].idx);
+    Serial << "leido boton " << i << " : " << Boton[i].idx << " address: " << botonAddr << endl;
+    botonAddr += sizeof(Boton[i].idx);
+  }
+  //leemos tiempo de riego por defecto
+  EEPROM.get(offsetof(__eeprom_data, minutes),minutes);
+  EEPROM.get(offsetof(__eeprom_data, seconds),seconds);
+  Serial << "leido tiempo riego por defecto, minutos: " << minutes << " segundos: " << seconds << endl;
+  value = ((seconds==0)?minutes:seconds);
+  StaticTimeUpdate();
+  //leemos grupos de multirriego
+  EEPROM.get(offsetof(__eeprom_data, G1),Grupo1);
+  EEPROM.get(offsetof(__eeprom_data, size_G1),size_Grupo1);
+  Serial << "leyendo GRUPO1 multirriego tamaño: " << size_Grupo1 << " elementos " << endl;
+  EEPROM.get(offsetof(__eeprom_data, G2),Grupo2);
+  EEPROM.get(offsetof(__eeprom_data, size_G2),size_Grupo2);
+  Serial << "leyendo GRUPO2 multirriego tamaño: " << size_Grupo2 << " elementos " << endl;
+  EEPROM.get(offsetof(__eeprom_data, G3),Grupo3);
+  EEPROM.get(offsetof(__eeprom_data, size_G3),size_Grupo1);
+  Serial << "leyendo GRUPO3 multirriego tamaño: " << size_Grupo3 << " elementos " << endl;
+  
 }
 
 void initFactorRiegos()
@@ -199,11 +229,14 @@ void setup()
   initCD4021B();
   //Para el 74HC595
   initHC595();
+  //Llamo a parseInputs una vez para leer si tengo pulsado el boton del encoder
+  //parseInputs();
+  //Inicializo la EEPROM (escribo en ella si asi se indica y/o se lee de ella valores configurados)
+  initEeprom();
   //led encendido
   led(LEDR,ON);
   //Chequeo de perifericos de salida
-  // lo eliminamos para las pruebas:  TMB
-  //check();
+  check();
   //Para la red
   delay(1000);
   #ifdef NET_MQTTCLIENT
@@ -251,8 +284,6 @@ void setup()
   timeClient.begin();
   timeClient.update();
   setTime(timeClient.getEpochTime());
-  //Inicializo la EEPROM
-  initEeprom();
   //Iniciamos lastRiegos
   for(uint i=0;i<NUMRIEGOS;i++) {
     lastRiegos[i] = 0;
