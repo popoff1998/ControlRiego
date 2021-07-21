@@ -145,13 +145,6 @@ int bId2bIndex(uint16_t id)
   return 999;
 }
 
-uint16_t getMultiStatus()
-{
-  if (Boton[bId2bIndex(bCESPED)].estado) return bCESPED;
-  if (Boton[bId2bIndex(bGOTEOS)].estado) return bGOTEOS;
-  return bCOMPLETO;
-}
-
 uint16_t readInputs()
 {
   byte    switchVar1;
@@ -174,7 +167,6 @@ bool testButton(uint16_t id,bool state)
   uint16_t buttons = readInputs();
   bool result = ((buttons & id) == 0)?0:1;
   #ifdef DEBUG
-    Serial << "testButtons id = " << id << endl;
     Serial << "testButtons buttons = " << buttons << endl;
     Serial << "testButtons result = " << result << endl;
   #endif
@@ -203,10 +195,10 @@ S_BOTON *parseInputs()
       if (Boton[i].estado || Boton[i].flags.dual) {
         #ifdef DEBUG
           Serial.print("BOTON: ");Serial.print(Boton[i].desc);
-          Serial.print("   BOTON.estado: ");Serial.println(Boton[i].estado);
+          Serial.print("   BOTON.estado: ");Serial.print(Boton[i].estado);
           Serial.print("   BOTON id:  0x");Serial.print(Boton[i].id,HEX);
           Serial.print("   BOTON idx: ");Serial.println(Boton[i].idx);
-          bip(1);
+          //bip(1);
         #endif
         return &Boton[i];
       }
