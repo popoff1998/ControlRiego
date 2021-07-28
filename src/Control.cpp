@@ -64,6 +64,7 @@ void procesaEeprom() {
   int i,botonAddr;
   int grupoAddr;
   bool eeinitialized=0;
+  n_Grupos = nGrupos();
   //verificamos si encoderSW esta pulsado (estado OFF) --> en ese caso inicializariamos la eeprom
   if (testButton(bENCODER, OFF)) {
     encoderSW = true;
@@ -72,7 +73,7 @@ void procesaEeprom() {
   else encoderSW = false;  
 
   #ifdef NODEMCU
-    EEPROM.begin(sizeof(__eeprom_data));
+    EEPROM.begin(sizeof(__eeprom_data) + sizeof(_eeprom_group)*n_Grupos);
   #endif
 
   EEPROM.get(0,eeinitialized);
@@ -80,7 +81,7 @@ void procesaEeprom() {
   
   #ifdef DEBUG
     Serial << endl;
-    Serial << "sizeof(__eeprom_data)= " << sizeof(__eeprom_data) << endl;
+    Serial << "tamaño de la eeprom : " << sizeof(__eeprom_data) + sizeof(_eeprom_group)*n_Grupos << endl;
     Serial << "eeinitialized= " << eeinitialized << endl;
     Serial << "FORCEINITEEPROM= " << FORCEINITEEPROM << endl;
     Serial << "encoderSW= " << encoderSW << endl;
@@ -104,7 +105,7 @@ void procesaEeprom() {
     // marca la eeprom como inicializada
     EEPROM.put(offsetof(__eeprom_data, initialized),(uint8_t)1);   
     //escribe grupos de multirriego y su tamaño
-    eepromWriteGroups();
+        eepromWriteGroups();
     #ifdef NODEMCU
       bool bRc = EEPROM.commit();
       if(bRc) Serial.println("Write eeprom OK");
@@ -602,8 +603,13 @@ void procesaBotones()
                 if(Estado.estado != ERROR) Estado.estado = REGANDO; // para que no borre ERROR
             }
             else {  // mostramos en el display el factor de riego del boton pulsado
+              int index = bId2bIndex(boton->id);
+              led(Boton[index].led,ON); //para que funcione encendido led 16
+              led(Boton[index].led,ON);
               #ifdef DEBUG
                 Serial.printf("Boton: %s Factor de riego: %d \n", boton->desc,factorRiegos[idarrayRiego(boton->id)]);
+                Serial.printf("          boton.index: %d \n", index);
+                Serial.printf("          boton(%d).led: %d \n", index, Boton[index].led);
               #endif
               #ifdef DEBUG
                 Serial.printf("#04 savedValue: %d  value: %d \n",savedValue,value);
@@ -611,15 +617,13 @@ void procesaBotones()
               savedValue = value;
               value = factorRiegos[idarrayRiego(boton->id)];
               display->print(value);
-              led(Boton[bId2bIndex(boton->id)].led,ON);
-              //longbip(1);
               delay(2000);
               // boton = NULL;  //--> provoca reset
               #ifdef DEBUG
                 Serial.printf("#05 savedValue: %d  value: %d \n",savedValue,value);
               #endif
               value = savedValue;  // para que restaure reloj
-              led(Boton[bId2bIndex(boton->id)].led,OFF);
+              led(Boton[index].led,OFF);
               StaticTimeUpdate();
             }
           }
@@ -632,6 +636,7 @@ void procesaBotones()
                     savedValue = value;
                     multi->serie[multi->size] = boton->id;
                     multi->size++;
+                    led(Boton[bId2bIndex(boton->id)].led,ON); //para que funcione encendido led 16
                     led(Boton[bId2bIndex(boton->id)].led,ON);
               }
             }
@@ -877,6 +882,9 @@ void initRiego(uint16_t id)
 {
   //Esta funcion mandara el mensaje a domoticz de activar el boton
   int index = bId2bIndex(id);
+  #ifdef DEBUG
+    Serial.printf("Boton: %s boton.index: %d \n", boton->desc, bId2bIndex(boton->id));
+  #endif
   uint arrayIndex = idarrayRiego(id);
   time_t t;
 
@@ -1002,22 +1010,6 @@ bool checkWifiConnected()
   }
   led(LEDG,ON);
   return true;
-}
-
-//imprime contenido actual de la estructura multiGroup
-void printMultiGroup()
-{
-  for (int j=0; j<n_Grupos; j++) {
-    Serial << endl;
-    multi = getMultibyIndex(j);
-    Serial.printf("Grupo%d : %d elementos \n", j+1, multi->size);
-    for (int i=0;i < multi->size; i++) {
-      Serial.printf("     elemento %d: x",i+1);
-      Serial.print(multi->serie[i],HEX);
-      Serial << endl;
-    }  
-  }  
-  Serial << endl;
 }
 
 int getFactor(uint16_t idx)

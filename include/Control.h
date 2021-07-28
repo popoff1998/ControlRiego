@@ -4,7 +4,6 @@
   //Modelo de red que vamos a usar
   #define NET_HTTPCLIENT
 
-
   #ifdef NODEMCU
     #include <ESP8266WiFi.h>
     #include <ESP8266WiFiMulti.h>
@@ -84,14 +83,14 @@
     uint16_t serie[16];
   } _eeprom_group;
 
-  //Estructura de mi eeprom
+  //Estructura de mi eeprom (se reserva más tamaño despues en funcion del numero de grupos)
   struct __eeprom_data {
     uint8_t   initialized;
     uint16_t  botonIdx[16]; // IDX de cada boton para el Domoticz
     uint8_t   minutes;      // minutos de riego por defecto 
     uint8_t   seconds;      // segundos de riego por defecto
-    int       numgroups=3;     // numero de grupos de multirriego
-    _eeprom_group groups[3]; // grupos de multirriego
+    int       numgroups;     // numero de grupos de multirriego
+    _eeprom_group groups[]; // grupos de multirriego
   };
 
   typedef struct S_MULTI {
@@ -101,29 +100,6 @@
     int actual;
     char desc[20];
   } S_MULTI;
-
-  //Funciones
-  void check(void);
-  void StaticTimeUpdate(void);
-  void domoticzSwitch(int,char *);
-  void refreshDisplay(void);
-  void refreshTime(void);
-  void stopRiego(uint16_t);
-  void stopAllRiego(void);
-  void bip(int);
-  void longbip(int);
-  void blinkPause(void);
-  void procesaBotones(void);
-  void procesaEstados(void);
-  void displayGrupo(uint16_t *, int);
-  void printMultiGroup(void);
-  S_MULTI *getMultibyId(uint16_t);
-  S_MULTI *getMultibyIndex(int);
-  void dimmerLeds(void);
-  void initRiego(uint16_t);
-  void eepromWriteSignal(uint);
-  void eepromWriteGroups();
-  bool testButton(uint16_t, bool);
 
   //Comportamiento General
   #define STANDBYSECS         15
@@ -341,7 +317,7 @@
                         LEDR, LEDG, lCESPED, lCOMPLETO, lGOTEOS};
     S_MULTI *multi;
     //numero de grupos de multirriego:
-    int n_Grupos = 3;
+    int n_Grupos;
   #else
     extern S_BOTON Boton [];
     extern uint ledOrder[];
@@ -410,7 +386,29 @@
     #endif
   #endif
 
-  //Prototipos
+  //Funciones (prototipos)
+  void check(void);
+  void StaticTimeUpdate(void);
+  void domoticzSwitch(int,char *);
+  void refreshDisplay(void);
+  void refreshTime(void);
+  void stopRiego(uint16_t);
+  void stopAllRiego(void);
+  void bip(int);
+  void longbip(int);
+  void blinkPause(void);
+  void procesaBotones(void);
+  void procesaEstados(void);
+  void displayGrupo(uint16_t *, int);
+  void printMultiGroup(void);
+  S_MULTI *getMultibyId(uint16_t);
+  S_MULTI *getMultibyIndex(int);
+  int nGrupos();
+  void dimmerLeds(void);
+  void initRiego(uint16_t);
+  void eepromWriteSignal(uint);
+  void eepromWriteGroups();
+  bool testButton(uint16_t, bool);
   void initCD4021B(void);
   void initHC595(void);
   S_BOTON *parseInputs();

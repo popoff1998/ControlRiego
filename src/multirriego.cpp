@@ -1,9 +1,9 @@
-#include <Control.h>
 
-//metodo NUEVO asignacion botones a grupos de multirriego (valores iniciales) 
+#include "Control.h"
 
 //valores y tamaño de las series por defecto 
 // (ojo ver NOTA1 en Control.h --> FORCEINITEEPROM=1 para actualizarlos)
+   
 uint16_t Grupo1[16]    = {bTURBINAS, bPORCHE, bCUARTILLO};
 uint16_t Grupo2[16]    = {bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA };
 uint16_t Grupo3[16]    = {bTURBINAS, bPORCHE, bCUARTILLO, bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA};
@@ -12,11 +12,12 @@ int size_Grupo2 = 4;
 int size_Grupo3 = 7;
 
 S_MULTI multiGroup [] =  { 
-    //id,        serie        size        actual     descripcion
-    { bCESPED,   Grupo1,    size_Grupo1,    0,       "CESPED"},
-    { bGOTEOS,   Grupo2,    size_Grupo2,    0,       "GOTEOS"},
-    { bCOMPLETO, Grupo3,    size_Grupo3,    0,       "COMPLETO"}
+      //id,        serie        size        actual     descripcion
+      { bCESPED,   Grupo1,    size_Grupo1,    0,       "CESPED"},
+      { bGOTEOS,   Grupo2,    size_Grupo2,    0,       "GOTEOS"},
+      { bCOMPLETO, Grupo3,    size_Grupo3,    0,       "COMPLETO"}
 };
+//metodo NUEVO asignacion botones a grupos de multirriego (valores iniciales) 
 
 //devuelve posicion del selector de multirriego
 uint16_t getMultiStatus()
@@ -58,3 +59,24 @@ void displayGrupo(uint16_t *serie, int serieSize)
   }
 }
 
+//imprime contenido actual de la estructura multiGroup
+void printMultiGroup()
+{
+  S_MULTI *multi;
+  for (int j=0; j<n_Grupos; j++) {
+    Serial << endl;
+    multi = getMultibyIndex(j);
+    Serial.printf("Grupo%d : %d elementos \n", j+1, multi->size);
+    for (int i=0;i < multi->size; i++) {
+      Serial.printf("     elemento %d: x",i+1);
+      Serial.print(multi->serie[i],HEX);
+      Serial << endl;
+    }  
+  }  
+  Serial << endl;
+}
+
+int nGrupos()
+{
+  return sizeof(multiGroup)/sizeof(S_MULTI);
+}
