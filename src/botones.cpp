@@ -1,8 +1,6 @@
 #include <Control.h>
 
 //Globales a este modulo
-byte    switchVar1 = 72;
-byte    switchVar2 = 159;
 unsigned long lastMillis;
 #define DEBOUNCEMILLIS 20
 volatile uint16_t ledStatus = 0;
@@ -27,6 +25,21 @@ void enciendeLeds()
   delay(200);
 }
 
+void eepromWriteSignal(uint veces)
+{
+  #ifdef TRACE
+    Serial.println("TRACE: in eepromWriteSignal");
+  #endif
+  uint i;
+  for(i=0;i<veces;i++) {
+    led(LEDR,ON);
+    led(LEDG,ON);
+    delay(300);
+    led(LEDR,OFF);
+    led(LEDG,OFF);
+    delay(300);
+  }
+}
 
 void initLeds()
 {
@@ -47,7 +60,8 @@ void initLeds()
   delay(200);
   apagaLeds();
   delay(200);
-
+  
+  /*
   for(i=numLeds-1;i>=0;i--) 
   {
     led(ledOrder[i],ON);
@@ -63,6 +77,8 @@ void initLeds()
     apagaLeds();
     delay(300);
   }
+  */
+
   led(LEDR,ON);
 }
 
@@ -90,11 +106,13 @@ void led(uint8_t id,int estado)
     //convertimos a la parte baja y alta
     uint8_t bajo = (uint8_t)((ledStatus & 0x00FF));
     uint8_t alto = (uint8_t)((ledStatus & 0xFF00) >> 8);
+    //    Serial.print("<<<<< bajo >>>>> ");Serial.print(bajo,BIN);
+    //    Serial.print("<<<<< alto >>>>> ");Serial.println(alto,BIN);
     digitalWrite(HC595_LATCH, LOW);
     shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, alto);
     shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, bajo);
     digitalWrite(HC595_LATCH, HIGH);
-    delay(5);
+    //delay(5);
 }
 
 void initCD4021B()
@@ -123,21 +141,17 @@ byte shiftInCD4021B(int myDataPin, int myClockPin)
 
 int bId2bIndex(uint16_t id)
 {
-  for (int i=0;i<16;i++) {
+  for (int i=0;i<18;i++) {
     if (Boton[i].id == id) return i;
   }
   return 999;
 }
 
-uint16_t getMultiStatus()
-{
-  if (Boton[bId2bIndex(bCESPED)].estado) return bCESPED;
-  if (Boton[bId2bIndex(bGOTEOS)].estado) return bGOTEOS;
-  return bCOMPLETO;
-}
-
 uint16_t readInputs()
 {
+  byte    switchVar1;
+  byte    switchVar2;
+
   //Activamos el latch para leer
   digitalWrite(CD4021B_LATCH,1);
   delayMicroseconds(20);
@@ -146,6 +160,20 @@ uint16_t readInputs()
   switchVar1 = shiftInCD4021B(CD4021B_DATA, CD4021B_CLOCK);
   switchVar2 = shiftInCD4021B(CD4021B_DATA, CD4021B_CLOCK);
   return switchVar2 | (switchVar1 << 8);
+}
+
+bool testButton(uint16_t id,bool state)
+{
+  //testea estado instantaneo del boton(id) pasado
+  //devolviendo 1 si es igual a state y 0 en caso contrario 
+  uint16_t buttons = readInputs();
+  bool result = ((buttons & id) == 0)?0:1;
+  #ifdef DEBUG
+    Serial << "testButtons buttons = " << buttons << endl;
+    Serial << "testButtons result = " << result << endl;
+  #endif
+  if (result == state) return 1;
+   else return 0;
 }
 
 S_BOTON *parseInputs()
@@ -158,19 +186,21 @@ S_BOTON *parseInputs()
 
   uint16_t inputs = readInputs();
 
-  for (i=0;i<16;i++) {
+  for (i=0;i<18;i++) {
     //Nos saltamos los DISABLED
     if (!Boton[i].flags.enabled) continue;
     Boton[i].estado = inputs & Boton[i].id;
-    //Solo si el estado ha cambiado
+    //Solo si el estado del boton ha cambiado devuelve cual ha sido 
     if ((Boton[i].estado != Boton[i].ultimo_estado) || (Boton[i].estado && Boton[i].flags.hold && !Boton[i].flags.holddisabled))
     {
       Boton[i].ultimo_estado = Boton[i].estado;
       if (Boton[i].estado || Boton[i].flags.dual) {
         #ifdef DEBUG
-          Serial.print("BOTON idx: ");Serial.println(Boton[i].idx);
-          Serial.print("BOTON id: ");Serial.println(Boton[i].id);
-          bip(1);
+          Serial.print("BOTON: ");Serial.print(Boton[i].desc);
+          Serial.print("   BOTON.estado: ");Serial.print(Boton[i].estado);
+          Serial.print("   BOTON id:  0x");Serial.print(Boton[i].id,HEX);
+          Serial.print("   BOTON idx: ");Serial.println(Boton[i].idx);
+          //bip(1);
         #endif
         return &Boton[i];
       }

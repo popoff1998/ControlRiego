@@ -5,9 +5,9 @@ static char CharTab[] = { '0','1','2','3',
                           '8','9','A','b',
                           'C','d','E','F',
                           '-',' ','*','r',
-                          'h','n','t','u','+',
+                          'h','n','t','+','u',
                           's','t','o','p'};
-// 0~9,A,b,C,d,E,F,"-"," ",degree,r,h,n,t, u with _, u with -,S,t,o,P
+// 0~9,A,b,C,d,E,F,"-"," ",degree,r,h,n,t, u with _, u,S,t,o,P
 /*
 static int8_t TubeTab[] = {0x3f,0x06,0x5b,0x4f,
                            0x66,0x6d,0x7d,0x07,

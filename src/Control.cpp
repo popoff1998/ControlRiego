@@ -6,6 +6,7 @@
 S_BOTON *boton;
 S_BOTON *ultimoBoton;
 bool ret;
+int ledState = LOW;
 
 #ifdef RELEASE
  bool NONETWORK=false;
@@ -40,13 +41,9 @@ time_t utc;
 void check(void)
 {
   initLeds();
-  display->check(2);
+  display->check(1);
 }
-//CheckBuzzer
-void checkBuzzer(void)
-{
 
-}
 //Para JSON
 StaticJsonBuffer<2000> jsonBuffer;
 
@@ -63,44 +60,57 @@ void timerIsr()
   Encoder->service();
 }
 
-void initEeprom() {
+void procesaEeprom() {
   int i,botonAddr;
+  int grupoAddr;
   bool eeinitialized=0;
+  n_Grupos = nGrupos();
+  //verificamos si encoderSW esta pulsado (estado OFF) --> en ese caso inicializariamos la eeprom
+  if (testButton(bENCODER, OFF)) {
+    encoderSW = true;
+    Serial.println("encoderSW pulsado --> Inicializando la EEPROM");
+  }
+  else encoderSW = false;  
 
   #ifdef NODEMCU
-    EEPROM.begin(sizeof(__eeprom_data));
+    EEPROM.begin(sizeof(__eeprom_data) + sizeof(_eeprom_group)*n_Grupos);
   #endif
+
   EEPROM.get(0,eeinitialized);
   botonAddr = offsetof(__eeprom_data, botonIdx[0]);
+  
   #ifdef DEBUG
     Serial << endl;
-    Serial << "sizeof(__eeprom_data)= " << sizeof(__eeprom_data) << endl;
+    Serial << "tamaño de la eeprom : " << sizeof(__eeprom_data) + sizeof(_eeprom_group)*n_Grupos << endl;
     Serial << "eeinitialized= " << eeinitialized << endl;
     Serial << "FORCEINITEEPROM= " << FORCEINITEEPROM << endl;
+    Serial << "encoderSW= " << encoderSW << endl;
     Serial << "boton0 offset= " << botonAddr << endl;
   #endif
-  if( eeinitialized == 0 || FORCEINITEEPROM == 1) {
-    Serial.println("Inicializando la EEPROM");
+
+  if( eeinitialized == 0 || FORCEINITEEPROM == 1 || encoderSW) {
+    Serial.println(">>>>>>>>>>>>>>  Inicializando la EEPROM  <<<<<<<<<<<<<<");
+    //escribe valores de los IDX de los botones
     for(i=0;i<16;i++) {
       EEPROM.put(botonAddr,Boton[i].idx);
       Serial << "escribiendo boton " << i << " : " << Boton[i].idx << " address: " << botonAddr << endl;
       botonAddr += 2;
     }
-    uint8_t mr,sr;
+    //escribe tiempo de riego por defecto
     minutes = DEFAULTMINUTES;
     seconds = DEFAULTSECONDS;
-    value = ((seconds==0)?minutes:seconds); //para que use esos valores
-    Serial << "SAVE EEPROM TIME, minutes: " << minutes << " seconds: " << seconds << endl;
+    Serial << "escrito tiempo riego por defecto, minutos: " << minutes << " segundos: " << seconds << endl;
     EEPROM.put(offsetof(__eeprom_data, minutes),minutes);
     EEPROM.put(offsetof(__eeprom_data, seconds),seconds);
-    EEPROM.put(offsetof(__eeprom_data, initialized),(uint8_t)1);   // marca la eeprom como inicializada
+    // marca la eeprom como inicializada
+    EEPROM.put(offsetof(__eeprom_data, initialized),(uint8_t)1);   
+    //escribe grupos de multirriego y su tamaño
+        eepromWriteGroups();
     #ifdef NODEMCU
       bool bRc = EEPROM.commit();
-      if(bRc) Serial.println("Write eeprom successfully");
+      if(bRc) Serial.println("Write eeprom OK");
       else    Serial.println("Write eeprom error");
     #endif                
-    EEPROM.get(offsetof(__eeprom_data, minutes),mr);
-    EEPROM.get(offsetof(__eeprom_data, seconds),sr);
     #ifdef DEBUG
       uint16_t boton0;  //dbg
       uint16_t boton1;  //dbg
@@ -113,22 +123,60 @@ void initEeprom() {
       Serial << "leido boton 0 : " << boton0 << " address: " << boton0Addr << endl;  //dbg
       Serial << "leido boton 1 : " << boton1 << " address: " << boton1Addr << endl;  //dbg
       Serial << "OFFm: " << offsetof(__eeprom_data, minutes) << " OFFs: " << offsetof(__eeprom_data, seconds) << endl;
-      Serial << "READ EEPROM TIME, minutes: " << mr << " seconds: " << sr << endl;
+      Serial << "OFFnumgroups: " << offsetof(__eeprom_data, numgroups) << endl;
     #endif
-  }
-  else {
-    Serial.println("Leyendo valores de la EEPROM");
-    for(i=0;i<16;i++) {
-      EEPROM.get(botonAddr,Boton[i].idx);
-      Serial << "leido boton " << i << " : " << Boton[i].idx << " address: " << botonAddr << endl;
-      botonAddr += sizeof(Boton[i].idx);
+    //señala la escritura de la eeprom
+    if(bRc) {
+      eepromWriteSignal(5);
+      longbip(3);
     }
-    EEPROM.get(offsetof(__eeprom_data, minutes),minutes);
-    EEPROM.get(offsetof(__eeprom_data, seconds),seconds);
-    Serial << "READ EEPROM TIME, minutes: " << minutes << " seconds: " << seconds << endl;
-    value = ((seconds==0)?minutes:seconds);
-    StaticTimeUpdate();
   }
+  //siempre leemos valores de la eeprom para cargar las variables correspondientes:
+  Serial.println("<<<<<<<<<<<<<<<<<<<<<   Leyendo valores de la EEPROM   >>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+  //leemos valores de los IDX de los botones
+  botonAddr = offsetof(__eeprom_data, botonIdx[0]);
+  for(i=0;i<16;i++) {
+    EEPROM.get(botonAddr,Boton[i].idx);
+    Serial << "leido boton " << i << " idx : " << Boton[i].idx << " address: " << botonAddr << endl;
+    botonAddr += sizeof(Boton[i].idx);
+  }
+  //leemos tiempo de riego por defecto
+  EEPROM.get(offsetof(__eeprom_data, minutes),minutes);
+  EEPROM.get(offsetof(__eeprom_data, seconds),seconds);
+  Serial << "leido tiempo riego por defecto, minutos: " << minutes << " segundos: " << seconds << endl;
+  value = ((seconds==0)?minutes:seconds);
+  StaticTimeUpdate();
+  //leemos grupos de multirriego
+  EEPROM.get(offsetof(__eeprom_data, numgroups),n_Grupos); //numero de grupos de multirriego
+  Serial << "leido n_Grupos de la eeprom: " << n_Grupos << " grupos" << endl;
+  #ifdef DEBUG
+      int k;
+      k = offsetof(__eeprom_data, groups[0].size);
+      Serial << "offset Grupo1.size  : " << k << endl;
+      k = offsetof(__eeprom_data, groups[0].serie);
+      Serial << "offset Grupo1.serie  : " << k << endl;
+      k = offsetof(__eeprom_data, groups[1].size);
+      Serial << "offset Grupo2.size  : " << k << endl;
+      k = offsetof(__eeprom_data, groups[1].serie);
+      Serial << "offset Grupo2.serie  : " << k << endl;
+      k = offsetof(__eeprom_data, groups[2].size);
+      Serial << "offset Grupo3.size  : " << k << endl;
+      k = offsetof(__eeprom_data, groups[2].serie);
+      Serial << "offset Grupo3.serie  : " << k << endl;
+  #endif
+  grupoAddr = offsetof(__eeprom_data, groups[0]);
+  for(i=0;i<n_Grupos;i++) {
+    multi = getMultibyIndex(i);
+    EEPROM.get(grupoAddr,multi->size);
+    Serial << "leyendo elementos Grupo" << i+1 << " : " << multi->size << " elementos " << endl;
+    grupoAddr += 4;
+    for (int j=0;j < multi->size; j++) {
+      EEPROM.get(grupoAddr,multi->serie[j]);
+      grupoAddr += 2;
+    }
+  }
+  printMultiGroup();    
+    
 }
 
 void initFactorRiegos()
@@ -162,7 +210,7 @@ void timeByFactor(int factor,uint8_t *fminutes, uint8_t *fseconds)
 
 void setup()
 {
-  Serial.begin(9600);
+  Serial.begin(115200);
   Serial.println(" ");
   Serial.println("CONTROL RIEGO V2");
   #ifdef TRACE
@@ -181,7 +229,7 @@ void setup()
   #ifdef DEBUG
    Serial.println("Inicializando Encoder");
   #endif
-   display->print("----");
+  display->print("----");
   Encoder = new ClickEncoder(ENCCLK,ENCDT,ENCSW);
   #ifdef MEGA256
     Timer1.initialize(1000);
@@ -193,12 +241,12 @@ void setup()
   #endif
   display->print("----");
   configure = new Configure(display);
-  //Para el BUZZER
-  //pinMode(BUZZER, OUTPUT);
   //Para el CD4021B
   initCD4021B();
   //Para el 74HC595
   initHC595();
+  //Inicializo la EEPROM (escribo en ella si asi se indica y/o se lee de ella valores configurados)
+  procesaEeprom();
   //led encendido
   led(LEDR,ON);
   //Chequeo de perifericos de salida
@@ -250,8 +298,6 @@ void setup()
   timeClient.begin();
   timeClient.update();
   setTime(timeClient.getEpochTime());
-  //Inicializo la EEPROM
-  initEeprom();
   //Iniciamos lastRiegos
   for(uint i=0;i<NUMRIEGOS;i++) {
     lastRiegos[i] = 0;
@@ -283,6 +329,8 @@ void setup()
   reposo = false;
   //Llamo a parseInputs una vez para eliminar prepulsaciones antes del bucle loop
   parseInputs();
+  //inicializamos apuntador estructura multi (posicion del selector multirriego):
+  multi = getMultibyId(getMultiStatus());
 }
 
 void ultimosRiegos(int modo)
@@ -315,7 +363,9 @@ void loop()
   #endif
 
   procesaBotones();
+  dimmerLeds();
   procesaEstados();
+  dimmerLeds();
 }
 
 void procesaBotones()
@@ -323,6 +373,10 @@ void procesaBotones()
   #ifdef EXTRATRACE
     Serial.println("TRACE: in procesaBotones");
   #endif
+  // almacenamos estado pulsador del encoder (para modificar comportamiento de otros botones)
+  if (!Boton[bId2bIndex(bENCODER)].estado) encoderSW = true;
+  else encoderSW = false;
+
   //Procesamos los botones
   if (!multiSemaforo) {
     //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multiriego
@@ -380,17 +434,35 @@ void procesaBotones()
                 if(Estado.estado != ERROR) Estado.estado = REGANDO; // para que no borre ERROR
                 break;
               case CONFIGURANDO:
-                if(!configure->configuringIdx() && !configure->configuringTime()) {
+                if(!configure->configuringIdx() && !configure->configuringTime() && !configure->configuringMulti()) {
                   configure->configureTime();
                   delay(500);
                   boton = NULL;
                 }
                 break;
               case STANDBY:
-                ultimosRiegos(SHOW);
-                boton = NULL;
-                delay(3000);
-                ultimosRiegos(HIDE);
+                  if(encoderSW) {  //si encoderSW+Pause --> conmutamos estado NONETWORK
+                    if (NONETWORK) {
+                        NONETWORK = false;
+                        Serial.println("encoderSW+PAUSE pasamos a modo NORMAL");
+                        bip(2);
+                        led(LEDB,OFF);
+
+
+                    }
+                    else {
+                        NONETWORK = true;
+                        Serial.println("encoderSW+PAUSE pasamos a modo NONETWORK (DEMO)");
+                        bip(2);
+                        led(LEDB,ON);
+                    }
+                  }
+                  else {    // muestra hora y ultimos riegos
+                    ultimosRiegos(SHOW);
+                    boton = NULL;
+                    delay(3000);
+                    ultimosRiegos(HIDE);
+                  }
             }
           }
           else {
@@ -402,11 +474,22 @@ void procesaBotones()
               }
               else {
                 if((millis() - countHoldPause) > HOLDTIME) {
-                  configure->start();
-                  longbip(1);
-                  Estado.estado = CONFIGURANDO;
-                  boton = NULL;
-                  holdPause = false;
+                  if(!encoderSW) { //pasamos a modo Configuracion
+                    configure->start();
+                    longbip(1);
+                    Estado.estado = CONFIGURANDO;
+                    boton = NULL;
+                    holdPause = false;
+                    #ifdef DEBUG
+                      Serial.printf("#01 savedValue: %d  value: %d \n",savedValue,value);
+                    #endif
+                    savedValue = value;
+                  }
+                  else {   //si esta pulsado encoderSW hacemos un soft reset
+                    longbip(3);
+                    Serial.println("Reset..");
+                    ESP.restart();  // Hard RESET: ESP.reset()
+                  }
                 }
               }
             }
@@ -438,6 +521,12 @@ void procesaBotones()
           }
           //Salimos del estado stop o de configuracion
           if (!boton->estado && (Estado.estado == STOP || Estado.estado == CONFIGURANDO)) {
+            if (savedValue>0) {
+                #ifdef DEBUG
+                Serial.printf("#02 savedValue: %d  value: %d \n",savedValue,value);
+                #endif
+                value = savedValue;  // para que restaure reloj aunque no salvemos con pause el valor configurado
+            }
             StaticTimeUpdate();
             led(Boton[bId2bIndex(bCONFIG)].led,OFF);
             Estado.estado = STANDBY;
@@ -445,65 +534,120 @@ void procesaBotones()
           standbyTime = millis();
           break;
         case bMULTIRIEGO:
+            //Configuramos el grupo de multirriego activo
+          if (Estado.estado == CONFIGURANDO) {
+            #ifdef DEBUG
+              Serial.printf("#03 savedValue: %d  value: %d \n",savedValue,value);
+            #endif
+            savedValue = value;
+            configure->configureMulti();
+            multi = getMultibyId(getMultiStatus()); 
+            #ifdef DEBUG
+              Serial << "en configuracion de MULTIRRIEGO, getMultibyId devuelve: " << multi->desc << endl;
+              Serial << "                                        multi->size: " << multi->size << endl;
+            #endif            
+            displayGrupo(multi->serie, multi->size);
+            multi->size = 0 ; // borramos grupo actual
+            display->print("push");
+            break;
+          }
           if (Estado.estado == STANDBY && !multiriego) {
             bip(4);
-            uint16_t multiStatus = getMultiStatus();
             multiriego = true;
-            multi.actual = 0;
-            switch(multiStatus) {
-              case bCOMPLETO:
-                multi.serie = COMPLETO;
-                multi.size = sizeof(COMPLETO)/2;
-                multi.id = bCOMPLETO;
-                strcpy(multi.desc,(char *)"COMPLETO");
-                break;
-              case bCESPED:
-                multi.serie = CESPED;
-                multi.size = sizeof(CESPED)/2;
-                multi.id = bCESPED;
-                strcpy(multi.desc,(char *)"CESPED");
-                break;
-              case bGOTEOS:
-                multi.serie = GOTEOS;
-                multi.size = sizeof(GOTEOS)/2;
-                multi.id = bGOTEOS;
-                strcpy(multi.desc,(char *)"GOTEOS");
-                break;
+            multi = getMultibyId(getMultiStatus());
+            multi->actual = 0;
+            #ifdef DEBUG
+              Serial << "en MULTIRRIEGO, getMultibyId devuelve : " << multi->desc << endl;
+              Serial << "                       multi->size: " << multi->size << endl;
+              Serial << "en MULTIRRIEGO, encoderSW status  : " << encoderSW << endl;
+            #endif
+            // si esta pulsado el boton del encoder --> solo hacemos encendido de los leds del grupo
+            if (encoderSW) {
+              displayGrupo(multi->serie, multi->size);
+              multiriego = false;
+              #ifdef DEBUG
+                Serial << "en MULTIRRIEGO + encoderSW, display de grupo: " << multi->desc << " tamaño : " << multi->size << endl;
+              #endif            
+              break;              
+            }  
+            else {
+              //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
+              //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
+              Serial.printf("MULTIRRIEGO iniciado: %s \n", multi->desc);
+              led(Boton[bId2bIndex(multi->id)].led,ON);
+              boton = &Boton[bId2bIndex(multi->serie[multi->actual])];
             }
-            //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
-            //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
-            Serial.printf("MULTIRRIEGO iniciado: %s \n", multi.desc);
-            led(Boton[bId2bIndex(multi.id)].led,ON);
-            boton = &Boton[bId2bIndex(multi.serie[multi.actual])];
+            //Aqui no hay break para que comience multirriego por default
           }
-          //Aqui no hay break para que riegue
         default:
           if (Estado.estado == STANDBY) {
-            bip(2);
-            //cambia minutes y seconds en funcion del factor de cada sector de riego
-            uint8_t fminutes=0,fseconds=0;
-            if(multiriego) {
-              timeByFactor(factorRiegos[idarrayRiego(boton->id)],&fminutes,&fseconds);
+            if (!encoderSW) {  //iniciamos el riego correspondiente al boton seleccionado
+                bip(2);
+                //cambia minutes y seconds en funcion del factor de cada sector de riego
+                uint8_t fminutes=0,fseconds=0;
+                if(multiriego) {
+                  timeByFactor(factorRiegos[idarrayRiego(boton->id)],&fminutes,&fseconds);
+                }
+                else {
+                  fminutes = minutes;
+                  fseconds = seconds;
+                }
+                //
+                T.SetTimer(0,fminutes,fseconds);
+                T.StartTimer();
+                ultimoBoton = boton;
+                initRiego(boton->id);
+                #ifdef DEBUG
+                  Serial.printf("Minutos: %d Segundos: %d FMinutos: %d FSegundos: %d\n",minutes,seconds,fminutes,fseconds);
+                #endif
+                if(Estado.estado != ERROR) Estado.estado = REGANDO; // para que no borre ERROR
             }
-            else {
-              fminutes = minutes;
-              fseconds = seconds;
+            else {  // mostramos en el display el factor de riego del boton pulsado
+              int index = bId2bIndex(boton->id);
+              led(Boton[index].led,ON); //para que funcione encendido led 16
+              led(Boton[index].led,ON);
+              #ifdef DEBUG
+                Serial.printf("Boton: %s Factor de riego: %d \n", boton->desc,factorRiegos[idarrayRiego(boton->id)]);
+                Serial.printf("          boton.index: %d \n", index);
+                Serial.printf("          boton(%d).led: %d \n", index, Boton[index].led);
+              #endif
+              #ifdef DEBUG
+                Serial.printf("#04 savedValue: %d  value: %d \n",savedValue,value);
+              #endif
+              savedValue = value;
+              value = factorRiegos[idarrayRiego(boton->id)];
+              display->print(value);
+              delay(2000);
+              // boton = NULL;  //--> provoca reset
+              #ifdef DEBUG
+                Serial.printf("#05 savedValue: %d  value: %d \n",savedValue,value);
+              #endif
+              value = savedValue;  // para que restaure reloj
+              led(Boton[index].led,OFF);
+              StaticTimeUpdate();
             }
-            //
-            T.SetTimer(0,fminutes,fseconds);
-            T.StartTimer();
-            ultimoBoton = boton;
-            initRiego(boton->id);
-            #ifdef DEBUG
-              Serial.printf("Minutos: %d Segundos: %d FMinutos: %d FSegundos: %d\n",minutes,seconds,fminutes,fseconds);
-            #endif
-            if(Estado.estado != ERROR) Estado.estado = REGANDO; // para que no borre ERROR
           }
-          //Configuramos el idx
-          if (Estado.estado == CONFIGURANDO) {
-            savedValue = value;
-            configure->configureIdx(bId2bIndex(boton->id));
-            value = boton->idx;
+          if (Estado.estado == CONFIGURANDO ) {
+            if (configure->configuringMulti()) {  //Configuramos el multirriego seleccionado
+              if (multi->size < 16) {
+                    #ifdef DEBUG
+                      Serial.printf("#07 savedValue: %d  value: %d \n",savedValue,value);
+                    #endif
+                    savedValue = value;
+                    multi->serie[multi->size] = boton->id;
+                    multi->size++;
+                    led(Boton[bId2bIndex(boton->id)].led,ON); //para que funcione encendido led 16
+                    led(Boton[bId2bIndex(boton->id)].led,ON);
+              }
+            }
+            else {          //Configuramos el idx
+              #ifdef DEBUG
+                Serial.printf("#06 savedValue: %d  value: %d \n",savedValue,value);
+              #endif
+              savedValue = value;
+              configure->configureIdx(bId2bIndex(boton->id));
+              value = boton->idx;
+            }
           }
       }
     }
@@ -552,7 +696,25 @@ void procesaEstados()
                 #ifdef NODEMCU
                   EEPROM.commit();
                 #endif
+                #ifdef DEBUG
+                  Serial.printf("#08 savedValue: %d  value: %d \n",savedValue,value);
+                #endif
                 value = savedValue;
+                longbip(2);
+                configure->stop();
+              }
+              if(configure->configuringMulti()) {
+                Serial << "SAVE EEPROM Multi :" << multi->desc << " tamaño : " << multi->size << endl;
+                //graba en la eeprom los 3 grupos
+                eepromWriteGroups();
+                #ifdef NODEMCU
+                  EEPROM.commit();
+                #endif
+                #ifdef DEBUG
+                  Serial.printf("#09 savedValue: %d  value: %d \n",savedValue,value);
+                #endif
+                value = savedValue;
+                ultimosRiegos(HIDE);
                 longbip(2);
                 configure->stop();
               }
@@ -604,18 +766,18 @@ void procesaEstados()
 
       //Comprobamos si estamos en un multiriego
       if (multiriego) {
-        multi.actual++;
-        if (multi.actual < multi.size) {
+        multi->actual++;
+        if (multi->actual < multi->size) {
           //Simular la pulsacion del siguiente boton de la serie de multiriego
-          boton = &Boton[bId2bIndex(multi.serie[multi.actual])];
+          boton = &Boton[bId2bIndex(multi->serie[multi->actual])];
           multiSemaforo = true;
         }
         else {
           longbip(3);
           multiriego = false;
           multiSemaforo = false;
-            Serial.printf("MULTIRRIEGO %s terminado \n", multi.desc);
-          led(Boton[bId2bIndex(multi.id)].led,OFF);
+            Serial.printf("MULTIRRIEGO %s terminado \n", multi->desc);
+          led(Boton[bId2bIndex(multi->id)].led,OFF);
         }
       }
       break;
@@ -629,13 +791,47 @@ void procesaEstados()
   }
 }
 
+void eepromWriteGroups() {
+    //escribe en la eeprom grupos de multirriego y su tamaño
+    int grupoAddr;
+    grupoAddr = offsetof(__eeprom_data, groups[0]);
+    EEPROM.put(offsetof(__eeprom_data, numgroups),n_Grupos); //numero de grupos de multirriego
+    for(int i=0;i<n_Grupos;i++) {
+      multi = getMultibyIndex(i);
+      Serial << "escribiendo elementos Grupo" << i+1 << " : " << multi->size << " elementos " << endl;
+      EEPROM.put(grupoAddr,multi->size);
+      grupoAddr += 4;
+      for (int j=0;j < multi->size; j++) {
+        EEPROM.put(grupoAddr,multi->serie[j]);
+        grupoAddr += 2;
+      }
+    }
+}
+
+void dimmerLeds()
+{
+  if (reposo) { 
+     //conmuta estado LEDR, LEDG y LEDB para atenuarlos
+     led(LEDR,OFF);
+     led(LEDG,OFF);
+     //led(LEDB,OFF);
+     delay(1);
+     led(LEDR,ON);
+     if(connected) led(LEDG,ON);
+     //if(NONETWORK) led(LEDB,ON);
+     //standbyTime = millis();
+  }   
+}
+
 void procesaEncoder()
 {
   #ifdef NODEMCU
     Encoder->service();
   #endif
   if(Estado.estado == CONFIGURANDO && configure->configuringIdx()) {
-      //Serial << "En procesaencoder idx";
+      #ifdef EXTRATRACE
+       Serial.println("TRACE: en procesaencoder idx");
+      #endif
       value -= Encoder->getValue();
       if (value > 1000) value = 1000;
       if (value <  1) value = 1;
@@ -686,6 +882,9 @@ void initRiego(uint16_t id)
 {
   //Esta funcion mandara el mensaje a domoticz de activar el boton
   int index = bId2bIndex(id);
+  #ifdef DEBUG
+    Serial.printf("Boton: %s boton.index: %d \n", boton->desc, bId2bIndex(boton->id));
+  #endif
   uint arrayIndex = idarrayRiego(id);
   time_t t;
 
@@ -721,17 +920,12 @@ void stopAllRiego()
 {
   //Esta funcion pondra a off todos los botones
   //Apago los leds de multiriego
-  led(Boton[bId2bIndex(multi.id)].led,OFF);
+  led(Boton[bId2bIndex(multi->id)].led,OFF);
   //Apago los leds de riego
   for(unsigned int i=0;i<sizeof(COMPLETO)/2;i++) {
     led(Boton[bId2bIndex(COMPLETO[i])].led,OFF);
     stopRiego(COMPLETO[i]);
   }
-}
-
-void checkBuzzzer(void)
-{
-
 }
 
 void bip(int veces)
@@ -772,10 +966,9 @@ void blinkPause()
   }
 }
 
-// modificacion 1 para que en caso de estado ERROR no borre el código de error del display
 void StaticTimeUpdate(void)
 {
-  if (Estado.estado == ERROR) return;
+  if (Estado.estado == ERROR) return; //para que en caso de estado ERROR no borre el código de error del display
   if (minutes < MINMINUTES) minutes = MINMINUTES;
   if (minutes > MAXMINUTES) minutes = MAXMINUTES;
   display->printTime(minutes, seconds);
@@ -784,7 +977,6 @@ void StaticTimeUpdate(void)
 void refreshDisplay()
 {
   display->refreshDisplay();
-  //display->printTime(T.ShowMinutes(),T.ShowSeconds());
 }
 
 void refreshTime()
@@ -840,7 +1032,8 @@ int getFactor(uint16_t idx)
     #ifdef DEBUG
       Serial.print("TMPSTR: ");Serial.println(tmpStr);
     #endif
-    httpclient.begin(tmpStr);
+    //httpclient.begin(tmpStr);
+    httpclient.begin(client, tmpStr); // para v3.0.0 de platform esp8266
     int httpCode = httpclient.GET();
     if(httpCode > 0) {
       if(httpCode == HTTP_CODE_OK) {
@@ -982,7 +1175,8 @@ void domoticzSwitch(int idx,char *msg)
 
     #ifdef NODEMCU
       String tmpStr = "http://" + String(serverAddress) + ":" + DOMOTICZPORT + String(message);
-      httpclient.begin(tmpStr);
+      //httpclient.begin(tmpStr);
+      httpclient.begin(client, tmpStr); // para v3.0.0 de platform esp8266
       int httpCode = httpclient.GET();
       if(httpCode > 0) {
         if(httpCode == HTTP_CODE_OK) {
