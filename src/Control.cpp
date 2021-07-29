@@ -37,177 +37,13 @@ TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};
 Timezone CE(CEST, CET);
 TimeChangeRule *tcr;
 time_t utc;
-// Initial check
-void check(void)
-{
-  initLeds();
-  display->check(1);
-}
 
 //Para JSON
 StaticJsonBuffer<2000> jsonBuffer;
 
-uint idarrayRiego(uint16_t id)
-{
-  for (uint i=0;i<NUMRIEGOS;i++) {
-    if(COMPLETO[i] == id) return i;
-  }
-  return 999;
-}
-
-void timerIsr()
-{
-  Encoder->service();
-}
-
-void procesaEeprom() {
-  int i,botonAddr;
-  int grupoAddr;
-  bool eeinitialized=0;
-  n_Grupos = nGrupos();
-  //verificamos si encoderSW esta pulsado (estado OFF) --> en ese caso inicializariamos la eeprom
-  if (testButton(bENCODER, OFF)) {
-    encoderSW = true;
-    Serial.println("encoderSW pulsado --> Inicializando la EEPROM");
-  }
-  else encoderSW = false;  
-
-  #ifdef NODEMCU
-    EEPROM.begin(sizeof(__eeprom_data) + sizeof(_eeprom_group)*n_Grupos);
-  #endif
-
-  EEPROM.get(0,eeinitialized);
-  botonAddr = offsetof(__eeprom_data, botonIdx[0]);
-  
-  #ifdef DEBUG
-    Serial << endl;
-    Serial << "tamaño de la eeprom : " << sizeof(__eeprom_data) + sizeof(_eeprom_group)*n_Grupos << endl;
-    Serial << "eeinitialized= " << eeinitialized << endl;
-    Serial << "FORCEINITEEPROM= " << FORCEINITEEPROM << endl;
-    Serial << "encoderSW= " << encoderSW << endl;
-    Serial << "boton0 offset= " << botonAddr << endl;
-  #endif
-
-  if( eeinitialized == 0 || FORCEINITEEPROM == 1 || encoderSW) {
-    Serial.println(">>>>>>>>>>>>>>  Inicializando la EEPROM  <<<<<<<<<<<<<<");
-    //escribe valores de los IDX de los botones
-    for(i=0;i<16;i++) {
-      EEPROM.put(botonAddr,Boton[i].idx);
-      Serial << "escribiendo boton " << i << " : " << Boton[i].idx << " address: " << botonAddr << endl;
-      botonAddr += 2;
-    }
-    //escribe tiempo de riego por defecto
-    minutes = DEFAULTMINUTES;
-    seconds = DEFAULTSECONDS;
-    Serial << "escrito tiempo riego por defecto, minutos: " << minutes << " segundos: " << seconds << endl;
-    EEPROM.put(offsetof(__eeprom_data, minutes),minutes);
-    EEPROM.put(offsetof(__eeprom_data, seconds),seconds);
-    // marca la eeprom como inicializada
-    EEPROM.put(offsetof(__eeprom_data, initialized),(uint8_t)1);   
-    //escribe grupos de multirriego y su tamaño
-        eepromWriteGroups();
-    #ifdef NODEMCU
-      bool bRc = EEPROM.commit();
-      if(bRc) Serial.println("Write eeprom OK");
-      else    Serial.println("Write eeprom error");
-    #endif                
-    #ifdef DEBUG
-      uint16_t boton0;  //dbg
-      uint16_t boton1;  //dbg
-      int boton0Addr, boton1Addr; //dbg    
-      Serial << "OFFinitialized: " << offsetof(__eeprom_data, initialized) << endl;
-      boton0Addr = offsetof(__eeprom_data, botonIdx[0]);  //dbg
-      EEPROM.get(offsetof(__eeprom_data, botonIdx[0]), boton0);  //dbg
-      boton1Addr = offsetof(__eeprom_data, botonIdx[1]);  //dbg
-      EEPROM.get(offsetof(__eeprom_data, botonIdx[1]), boton1);  //dbg
-      Serial << "leido boton 0 : " << boton0 << " address: " << boton0Addr << endl;  //dbg
-      Serial << "leido boton 1 : " << boton1 << " address: " << boton1Addr << endl;  //dbg
-      Serial << "OFFm: " << offsetof(__eeprom_data, minutes) << " OFFs: " << offsetof(__eeprom_data, seconds) << endl;
-      Serial << "OFFnumgroups: " << offsetof(__eeprom_data, numgroups) << endl;
-    #endif
-    //señala la escritura de la eeprom
-    if(bRc) {
-      eepromWriteSignal(5);
-      longbip(3);
-    }
-  }
-  //siempre leemos valores de la eeprom para cargar las variables correspondientes:
-  Serial.println("<<<<<<<<<<<<<<<<<<<<<   Leyendo valores de la EEPROM   >>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-  //leemos valores de los IDX de los botones
-  botonAddr = offsetof(__eeprom_data, botonIdx[0]);
-  for(i=0;i<16;i++) {
-    EEPROM.get(botonAddr,Boton[i].idx);
-    Serial << "leido boton " << i << " idx : " << Boton[i].idx << " address: " << botonAddr << endl;
-    botonAddr += sizeof(Boton[i].idx);
-  }
-  //leemos tiempo de riego por defecto
-  EEPROM.get(offsetof(__eeprom_data, minutes),minutes);
-  EEPROM.get(offsetof(__eeprom_data, seconds),seconds);
-  Serial << "leido tiempo riego por defecto, minutos: " << minutes << " segundos: " << seconds << endl;
-  value = ((seconds==0)?minutes:seconds);
-  StaticTimeUpdate();
-  //leemos grupos de multirriego
-  EEPROM.get(offsetof(__eeprom_data, numgroups),n_Grupos); //numero de grupos de multirriego
-  Serial << "leido n_Grupos de la eeprom: " << n_Grupos << " grupos" << endl;
-  #ifdef DEBUG
-      int k;
-      k = offsetof(__eeprom_data, groups[0].size);
-      Serial << "offset Grupo1.size  : " << k << endl;
-      k = offsetof(__eeprom_data, groups[0].serie);
-      Serial << "offset Grupo1.serie  : " << k << endl;
-      k = offsetof(__eeprom_data, groups[1].size);
-      Serial << "offset Grupo2.size  : " << k << endl;
-      k = offsetof(__eeprom_data, groups[1].serie);
-      Serial << "offset Grupo2.serie  : " << k << endl;
-      k = offsetof(__eeprom_data, groups[2].size);
-      Serial << "offset Grupo3.size  : " << k << endl;
-      k = offsetof(__eeprom_data, groups[2].serie);
-      Serial << "offset Grupo3.serie  : " << k << endl;
-  #endif
-  grupoAddr = offsetof(__eeprom_data, groups[0]);
-  for(i=0;i<n_Grupos;i++) {
-    multi = getMultibyIndex(i);
-    EEPROM.get(grupoAddr,multi->size);
-    Serial << "leyendo elementos Grupo" << i+1 << " : " << multi->size << " elementos " << endl;
-    grupoAddr += 4;
-    for (int j=0;j < multi->size; j++) {
-      EEPROM.get(grupoAddr,multi->serie[j]);
-      grupoAddr += 2;
-    }
-  }
-  printMultiGroup();    
-    
-}
-
-void initFactorRiegos()
-{
-  #ifdef TRACE
-    Serial.println("TRACE: in initFactorRiegos");
-  #endif
-
-  for(uint i=0;i<NUMRIEGOS;i++) {
-    factorRiegos[i]=getFactor(Boton[bId2bIndex(COMPLETO[i])].idx);
-  }
-  #ifdef VERBOSE
-    //Leemos los valores para comprobar que lo hizo bien
-    for(uint i=0;i<NUMRIEGOS;i++) {
-      Serial.printf("FACTOR %d: %d \n",i,factorRiegos[i]);
-    }
-  #endif
-}
-
-void timeByFactor(int factor,uint8_t *fminutes, uint8_t *fseconds)
-{
-  //Aqui convertimos minutes y seconds por el factorRiegos
-  uint tseconds = (60*minutes) + seconds;
-  //factorizamos
-  tseconds = (tseconds*factor)/100;
-  //reconvertimos
-  *fminutes = tseconds/60;
-  *fseconds = tseconds%60;
-}
-
-
+/*----------------------------------------------
+ *            Setup inicial
+*----------------------------------------------*/
 void setup()
 {
   Serial.begin(115200);
@@ -249,60 +85,19 @@ void setup()
   procesaEeprom();
   //led encendido
   led(LEDR,ON);
-  //Chequeo de perifericos de salida
+  //Chequeo de perifericos de salida (leds, display, buzzer)
   check();
   //Para la red
-  delay(1000);
-  #ifdef NET_MQTTCLIENT
-    MqttClient.setClient(client);
-    MqttClient.setServer(MQTT_SERVER,1883);
-  #endif
-  #ifdef MEGA256
-    Ethernet.begin(mac,ip,gateway,subnet);
-  #endif
-  #ifdef NODEMCU
-    for (int i=0;i < sizeof(ssid)/sizeof(ssid[0]); i++) {
-      int j=0;
-      WiFiMulti.addAP(ssid[i],pass);
-      #ifdef DEBUG
-              Serial.println("");
-              Serial.print("Intentando conectar a:   ");
-              Serial.print(ssid[i]);
-      #endif
-      connected = true;
-      while(WiFiMulti.run() != WL_CONNECTED) {
-        led(LEDG,ON);
-        Serial.print(".");
-        delay(200);
-        led(LEDG,OFF);
-        delay(200);
-        j++;
-        if(j == MAXCONNECTRETRY) {
-          connected = false;
-          break;
-        }
-      }
-      if(connected) {
-        Serial.println("");
-        Serial.printf("Wifi conectado a SSID: %s\n", WiFi.SSID().c_str());
-        Serial.print("IP address: ");
-        Serial.println(WiFi.localIP());
-        Serial.printf("RSSI: %d dBm\n", WiFi.RSSI());
-        led(LEDG,ON);
-        break;
-      }
-    }
-  #endif
+  //delay(1000);
+  setupRed();
   delay(1500);
   //Ponemos en hora
-  timeClient.begin();
-  timeClient.update();
-  setTime(timeClient.getEpochTime());
-  //Iniciamos lastRiegos
+  initClock();
+  //Inicializamos lastRiegos (registro fecha y riego realizado)
   for(uint i=0;i<NUMRIEGOS;i++) {
     lastRiegos[i] = 0;
   }
-  //Iniciamos factorRTiegos
+  //Cargamos factorRiegos
   initFactorRiegos();
   //Deshabilitamos el hold de Pause
   Boton[bId2bIndex(bPAUSE)].flags.holddisabled = true;
@@ -333,29 +128,9 @@ void setup()
   multi = getMultibyId(getMultiStatus());
 }
 
-void ultimosRiegos(int modo)
-{
-  switch(modo) {
-    case SHOW:
-      time_t t;
-      utc = timeClient.getEpochTime();
-      t = CE.toLocal(utc,&tcr);
-      for(uint i=0;i<NUMRIEGOS;i++) {
-        if(lastRiegos[i] > previousMidnight(t)) {
-            led(Boton[bId2bIndex(COMPLETO[i])].led,ON);
-        }
-      }
-      display->printTime(hour(t),minute(t));
-      break;
-    case HIDE:
-      StaticTimeUpdate();
-      for(unsigned int i=0;i<sizeof(COMPLETO)/2;i++) {
-        led(Boton[bId2bIndex(COMPLETO[i])].led,OFF);
-      }
-      break;
-  }
-}
-
+/*----------------------------------------------
+ *            Bucle principal
+*----------------------------------------------*/
 void loop()
 {
   #ifdef EXTRATRACE
@@ -791,6 +566,203 @@ void procesaEstados()
   }
 }
 
+// Initial check
+void check(void)
+{
+  initLeds();
+  display->check(1);
+}
+
+uint idarrayRiego(uint16_t id)
+{
+  for (uint i=0;i<NUMRIEGOS;i++) {
+    if(COMPLETO[i] == id) return i;
+  }
+  return 999;
+}
+
+void timerIsr()
+{
+  Encoder->service();
+}
+
+void procesaEeprom() {
+  int i,botonAddr;
+  int grupoAddr;
+  bool eeinitialized=0;
+  n_Grupos = nGrupos();
+  //verificamos si encoderSW esta pulsado (estado OFF) --> en ese caso inicializariamos la eeprom
+  if (testButton(bENCODER, OFF)) {
+    encoderSW = true;
+    Serial.println("encoderSW pulsado --> Inicializando la EEPROM");
+  }
+  else encoderSW = false;  
+
+  #ifdef NODEMCU
+    EEPROM.begin(sizeof(__eeprom_data) + sizeof(_eeprom_group)*n_Grupos);
+  #endif
+
+  EEPROM.get(0,eeinitialized);
+  botonAddr = offsetof(__eeprom_data, botonIdx[0]);
+  
+  #ifdef DEBUG
+    Serial << endl;
+    Serial << "tamaño de la eeprom : " << sizeof(__eeprom_data) + sizeof(_eeprom_group)*n_Grupos << endl;
+    Serial << "eeinitialized= " << eeinitialized << endl;
+    Serial << "FORCEINITEEPROM= " << FORCEINITEEPROM << endl;
+    Serial << "encoderSW= " << encoderSW << endl;
+    Serial << "boton0 offset= " << botonAddr << endl;
+  #endif
+
+  if( eeinitialized == 0 || FORCEINITEEPROM == 1 || encoderSW) {
+    Serial.println(">>>>>>>>>>>>>>  Inicializando la EEPROM  <<<<<<<<<<<<<<");
+    //escribe valores de los IDX de los botones
+    for(i=0;i<16;i++) {
+      EEPROM.put(botonAddr,Boton[i].idx);
+      Serial << "escribiendo boton " << i << " : " << Boton[i].idx << " address: " << botonAddr << endl;
+      botonAddr += 2;
+    }
+    //escribe tiempo de riego por defecto
+    minutes = DEFAULTMINUTES;
+    seconds = DEFAULTSECONDS;
+    Serial << "escrito tiempo riego por defecto, minutos: " << minutes << " segundos: " << seconds << endl;
+    EEPROM.put(offsetof(__eeprom_data, minutes),minutes);
+    EEPROM.put(offsetof(__eeprom_data, seconds),seconds);
+    // marca la eeprom como inicializada
+    EEPROM.put(offsetof(__eeprom_data, initialized),(uint8_t)1);   
+    //escribe grupos de multirriego y su tamaño
+        eepromWriteGroups();
+    #ifdef NODEMCU
+      bool bRc = EEPROM.commit();
+      if(bRc) Serial.println("Write eeprom OK");
+      else    Serial.println("Write eeprom error");
+    #endif                
+    #ifdef DEBUG
+      uint16_t boton0;  //dbg
+      uint16_t boton1;  //dbg
+      int boton0Addr, boton1Addr; //dbg    
+      Serial << "OFFinitialized: " << offsetof(__eeprom_data, initialized) << endl;
+      boton0Addr = offsetof(__eeprom_data, botonIdx[0]);  //dbg
+      EEPROM.get(offsetof(__eeprom_data, botonIdx[0]), boton0);  //dbg
+      boton1Addr = offsetof(__eeprom_data, botonIdx[1]);  //dbg
+      EEPROM.get(offsetof(__eeprom_data, botonIdx[1]), boton1);  //dbg
+      Serial << "leido boton 0 : " << boton0 << " address: " << boton0Addr << endl;  //dbg
+      Serial << "leido boton 1 : " << boton1 << " address: " << boton1Addr << endl;  //dbg
+      Serial << "OFFm: " << offsetof(__eeprom_data, minutes) << " OFFs: " << offsetof(__eeprom_data, seconds) << endl;
+      Serial << "OFFnumgroups: " << offsetof(__eeprom_data, numgroups) << endl;
+    #endif
+    //señala la escritura de la eeprom
+    if(bRc) {
+      eepromWriteSignal(5);
+      longbip(3);
+    }
+  }
+  //siempre leemos valores de la eeprom para cargar las variables correspondientes:
+  Serial.println("<<<<<<<<<<<<<<<<<<<<<   Leyendo valores de la EEPROM   >>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+  //leemos valores de los IDX de los botones
+  botonAddr = offsetof(__eeprom_data, botonIdx[0]);
+  for(i=0;i<16;i++) {
+    EEPROM.get(botonAddr,Boton[i].idx);
+    Serial << "leido boton " << i << " idx : " << Boton[i].idx << " address: " << botonAddr << endl;
+    botonAddr += sizeof(Boton[i].idx);
+  }
+  //leemos tiempo de riego por defecto
+  EEPROM.get(offsetof(__eeprom_data, minutes),minutes);
+  EEPROM.get(offsetof(__eeprom_data, seconds),seconds);
+  Serial << "leido tiempo riego por defecto, minutos: " << minutes << " segundos: " << seconds << endl;
+  value = ((seconds==0)?minutes:seconds);
+  StaticTimeUpdate();
+  //leemos grupos de multirriego
+  EEPROM.get(offsetof(__eeprom_data, numgroups),n_Grupos); //numero de grupos de multirriego
+  Serial << "leido n_Grupos de la eeprom: " << n_Grupos << " grupos" << endl;
+  #ifdef DEBUG
+      int k;
+      k = offsetof(__eeprom_data, groups[0].size);
+      Serial << "offset Grupo1.size  : " << k << endl;
+      k = offsetof(__eeprom_data, groups[0].serie);
+      Serial << "offset Grupo1.serie  : " << k << endl;
+      k = offsetof(__eeprom_data, groups[1].size);
+      Serial << "offset Grupo2.size  : " << k << endl;
+      k = offsetof(__eeprom_data, groups[1].serie);
+      Serial << "offset Grupo2.serie  : " << k << endl;
+      k = offsetof(__eeprom_data, groups[2].size);
+      Serial << "offset Grupo3.size  : " << k << endl;
+      k = offsetof(__eeprom_data, groups[2].serie);
+      Serial << "offset Grupo3.serie  : " << k << endl;
+  #endif
+  grupoAddr = offsetof(__eeprom_data, groups[0]);
+  for(i=0;i<n_Grupos;i++) {
+    multi = getMultibyIndex(i);
+    EEPROM.get(grupoAddr,multi->size);
+    Serial << "leyendo elementos Grupo" << i+1 << " : " << multi->size << " elementos " << endl;
+    grupoAddr += 4;
+    for (int j=0;j < multi->size; j++) {
+      EEPROM.get(grupoAddr,multi->serie[j]);
+      grupoAddr += 2;
+    }
+  }
+  printMultiGroup();    
+    
+}
+
+void initFactorRiegos()
+{
+  #ifdef TRACE
+    Serial.println("TRACE: in initFactorRiegos");
+  #endif
+
+  for(uint i=0;i<NUMRIEGOS;i++) {
+    factorRiegos[i]=getFactor(Boton[bId2bIndex(COMPLETO[i])].idx);
+  }
+  #ifdef VERBOSE
+    //Leemos los valores para comprobar que lo hizo bien
+    for(uint i=0;i<NUMRIEGOS;i++) {
+      Serial.printf("FACTOR %d: %d \n",i,factorRiegos[i]);
+    }
+  #endif
+}
+
+void timeByFactor(int factor,uint8_t *fminutes, uint8_t *fseconds)
+{
+  //Aqui convertimos minutes y seconds por el factorRiegos
+  uint tseconds = (60*minutes) + seconds;
+  //factorizamos
+  tseconds = (tseconds*factor)/100;
+  //reconvertimos
+  *fminutes = tseconds/60;
+  *fseconds = tseconds%60;
+}
+
+void initClock()
+{
+  timeClient.begin();
+  timeClient.update();
+  setTime(timeClient.getEpochTime());
+}
+
+void ultimosRiegos(int modo)
+{
+  switch(modo) {
+    case SHOW:
+      time_t t;
+      utc = timeClient.getEpochTime();
+      t = CE.toLocal(utc,&tcr);
+      for(uint i=0;i<NUMRIEGOS;i++) {
+        if(lastRiegos[i] > previousMidnight(t)) {
+            led(Boton[bId2bIndex(COMPLETO[i])].led,ON);
+        }
+      }
+      display->printTime(hour(t),minute(t));
+      break;
+    case HIDE:
+      StaticTimeUpdate();
+      for(unsigned int i=0;i<sizeof(COMPLETO)/2;i++) {
+        led(Boton[bId2bIndex(COMPLETO[i])].led,OFF);
+      }
+      break;
+  }
+}
+
 void eepromWriteGroups() {
     //escribe en la eeprom grupos de multirriego y su tamaño
     int grupoAddr;
@@ -983,6 +955,52 @@ void refreshTime()
 {
   display->printTime(T.ShowMinutes(),T.ShowSeconds());
 }
+
+void setupRed()
+{
+   #ifdef NET_MQTTCLIENT
+    MqttClient.setClient(client);
+    MqttClient.setServer(MQTT_SERVER,1883);
+  #endif
+  #ifdef MEGA256
+    Ethernet.begin(mac,ip,gateway,subnet);
+  #endif
+  #ifdef NODEMCU
+    for (int i=0;i < sizeof(ssid)/sizeof(ssid[0]); i++) {
+      int j=0;
+      WiFiMulti.addAP(ssid[i],pass);
+      #ifdef DEBUG
+              Serial.println("");
+              Serial.print("Intentando conectar a:   ");
+              Serial.print(ssid[i]);
+      #endif
+      connected = true;
+      while(WiFiMulti.run() != WL_CONNECTED) {
+        led(LEDG,ON);
+        Serial.print(".");
+        delay(200);
+        led(LEDG,OFF);
+        delay(200);
+        j++;
+        if(j == MAXCONNECTRETRY) {
+          connected = false;
+          break;
+        }
+      }
+      if(connected) {
+        Serial.println("");
+        Serial.printf("Wifi conectado a SSID: %s\n", WiFi.SSID().c_str());
+        Serial.print("IP address: ");
+        Serial.println(WiFi.localIP());
+        Serial.printf("RSSI: %d dBm\n", WiFi.RSSI());
+        led(LEDG,ON);
+        break;
+      }
+    }
+  #endif
+
+}
+
 
 bool checkWifiConnected()
 {
