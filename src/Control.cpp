@@ -8,18 +8,6 @@ S_BOTON *ultimoBoton;
 bool ret;
 int ledState = LOW;
 
-#ifdef RELEASE
- bool NONETWORK=false;
-#endif
-
-#ifdef DEVELOP
- bool NONETWORK=false;
-#endif
-
-#ifdef DEMO
- bool NONETWORK=true;
-#endif
-
 #ifdef MEGA256
   EthernetUDP ntpUDP;
 #endif
@@ -27,7 +15,6 @@ int ledState = LOW;
 #ifdef NODEMCU
   WiFiUDP ntpUDP;
   ESP8266WiFiMulti WiFiMulti;
-  bool connected;
 #endif
 
 NTPClient timeClient(ntpUDP,"192.168.100.60");
@@ -43,9 +30,19 @@ StaticJsonBuffer<2000> jsonBuffer;
 
 /*----------------------------------------------
  *            Setup inicial
-*----------------------------------------------*/
+ *----------------------------------------------*/
 void setup()
 {
+#ifdef RELEASE
+               NONETWORK=false; 
+#endif
+#ifdef DEVELOP
+               NONETWORK=false;
+#endif
+#ifdef DEMO
+               NONETWORK=true;
+#endif
+
   Serial.begin(115200);
   Serial.println(" ");
   Serial.println("CONTROL RIEGO V2");
@@ -89,23 +86,28 @@ void setup()
   check();
   //Para la red
   //delay(1000);
-  setupRed();
-  delay(1500);
+  //setupRed();
+  setupRedWM();
+  #ifdef EXTRADEBUG
+    Serial.printf("estado LEDR: %d \n",ledStatusId(LEDR));
+    Serial.printf("estado LEDG: %d \n",ledStatusId(LEDG));
+    Serial.printf("estado LEDB: %d \n",ledStatusId(LEDB));
+  #endif
+  delay(2000);
   //Ponemos en hora
   initClock();
   //Inicializamos lastRiegos (registro fecha y riego realizado)
-  for(uint i=0;i<NUMRIEGOS;i++) {
-    lastRiegos[i] = 0;
-  }
+  initLastRiegos();
   //Cargamos factorRiegos
   initFactorRiegos();
   //Deshabilitamos el hold de Pause
   Boton[bId2bIndex(bPAUSE)].flags.holddisabled = true;
+  //si no estamos conectados a la red y no estamos en modo NONETWORK pasamos a estado ERROR
   if(!connected) {
-    Serial.println("ERROR DE CONEXION WIFI");
+    Serial.println("[ERROR] Setup: ERROR DE CONEXION WIFI");
     if(!NONETWORK) {
       Estado.estado = ERROR;
-      display->print("Err9");
+      display->print("Err1");
       longbip(3);
     }
     // Si estamos en modo NONETWORK pasamos a STANDBY aunque no exista conexión wifi y
@@ -591,12 +593,16 @@ void procesaEeprom() {
   int grupoAddr;
   bool eeinitialized=0;
   n_Grupos = nGrupos();
-  //verificamos si encoderSW esta pulsado (estado OFF) --> en ese caso inicializariamos la eeprom
-  if (testButton(bENCODER, OFF)) {
-    encoderSW = true;
-    Serial.println("encoderSW pulsado --> Inicializando la EEPROM");
+  //verificamos si encoderSW esta pulsado (estado OFF) y selector de multirriego esta en posicion:
+  //   - Grupo1 (CESPED)
+  //   (no se verifica - Grupo3 (TODO)
+  // --> en ese caso inicializariamos la eeprom
+  if (testButton(bENCODER, OFF) && testButton(bCESPED,ON))
+  {
+    eepromSW = true;
+    Serial.println("encoderSW pulsado y multirriego en CESPED  --> Inicializando la EEPROM");
   }
-  else encoderSW = false;  
+  else eepromSW = false;  
 
   #ifdef NODEMCU
     EEPROM.begin(sizeof(__eeprom_data) + sizeof(_eeprom_group)*n_Grupos);
@@ -610,11 +616,11 @@ void procesaEeprom() {
     Serial << "tamaño de la eeprom : " << sizeof(__eeprom_data) + sizeof(_eeprom_group)*n_Grupos << endl;
     Serial << "eeinitialized= " << eeinitialized << endl;
     Serial << "FORCEINITEEPROM= " << FORCEINITEEPROM << endl;
-    Serial << "encoderSW= " << encoderSW << endl;
+    Serial << "eepromSW= " << eepromSW << endl;
     Serial << "boton0 offset= " << botonAddr << endl;
   #endif
 
-  if( eeinitialized == 0 || FORCEINITEEPROM == 1 || encoderSW) {
+  if( eeinitialized == 0 || FORCEINITEEPROM == 1 || eepromSW) {
     Serial.println(">>>>>>>>>>>>>>  Inicializando la EEPROM  <<<<<<<<<<<<<<");
     //escribe valores de los IDX de los botones
     for(i=0;i<16;i++) {
@@ -663,7 +669,10 @@ void procesaEeprom() {
   botonAddr = offsetof(__eeprom_data, botonIdx[0]);
   for(i=0;i<16;i++) {
     EEPROM.get(botonAddr,Boton[i].idx);
-    Serial << "leido boton " << i << " idx : " << Boton[i].idx << " address: " << botonAddr << endl;
+    Serial << "Leyendo idx de los botones";
+    #ifdef VERBOSE
+      Serial << "leido boton " << i << " idx : " << Boton[i].idx << " address: " << botonAddr << endl;
+    #endif
     botonAddr += sizeof(Boton[i].idx);
   }
   //leemos tiempo de riego por defecto
@@ -694,7 +703,9 @@ void procesaEeprom() {
   for(i=0;i<n_Grupos;i++) {
     multi = getMultibyIndex(i);
     EEPROM.get(grupoAddr,multi->size);
-    Serial << "leyendo elementos Grupo" << i+1 << " : " << multi->size << " elementos " << endl;
+    #ifdef VERBOSE
+      Serial << "leyendo elementos Grupo" << i+1 << " : " << multi->size << " elementos " << endl;
+    #endif
     grupoAddr += 4;
     for (int j=0;j < multi->size; j++) {
       EEPROM.get(grupoAddr,multi->serie[j]);
@@ -716,6 +727,7 @@ void initFactorRiegos()
   }
   #ifdef VERBOSE
     //Leemos los valores para comprobar que lo hizo bien
+    Serial.print("Factores de riego leidos:");
     for(uint i=0;i<NUMRIEGOS;i++) {
       Serial.printf("FACTOR %d: %d \n",i,factorRiegos[i]);
     }
@@ -786,11 +798,11 @@ void dimmerLeds()
      //conmuta estado LEDR, LEDG y LEDB para atenuarlos
      led(LEDR,OFF);
      led(LEDG,OFF);
-     //led(LEDB,OFF);
+     led(LEDB,OFF);
      delay(1);
      led(LEDR,ON);
      if(connected) led(LEDG,ON);
-     //if(NONETWORK) led(LEDB,ON);
+     if(NONETWORK) led(LEDB,ON);
      //standbyTime = millis();
   }   
 }
@@ -848,7 +860,12 @@ void procesaEncoder()
   standbyTime = millis();
 }
 
-
+void initLastRiegos()
+{
+  for(uint i=0;i<NUMRIEGOS;i++) {
+   lastRiegos[i] = 0;
+  }
+}
 
 void initRiego(uint16_t id)
 {
@@ -1005,29 +1022,21 @@ void setupRed()
 bool checkWifiConnected()
 {
   #ifdef TRACE
-    Serial.println("TRACE: in checkWifiConnected");
+    Serial << "TRACE: in checkWifiConnectedWM , NONETWORK = " << NONETWORK << endl;
   #endif
-  int i=0;
-  if(NONETWORK) {
+  if(NONETWORK) { // en modo NONETWORK return false pero no damos error
      led(LEDB,ON);
      return false;
   }
   //Comprobamos si estamos conectados, error en caso contrario
-  while(WiFiMulti.run() != WL_CONNECTED) {
-    i++;
-    if(i<5) continue;
-    else {
-      #ifdef DEBUG
-        Serial.println("Error: No estamos conectados a la wifi");
-      #endif
+  if(checkWifi()) return true;
+   else {
+      Serial.println("[ERROR] checkWifiConnected: ERROR DE CONEXION WIFI");
       display->print("Err1");
       Estado.estado = ERROR;
       led(LEDG,OFF);
       return false;
     }
-  }
-  led(LEDG,ON);
-  return true;
 }
 
 int getFactor(uint16_t idx)
@@ -1037,7 +1046,7 @@ int getFactor(uint16_t idx)
   #endif
   //Ante cualquier problema devolvemos 100% para no factorizar ese riego
   #ifdef NODEMCU
-    if(!checkWifiConnected()) return 100;
+    if(!checkWifi()) return 100;
   #endif
 
   char JSONMSG[200]="/json.htm?type=devices&rid=%d";
@@ -1064,8 +1073,9 @@ int getFactor(uint16_t idx)
     else {
       if(!NONETWORK && Estado.estado != ERROR) {
         Estado.estado = ERROR;
-        display->print("Err8");
+        display->print("Err2");
         #ifdef DEBUG
+          Serial.println("[ERROR] getFactor: ERROR comunicando con Domoticz"); 
           Serial.printf("GETFACTOR IDX: %d [HTTP] GET... failed, error: %s\n", idx,httpclient.errorToString(httpCode).c_str());
         #endif
       }
@@ -1083,7 +1093,7 @@ int getFactor(uint16_t idx)
         Serial.print("Status code: ");
         Serial.println(statusCode);
       #endif
-      display->print("Err2");
+      display->print("Err9");
       Estado.estado = ERROR;
       httpclient.stop();
       return 100;
@@ -1096,6 +1106,7 @@ int getFactor(uint16_t idx)
     if(NONETWORK) return 100;
     #ifdef DEBUG
       Serial.println("SE HA DEVUELTO ERROR");
+      Serial.println("[ERROR] getFactor: SE HA DEVUELTO ERROR"); 
     #endif
     display->print("Err4");
     Estado.estado = ERROR;
@@ -1184,7 +1195,7 @@ void domoticzSwitch(int idx,char *msg)
           Serial.print("Status code: ");
           Serial.println(statusCode);
         #endif
-        display->print("Err2");
+        display->print("Err9");
         Estado.estado = ERROR;
         httpclient.stop();
         return;
@@ -1209,6 +1220,7 @@ void domoticzSwitch(int idx,char *msg)
         Estado.estado = ERROR;
         display->print("Err3");
         #ifdef DEBUG
+          Serial.println("[ERROR] domoticzSwitch: SE HA DEVUELTO ERROR"); 
           Serial.printf("DOMOTICZSWITH IDX: %d [HTTP] GET... failed, error: %s\n", idx, httpclient.errorToString(httpCode).c_str());
         #endif
         return;
@@ -1219,7 +1231,7 @@ void domoticzSwitch(int idx,char *msg)
     if(pos != -1) {
       if(NONETWORK) return;
       #ifdef DEBUG
-        Serial.println("SE HA DEVUELTO ERROR");
+        Serial.println("[ERROR] domoticzSwitch: SE HA DEVUELTO ERROR"); 
       #endif
       display->print("Err4");
       Estado.estado = ERROR;

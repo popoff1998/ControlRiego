@@ -11,6 +11,10 @@
     #ifdef NET_HTTPCLIENT
       #include <ESP8266HTTPClient.h>
     #endif
+    #include <DNSServer.h>
+    #include <ESP8266WebServer.h >
+    #include <WiFiManager.h>
+    #include <Ticker.h>
   #endif
 
   #ifdef MEGA256
@@ -44,7 +48,7 @@
   #ifdef DEVELOP
   //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
   #define DEBUG
-  #define EXTRADEBUG
+  //#define EXTRADEBUG
   #define TRACE
   //#define EXTRATRACE
   #define VERBOSE
@@ -62,7 +66,7 @@
   #ifdef DEMO
   //Comportamiento general para DEMO . DESCOMENTAR LO QUE CORRESPONDA
   #define DEBUG
-  #define EXTRADEBUG
+  //#define EXTRADEBUG
   #define TRACE
   //#define EXTRATRACE
   #define VERBOSE
@@ -318,10 +322,15 @@
     S_MULTI *multi;
     //numero de grupos de multirriego:
     int n_Grupos;
+    bool connected;
+    bool NONETWORK;
+
   #else
     extern S_BOTON Boton [];
     extern uint ledOrder[];
     extern int n_Grupos;
+    extern bool connected;
+    extern bool NONETWORK;
   #endif
 
   //Globales
@@ -354,6 +363,7 @@
     bool multiSemaforo = false;
     bool holdPause = false;
     bool encoderSW = false;
+    bool eepromSW = false;
     unsigned long countHoldPause;
 
     //Para Ethernet
@@ -392,7 +402,10 @@
   int  bId2bIndex(uint16_t);
   void blinkPause(void);
   void check(void);
+  bool checkWifi(void);
   bool checkWifiConnected(void);
+  bool checkWifiConnectedWM(void);
+  void configModeCallback (WiFiManager *);
   void dimmerLeds(void);
   void displayGrupo(uint16_t *, int);
   void domoticzSwitch(int,char *);
@@ -408,10 +421,12 @@
   void initClock(void);
   void initFactorRiegos(void);
   void initHC595(void);
+  void initLastRiegos(void);
   void initLeds(void);
   void initRiego(uint16_t);
   void led(uint8_t,int);
   void ledRGB(int,int,int);
+  bool ledStatusId(int);
   void longbip(int);
   int  nGrupos();
   S_BOTON *parseInputs();
@@ -422,12 +437,15 @@
   void procesaEstados(void);
   void refreshTime(void);
   void refreshDisplay(void);
+  void saveWifiCallback(void);
   void setupRed(void);
+  void setupRedWM(void);
   void StaticTimeUpdate(void);
   void stopRiego(uint16_t);
   void stopAllRiego(void);
   bool testButton(uint16_t, bool);
   void timeByFactor(int,uint8_t *,uint8_t *);
   void ultimosRiegos(int);
+  void wifiClearSignal(uint);
 
 #endif
