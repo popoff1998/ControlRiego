@@ -59,19 +59,20 @@ void setupRedWM()  // conexion a la red por medio de WifiManager
   #endif
   #ifdef NODEMCU
     bool wifiSW = false;
+    connected = false;
     //verificamos si encoderSW esta pulsado (estado OFF) y selector de multirriego esta en posicion:
     //   - Grupo2 (GOTEOS)
     //   (no se verifica - Grupo3 (TODO)
     // --> en ese caso borramos red wifi almacenada en el ESP8266
     if (testButton(bENCODER, OFF) && testButton(bGOTEOS,ON)) wifiSW = true;
     else wifiSW = false;
-    // explicitly set mode, esp defaults to STA+AP   
     if(wifiSW) {
       Serial.println("encoderSW pulsado y multirriego en GOTEOS --> borramos red WIFI");
-      WiFi.disconnect();
+      WiFi.disconnect(); //borra wifi guardada
       wifiClearSignal(5);
       led(LEDR,ON);
     }
+    // explicitly set mode, esp defaults to STA+AP   
     WiFi.mode(WIFI_STA); 
     // Creamos una instancia de la clase WiFiManager
     WiFiManager wm;
@@ -80,12 +81,12 @@ void setupRedWM()  // conexion a la red por medio de WifiManager
     // Empezamos el temporizador que hará parpadear el LED indicador de wifi
     tic_WifiLed.attach(0.2, parpadeoLedWifi);
     //sets timeout until configuration portal gets turned off
-    wm.setConfigPortalTimeout(120);
+    wm.setConfigPortalTimeout(180);
     // callbacks
     wm.setAPCallback(configModeCallback);
     wm.setSaveConfigCallback(saveWifiCallback);
     // activamos modo AP y portal cautivo y comprobamos si se establece la conexión
-    if(!wm.autoConnect("ESP8266Temp")){
+    if(!wm.autoConnect("Ardomo")){
       Serial.println("Fallo en la conexión (timeout)");
       //ESP.reset();
       delay(1000);
@@ -116,6 +117,7 @@ void setupRedWM()  // conexion a la red por medio de WifiManager
       // apagamos el LED indicador de wifi
       tic_WifiLed.detach();
       led(LEDG,OFF);
+      connected = false;
     }
   #endif
 }
@@ -127,12 +129,14 @@ bool checkWifi() {
   if(WiFi.status() == WL_CONNECTED) {
     // Encendemos el LED indicador de wifi
     led(LEDG,ON);
+    connected = true;
     return true;
   }
   else {
     // apagamos el LED indicador de wifi
     Serial.println("Error: No estamos conectados a la wifi");
     led(LEDG,OFF);
+    connected = false;
     return false;
   }
 }

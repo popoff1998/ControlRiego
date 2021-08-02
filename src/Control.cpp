@@ -6,7 +6,9 @@
 S_BOTON *boton;
 S_BOTON *ultimoBoton;
 bool ret;
+bool flagV = OFF;
 int ledState = LOW;
+bool timeOK = false;
 
 #ifdef MEGA256
   EthernetUDP ntpUDP;
@@ -24,12 +26,15 @@ TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};
 Timezone CE(CEST, CET);
 TimeChangeRule *tcr;
 time_t utc;
+Ticker tic_parpadeoLedON;  //para parpadeo led ON
+Ticker tic_verificaciones; //para verificaciones periodicas
+
 
 //Para JSON
 StaticJsonBuffer<2000> jsonBuffer;
 
-/*----------------------------------------------
- *            Setup inicial
+/*----------------------------------------------*
+ *               Setup inicial                  *
  *----------------------------------------------*/
 void setup()
 {
@@ -128,11 +133,14 @@ void setup()
   parseInputs();
   //inicializamos apuntador estructura multi (posicion del selector multirriego):
   multi = getMultibyId(getMultiStatus());
+  //lanzamos supervision periodica estado cada 10 seg.
+  tic_verificaciones.attach_scheduled(10, flagVerificaciones);
+  //tic_parpadeoLedON.attach(1,parpadeoLedON);
 }
 
-/*----------------------------------------------
- *            Bucle principal
-*----------------------------------------------*/
+/*----------------------------------------------*
+ *            Bucle principal                   *
+ *----------------------------------------------*/
 void loop()
 {
   #ifdef EXTRATRACE
@@ -143,6 +151,7 @@ void loop()
   dimmerLeds();
   procesaEstados();
   dimmerLeds();
+  Verificaciones();
 }
 
 void procesaBotones()
@@ -163,11 +172,10 @@ void procesaBotones()
   else {
     multiSemaforo = false;
   }
-
-  //En estado error salimos a menos que pulsemos bPause y pasamos a modo NONETWORK
-  if(Estado.estado == ERROR) 
-  {
-    if(boton != NULL) {
+  if(boton != NULL) {
+    //En estado error salimos a menos que pulsemos bPause y pasamos a modo NONETWORK
+    if(Estado.estado == ERROR) 
+    {
       //Si estamos en error y pulsamos pausa, nos ponemos en estado NONETWORK para test
       if(boton->id == bPAUSE) {
         Estado.estado = STANDBY;
@@ -180,10 +188,8 @@ void procesaBotones()
         multiSemaforo = false;
         StaticTimeUpdate();
       }
+      return;
     }
-    return;
-  }
-  if(boton != NULL) {
     //Si estamos en reposo solo nos saca de ese estado
     if (reposo && boton->id != bSTOP) {
       Serial.println("Salimos de reposo");
@@ -381,7 +387,7 @@ void procesaBotones()
             }
             else {  // mostramos en el display el factor de riego del boton pulsado
               int index = bId2bIndex(boton->id);
-              led(Boton[index].led,ON); //para que funcione encendido led 16
+              //led(Boton[index].led,ON); //para que funcione encendido led 16
               led(Boton[index].led,ON);
               #ifdef DEBUG
                 Serial.printf("Boton: %s Factor de riego: %d \n", boton->desc,factorRiegos[idarrayRiego(boton->id)]);
@@ -413,7 +419,7 @@ void procesaBotones()
                     savedValue = value;
                     multi->serie[multi->size] = boton->id;
                     multi->size++;
-                    led(Boton[bId2bIndex(boton->id)].led,ON); //para que funcione encendido led 16
+                    //led(Boton[bId2bIndex(boton->id)].led,ON); //para que funcione encendido led 16
                     led(Boton[bId2bIndex(boton->id)].led,ON);
               }
             }
@@ -666,10 +672,10 @@ void procesaEeprom() {
   //siempre leemos valores de la eeprom para cargar las variables correspondientes:
   Serial.println("<<<<<<<<<<<<<<<<<<<<<   Leyendo valores de la EEPROM   >>>>>>>>>>>>>>>>>>>>>>>>>>>>");
   //leemos valores de los IDX de los botones
+  Serial.println("Leyendo idx de los botones");
   botonAddr = offsetof(__eeprom_data, botonIdx[0]);
   for(i=0;i<16;i++) {
     EEPROM.get(botonAddr,Boton[i].idx);
-    Serial << "Leyendo idx de los botones";
     #ifdef VERBOSE
       Serial << "leido boton " << i << " idx : " << Boton[i].idx << " address: " << botonAddr << endl;
     #endif
@@ -727,7 +733,7 @@ void initFactorRiegos()
   }
   #ifdef VERBOSE
     //Leemos los valores para comprobar que lo hizo bien
-    Serial.print("Factores de riego leidos:");
+    Serial.println("Factores de riego leidos:");
     for(uint i=0;i<NUMRIEGOS;i++) {
       Serial.printf("FACTOR %d: %d \n",i,factorRiegos[i]);
     }
@@ -748,7 +754,14 @@ void timeByFactor(int factor,uint8_t *fminutes, uint8_t *fseconds)
 void initClock()
 {
   timeClient.begin();
-  timeClient.update();
+  if (timeClient.update()) {
+    Serial.println("NTP time recibido OK");
+    timeOK = true;
+  }  
+   else {
+     Serial.println("[ERROR] initClock: no se ha recibido time por NTP");
+     timeOK = false;
+    }
   setTime(timeClient.getEpochTime());
 }
 
@@ -1256,6 +1269,27 @@ void domoticzSwitch(int idx,char *msg)
     MqttClient.publish("out","HOLA");
     //MqttClient.loop();
   #endif
+}
+
+void flagVerificaciones() {
+  flagV = ON; //solo activamos flagV para no usar llamadas a funciones bloqueantes en Ticker
+}
+
+void Verificaciones() {   //verificaciones periodicas de estado wifi y hora correcta
+  if(!flagV) return;      //si no activada por Ticker salimos sin hacer nada
+  Serial.print(".");
+  if (Estado.estado == STANDBY || (Estado.estado == ERROR && !connected)) {
+    if (checkWifi()) Estado.estado = STANDBY;
+    if (!timeOK) initClock();
+      //if (timeClient.update()) timeOK = true;
+      //Serial << "actualizando TIME , resultado " << timeOK << endl;
+  }
+  flagV = OFF;
+}
+
+void parpadeoLedON(){
+  byte estado = ledStatusId(LEDR);
+  led(LEDR,!estado);
 }
 
 #ifdef NET_DIRECT

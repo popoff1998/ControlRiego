@@ -127,6 +127,7 @@ void led(uint8_t id,int estado)
       Serial.print("<<<<< alto >>>>> ");Serial.println(alto,BIN);
     #endif
     digitalWrite(HC595_LATCH, LOW);
+    shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, alto); //repetimos para que funcione encendido led 16
     shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, alto);
     shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, bajo);
     digitalWrite(HC595_LATCH, HIGH);

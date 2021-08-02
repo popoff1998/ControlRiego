@@ -412,6 +412,7 @@
   void eepromWriteSignal(uint);
   void eepromWriteGroups();
   void enciendeLeds(void);
+  void flagVerificaciones(void);
   int  getFactor(uint16_t);
   S_MULTI *getMultibyId(uint16_t);
   S_MULTI *getMultibyIndex(int);
@@ -429,6 +430,7 @@
   bool ledStatusId(int);
   void longbip(int);
   int  nGrupos();
+  void parpadeoLedON(void);
   S_BOTON *parseInputs();
   void printMultiGroup(void);
   void procesaBotones(void);
@@ -446,6 +448,7 @@
   bool testButton(uint16_t, bool);
   void timeByFactor(int,uint8_t *,uint8_t *);
   void ultimosRiegos(int);
+  void Verificaciones(void);
   void wifiClearSignal(uint);
 
 #endif
