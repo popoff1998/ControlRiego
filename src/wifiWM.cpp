@@ -60,6 +60,7 @@ void setupRedWM()  // conexion a la red por medio de WifiManager
   #ifdef NODEMCU
     bool wifiSW = false;
     connected = false;
+    falloAP = false;
     //verificamos si encoderSW esta pulsado (estado OFF) y selector de multirriego esta en posicion:
     //   - Grupo2 (GOTEOS)
     //   (no se verifica - Grupo3 (TODO)
@@ -88,6 +89,7 @@ void setupRedWM()  // conexion a la red por medio de WifiManager
     // activamos modo AP y portal cautivo y comprobamos si se establece la conexión
     if(!wm.autoConnect("Ardomo")){
       Serial.println("Fallo en la conexión (timeout)");
+      falloAP = true;
       //ESP.reset();
       delay(1000);
     }
@@ -134,7 +136,7 @@ bool checkWifi() {
   }
   else {
     // apagamos el LED indicador de wifi
-    Serial.println("Error: No estamos conectados a la wifi");
+    Serial.println("[ERROR] No estamos conectados a la wifi");
     led(LEDG,OFF);
     connected = false;
     return false;

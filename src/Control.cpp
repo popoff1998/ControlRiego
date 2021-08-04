@@ -9,6 +9,8 @@ bool ret;
 bool flagV = OFF;
 int ledState = LOW;
 bool timeOK = false;
+bool errorOFF = false;
+bool simErrorOFF = false;
 
 #ifdef MEGA256
   EthernetUDP ntpUDP;
@@ -26,7 +28,7 @@ TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};
 Timezone CE(CEST, CET);
 TimeChangeRule *tcr;
 time_t utc;
-Ticker tic_parpadeoLedON;  //para parpadeo led ON
+Ticker tic_parpadeoLedON;  //para parpadeo led ON (LEDR)
 Ticker tic_verificaciones; //para verificaciones periodicas
 
 
@@ -135,7 +137,6 @@ void setup()
   multi = getMultibyId(getMultiStatus());
   //lanzamos supervision periodica estado cada 10 seg.
   tic_verificaciones.attach_scheduled(10, flagVerificaciones);
-  //tic_parpadeoLedON.attach(1,parpadeoLedON);
 }
 
 /*----------------------------------------------*
@@ -376,13 +377,17 @@ void procesaBotones()
                   fseconds = seconds;
                 }
                 //
-                T.SetTimer(0,fminutes,fseconds);
-                T.StartTimer();
-                ultimoBoton = boton;
-                initRiego(boton->id);
                 #ifdef DEBUG
                   Serial.printf("Minutos: %d Segundos: %d FMinutos: %d FSegundos: %d\n",minutes,seconds,fminutes,fseconds);
                 #endif
+                ultimoBoton = boton;
+                if (fminutes == 0 && fseconds == 0) {
+                  Estado.estado = TERMINANDO; // nos saltamos este riego
+                  break;
+                }
+                T.SetTimer(0,fminutes,fseconds);
+                T.StartTimer();
+                initRiego(boton->id);
                 if(Estado.estado != ERROR) Estado.estado = REGANDO; // para que no borre ERROR
             }
             else {  // mostramos en el display el factor de riego del boton pulsado
@@ -419,7 +424,6 @@ void procesaBotones()
                     savedValue = value;
                     multi->serie[multi->size] = boton->id;
                     multi->size++;
-                    //led(Boton[bId2bIndex(boton->id)].led,ON); //para que funcione encendido led 16
                     led(Boton[bId2bIndex(boton->id)].led,ON);
               }
             }
@@ -911,7 +915,16 @@ void stopRiego(uint16_t id)
   Serial << "Terminando riego: " << Boton[index].desc << endl;
   #endif
   domoticzSwitch(Boton[index].idx,(char *)"Off");
-  if (Estado.estado != ERROR) Serial << "Terminado OK riego: " << Boton[index].desc << endl;
+  if (Estado.estado != ERROR && !simErrorOFF) Serial << "Terminado OK riego: " << Boton[index].desc << endl;
+  else {     //avisa de que no se ha podido terminar un riego
+    if (simErrorOFF) {  // simula error si simErrorOFF es true
+      Estado.estado = ERROR;
+      display->print("Err3");
+      errorOFF = true;  // recordatorio error
+    }
+    tic_parpadeoLedON.attach(0.2,parpadeoLedON);
+    longbip(9);  
+  }
   #ifdef DEBUG
     Serial.print("stopRiego acaba en estado: ");
     Serial.println(Estado.estado);
@@ -1160,18 +1173,19 @@ int getFactor(uint16_t idx)
   }
 
   long int factor = strtol(factorstr,NULL,10);
-  if(factor == 0L) return 100;
-  else return (int)factor;
+  //if(factor == 0L) return 100;  
+  //else return (int)factor;
+  return (int)factor;
 }
 
-void domoticzSwitch(int idx,char *msg)
+bool domoticzSwitch(int idx,char *msg)
 {
   #ifdef TRACE
     Serial.println("TRACE: in domoticzSwitch");
   #endif
 
   #ifdef NODEMCU
-    if(!checkWifiConnected()) return;
+    if(!checkWifiConnected()) return false;
   #endif
 
   #ifdef NET_DIRECT
@@ -1229,26 +1243,26 @@ void domoticzSwitch(int idx,char *msg)
         }
       }
       else {
-        if(NONETWORK) return;
+        if(NONETWORK) return true;
         Estado.estado = ERROR;
         display->print("Err3");
         #ifdef DEBUG
           Serial.println("[ERROR] domoticzSwitch: SE HA DEVUELTO ERROR"); 
           Serial.printf("DOMOTICZSWITH IDX: %d [HTTP] GET... failed, error: %s\n", idx, httpclient.errorToString(httpCode).c_str());
         #endif
-        return;
+        return false;
       }
     #endif
 
     int pos = response.indexOf("\"status\" : \"ERR\"");
     if(pos != -1) {
-      if(NONETWORK) return;
+      if(NONETWORK) return true;
       #ifdef DEBUG
         Serial.println("[ERROR] domoticzSwitch: SE HA DEVUELTO ERROR"); 
       #endif
       display->print("Err4");
       Estado.estado = ERROR;
-      return;
+      return false;
     }
 
     #ifdef MEGA256
@@ -1269,6 +1283,38 @@ void domoticzSwitch(int idx,char *msg)
     MqttClient.publish("out","HOLA");
     //MqttClient.loop();
   #endif
+  return true;
+}
+
+void leeSerial() {
+  if (Serial.available() > 0) {
+    // lee cadena de entrada
+    String inputSerial = Serial.readString();
+    int inputNumber = inputSerial.toInt();
+    if ((!inputNumber || inputNumber>2) && inputNumber != 9) {
+        Serial.println("Teclee: ");
+        Serial.println("   1 - simular error NTP");
+        Serial.println("   2 - simular error apagar riego");
+        Serial.println("   9 - anular simulacion errores");
+    }
+    // say what you got:
+    //Serial.print("recibido: ");
+    //Serial.println(inputSerial);
+    //Serial.println(inputSerial.toInt());
+    switch (inputNumber) {
+          case 1:
+              Serial.println("   1 - simular error NTP");
+              timeOK = false;
+              break;
+          case 2:
+              Serial.println("   2 - simular error apagar riego");
+              simErrorOFF = true;
+              break;
+          case 9:
+              Serial.println("   9 - anular simulacion errores");
+              simErrorOFF = false;                         
+    }
+  }
 }
 
 void flagVerificaciones() {
@@ -1276,13 +1322,19 @@ void flagVerificaciones() {
 }
 
 void Verificaciones() {   //verificaciones periodicas de estado wifi y hora correcta
-  if(!flagV) return;      //si no activada por Ticker salimos sin hacer nada
+  #ifdef DEBUG
+    leeSerial();  // para ver si simulamos algun tipo de error
+  #endif
+  if (!flagV) return;      //si no activada por Ticker salimos sin hacer nada
   Serial.print(".");
+  if (errorOFF) bip(2);  //recordatorio error grave
   if (Estado.estado == STANDBY || (Estado.estado == ERROR && !connected)) {
     if (checkWifi()) Estado.estado = STANDBY;
+    /* else if (falloAP) {  // no nos hemos podido conectar en el setup, reintentamos aqui
+      Serial.println("no nos hemos podido conectar en el setup, reintentamos");
+      WiFi.begin();      
+    } */
     if (!timeOK) initClock();
-      //if (timeClient.update()) timeOK = true;
-      //Serial << "actualizando TIME , resultado " << timeOK << endl;
   }
   flagV = OFF;
 }

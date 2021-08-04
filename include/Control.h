@@ -46,30 +46,30 @@
   #include "Configure.h"
 
   #ifdef DEVELOP
-  //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
-  #define DEBUG
-  //#define EXTRADEBUG
-  #define TRACE
-  //#define EXTRATRACE
-  #define VERBOSE
+    //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
+    #define DEBUG
+    //#define EXTRADEBUG
+    #define TRACE
+    //#define EXTRATRACE
+    #define VERBOSE
   #endif
 
   #ifdef RELEASE
-  //Comportamiento general para uso normal . DESCOMENTAR LO QUE CORRESPONDA
-  //#define DEBUG
-  //#define EXTRADEBUG
-  //#define TRACE
-  //#define EXTRATRACE
-  #define VERBOSE
+    //Comportamiento general para uso normal . DESCOMENTAR LO QUE CORRESPONDA
+    //#define DEBUG
+    //#define EXTRADEBUG
+    //#define TRACE
+    //#define EXTRATRACE
+    #define VERBOSE
   #endif
 
   #ifdef DEMO
-  //Comportamiento general para DEMO . DESCOMENTAR LO QUE CORRESPONDA
-  #define DEBUG
-  //#define EXTRADEBUG
-  #define TRACE
-  //#define EXTRATRACE
-  #define VERBOSE
+    //Comportamiento general para DEMO . DESCOMENTAR LO QUE CORRESPONDA
+    #define DEBUG
+    //#define EXTRADEBUG
+    //#define TRACE
+    //#define EXTRATRACE
+    #define VERBOSE
   #endif
 
   /* NOTA1: es necesario ejecutar una vez con FORCEINITEEPROM=1 para actualizar los valores asignados en el 
@@ -149,45 +149,45 @@
     #define ENCSW               100
     #define BUZZER              2
     #ifdef NEWPCB
-    #define HC595_DATA            D8
-    #define HC595_LATCH           D4
-    #define HC595_CLOCK           D5
-    #define CD4021B_CLOCK         D5
-    #define CD4021B_LATCH         D6
-    #define CD4021B_DATA          D7
-    #define LEDR                  4
-    #define LEDG                  5
-    #define LEDB                  3 
-    #define lCESPED               6
-    #define lCOMPLETO             7
-    #define lGOTEOS               8
-    #define lTURBINAS             10
-    #define lPORCHE               11
-    #define lCUARTILLO            12
-    #define lGOTEOALTO            13
-    #define lGOTEOBAJO            14
-    #define lOLIVOS               15
-    #define lROCALLA              16
+      #define HC595_DATA            D8
+      #define HC595_LATCH           D4
+      #define HC595_CLOCK           D5
+      #define CD4021B_CLOCK         D5
+      #define CD4021B_LATCH         D6
+      #define CD4021B_DATA          D7
+      #define LEDR                  4
+      #define LEDG                  5
+      #define LEDB                  3 
+      #define lCESPED               6
+      #define lCOMPLETO             7
+      #define lGOTEOS               8
+      #define lTURBINAS             10
+      #define lPORCHE               11
+      #define lCUARTILLO            12
+      #define lGOTEOALTO            13
+      #define lGOTEOBAJO            14
+      #define lOLIVOS               15
+      #define lROCALLA              16
     #else
-    #define HC595_DATA            D8
-    #define HC595_LATCH           D4
-    #define HC595_CLOCK           D5
-    #define CD4021B_CLOCK         D5
-    #define CD4021B_LATCH         D6
-    #define CD4021B_DATA          D7
-    #define LEDR                  7
-    #define LEDG                  6
-    #define LEDB                  0 //No se está usando ningun led RGB
-    #define lCESPED               8
-    #define lCOMPLETO             5
-    #define lGOTEOS               3
-    #define lTURBINAS             15
-    #define lPORCHE               14
-    #define lCUARTILLO            13
-    #define lGOTEOALTO            16
-    #define lGOTEOBAJO            10
-    #define lOLIVOS               11
-    #define lROCALLA              12
+      #define HC595_DATA            D8
+      #define HC595_LATCH           D4
+      #define HC595_CLOCK           D5
+      #define CD4021B_CLOCK         D5
+      #define CD4021B_LATCH         D6
+      #define CD4021B_DATA          D7
+      #define LEDR                  7
+      #define LEDG                  6
+      #define LEDB                  0 //No se está usando ningun led RGB
+      #define lCESPED               8
+      #define lCOMPLETO             5
+      #define lGOTEOS               3
+      #define lTURBINAS             15
+      #define lPORCHE               14
+      #define lCUARTILLO            13
+      #define lGOTEOALTO            16
+      #define lGOTEOBAJO            10
+      #define lOLIVOS               11
+      #define lROCALLA              12
     #endif
 
   #endif
@@ -324,6 +324,7 @@
     int n_Grupos;
     bool connected;
     bool NONETWORK;
+    bool falloAP;
 
   #else
     extern S_BOTON Boton [];
@@ -331,6 +332,7 @@
     extern int n_Grupos;
     extern bool connected;
     extern bool NONETWORK;
+    extern bool falloAP;
   #endif
 
   //Globales
@@ -408,7 +410,7 @@
   void configModeCallback (WiFiManager *);
   void dimmerLeds(void);
   void displayGrupo(uint16_t *, int);
-  void domoticzSwitch(int,char *);
+  bool domoticzSwitch(int,char *);
   void eepromWriteSignal(uint);
   void eepromWriteGroups();
   void enciendeLeds(void);
