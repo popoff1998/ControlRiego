@@ -11,6 +11,10 @@
     #ifdef NET_HTTPCLIENT
       #include <ESP8266HTTPClient.h>
     #endif
+    #include <DNSServer.h>
+    #include <ESP8266WebServer.h >
+    #include <WiFiManager.h>
+    #include <Ticker.h>
   #endif
 
   #ifdef MEGA256
@@ -42,30 +46,30 @@
   #include "Configure.h"
 
   #ifdef DEVELOP
-  //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
-  #define DEBUG
-  #define EXTRADEBUG
-  #define TRACE
-  //#define EXTRATRACE
-  #define VERBOSE
+    //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
+    #define DEBUG
+    //#define EXTRADEBUG
+    #define TRACE
+    //#define EXTRATRACE
+    #define VERBOSE
   #endif
 
   #ifdef RELEASE
-  //Comportamiento general para uso normal . DESCOMENTAR LO QUE CORRESPONDA
-  //#define DEBUG
-  //#define EXTRADEBUG
-  //#define TRACE
-  //#define EXTRATRACE
-  #define VERBOSE
+    //Comportamiento general para uso normal . DESCOMENTAR LO QUE CORRESPONDA
+    //#define DEBUG
+    //#define EXTRADEBUG
+    //#define TRACE
+    //#define EXTRATRACE
+    #define VERBOSE
   #endif
 
   #ifdef DEMO
-  //Comportamiento general para DEMO . DESCOMENTAR LO QUE CORRESPONDA
-  #define DEBUG
-  #define EXTRADEBUG
-  #define TRACE
-  //#define EXTRATRACE
-  #define VERBOSE
+    //Comportamiento general para DEMO . DESCOMENTAR LO QUE CORRESPONDA
+    #define DEBUG
+    //#define EXTRADEBUG
+    //#define TRACE
+    //#define EXTRATRACE
+    #define VERBOSE
   #endif
 
   /* NOTA1: es necesario ejecutar una vez con FORCEINITEEPROM=1 para actualizar los valores asignados en el 
@@ -145,45 +149,45 @@
     #define ENCSW               100
     #define BUZZER              2
     #ifdef NEWPCB
-    #define HC595_DATA            D8
-    #define HC595_LATCH           D4
-    #define HC595_CLOCK           D5
-    #define CD4021B_CLOCK         D5
-    #define CD4021B_LATCH         D6
-    #define CD4021B_DATA          D7
-    #define LEDR                  4
-    #define LEDG                  5
-    #define LEDB                  3 
-    #define lCESPED               6
-    #define lCOMPLETO             7
-    #define lGOTEOS               8
-    #define lTURBINAS             10
-    #define lPORCHE               11
-    #define lCUARTILLO            12
-    #define lGOTEOALTO            13
-    #define lGOTEOBAJO            14
-    #define lOLIVOS               15
-    #define lROCALLA              16
+      #define HC595_DATA            D8
+      #define HC595_LATCH           D4
+      #define HC595_CLOCK           D5
+      #define CD4021B_CLOCK         D5
+      #define CD4021B_LATCH         D6
+      #define CD4021B_DATA          D7
+      #define LEDR                  4
+      #define LEDG                  5
+      #define LEDB                  3 
+      #define lCESPED               6
+      #define lCOMPLETO             7
+      #define lGOTEOS               8
+      #define lTURBINAS             10
+      #define lPORCHE               11
+      #define lCUARTILLO            12
+      #define lGOTEOALTO            13
+      #define lGOTEOBAJO            14
+      #define lOLIVOS               15
+      #define lROCALLA              16
     #else
-    #define HC595_DATA            D8
-    #define HC595_LATCH           D4
-    #define HC595_CLOCK           D5
-    #define CD4021B_CLOCK         D5
-    #define CD4021B_LATCH         D6
-    #define CD4021B_DATA          D7
-    #define LEDR                  7
-    #define LEDG                  6
-    #define LEDB                  0 //No se está usando ningun led RGB
-    #define lCESPED               8
-    #define lCOMPLETO             5
-    #define lGOTEOS               3
-    #define lTURBINAS             15
-    #define lPORCHE               14
-    #define lCUARTILLO            13
-    #define lGOTEOALTO            16
-    #define lGOTEOBAJO            10
-    #define lOLIVOS               11
-    #define lROCALLA              12
+      #define HC595_DATA            D8
+      #define HC595_LATCH           D4
+      #define HC595_CLOCK           D5
+      #define CD4021B_CLOCK         D5
+      #define CD4021B_LATCH         D6
+      #define CD4021B_DATA          D7
+      #define LEDR                  7
+      #define LEDG                  6
+      #define LEDB                  0 //No se está usando ningun led RGB
+      #define lCESPED               8
+      #define lCOMPLETO             5
+      #define lGOTEOS               3
+      #define lTURBINAS             15
+      #define lPORCHE               14
+      #define lCUARTILLO            13
+      #define lGOTEOALTO            16
+      #define lGOTEOBAJO            10
+      #define lOLIVOS               11
+      #define lROCALLA              12
     #endif
 
   #endif
@@ -318,10 +322,17 @@
     S_MULTI *multi;
     //numero de grupos de multirriego:
     int n_Grupos;
+    bool connected;
+    bool NONETWORK;
+    bool falloAP;
+
   #else
     extern S_BOTON Boton [];
     extern uint ledOrder[];
     extern int n_Grupos;
+    extern bool connected;
+    extern bool NONETWORK;
+    extern bool falloAP;
   #endif
 
   //Globales
@@ -354,6 +365,7 @@
     bool multiSemaforo = false;
     bool holdPause = false;
     bool encoderSW = false;
+    bool eepromSW = false;
     unsigned long countHoldPause;
 
     //Para Ethernet
@@ -387,41 +399,58 @@
   #endif
 
   //Funciones (prototipos)
-  void check(void);
-  void StaticTimeUpdate(void);
-  void domoticzSwitch(int,char *);
-  void refreshDisplay(void);
-  void refreshTime(void);
-  void stopRiego(uint16_t);
-  void stopAllRiego(void);
+  void apagaLeds(void);
   void bip(int);
-  void longbip(int);
+  int  bId2bIndex(uint16_t);
   void blinkPause(void);
-  void procesaBotones(void);
-  void procesaEstados(void);
-  void displayGrupo(uint16_t *, int);
-  void printMultiGroup(void);
-  S_MULTI *getMultibyId(uint16_t);
-  S_MULTI *getMultibyIndex(int);
-  int nGrupos();
+  void check(void);
+  bool checkWifi(void);
+  bool checkWifiConnected(void);
+  bool checkWifiConnectedWM(void);
+  void configModeCallback (WiFiManager *);
   void dimmerLeds(void);
-  void initRiego(uint16_t);
+  void displayGrupo(uint16_t *, int);
+  bool domoticzSwitch(int,char *);
   void eepromWriteSignal(uint);
   void eepromWriteGroups();
-  bool testButton(uint16_t, bool);
-  void initCD4021B(void);
-  void initHC595(void);
-  S_BOTON *parseInputs();
-  int bId2bIndex(uint16_t);
-  uint16_t getMultiStatus(void);
-  void led(uint8_t,int);
-  void apagaLeds(void);
   void enciendeLeds(void);
-  void initLeds(void);
-  void longbip(int);
-  void bip(int);
-  void procesaEncoder(void);
-  void ledRGB(int,int,int);
+  void flagVerificaciones(void);
   int  getFactor(uint16_t);
+  S_MULTI *getMultibyId(uint16_t);
+  S_MULTI *getMultibyIndex(int);
+  uint16_t getMultiStatus(void);
+  uint idarrayRiego(uint16_t);
+  void initCD4021B(void);
+  void initClock(void);
+  void initFactorRiegos(void);
+  void initHC595(void);
+  void initLastRiegos(void);
+  void initLeds(void);
+  void initRiego(uint16_t);
+  void led(uint8_t,int);
+  void ledRGB(int,int,int);
+  bool ledStatusId(int);
+  void longbip(int);
+  int  nGrupos();
+  void parpadeoLedON(void);
+  S_BOTON *parseInputs();
+  void printMultiGroup(void);
+  void procesaBotones(void);
+  void procesaEeprom(void);
+  void procesaEncoder(void);
+  void procesaEstados(void);
+  void refreshTime(void);
+  void refreshDisplay(void);
+  void saveWifiCallback(void);
+  void setupRed(void);
+  void setupRedWM(void);
+  void StaticTimeUpdate(void);
+  void stopRiego(uint16_t);
+  void stopAllRiego(void);
+  bool testButton(uint16_t, bool);
+  void timeByFactor(int,uint8_t *,uint8_t *);
+  void ultimosRiegos(int);
+  void Verificaciones(void);
+  void wifiClearSignal(uint);
 
 #endif
