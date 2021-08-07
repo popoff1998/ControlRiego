@@ -9,6 +9,7 @@ bool ret;
 bool flagV = OFF;
 int ledState = LOW;
 bool timeOK = false;
+bool factorRiegosOK = false;
 bool errorOFF = false;
 bool simErrorOFF = false;
 
@@ -51,8 +52,9 @@ void setup()
 #endif
 
   Serial.begin(115200);
-  Serial.println(" ");
-  Serial.println("CONTROL RIEGO V2");
+  Serial.print("\n\n");
+  Serial.println("CONTROL RIEGO V1.3.1");
+  Serial.print("Startup reason: ");Serial.println(ESP.getResetReason());
   #ifdef TRACE
     Serial.println("TRACE: in setup");
   #endif
@@ -102,6 +104,7 @@ void setup()
   #endif
   delay(2000);
   //Ponemos en hora
+  timeClient.begin();
   initClock();
   //Inicializamos lastRiegos (registro fecha y riego realizado)
   initLastRiegos();
@@ -155,6 +158,10 @@ void loop()
   Verificaciones();
 }
 
+/*----------------------------------------------*
+ *                 Funciones                    *
+ *----------------------------------------------*/
+
 void procesaBotones()
 {
   #ifdef EXTRATRACE
@@ -163,18 +170,18 @@ void procesaBotones()
   // almacenamos estado pulsador del encoder (para modificar comportamiento de otros botones)
   if (!Boton[bId2bIndex(bENCODER)].estado) encoderSW = true;
   else encoderSW = false;
-
-  //Procesamos los botones
+  //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multiriego
   if (!multiSemaforo) {
-    //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multiriego
     boton = NULL;
     boton = parseInputs();
   }
   else {
     multiSemaforo = false;
   }
+  //Procesamos el boton pulsado:
   if(boton != NULL) {
-    //En estado error salimos a menos que pulsemos bPause y pasamos a modo NONETWORK
+    //En estado error salimos sin procesar el boton, a menos que pulsemos Pause y pasamos a modo NONETWORK
+    // o pulsemos Stop y en este caso reseteamos
     if(Estado.estado == ERROR) 
     {
       //Si estamos en error y pulsamos pausa, nos ponemos en estado NONETWORK para test
@@ -188,6 +195,12 @@ void procesaBotones()
         multiriego = false;
         multiSemaforo = false;
         StaticTimeUpdate();
+      }
+      //Si estamos en ERROR y pulsamos STOP, reseteamos
+      if(boton->id == bSTOP) {
+        Serial.println("Reset..");
+        longbip(3);
+        ESP.restart();  
       }
       return;
     }
@@ -231,8 +244,6 @@ void procesaBotones()
                         Serial.println("encoderSW+PAUSE pasamos a modo NORMAL");
                         bip(2);
                         led(LEDB,OFF);
-
-
                     }
                     else {
                         NONETWORK = true;
@@ -270,8 +281,8 @@ void procesaBotones()
                     savedValue = value;
                   }
                   else {   //si esta pulsado encoderSW hacemos un soft reset
-                    longbip(3);
                     Serial.println("Reset..");
+                    longbip(3);
                     ESP.restart();  // Hard RESET: ESP.reset()
                   }
                 }
@@ -737,6 +748,7 @@ void initFactorRiegos()
   }
   #ifdef VERBOSE
     //Leemos los valores para comprobar que lo hizo bien
+    if (!factorRiegosOK) Serial.print("(simulados) ");
     Serial.println("Factores de riego leidos:");
     for(uint i=0;i<NUMRIEGOS;i++) {
       Serial.printf("FACTOR %d: %d \n",i,factorRiegos[i]);
@@ -757,16 +769,16 @@ void timeByFactor(int factor,uint8_t *fminutes, uint8_t *fseconds)
 
 void initClock()
 {
-  timeClient.begin();
   if (timeClient.update()) {
-    Serial.println("NTP time recibido OK");
+    Serial.print("initClock: NTP time recibido OK  --> ");
+    Serial.println(timeClient.getFormattedTime());
+    setTime(timeClient.getEpochTime());
     timeOK = true;
   }  
    else {
      Serial.println("[ERROR] initClock: no se ha recibido time por NTP");
      timeOK = false;
     }
-  setTime(timeClient.getEpochTime());
 }
 
 void ultimosRiegos(int modo)
@@ -923,7 +935,7 @@ void stopRiego(uint16_t id)
       errorOFF = true;  // recordatorio error
     }
     tic_parpadeoLedON.attach(0.2,parpadeoLedON);
-    longbip(9);  
+    longbip(5);  
   }
   #ifdef DEBUG
     Serial.print("stopRiego acaba en estado: ");
@@ -1070,6 +1082,7 @@ int getFactor(uint16_t idx)
   #ifdef TRACE
     Serial.println("TRACE: in getFactor");
   #endif
+  factorRiegosOK = false;
   //Ante cualquier problema devolvemos 100% para no factorizar ese riego
   #ifdef NODEMCU
     if(!checkWifi()) return 100;
@@ -1175,6 +1188,7 @@ int getFactor(uint16_t idx)
   long int factor = strtol(factorstr,NULL,10);
   //if(factor == 0L) return 100;  
   //else return (int)factor;
+  factorRiegosOK = true; //se devuelve un factor riego leido OK
   return (int)factor;
 }
 
@@ -1297,10 +1311,6 @@ void leeSerial() {
         Serial.println("   2 - simular error apagar riego");
         Serial.println("   9 - anular simulacion errores");
     }
-    // say what you got:
-    //Serial.print("recibido: ");
-    //Serial.println(inputSerial);
-    //Serial.println(inputSerial.toInt());
     switch (inputNumber) {
           case 1:
               Serial.println("   1 - simular error NTP");
@@ -1312,7 +1322,8 @@ void leeSerial() {
               break;
           case 9:
               Serial.println("   9 - anular simulacion errores");
-              simErrorOFF = false;                         
+              simErrorOFF = false;
+              timeOK = true;                         
     }
   }
 }
@@ -1328,13 +1339,10 @@ void Verificaciones() {   //verificaciones periodicas de estado wifi y hora corr
   if (!flagV) return;      //si no activada por Ticker salimos sin hacer nada
   Serial.print(".");
   if (errorOFF) bip(2);  //recordatorio error grave
-  if (Estado.estado == STANDBY || (Estado.estado == ERROR && !connected)) {
-    if (checkWifi()) Estado.estado = STANDBY;
-    /* else if (falloAP) {  // no nos hemos podido conectar en el setup, reintentamos aqui
-      Serial.println("no nos hemos podido conectar en el setup, reintentamos");
-      WiFi.begin();      
-    } */
-    if (!timeOK) initClock();
+  if (!NONETWORK && (Estado.estado == STANDBY || (Estado.estado == ERROR && !connected))) {
+    if (checkWifi()) Estado.estado = STANDBY; //verificamos wifi
+    if (!timeOK && connected) initClock();    //verificamos time
+    //if (!factorRiegosOK && connected) initFactorRiegos();    //verificamos factor riegos
   }
   flagV = OFF;
 }

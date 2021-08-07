@@ -283,8 +283,6 @@
     };
   } U_Estado;
 
-
-
   //mantenemos aqui definicion completo a efectos de display de lo regado:
 
 
