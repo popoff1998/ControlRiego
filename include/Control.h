@@ -6,7 +6,7 @@
 
   #ifdef NODEMCU
     #include <ESP8266WiFi.h>
-    #include <ESP8266WiFiMulti.h>
+    //#include <ESP8266WiFiMulti.h>
     #include <WifiUdp.h>
     #ifdef NET_HTTPCLIENT
       #include <ESP8266HTTPClient.h>

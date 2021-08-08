@@ -1,7 +1,7 @@
 #define __MAIN__
 #include "Control.h"
 #include <EEPROM.h>
-#include <wifissid.h>
+//#include <wifissid.h>
 
 S_BOTON *boton;
 S_BOTON *ultimoBoton;
@@ -19,7 +19,7 @@ bool simErrorOFF = false;
 
 #ifdef NODEMCU
   WiFiUDP ntpUDP;
-  ESP8266WiFiMulti WiFiMulti;
+  //ESP8266WiFiMulti WiFiMulti;
 #endif
 
 NTPClient timeClient(ntpUDP,"192.168.100.60");
@@ -1011,6 +1011,7 @@ void refreshTime()
   display->printTime(T.ShowMinutes(),T.ShowSeconds());
 }
 
+/*
 void setupRed()
 {
    #ifdef NET_MQTTCLIENT
@@ -1055,7 +1056,7 @@ void setupRed()
   #endif
 
 }
-
+*/
 
 bool checkWifiConnected()
 {
