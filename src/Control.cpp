@@ -66,12 +66,11 @@ void setup()
   #ifdef DEBUG
    Serial.println("Display inicializado");
   #endif
-  display->print("----");
+  display->clearDisplay();;
   //Para el encoder
   #ifdef DEBUG
    Serial.println("Inicializando Encoder");
   #endif
-  display->print("----");
   Encoder = new ClickEncoder(ENCCLK,ENCDT,ENCSW);
   #ifdef MEGA256
     Timer1.initialize(1000);
@@ -81,7 +80,6 @@ void setup()
   #ifdef DEBUG
    Serial.println("Inicializando Configure");
   #endif
-  display->print("----");
   configure = new Configure(display);
   //Para el CD4021B
   initCD4021B();
@@ -94,7 +92,6 @@ void setup()
   //Chequeo de perifericos de salida (leds, display, buzzer)
   check();
   //Para la red
-  //delay(1000);
   //setupRed();
   setupRedWM();
   #ifdef EXTRADEBUG
@@ -112,34 +109,15 @@ void setup()
   initFactorRiegos();
   //Deshabilitamos el hold de Pause
   Boton[bId2bIndex(bPAUSE)].flags.holddisabled = true;
-  //si no estamos conectados a la red y no estamos en modo NONETWORK pasamos a estado ERROR
-  if(!connected) {
-    Serial.println("[ERROR] Setup: ERROR DE CONEXION WIFI");
-    if(!NONETWORK) {
-      Estado.estado = ERROR;
-      display->print("Err1");
-      longbip(3);
-    }
-    // Si estamos en modo NONETWORK pasamos a STANDBY aunque no exista conexión wifi y
-    // encendemos led wifi en color azul
-    else {
-      Estado.estado = STANDBY;
-      bip(2);
-      led(LEDB,ON);
-    }
-  }
-  else {
-    Estado.estado = STANDBY;
-    bip(1);
-  }
-  standbyTime = millis();
-  reposo = false;
+  // estado final en funcion de la conexion
+  setupEstado();
   //Llamo a parseInputs una vez para eliminar prepulsaciones antes del bucle loop
   parseInputs();
   //inicializamos apuntador estructura multi (posicion del selector multirriego):
   multi = getMultibyId(getMultiStatus());
   //lanzamos supervision periodica estado cada 10 seg.
   tic_verificaciones.attach_scheduled(10, flagVerificaciones);
+  standbyTime = millis();
 }
 
 /*----------------------------------------------*
@@ -589,9 +567,34 @@ void procesaEstados()
   }
 }
 
+  void setupEstado() {
+    #ifdef TRACE
+      Serial.println("TRACE: in setupEstado");
+    #endif
+    if (NONETWORK) led(LEDB,ON); //encendemos LEDB si NONETWORK aunque estemos conectados
+    //reposo = false;
+    // Si estamos conectados pasamos a STANDBY
+    if (checkWifi()) {
+      Estado.estado = STANDBY;
+      bip(1);
+      return;
+    }
+    // Si estamos en modo NONETWORK pasamos a STANDBY aunque no exista conexión wifi
+    if (NONETWORK) {
+      Estado.estado = STANDBY;
+      bip(2);
+      return;
+    }
+    //si no estamos conectados a la red y no estamos en modo NONETWORK pasamos a estado ERROR
+    Estado.estado = ERROR;
+    display->print("Err1");
+    longbip(3);
+  }
+
 // Initial check
 void check(void)
 {
+  display->print("----");
   initLeds();
   display->check(1);
 }
@@ -1058,25 +1061,6 @@ void setupRed()
 }
 */
 
-bool checkWifiConnected()
-{
-  #ifdef TRACE
-    Serial << "TRACE: in checkWifiConnectedWM , NONETWORK = " << NONETWORK << endl;
-  #endif
-  if(NONETWORK) { // en modo NONETWORK return false pero no damos error
-     led(LEDB,ON);
-     return false;
-  }
-  //Comprobamos si estamos conectados, error en caso contrario
-  if(checkWifi()) return true;
-   else {
-      Serial.println("[ERROR] checkWifiConnected: ERROR DE CONEXION WIFI");
-      display->print("Err1");
-      Estado.estado = ERROR;
-      led(LEDG,OFF);
-      return false;
-    }
-}
 
 int getFactor(uint16_t idx)
 {
@@ -1161,8 +1145,6 @@ int getFactor(uint16_t idx)
     httpclient.end();
   #endif
 
-  //if(Estado.estado != ERROR && strcmp(msg,"On") == 0) Estado.estado = REGANDO;
-
   //Teoricamente ya tenemos en response el JSON, lo procesamos
   //pero acabo de darme cuenta que si preguntamos por un rid como el 0 que devuelve cosas, puede dar una excepcion
   //asi que hay que controlarlo
@@ -1200,7 +1182,12 @@ bool domoticzSwitch(int idx,char *msg)
   #endif
 
   #ifdef NODEMCU
-    if(!checkWifiConnected()) return false;
+    if(!checkWifi()) {
+      Estado.estado = ERROR;
+      display->print("Err1");
+      longbip(3);
+      return false;
+    }
   #endif
 
   #ifdef NET_DIRECT

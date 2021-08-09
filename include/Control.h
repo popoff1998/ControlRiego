@@ -403,8 +403,6 @@
   void blinkPause(void);
   void check(void);
   bool checkWifi(void);
-  bool checkWifiConnected(void);
-  bool checkWifiConnectedWM(void);
   void configModeCallback (WiFiManager *);
   void dimmerLeds(void);
   void displayGrupo(uint16_t *, int);
@@ -440,6 +438,7 @@
   void refreshTime(void);
   void refreshDisplay(void);
   void saveWifiCallback(void);
+  void setupEstado(void);
   void setupRed(void);
   void setupRedWM(void);
   void StaticTimeUpdate(void);
