@@ -6,7 +6,7 @@
 
   #ifdef NODEMCU
     #include <ESP8266WiFi.h>
-    #include <ESP8266WiFiMulti.h>
+    //#include <ESP8266WiFiMulti.h>
     #include <WifiUdp.h>
     #ifdef NET_HTTPCLIENT
       #include <ESP8266HTTPClient.h>
@@ -122,7 +122,7 @@
   #define DEFAULTBLINK        5
   #define DEFAULTBLINKMILLIS  500
   #define MINMINUTES          0
-  #define MAXMINUTES          60
+  #define MAXMINUTES          59  // corte automatico de seguridad a los 60 min. en los arduinos
   #define MINSECONDS          5
   #define HOLDTIME            3000
   #define MAXCONNECTRETRY     10
@@ -283,8 +283,6 @@
     };
   } U_Estado;
 
-
-
   //mantenemos aqui definicion completo a efectos de display de lo regado:
 
 
@@ -405,8 +403,6 @@
   void blinkPause(void);
   void check(void);
   bool checkWifi(void);
-  bool checkWifiConnected(void);
-  bool checkWifiConnectedWM(void);
   void configModeCallback (WiFiManager *);
   void dimmerLeds(void);
   void displayGrupo(uint16_t *, int);
@@ -442,6 +438,7 @@
   void refreshTime(void);
   void refreshDisplay(void);
   void saveWifiCallback(void);
+  void setupEstado(void);
   void setupRed(void);
   void setupRedWM(void);
   void StaticTimeUpdate(void);

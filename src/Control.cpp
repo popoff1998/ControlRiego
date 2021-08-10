@@ -1,7 +1,7 @@
 #define __MAIN__
 #include "Control.h"
 #include <EEPROM.h>
-#include <wifissid.h>
+//#include <wifissid.h>
 
 S_BOTON *boton;
 S_BOTON *ultimoBoton;
@@ -9,6 +9,7 @@ bool ret;
 bool flagV = OFF;
 int ledState = LOW;
 bool timeOK = false;
+bool factorRiegosOK = false;
 bool errorOFF = false;
 bool simErrorOFF = false;
 
@@ -18,7 +19,7 @@ bool simErrorOFF = false;
 
 #ifdef NODEMCU
   WiFiUDP ntpUDP;
-  ESP8266WiFiMulti WiFiMulti;
+  //ESP8266WiFiMulti WiFiMulti;
 #endif
 
 NTPClient timeClient(ntpUDP,"192.168.100.60");
@@ -51,8 +52,9 @@ void setup()
 #endif
 
   Serial.begin(115200);
-  Serial.println(" ");
-  Serial.println("CONTROL RIEGO V2");
+  Serial.print("\n\n");
+  Serial.println("CONTROL RIEGO V1.3.1");
+  Serial.print("Startup reason: ");Serial.println(ESP.getResetReason());
   #ifdef TRACE
     Serial.println("TRACE: in setup");
   #endif
@@ -64,12 +66,11 @@ void setup()
   #ifdef DEBUG
    Serial.println("Display inicializado");
   #endif
-  display->print("----");
+  display->clearDisplay();;
   //Para el encoder
   #ifdef DEBUG
    Serial.println("Inicializando Encoder");
   #endif
-  display->print("----");
   Encoder = new ClickEncoder(ENCCLK,ENCDT,ENCSW);
   #ifdef MEGA256
     Timer1.initialize(1000);
@@ -79,7 +80,6 @@ void setup()
   #ifdef DEBUG
    Serial.println("Inicializando Configure");
   #endif
-  display->print("----");
   configure = new Configure(display);
   //Para el CD4021B
   initCD4021B();
@@ -92,7 +92,6 @@ void setup()
   //Chequeo de perifericos de salida (leds, display, buzzer)
   check();
   //Para la red
-  //delay(1000);
   //setupRed();
   setupRedWM();
   #ifdef EXTRADEBUG
@@ -102,6 +101,7 @@ void setup()
   #endif
   delay(2000);
   //Ponemos en hora
+  timeClient.begin();
   initClock();
   //Inicializamos lastRiegos (registro fecha y riego realizado)
   initLastRiegos();
@@ -109,34 +109,15 @@ void setup()
   initFactorRiegos();
   //Deshabilitamos el hold de Pause
   Boton[bId2bIndex(bPAUSE)].flags.holddisabled = true;
-  //si no estamos conectados a la red y no estamos en modo NONETWORK pasamos a estado ERROR
-  if(!connected) {
-    Serial.println("[ERROR] Setup: ERROR DE CONEXION WIFI");
-    if(!NONETWORK) {
-      Estado.estado = ERROR;
-      display->print("Err1");
-      longbip(3);
-    }
-    // Si estamos en modo NONETWORK pasamos a STANDBY aunque no exista conexión wifi y
-    // encendemos led wifi en color azul
-    else {
-      Estado.estado = STANDBY;
-      bip(2);
-      led(LEDB,ON);
-    }
-  }
-  else {
-    Estado.estado = STANDBY;
-    bip(1);
-  }
-  standbyTime = millis();
-  reposo = false;
+  // estado final en funcion de la conexion
+  setupEstado();
   //Llamo a parseInputs una vez para eliminar prepulsaciones antes del bucle loop
   parseInputs();
   //inicializamos apuntador estructura multi (posicion del selector multirriego):
   multi = getMultibyId(getMultiStatus());
   //lanzamos supervision periodica estado cada 10 seg.
   tic_verificaciones.attach_scheduled(10, flagVerificaciones);
+  standbyTime = millis();
 }
 
 /*----------------------------------------------*
@@ -155,6 +136,10 @@ void loop()
   Verificaciones();
 }
 
+/*----------------------------------------------*
+ *                 Funciones                    *
+ *----------------------------------------------*/
+
 void procesaBotones()
 {
   #ifdef EXTRATRACE
@@ -163,18 +148,19 @@ void procesaBotones()
   // almacenamos estado pulsador del encoder (para modificar comportamiento de otros botones)
   if (!Boton[bId2bIndex(bENCODER)].estado) encoderSW = true;
   else encoderSW = false;
-
-  //Procesamos los botones
+  //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multiriego
   if (!multiSemaforo) {
-    //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multiriego
     boton = NULL;
     boton = parseInputs();
   }
   else {
     multiSemaforo = false;
   }
+  //Procesamos el boton pulsado:
   if(boton != NULL) {
-    //En estado error salimos a menos que pulsemos bPause y pasamos a modo NONETWORK
+    //En estado error salimos sin procesar el boton, a menos que:
+    //   - pulsemos Pause y pasamos a modo NONETWORK
+    //   - pulsemos Stop y en este caso reseteamos 
     if(Estado.estado == ERROR) 
     {
       //Si estamos en error y pulsamos pausa, nos ponemos en estado NONETWORK para test
@@ -189,7 +175,13 @@ void procesaBotones()
         multiSemaforo = false;
         StaticTimeUpdate();
       }
-      return;
+      //Si estamos en ERROR y pulsamos STOP, reseteamos
+      if(boton->id == bSTOP) {
+        Serial.println("Reset..");
+        longbip(3);
+        ESP.restart();  
+      }
+      return;  //cualquier otro boton que no sea Stop salimos sin procesarlo
     }
     //Si estamos en reposo solo nos saca de ese estado
     if (reposo && boton->id != bSTOP) {
@@ -231,8 +223,6 @@ void procesaBotones()
                         Serial.println("encoderSW+PAUSE pasamos a modo NORMAL");
                         bip(2);
                         led(LEDB,OFF);
-
-
                     }
                     else {
                         NONETWORK = true;
@@ -270,8 +260,8 @@ void procesaBotones()
                     savedValue = value;
                   }
                   else {   //si esta pulsado encoderSW hacemos un soft reset
-                    longbip(3);
                     Serial.println("Reset..");
+                    longbip(3);
                     ESP.restart();  // Hard RESET: ESP.reset()
                   }
                 }
@@ -578,9 +568,34 @@ void procesaEstados()
   }
 }
 
+  void setupEstado() {
+    #ifdef TRACE
+      Serial.println("TRACE: in setupEstado");
+    #endif
+    if (NONETWORK) led(LEDB,ON); //encendemos LEDB si NONETWORK aunque estemos conectados
+    //reposo = false;
+    // Si estamos conectados pasamos a STANDBY
+    if (checkWifi()) {
+      Estado.estado = STANDBY;
+      bip(1);
+      return;
+    }
+    // Si estamos en modo NONETWORK pasamos a STANDBY aunque no exista conexión wifi
+    if (NONETWORK) {
+      Estado.estado = STANDBY;
+      bip(2);
+      return;
+    }
+    //si no estamos conectados a la red y no estamos en modo NONETWORK pasamos a estado ERROR
+    Estado.estado = ERROR;
+    display->print("Err1");
+    longbip(3);
+  }
+
 // Initial check
 void check(void)
 {
+  display->print("----");
   initLeds();
   display->check(1);
 }
@@ -737,6 +752,7 @@ void initFactorRiegos()
   }
   #ifdef VERBOSE
     //Leemos los valores para comprobar que lo hizo bien
+    if (!factorRiegosOK) Serial.print("(simulados) ");
     Serial.println("Factores de riego leidos:");
     for(uint i=0;i<NUMRIEGOS;i++) {
       Serial.printf("FACTOR %d: %d \n",i,factorRiegos[i]);
@@ -757,16 +773,16 @@ void timeByFactor(int factor,uint8_t *fminutes, uint8_t *fseconds)
 
 void initClock()
 {
-  timeClient.begin();
   if (timeClient.update()) {
-    Serial.println("NTP time recibido OK");
+    Serial.print("initClock: NTP time recibido OK  --> ");
+    Serial.println(timeClient.getFormattedTime());
+    setTime(timeClient.getEpochTime());
     timeOK = true;
   }  
    else {
      Serial.println("[ERROR] initClock: no se ha recibido time por NTP");
      timeOK = false;
     }
-  setTime(timeClient.getEpochTime());
 }
 
 void ultimosRiegos(int modo)
@@ -923,7 +939,7 @@ void stopRiego(uint16_t id)
       errorOFF = true;  // recordatorio error
     }
     tic_parpadeoLedON.attach(0.2,parpadeoLedON);
-    longbip(9);  
+    longbip(5);  
   }
   #ifdef DEBUG
     Serial.print("stopRiego acaba en estado: ");
@@ -999,6 +1015,7 @@ void refreshTime()
   display->printTime(T.ShowMinutes(),T.ShowSeconds());
 }
 
+/*
 void setupRed()
 {
    #ifdef NET_MQTTCLIENT
@@ -1043,33 +1060,15 @@ void setupRed()
   #endif
 
 }
+*/
 
-
-bool checkWifiConnected()
-{
-  #ifdef TRACE
-    Serial << "TRACE: in checkWifiConnectedWM , NONETWORK = " << NONETWORK << endl;
-  #endif
-  if(NONETWORK) { // en modo NONETWORK return false pero no damos error
-     led(LEDB,ON);
-     return false;
-  }
-  //Comprobamos si estamos conectados, error en caso contrario
-  if(checkWifi()) return true;
-   else {
-      Serial.println("[ERROR] checkWifiConnected: ERROR DE CONEXION WIFI");
-      display->print("Err1");
-      Estado.estado = ERROR;
-      led(LEDG,OFF);
-      return false;
-    }
-}
 
 int getFactor(uint16_t idx)
 {
   #ifdef TRACE
     Serial.println("TRACE: in getFactor");
   #endif
+  factorRiegosOK = false;
   //Ante cualquier problema devolvemos 100% para no factorizar ese riego
   #ifdef NODEMCU
     if(!checkWifi()) return 100;
@@ -1147,8 +1146,6 @@ int getFactor(uint16_t idx)
     httpclient.end();
   #endif
 
-  //if(Estado.estado != ERROR && strcmp(msg,"On") == 0) Estado.estado = REGANDO;
-
   //Teoricamente ya tenemos en response el JSON, lo procesamos
   //pero acabo de darme cuenta que si preguntamos por un rid como el 0 que devuelve cosas, puede dar una excepcion
   //asi que hay que controlarlo
@@ -1175,6 +1172,7 @@ int getFactor(uint16_t idx)
   long int factor = strtol(factorstr,NULL,10);
   //if(factor == 0L) return 100;  
   //else return (int)factor;
+  factorRiegosOK = true; //se devuelve un factor riego leido OK
   return (int)factor;
 }
 
@@ -1185,7 +1183,12 @@ bool domoticzSwitch(int idx,char *msg)
   #endif
 
   #ifdef NODEMCU
-    if(!checkWifiConnected()) return false;
+    if(!checkWifi()) {
+      Estado.estado = ERROR;
+      display->print("Err1");
+      longbip(3);
+      return false;
+    }
   #endif
 
   #ifdef NET_DIRECT
@@ -1297,10 +1300,6 @@ void leeSerial() {
         Serial.println("   2 - simular error apagar riego");
         Serial.println("   9 - anular simulacion errores");
     }
-    // say what you got:
-    //Serial.print("recibido: ");
-    //Serial.println(inputSerial);
-    //Serial.println(inputSerial.toInt());
     switch (inputNumber) {
           case 1:
               Serial.println("   1 - simular error NTP");
@@ -1312,13 +1311,14 @@ void leeSerial() {
               break;
           case 9:
               Serial.println("   9 - anular simulacion errores");
-              simErrorOFF = false;                         
+              simErrorOFF = false;
+              timeOK = true;                         
     }
   }
 }
 
 void flagVerificaciones() {
-  flagV = ON; //solo activamos flagV para no usar llamadas a funciones bloqueantes en Ticker
+  flagV = ON; //aqui solo activamos flagV para no usar llamadas a funciones bloqueantes en Ticker
 }
 
 void Verificaciones() {   //verificaciones periodicas de estado wifi y hora correcta
@@ -1328,13 +1328,10 @@ void Verificaciones() {   //verificaciones periodicas de estado wifi y hora corr
   if (!flagV) return;      //si no activada por Ticker salimos sin hacer nada
   Serial.print(".");
   if (errorOFF) bip(2);  //recordatorio error grave
-  if (Estado.estado == STANDBY || (Estado.estado == ERROR && !connected)) {
-    if (checkWifi()) Estado.estado = STANDBY;
-    /* else if (falloAP) {  // no nos hemos podido conectar en el setup, reintentamos aqui
-      Serial.println("no nos hemos podido conectar en el setup, reintentamos");
-      WiFi.begin();      
-    } */
-    if (!timeOK) initClock();
+  if (!NONETWORK && (Estado.estado == STANDBY || (Estado.estado == ERROR && !connected))) {
+    if (checkWifi()) Estado.estado = STANDBY; //verificamos wifi
+    if (!timeOK && connected) initClock();    //verificamos time
+    //if (!factorRiegosOK && connected) initFactorRiegos();    //verificamos factor riegos
   }
   flagV = OFF;
 }

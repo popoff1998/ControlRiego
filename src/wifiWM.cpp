@@ -5,7 +5,7 @@
 #include "Control.h"
 
 #include <ESP8266WiFi.h>
-#include <ESP8266WiFiMulti.h>
+//#include <ESP8266WiFiMulti.h>
 #include <DNSServer.h>
 #include <ESP8266WebServer.h >
 #include <WiFiManager.h>
@@ -90,6 +90,7 @@ void setupRedWM()  // conexion a la red por medio de WifiManager
     if(!wm.autoConnect("Ardomo")){
       Serial.println("Fallo en la conexión (timeout)");
       falloAP = true;
+      WiFi.mode(WIFI_STA); 
       //ESP.reset();
       delay(1000);
     }
@@ -141,20 +142,6 @@ bool checkWifi() {
     connected = false;
     return false;
   }
-}
-
-bool checkWifiConnectedWM()  // comprobamos si estamos conectados a la wifi
-{
-  #ifdef TRACE
-    Serial << "TRACE: in checkWifiConnectedWM , NONETWORK = " << NONETWORK << endl;
-  #endif
-  if(NONETWORK) {  // en modo NONETWORK no verificamos y encendemos LEDB
-     led(LEDB,ON);
-     return false;
-  }
-  //Comprobamos si estamos conectados
-  if(checkWifi()) return true;
-   else return false;
 }
 
 

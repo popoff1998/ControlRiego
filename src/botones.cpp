@@ -122,10 +122,12 @@ void led(uint8_t id,int estado)
     //convertimos a la parte baja y alta
     uint8_t bajo = (uint8_t)((ledStatus & 0x00FF));
     uint8_t alto = (uint8_t)((ledStatus & 0xFF00) >> 8);
+    /*
     #ifdef EXTRADEBUG
       Serial.print("<<<<< bajo >>>>> ");Serial.print(bajo,BIN);
       Serial.print("<<<<< alto >>>>> ");Serial.println(alto,BIN);
     #endif
+    */
     digitalWrite(HC595_LATCH, LOW);
     shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, alto); //repetimos para que funcione encendido led 16
     shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, alto);
@@ -224,10 +226,8 @@ S_BOTON *parseInputs()
       Boton[i].ultimo_estado = Boton[i].estado;
       if (Boton[i].estado || Boton[i].flags.dual) {
         #ifdef DEBUG
-          Serial.print("BOTON: ");Serial.print(Boton[i].desc);
-          Serial.print("   BOTON.estado: ");Serial.print(Boton[i].estado);
-          Serial.print("   BOTON id:  0x");Serial.print(Boton[i].id,HEX);
-          Serial.print("   BOTON idx: ");Serial.println(Boton[i].idx);
+          bool bEstado = Boton[i].estado;
+          Serial.printf("Boton: %s  idx: %d  id: %#X  Estado: %d \n", Boton[i].desc, Boton[i].idx, Boton[i].id, bEstado);
           //bip(1);
         #endif
         return &Boton[i];
