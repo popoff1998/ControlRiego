@@ -122,7 +122,7 @@
   #define DEFAULTBLINK        5
   #define DEFAULTBLINKMILLIS  500
   #define MINMINUTES          0
-  #define MAXMINUTES          60
+  #define MAXMINUTES          59  // corte automatico de seguridad a los 60 min. en los arduinos
   #define MINSECONDS          5
   #define HOLDTIME            3000
   #define MAXCONNECTRETRY     10

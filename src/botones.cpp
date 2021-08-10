@@ -226,10 +226,8 @@ S_BOTON *parseInputs()
       Boton[i].ultimo_estado = Boton[i].estado;
       if (Boton[i].estado || Boton[i].flags.dual) {
         #ifdef DEBUG
-          Serial.print("BOTON: ");Serial.print(Boton[i].desc);
-          Serial.print("   BOTON.estado: ");Serial.print(Boton[i].estado);
-          Serial.print("   BOTON id:  0x");Serial.print(Boton[i].id,HEX);
-          Serial.print("   BOTON idx: ");Serial.println(Boton[i].idx);
+          bool bEstado = Boton[i].estado;
+          Serial.printf("Boton: %s  idx: %d  id: %#X  Estado: %d \n", Boton[i].desc, Boton[i].idx, Boton[i].id, bEstado);
           //bip(1);
         #endif
         return &Boton[i];

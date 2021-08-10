@@ -158,8 +158,9 @@ void procesaBotones()
   }
   //Procesamos el boton pulsado:
   if(boton != NULL) {
-    //En estado error salimos sin procesar el boton, a menos que pulsemos Pause y pasamos a modo NONETWORK
-    // o pulsemos Stop y en este caso reseteamos
+    //En estado error salimos sin procesar el boton, a menos que:
+    //   - pulsemos Pause y pasamos a modo NONETWORK
+    //   - pulsemos Stop y en este caso reseteamos 
     if(Estado.estado == ERROR) 
     {
       //Si estamos en error y pulsamos pausa, nos ponemos en estado NONETWORK para test
@@ -180,7 +181,7 @@ void procesaBotones()
         longbip(3);
         ESP.restart();  
       }
-      return;
+      return;  //cualquier otro boton que no sea Stop salimos sin procesarlo
     }
     //Si estamos en reposo solo nos saca de ese estado
     if (reposo && boton->id != bSTOP) {
@@ -1317,7 +1318,7 @@ void leeSerial() {
 }
 
 void flagVerificaciones() {
-  flagV = ON; //solo activamos flagV para no usar llamadas a funciones bloqueantes en Ticker
+  flagV = ON; //aqui solo activamos flagV para no usar llamadas a funciones bloqueantes en Ticker
 }
 
 void Verificaciones() {   //verificaciones periodicas de estado wifi y hora correcta
