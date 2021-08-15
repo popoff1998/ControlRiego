@@ -101,9 +101,9 @@ void setupRedWM()  // conexion a la red por medio de WifiManager
      *   - no nos hemos podido conectar a la red wifi almacenada o no habia y el modo configuracion ha 
      *     dado timeout
      */
-    // Eliminamos el temporizador y apagamos el led indicador de modo AP
+    // Eliminamos el temporizador y dejamos LEDB segun estado de NONETWORK
     tic_APLed.detach();
-    led(LEDB,OFF);
+    NONETWORK ? led(LEDB,ON) : led(LEDB,OFF);
 
     if(WiFi.status() == WL_CONNECTED) {
       Serial.println("");

@@ -53,7 +53,7 @@ void setup()
 
   Serial.begin(115200);
   Serial.print("\n\n");
-  Serial.println("CONTROL RIEGO V1.3.1");
+  Serial.println("CONTROL RIEGO V1.3.2");
   Serial.print("Startup reason: ");Serial.println(ESP.getResetReason());
   #ifdef TRACE
     Serial.println("TRACE: in setup");
@@ -99,7 +99,7 @@ void setup()
     Serial.printf("estado LEDG: %d \n",ledStatusId(LEDG));
     Serial.printf("estado LEDB: %d \n",ledStatusId(LEDB));
   #endif
-  delay(2000);
+  delay(2500);
   //Ponemos en hora
   timeClient.begin();
   initClock();
@@ -572,8 +572,6 @@ void procesaEstados()
     #ifdef TRACE
       Serial.println("TRACE: in setupEstado");
     #endif
-    if (NONETWORK) led(LEDB,ON); //encendemos LEDB si NONETWORK aunque estemos conectados
-    //reposo = false;
     // Si estamos conectados pasamos a STANDBY
     if (checkWifi()) {
       Estado.estado = STANDBY;
@@ -774,10 +772,12 @@ void timeByFactor(int factor,uint8_t *fminutes, uint8_t *fseconds)
 void initClock()
 {
   if (timeClient.update()) {
-    Serial.print("initClock: NTP time recibido OK  --> ");
-    Serial.println(timeClient.getFormattedTime());
     setTime(timeClient.getEpochTime());
     timeOK = true;
+    Serial.print("initClock: NTP time recibido OK  (UTC) --> " + timeClient.getFormattedTime());
+    time_t t;
+    t = CE.toLocal(now(),&tcr);
+    Serial.printf("  local --> %d:%d:%d \n" ,hour(t),minute(t),second(t));
   }  
    else {
      Serial.println("[ERROR] initClock: no se ha recibido time por NTP");
@@ -909,7 +909,6 @@ void initRiego(uint16_t id)
   #endif
   uint arrayIndex = idarrayRiego(id);
   time_t t;
-
   if(arrayIndex == 999) return;
   Serial << "Iniciando riego: " << Boton[index].desc << endl;
   led(Boton[index].led,ON);
@@ -917,10 +916,6 @@ void initRiego(uint16_t id)
   t = CE.toLocal(utc,&tcr);
   lastRiegos[arrayIndex] = t;
   domoticzSwitch(Boton[index].idx,(char *)"On");
-  #ifdef DEBUG
-    Serial.print("initRiego acaba en estado: ");
-    Serial.println(Estado.estado);
-  #endif
 }
 
 void stopRiego(uint16_t id)
@@ -941,10 +936,6 @@ void stopRiego(uint16_t id)
     tic_parpadeoLedON.attach(0.2,parpadeoLedON);
     longbip(5);  
   }
-  #ifdef DEBUG
-    Serial.print("stopRiego acaba en estado: ");
-    Serial.println(Estado.estado);
-  #endif
 }
 
 void stopAllRiego()
@@ -1183,6 +1174,7 @@ bool domoticzSwitch(int idx,char *msg)
   #endif
 
   #ifdef NODEMCU
+    if(NONETWORK) return true; //simulamos que ha ido OK
     if(!checkWifi()) {
       Estado.estado = ERROR;
       display->print("Err1");
@@ -1246,7 +1238,6 @@ bool domoticzSwitch(int idx,char *msg)
         }
       }
       else {
-        if(NONETWORK) return true;
         Estado.estado = ERROR;
         display->print("Err3");
         #ifdef DEBUG
