@@ -568,7 +568,8 @@ void procesaEstados()
   }
 }
 
-  void setupEstado() {
+  void setupEstado() 
+  {
     #ifdef TRACE
       Serial.println("TRACE: in setupEstado");
     #endif
@@ -611,7 +612,8 @@ void timerIsr()
   Encoder->service();
 }
 
-void procesaEeprom() {
+void procesaEeprom() 
+{
   int i,botonAddr;
   int grupoAddr;
   bool eeinitialized=0;
@@ -750,8 +752,8 @@ void initFactorRiegos()
   }
   #ifdef VERBOSE
     //Leemos los valores para comprobar que lo hizo bien
-    if (!factorRiegosOK) Serial.print("(simulados) ");
-    Serial.println("Factores de riego leidos:");
+    Serial.print("Factores de riego ");
+    factorRiegosOK ? Serial.println("leidos: ") :  Serial.println("(simulados): ");
     for(uint i=0;i<NUMRIEGOS;i++) {
       Serial.printf("FACTOR %d: %d \n",i,factorRiegos[i]);
     }
@@ -775,8 +777,7 @@ void initClock()
     setTime(timeClient.getEpochTime());
     timeOK = true;
     Serial.print("initClock: NTP time recibido OK  (UTC) --> " + timeClient.getFormattedTime());
-    time_t t;
-    t = CE.toLocal(now(),&tcr);
+    time_t t = CE.toLocal(now(),&tcr);
     Serial.printf("  local --> %d:%d:%d \n" ,hour(t),minute(t),second(t));
   }  
    else {
@@ -808,35 +809,35 @@ void ultimosRiegos(int modo)
   }
 }
 
-void eepromWriteGroups() {
-    //escribe en la eeprom grupos de multirriego y su tamaño
-    int grupoAddr;
-    grupoAddr = offsetof(__eeprom_data, groups[0]);
-    EEPROM.put(offsetof(__eeprom_data, numgroups),n_Grupos); //numero de grupos de multirriego
-    for(int i=0;i<n_Grupos;i++) {
-      multi = getMultibyIndex(i);
-      Serial << "escribiendo elementos Grupo" << i+1 << " : " << multi->size << " elementos " << endl;
-      EEPROM.put(grupoAddr,multi->size);
-      grupoAddr += 4;
-      for (int j=0;j < multi->size; j++) {
-        EEPROM.put(grupoAddr,multi->serie[j]);
-        grupoAddr += 2;
-      }
+void eepromWriteGroups() 
+{
+  //escribe en la eeprom grupos de multirriego y su tamaño
+  int grupoAddr;
+  grupoAddr = offsetof(__eeprom_data, groups[0]);
+  EEPROM.put(offsetof(__eeprom_data, numgroups),n_Grupos); //numero de grupos de multirriego
+  for(int i=0;i<n_Grupos;i++) {
+    multi = getMultibyIndex(i);
+    Serial << "escribiendo elementos Grupo" << i+1 << " : " << multi->size << " elementos " << endl;
+    EEPROM.put(grupoAddr,multi->size);
+    grupoAddr += 4;
+    for (int j=0;j < multi->size; j++) {
+      EEPROM.put(grupoAddr,multi->serie[j]);
+      grupoAddr += 2;
     }
+  }
 }
 
 void dimmerLeds()
 {
   if (reposo) { 
-     //conmuta estado LEDR, LEDG y LEDB para atenuarlos
-     led(LEDR,OFF);
-     led(LEDG,OFF);
-     led(LEDB,OFF);
-     delay(1);
-     led(LEDR,ON);
-     if(connected) led(LEDG,ON);
-     if(NONETWORK) led(LEDB,ON);
-     //standbyTime = millis();
+    //conmuta estado LEDR, LEDG y LEDB para atenuarlos
+    led(LEDR,OFF);
+    led(LEDG,OFF);
+    led(LEDB,OFF);
+    delay(1);
+    led(LEDR,ON);
+    if(connected) led(LEDG,ON);
+    if(NONETWORK) led(LEDB,ON);
   }   
 }
 
@@ -1052,7 +1053,6 @@ void setupRed()
 
 }
 */
-
 
 int getFactor(uint16_t idx)
 {
@@ -1280,7 +1280,8 @@ bool domoticzSwitch(int idx,char *msg)
   return true;
 }
 
-void leeSerial() {
+void leeSerial() 
+{
   if (Serial.available() > 0) {
     // lee cadena de entrada
     String inputSerial = Serial.readString();
@@ -1308,11 +1309,13 @@ void leeSerial() {
   }
 }
 
-void flagVerificaciones() {
+void flagVerificaciones() 
+{
   flagV = ON; //aqui solo activamos flagV para no usar llamadas a funciones bloqueantes en Ticker
 }
 
-void Verificaciones() {   //verificaciones periodicas de estado wifi y hora correcta
+void Verificaciones() 
+{   //verificaciones periodicas de estado wifi y hora correcta
   #ifdef DEBUG
     leeSerial();  // para ver si simulamos algun tipo de error
   #endif
@@ -1327,7 +1330,8 @@ void Verificaciones() {   //verificaciones periodicas de estado wifi y hora corr
   flagV = OFF;
 }
 
-void parpadeoLedON(){
+void parpadeoLedON()
+{
   byte estado = ledStatusId(LEDR);
   led(LEDR,!estado);
 }

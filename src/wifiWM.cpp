@@ -3,13 +3,10 @@
  *  - no se codifican en el pgm (wifissid.h) las redes wifi y sus pw
 */
 #include "Control.h"
-
 #include <ESP8266WiFi.h>
-//#include <ESP8266WiFiMulti.h>
 #include <DNSServer.h>
 #include <ESP8266WebServer.h >
 #include <WiFiManager.h>
-
 #include <Ticker.h>
 
 //#define ledWifi             LEDG   
