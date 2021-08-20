@@ -60,41 +60,19 @@ void wifiClearSignal(uint veces)
 void initLeds()
 {
   int i;
-
   size_t numLeds = 12;
   apagaLeds();
   delay(200);
-
   for(i=0;i<numLeds;i++) {
     led(ledOrder[i],ON);
     delay(300);
     led(ledOrder[i],OFF);
   }
-
   delay(200);
   enciendeLeds();
   delay(200);
   apagaLeds();
   delay(200);
-  
-  /*
-  for(i=numLeds-1;i>=0;i--) 
-  {
-    led(ledOrder[i],ON);
-    delay(300);
-    led(ledOrder[i],OFF);
-  }
-
-  delay(200);
-
-  for (i=0;i<3;i++) {
-    enciendeLeds();
-    delay(300);
-    apagaLeds();
-    delay(300);
-  }
-  */
-
   led(LEDR,ON);
 }
 
@@ -157,7 +135,6 @@ byte shiftInCD4021B(int myDataPin, int myClockPin)
   int i;
   int temp=0;
   int myDataIn = 0;
-
   for (i=7;i>=0;i--)
   {
     digitalWrite(myClockPin,0);
@@ -181,7 +158,6 @@ uint16_t readInputs()
 {
   byte    switchVar1;
   byte    switchVar2;
-
   //Activamos el latch para leer
   digitalWrite(CD4021B_LATCH,1);
   delayMicroseconds(20);
@@ -198,10 +174,6 @@ bool testButton(uint16_t id,bool state)
   //devolviendo 1 si es igual a state y 0 en caso contrario 
   uint16_t buttons = readInputs();
   bool result = ((buttons & id) == 0)?0:1;
-  #ifdef DEBUG
-    Serial << "testButtons buttons = " << buttons << endl;
-    Serial << "testButtons id: " << id << " result = " << result << " state " << state <<endl;
-  #endif
   if (result == state) return 1;
    else return 0;
 }
@@ -213,9 +185,7 @@ S_BOTON *parseInputs()
   unsigned long currentMillis = millis();
   if(currentMillis < (lastMillis + DEBOUNCEMILLIS)) return NULL;
   else lastMillis = currentMillis;
-
   uint16_t inputs = readInputs();
-
   for (i=0;i<18;i++) {
     //Nos saltamos los DISABLED
     if (!Boton[i].flags.enabled) continue;

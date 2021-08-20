@@ -53,7 +53,7 @@ void setup()
 
   Serial.begin(115200);
   Serial.print("\n\n");
-  Serial.println("CONTROL RIEGO V1.3.1");
+  Serial.println("CONTROL RIEGO V1.3.2");
   Serial.print("Startup reason: ");Serial.println(ESP.getResetReason());
   #ifdef TRACE
     Serial.println("TRACE: in setup");
@@ -99,7 +99,7 @@ void setup()
     Serial.printf("estado LEDG: %d \n",ledStatusId(LEDG));
     Serial.printf("estado LEDB: %d \n",ledStatusId(LEDB));
   #endif
-  delay(2000);
+  delay(2500);
   //Ponemos en hora
   timeClient.begin();
   initClock();
@@ -568,22 +568,26 @@ void procesaEstados()
   }
 }
 
-  void setupEstado() {
+  void setupEstado() 
+  {
     #ifdef TRACE
       Serial.println("TRACE: in setupEstado");
     #endif
-    if (NONETWORK) led(LEDB,ON); //encendemos LEDB si NONETWORK aunque estemos conectados
-    //reposo = false;
+    // Si estamos en modo NONETWORK pasamos a STANDBY aunque no exista conexión wifi o estemos en ERROR
+    if (NONETWORK) {
+      Estado.estado = STANDBY;
+      bip(2);
+      return;
+    }
+    // Si estado actual es ERROR seguimos así
+    if (Estado.estado == ERROR) {
+      longbip(3);
+      return;
+    }
     // Si estamos conectados pasamos a STANDBY
     if (checkWifi()) {
       Estado.estado = STANDBY;
       bip(1);
-      return;
-    }
-    // Si estamos en modo NONETWORK pasamos a STANDBY aunque no exista conexión wifi
-    if (NONETWORK) {
-      Estado.estado = STANDBY;
-      bip(2);
       return;
     }
     //si no estamos conectados a la red y no estamos en modo NONETWORK pasamos a estado ERROR
@@ -613,7 +617,8 @@ void timerIsr()
   Encoder->service();
 }
 
-void procesaEeprom() {
+void procesaEeprom() 
+{
   int i,botonAddr;
   int grupoAddr;
   bool eeinitialized=0;
@@ -752,8 +757,8 @@ void initFactorRiegos()
   }
   #ifdef VERBOSE
     //Leemos los valores para comprobar que lo hizo bien
-    if (!factorRiegosOK) Serial.print("(simulados) ");
-    Serial.println("Factores de riego leidos:");
+    Serial.print("Factores de riego ");
+    factorRiegosOK ? Serial.println("leidos: ") :  Serial.println("(simulados): ");
     for(uint i=0;i<NUMRIEGOS;i++) {
       Serial.printf("FACTOR %d: %d \n",i,factorRiegos[i]);
     }
@@ -774,10 +779,11 @@ void timeByFactor(int factor,uint8_t *fminutes, uint8_t *fseconds)
 void initClock()
 {
   if (timeClient.update()) {
-    Serial.print("initClock: NTP time recibido OK  --> ");
-    Serial.println(timeClient.getFormattedTime());
     setTime(timeClient.getEpochTime());
     timeOK = true;
+    Serial.print("initClock: NTP time recibido OK  (UTC) --> " + timeClient.getFormattedTime());
+    time_t t = CE.toLocal(now(),&tcr);
+    Serial.printf("  local --> %d:%d:%d \n" ,hour(t),minute(t),second(t));
   }  
    else {
      Serial.println("[ERROR] initClock: no se ha recibido time por NTP");
@@ -808,35 +814,35 @@ void ultimosRiegos(int modo)
   }
 }
 
-void eepromWriteGroups() {
-    //escribe en la eeprom grupos de multirriego y su tamaño
-    int grupoAddr;
-    grupoAddr = offsetof(__eeprom_data, groups[0]);
-    EEPROM.put(offsetof(__eeprom_data, numgroups),n_Grupos); //numero de grupos de multirriego
-    for(int i=0;i<n_Grupos;i++) {
-      multi = getMultibyIndex(i);
-      Serial << "escribiendo elementos Grupo" << i+1 << " : " << multi->size << " elementos " << endl;
-      EEPROM.put(grupoAddr,multi->size);
-      grupoAddr += 4;
-      for (int j=0;j < multi->size; j++) {
-        EEPROM.put(grupoAddr,multi->serie[j]);
-        grupoAddr += 2;
-      }
+void eepromWriteGroups() 
+{
+  //escribe en la eeprom grupos de multirriego y su tamaño
+  int grupoAddr;
+  grupoAddr = offsetof(__eeprom_data, groups[0]);
+  EEPROM.put(offsetof(__eeprom_data, numgroups),n_Grupos); //numero de grupos de multirriego
+  for(int i=0;i<n_Grupos;i++) {
+    multi = getMultibyIndex(i);
+    Serial << "escribiendo elementos Grupo" << i+1 << " : " << multi->size << " elementos " << endl;
+    EEPROM.put(grupoAddr,multi->size);
+    grupoAddr += 4;
+    for (int j=0;j < multi->size; j++) {
+      EEPROM.put(grupoAddr,multi->serie[j]);
+      grupoAddr += 2;
     }
+  }
 }
 
 void dimmerLeds()
 {
   if (reposo) { 
-     //conmuta estado LEDR, LEDG y LEDB para atenuarlos
-     led(LEDR,OFF);
-     led(LEDG,OFF);
-     led(LEDB,OFF);
-     delay(1);
-     led(LEDR,ON);
-     if(connected) led(LEDG,ON);
-     if(NONETWORK) led(LEDB,ON);
-     //standbyTime = millis();
+    //conmuta estado LEDR, LEDG y LEDB para atenuarlos
+    led(LEDR,OFF);
+    led(LEDG,OFF);
+    led(LEDB,OFF);
+    delay(1);
+    led(LEDR,ON);
+    if(connected) led(LEDG,ON);
+    if(NONETWORK) led(LEDB,ON);
   }   
 }
 
@@ -909,7 +915,6 @@ void initRiego(uint16_t id)
   #endif
   uint arrayIndex = idarrayRiego(id);
   time_t t;
-
   if(arrayIndex == 999) return;
   Serial << "Iniciando riego: " << Boton[index].desc << endl;
   led(Boton[index].led,ON);
@@ -917,10 +922,6 @@ void initRiego(uint16_t id)
   t = CE.toLocal(utc,&tcr);
   lastRiegos[arrayIndex] = t;
   domoticzSwitch(Boton[index].idx,(char *)"On");
-  #ifdef DEBUG
-    Serial.print("initRiego acaba en estado: ");
-    Serial.println(Estado.estado);
-  #endif
 }
 
 void stopRiego(uint16_t id)
@@ -941,10 +942,6 @@ void stopRiego(uint16_t id)
     tic_parpadeoLedON.attach(0.2,parpadeoLedON);
     longbip(5);  
   }
-  #ifdef DEBUG
-    Serial.print("stopRiego acaba en estado: ");
-    Serial.println(Estado.estado);
-  #endif
 }
 
 void stopAllRiego()
@@ -1062,7 +1059,6 @@ void setupRed()
 }
 */
 
-
 int getFactor(uint16_t idx)
 {
   #ifdef TRACE
@@ -1130,7 +1126,6 @@ int getFactor(uint16_t idx)
   if(pos != -1) {
     if(NONETWORK) return 100;
     #ifdef DEBUG
-      Serial.println("SE HA DEVUELTO ERROR");
       Serial.println("[ERROR] getFactor: SE HA DEVUELTO ERROR"); 
     #endif
     display->print("Err4");
@@ -1168,11 +1163,16 @@ int getFactor(uint16_t idx)
     #endif
     return 100;
   }
-
+  //si hemos leido correctamente (numero, campo vacio o solo con comentarios)
+  //consideramos leido OK el factor riego. En los dos ultimos casos se
+  //devuelve valor por defecto 100.
+  factorRiegosOK = true;
   long int factor = strtol(factorstr,NULL,10);
-  //if(factor == 0L) return 100;  
-  //else return (int)factor;
-  factorRiegosOK = true; //se devuelve un factor riego leido OK
+  //controlamos devolver 0 solo si se ha puesto explicitamente
+  if (factor == 0) {
+    if (strlen(factorstr) == 0) return 100;    //campo comentarios vacio -> por defecto 100
+    if (!isdigit(factorstr[0])) return 100;    //comentarios no comienzan por 0
+  }
   return (int)factor;
 }
 
@@ -1183,6 +1183,7 @@ bool domoticzSwitch(int idx,char *msg)
   #endif
 
   #ifdef NODEMCU
+    if(NONETWORK) return true; //simulamos que ha ido OK
     if(!checkWifi()) {
       Estado.estado = ERROR;
       display->print("Err1");
@@ -1246,7 +1247,6 @@ bool domoticzSwitch(int idx,char *msg)
         }
       }
       else {
-        if(NONETWORK) return true;
         Estado.estado = ERROR;
         display->print("Err3");
         #ifdef DEBUG
@@ -1289,7 +1289,8 @@ bool domoticzSwitch(int idx,char *msg)
   return true;
 }
 
-void leeSerial() {
+void leeSerial() 
+{
   if (Serial.available() > 0) {
     // lee cadena de entrada
     String inputSerial = Serial.readString();
@@ -1317,11 +1318,13 @@ void leeSerial() {
   }
 }
 
-void flagVerificaciones() {
+void flagVerificaciones() 
+{
   flagV = ON; //aqui solo activamos flagV para no usar llamadas a funciones bloqueantes en Ticker
 }
 
-void Verificaciones() {   //verificaciones periodicas de estado wifi y hora correcta
+void Verificaciones() 
+{   //verificaciones periodicas de estado wifi y hora correcta
   #ifdef DEBUG
     leeSerial();  // para ver si simulamos algun tipo de error
   #endif
@@ -1329,14 +1332,33 @@ void Verificaciones() {   //verificaciones periodicas de estado wifi y hora corr
   Serial.print(".");
   if (errorOFF) bip(2);  //recordatorio error grave
   if (!NONETWORK && (Estado.estado == STANDBY || (Estado.estado == ERROR && !connected))) {
-    if (checkWifi()) Estado.estado = STANDBY; //verificamos wifi
+    if (checkWifi()) Estado.estado = STANDBY; //verificamos si seguimos connectados a la wifi
+  /*  if (!connected && falloAP) {  //si no hemos podido conectar en el setup
+      unsigned int ssidLength = WiFi.SSID().length();
+      Serial.println("SSID: " + WiFi.SSID() + " longitud: " + ssidLength);
+      if (ssidLength) {          //y hay wifi guardada volvemos a intentar conexion
+        if (startWiFi()) { // Connect
+          Serial.println("startWifi devuelve TRUE");
+          falloAP = false;
+          initFactorRiegos();
+        }
+        else Serial.println("startWifi devuelve FALSE");
+      }
+    } */
+    if (connected && falloAP) {
+      Serial.println("Wifi conectada despues Setup, leemos factor riegos");
+      falloAP = false;
+      initFactorRiegos();
+      //if (factorRiegosOK) Estado.estado = STANDBY;
+      //Estado.estado = STANDBY;
+    }
     if (!timeOK && connected) initClock();    //verificamos time
-    //if (!factorRiegosOK && connected) initFactorRiegos();    //verificamos factor riegos
   }
   flagV = OFF;
 }
 
-void parpadeoLedON(){
+void parpadeoLedON()
+{
   byte estado = ledStatusId(LEDR);
   led(LEDR,!estado);
 }

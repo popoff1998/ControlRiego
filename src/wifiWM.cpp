@@ -3,13 +3,10 @@
  *  - no se codifican en el pgm (wifissid.h) las redes wifi y sus pw
 */
 #include "Control.h"
-
 #include <ESP8266WiFi.h>
-//#include <ESP8266WiFiMulti.h>
 #include <DNSServer.h>
 #include <ESP8266WebServer.h >
 #include <WiFiManager.h>
-
 #include <Ticker.h>
 
 //#define ledWifi             LEDG   
@@ -17,6 +14,9 @@
 
 Ticker tic_WifiLed;
 Ticker tic_APLed;
+
+// Creamos una instancia de la clase WiFiManager
+WiFiManager wm;
 
 void parpadeoLedWifi(){
   byte estado = ledStatusId(LEDG);
@@ -63,7 +63,6 @@ void setupRedWM()  // conexion a la red por medio de WifiManager
     falloAP = false;
     //verificamos si encoderSW esta pulsado (estado OFF) y selector de multirriego esta en posicion:
     //   - Grupo2 (GOTEOS)
-    //   (no se verifica - Grupo3 (TODO)
     // --> en ese caso borramos red wifi almacenada en el ESP8266
     if (testButton(bENCODER, OFF) && testButton(bGOTEOS,ON)) wifiSW = true;
     else wifiSW = false;
@@ -75,8 +74,6 @@ void setupRedWM()  // conexion a la red por medio de WifiManager
     }
     // explicitly set mode, esp defaults to STA+AP   
     WiFi.mode(WIFI_STA); 
-    // Creamos una instancia de la clase WiFiManager
-    WiFiManager wm;
     // Descomentar para resetear configuración
     //wm.resetSettings();
     // Empezamos el temporizador que hará parpadear el LED indicador de wifi
@@ -90,7 +87,7 @@ void setupRedWM()  // conexion a la red por medio de WifiManager
     if(!wm.autoConnect("Ardomo")){
       Serial.println("Fallo en la conexión (timeout)");
       falloAP = true;
-      WiFi.mode(WIFI_STA); 
+      //WiFi.mode(WIFI_STA); 
       //ESP.reset();
       delay(1000);
     }
@@ -101,16 +98,15 @@ void setupRedWM()  // conexion a la red por medio de WifiManager
      *   - no nos hemos podido conectar a la red wifi almacenada o no habia y el modo configuracion ha 
      *     dado timeout
      */
-    // Eliminamos el temporizador y apagamos el led indicador de modo AP
+    // Eliminamos el temporizador y dejamos LEDB segun estado de NONETWORK
     tic_APLed.detach();
-    led(LEDB,OFF);
+    NONETWORK ? led(LEDB,ON) : led(LEDB,OFF);
 
     if(WiFi.status() == WL_CONNECTED) {
-      Serial.println("");
-      Serial.printf("Wifi conectado a SSID: %s\n", WiFi.SSID().c_str());
+      Serial.printf("\n Wifi conectado a SSID: %s\n", WiFi.SSID().c_str());
       Serial.print("IP address: ");
       Serial.println(WiFi.localIP());
-      Serial.printf("RSSI: %d dBm\n", WiFi.RSSI());
+      Serial.printf("RSSI: %d dBm \n\n", WiFi.RSSI());
       // Eliminamos el temporizador y encendemos el led indicador de wifi
       tic_WifiLed.detach();
       led(LEDG,ON);
@@ -144,4 +140,27 @@ bool checkWifi() {
   }
 }
 
+bool startWiFi()
+{
+    if (!WiFi.isConnected()) {
+        Serial.println("Intentando CONECTAR a wifi SSID: " + WiFi.SSID());
+        int conn_result = WiFi.waitForConnectResult(10000); // connect try it for 10 seconds
+        Serial.print("conn_result: "); Serial.println(conn_result, DEC);
+    }
+    if (WiFi.isConnected()) {
+      Serial.println("Wifi is connected!");
+      return true;
+    }
+    else {
+      Serial.println("Wifi is NOT connected!");
+      return false;
+    }
+
+}
+
+void startWiFi2()
+{
+    if (!WiFi.isConnected()) WiFi.begin();
+    WiFi.isConnected() ? Serial.println("Wifi is connected!") : Serial.println("Wifi is NOT connected!");
+}
 

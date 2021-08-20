@@ -1,8 +1,9 @@
 PENDIENTES
 ==========
 
-- posibilidad de salir del modo ERROR a NONETWORK y a modo NORMAL. En modo NORMAL se deben de producir todas las inicializaciones del setup que hayan podido producir error. 
-- si un contenido incorrecto de la eeprom ha generado un error debemos habilitar un mecanismo para poder entrar en configuracion en cualquier caso.
+- parametros de conexion a Domoticz por interfax web
+- boton Pause reflejado en Domoticz (en ambos sentidos)
+- Si estado REGANDO tiempo de riego restante reflejado en Domoticz
 
 HECHOS
 ======
@@ -17,6 +18,7 @@ HECHOS
 - hay que respetar factor riego=0 cuando se lee (para que se salte ese boton) V1.3
 - se resalta el error en caso de no poder parar un riego comenzado (LEDR parpadea y bips periodicos) V1.3
 - en modo DEBUG activacion simulacion errores por serial input. V1.3
+- en estado ERROR pulsando Stop se reinicia V1.3.1
 
 
 

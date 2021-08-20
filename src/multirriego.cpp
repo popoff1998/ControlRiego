@@ -17,7 +17,6 @@ S_MULTI multiGroup [] =  {
       { bGOTEOS,   Grupo2,    size_Grupo2,    0,       "GOTEOS"},
       { bCOMPLETO, Grupo3,    size_Grupo3,    0,       "COMPLETO"}
 };
-//metodo NUEVO asignacion botones a grupos de multirriego (valores iniciales) 
 
 //devuelve posicion del selector de multirriego
 uint16_t getMultiStatus()
@@ -31,7 +30,6 @@ uint16_t getMultiStatus()
 S_MULTI *getMultibyId(uint16_t id)
 {
   int i;
-  
   for(i=0;i<(sizeof(multiGroup)/sizeof(S_MULTI));i++)
   {
     if(multiGroup[i].id == id) 

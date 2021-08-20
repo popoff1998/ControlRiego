@@ -82,10 +82,10 @@
   #define FORCEINITEEPROM     0
 
   //estructura para salvar grupos de multirriego en la eeprom:
-  typedef struct _eeprom_group {
+  struct _eeprom_group {
     int size;
     uint16_t serie[16];
-  } _eeprom_group;
+  } ;
 
   //Estructura de mi eeprom (se reserva más tamaño despues en funcion del numero de grupos)
   struct __eeprom_data {
@@ -97,13 +97,13 @@
     _eeprom_group groups[]; // grupos de multirriego
   };
 
-  typedef struct S_MULTI {
+  struct S_MULTI {
     uint16_t id;
     uint16_t *serie;
     int size;
     int actual;
     char desc[20];
-  } S_MULTI;
+  } ;
 
   //Comportamiento General
   #define STANDBYSECS         15
@@ -199,7 +199,7 @@
   #define HIDE 0
 
   //Enums
-  enum {
+  enum _estados {
     STANDBY       = 0x01,
     REGANDO       = 0x02,
     CONFIGURANDO  = 0x04,
@@ -210,7 +210,7 @@
     ERROR         = 0x80,
   };
 
-  enum {
+  enum _flags {
     ENABLED      = 0x01,
     DISABLED     = 0x02,
     ONLYSTATUS   = 0x04,
@@ -219,7 +219,7 @@
     HOLD         = 0x20,
   };
 
-  enum {
+  enum _botones {
     bTURBINAS   = 0x0001,
     bPORCHE     = 0x0002,
     bCUARTILLO  = 0x0004,
@@ -243,7 +243,7 @@
   #define bCONFIG   0xFF02
 
   //TypeDefs
-  typedef union
+  union S_bFLAGS
   {
     uint8_t all_flags;
     struct
@@ -257,9 +257,9 @@
               holddisabled  : 1,
               spare0        : 1;
     };
-  } S_bFLAGS;
+  } ;
 
-  typedef struct S_BOTON {
+  struct S_BOTON {
     uint16_t   id;
     int   estado;
     int   ultimo_estado;
@@ -267,9 +267,9 @@
     S_bFLAGS  flags;
     char  desc[30];
     uint16_t   idx;
-  } S_BOTON;
+  } ;
 
-  typedef union {
+  /*typedef union {
     uint8_t estado;
     struct {
       uint8_t standby       : 1,
@@ -281,11 +281,13 @@
               spare1        : 1,
               spare0        : 1;
     };
-  } U_Estado;
+  } U_Estado; */
+
+  struct S_Estado {
+    uint8_t estado; 
+  } ;
 
   //mantenemos aqui definicion completo a efectos de display de lo regado:
-
-
   #define NUMRIEGOS sizeof(COMPLETO)/sizeof(COMPLETO[0])
   #define NUM_S_BOTON sizeof(Boton)/sizeof(Boton[0])
   #ifdef __MAIN__
@@ -346,7 +348,7 @@
 
     //Globales
     CountUpDownTimer T(DOWN);
-    U_Estado Estado;
+    S_Estado Estado;
     ClickEncoder *Encoder;
     Display     *display;
     Configure *configure;
