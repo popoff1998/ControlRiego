@@ -573,16 +573,21 @@ void procesaEstados()
     #ifdef TRACE
       Serial.println("TRACE: in setupEstado");
     #endif
+    // Si estamos en modo NONETWORK pasamos a STANDBY aunque no exista conexión wifi o estemos en ERROR
+    if (NONETWORK) {
+      Estado.estado = STANDBY;
+      bip(2);
+      return;
+    }
+    // Si estado actual es ERROR seguimos así
+    if (Estado.estado == ERROR) {
+      longbip(3);
+      return;
+    }
     // Si estamos conectados pasamos a STANDBY
     if (checkWifi()) {
       Estado.estado = STANDBY;
       bip(1);
-      return;
-    }
-    // Si estamos en modo NONETWORK pasamos a STANDBY aunque no exista conexión wifi
-    if (NONETWORK) {
-      Estado.estado = STANDBY;
-      bip(2);
       return;
     }
     //si no estamos conectados a la red y no estamos en modo NONETWORK pasamos a estado ERROR
@@ -1121,7 +1126,6 @@ int getFactor(uint16_t idx)
   if(pos != -1) {
     if(NONETWORK) return 100;
     #ifdef DEBUG
-      Serial.println("SE HA DEVUELTO ERROR");
       Serial.println("[ERROR] getFactor: SE HA DEVUELTO ERROR"); 
     #endif
     display->print("Err4");
@@ -1159,11 +1163,16 @@ int getFactor(uint16_t idx)
     #endif
     return 100;
   }
-
+  //si hemos leido correctamente (numero, campo vacio o solo con comentarios)
+  //consideramos leido OK el factor riego. En los dos ultimos casos se
+  //devuelve valor por defecto 100.
+  factorRiegosOK = true;
   long int factor = strtol(factorstr,NULL,10);
-  //if(factor == 0L) return 100;  
-  //else return (int)factor;
-  factorRiegosOK = true; //se devuelve un factor riego leido OK
+  //controlamos devolver 0 solo si se ha puesto explicitamente
+  if (factor == 0) {
+    if (strlen(factorstr) == 0) return 100;    //campo comentarios vacio -> por defecto 100
+    if (!isdigit(factorstr[0])) return 100;    //comentarios no comienzan por 0
+  }
   return (int)factor;
 }
 
@@ -1323,9 +1332,27 @@ void Verificaciones()
   Serial.print(".");
   if (errorOFF) bip(2);  //recordatorio error grave
   if (!NONETWORK && (Estado.estado == STANDBY || (Estado.estado == ERROR && !connected))) {
-    if (checkWifi()) Estado.estado = STANDBY; //verificamos wifi
+    if (checkWifi()) Estado.estado = STANDBY; //verificamos si seguimos connectados a la wifi
+  /*  if (!connected && falloAP) {  //si no hemos podido conectar en el setup
+      unsigned int ssidLength = WiFi.SSID().length();
+      Serial.println("SSID: " + WiFi.SSID() + " longitud: " + ssidLength);
+      if (ssidLength) {          //y hay wifi guardada volvemos a intentar conexion
+        if (startWiFi()) { // Connect
+          Serial.println("startWifi devuelve TRUE");
+          falloAP = false;
+          initFactorRiegos();
+        }
+        else Serial.println("startWifi devuelve FALSE");
+      }
+    } */
+    if (connected && falloAP) {
+      Serial.println("Wifi conectada despues Setup, leemos factor riegos");
+      falloAP = false;
+      initFactorRiegos();
+      //if (factorRiegosOK) Estado.estado = STANDBY;
+      //Estado.estado = STANDBY;
+    }
     if (!timeOK && connected) initClock();    //verificamos time
-    //if (!factorRiegosOK && connected) initFactorRiegos();    //verificamos factor riegos
   }
   flagV = OFF;
 }

@@ -174,10 +174,6 @@ bool testButton(uint16_t id,bool state)
   //devolviendo 1 si es igual a state y 0 en caso contrario 
   uint16_t buttons = readInputs();
   bool result = ((buttons & id) == 0)?0:1;
-  #ifdef DEBUG
-    Serial << "testButtons buttons = " << buttons << endl;
-    Serial << "testButtons id: " << id << " result = " << result << " state " << state <<endl;
-  #endif
   if (result == state) return 1;
    else return 0;
 }
