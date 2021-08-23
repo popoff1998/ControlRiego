@@ -469,8 +469,8 @@ void procesaEstados()
               }
               if(configure->configuringIdx()) {
                 Serial << "SAVE EEPROM IDX value: "<< value << endl;
-                Boton[configure->getActualIdxIndex()].idx = value;
-                EEPROM.put(offsetof(__eeprom_data, botonIdx[0]) + 2*configure->getActualIdxIndex(),value);
+                Boton[configure->getActualIdxIndex()].idx = (uint16_t)value;
+                EEPROM.put(offsetof(__eeprom_data, botonIdx[0]) + 2*configure->getActualIdxIndex(),(uint16_t)value);
                 #ifdef NODEMCU
                   EEPROM.commit();
                 #endif
@@ -1046,9 +1046,6 @@ String httpGetDomoticz(String message)
     return "Err2";
   }
   //`vemos si la respuesta indica status error
-  #ifdef EXTRADEBUG
-    Serial.print("response: ");Serial.println(response);
-  #endif
   int pos = response.indexOf("\"status\" : \"ERR\"");
   if(pos != -1) {
     #ifdef DEBUG
