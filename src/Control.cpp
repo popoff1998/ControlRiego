@@ -53,7 +53,7 @@ void setup()
 
   Serial.begin(115200);
   Serial.print("\n\n");
-  Serial.println("CONTROL RIEGO V1.3.2");
+  Serial.println("CONTROL RIEGO V1.3.3");
   Serial.print("Startup reason: ");Serial.println(ESP.getResetReason());
   #ifdef TRACE
     Serial.println("TRACE: in setup");
@@ -937,7 +937,7 @@ void stopRiego(uint16_t id)
     if (simErrorOFF) {  // simula error si simErrorOFF es true
       Estado.estado = ERROR;
       display->print("Err3");
-      errorOFF = true;  // recordatorio error
+    errorOFF = true;  // recordatorio error
     }
     tic_parpadeoLedON.attach(0.2,parpadeoLedON);
     longbip(5);  
@@ -1012,53 +1012,52 @@ void refreshTime()
   display->printTime(T.ShowMinutes(),T.ShowSeconds());
 }
 
-/*
-void setupRed()
-{
-   #ifdef NET_MQTTCLIENT
-    MqttClient.setClient(client);
-    MqttClient.setServer(MQTT_SERVER,1883);
+// Comunicacion con Domoticz usando httpGet
+String httpGetDomoticz(String message) {
+  #ifdef TRACE
+    Serial.println("TRACE: in httpGetDomoticz");
   #endif
-  #ifdef MEGA256
-    Ethernet.begin(mac,ip,gateway,subnet);
+  String tmpStr = "http://" + String(serverAddress) + ":" + DOMOTICZPORT + String(message);
+  #ifdef DEBUG
+    Serial.print("TMPSTR: ");Serial.println(tmpStr);
   #endif
-  #ifdef NODEMCU
-    for (int i=0;i < sizeof(ssid)/sizeof(ssid[0]); i++) {
-      int j=0;
-      WiFiMulti.addAP(ssid[i],pass);
-      #ifdef DEBUG
-              Serial.println("");
-              Serial.print("Intentando conectar a:   ");
-              Serial.print(ssid[i]);
+  httpclient.begin(client, tmpStr); // para v3.0.0 de platform esp8266
+  String response = "{}";
+  int httpCode = httpclient.GET();
+  if(httpCode > 0) {
+    if(httpCode == HTTP_CODE_OK) {
+      response = httpclient.getString();
+      #ifdef EXTRADEBUG
+        Serial.print("RESPONSE: ");Serial.println(response);
       #endif
-      connected = true;
-      while(WiFiMulti.run() != WL_CONNECTED) {
-        led(LEDG,ON);
-        Serial.print(".");
-        delay(200);
-        led(LEDG,OFF);
-        delay(200);
-        j++;
-        if(j == MAXCONNECTRETRY) {
-          connected = false;
-          break;
-        }
-      }
-      if(connected) {
-        Serial.println("");
-        Serial.printf("Wifi conectado a SSID: %s\n", WiFi.SSID().c_str());
-        Serial.print("IP address: ");
-        Serial.println(WiFi.localIP());
-        Serial.printf("RSSI: %d dBm\n", WiFi.RSSI());
-        led(LEDG,ON);
-        break;
-      }
     }
+  }
+  else {
+    if(Estado.estado != ERROR) {
+      Estado.estado = ERROR;
+      #ifdef DEBUG
+        Serial.printf("[ERROR] httpGetDomoticz: ERROR comunicando con Domoticz error: %s\n", httpclient.errorToString(httpCode).c_str()); 
+      #endif
+    }
+    return "Err2";
+  }
+  //`vemos si la respuesta indica status error
+  #ifdef DEBUG
+    Serial.print("response: ");Serial.println(response);
   #endif
-
+  int pos = response.indexOf("\"status\" : \"ERR\"");
+  if(pos != -1) {
+    #ifdef DEBUG
+      Serial.println("[ERROR] httpGetDomoticz: SE HA DEVUELTO ERROR"); 
+    #endif
+    Estado.estado = ERROR;
+    return "Err3";
+  }
+  httpclient.end();
+  return response;
 }
-*/
 
+//lee factor de riego del Domoticz, almacenado en campo comentarios
 int getFactor(uint16_t idx)
 {
   #ifdef TRACE
@@ -1066,81 +1065,24 @@ int getFactor(uint16_t idx)
   #endif
   factorRiegosOK = false;
   //Ante cualquier problema devolvemos 100% para no factorizar ese riego
-  #ifdef NODEMCU
-    if(!checkWifi()) return 100;
-  #endif
+  if(!checkWifi()) return 100;
 
   char JSONMSG[200]="/json.htm?type=devices&rid=%d";
   char message[250];
   sprintf(message,JSONMSG,idx);
-  String response;
-
-  #ifdef NODEMCU
-    String tmpStr = "http://" + String(serverAddress) + ":" + DOMOTICZPORT + String(message);
-    #ifdef DEBUG
-      Serial.print("TMPSTR: ");Serial.println(tmpStr);
-    #endif
-    //httpclient.begin(tmpStr);
-    httpclient.begin(client, tmpStr); // para v3.0.0 de platform esp8266
-    int httpCode = httpclient.GET();
-    if(httpCode > 0) {
-      if(httpCode == HTTP_CODE_OK) {
-        response = httpclient.getString();
-        #ifdef EXTRADEBUG
-          Serial.print("RESPONSE: ");Serial.println(response);
-        #endif
-      }
-    }
-    else {
-      if(!NONETWORK && Estado.estado != ERROR) {
-        Estado.estado = ERROR;
-        display->print("Err2");
-        #ifdef DEBUG
-          Serial.println("[ERROR] getFactor: ERROR comunicando con Domoticz"); 
-          Serial.printf("GETFACTOR IDX: %d [HTTP] GET... failed, error: %s\n", idx,httpclient.errorToString(httpCode).c_str());
-        #endif
-      }
+  String response = httpGetDomoticz(message);
+  //procesamos la respuesta para ver si se ha producido error:
+  if (Estado.estado == ERROR && response.startsWith("Err")) {
+    if (NONETWORK) {  //si estamos en modo NONETWORK devolvemos 100 y no damos error
+      Estado.estado = STANDBY;
       return 100;
     }
-  #endif
-
-  #ifdef MEGA256
-    int statusCode = 0;
-    httpclient.get(message);
-    statusCode = httpclient.responseStatusCode();
-    response = httpclient.responseBody();
-    if(statusCode != 200){
-      #ifdef DEBUG
-        Serial.print("Status code: ");
-        Serial.println(statusCode);
-      #endif
-      display->print("Err9");
-      Estado.estado = ERROR;
-      httpclient.stop();
-      return 100;
-    }
-  #endif
-
-  //Procesamos
-  int pos = response.indexOf("\"status\" : \"ERR\"");
-  if(pos != -1) {
-    if(NONETWORK) return 100;
+    display->print(response.c_str());
     #ifdef DEBUG
-      Serial.println("[ERROR] getFactor: SE HA DEVUELTO ERROR"); 
+      Serial.printf("GETFACTOR IDX: %d [HTTP] GET... failed\n", idx);
     #endif
-    display->print("Err4");
-    Estado.estado = ERROR;
     return 100;
   }
-
-  #ifdef MEGA256
-    httpclient.stop();
-  #endif
-
-  #ifdef NODEMCU
-    httpclient.end();
-  #endif
-
   //Teoricamente ya tenemos en response el JSON, lo procesamos
   //pero acabo de darme cuenta que si preguntamos por un rid como el 0 que devuelve cosas, puede dar una excepcion
   //asi que hay que controlarlo
@@ -1181,111 +1123,27 @@ bool domoticzSwitch(int idx,char *msg)
   #ifdef TRACE
     Serial.println("TRACE: in domoticzSwitch");
   #endif
-
-  #ifdef NODEMCU
-    if(NONETWORK) return true; //simulamos que ha ido OK
-    if(!checkWifi()) {
-      Estado.estado = ERROR;
-      display->print("Err1");
-      longbip(3);
-      return false;
-    }
-  #endif
-
-  #ifdef NET_DIRECT
-    char JSONMSG[200]="GET /json.htm?type=command&param=switchlight&idx=%d&switchcmd=%s HTTP/1.1\r\n\r\n";
-    char message[250];
-    sprintf(message,JSONMSG,idx,msg);
-    if (!client.available())
-    {
-      clientConnect();
-    }
+  if(NONETWORK) return true; //simulamos que ha ido OK
+  if(!checkWifi()) {
+    Estado.estado = ERROR;
+    display->print("Err1");
+    longbip(3);
+    return false;
+  }
+  char JSONMSG[200]="/json.htm?type=command&param=switchlight&idx=%d&switchcmd=%s";
+  char message[250];
+  sprintf(message,JSONMSG,idx,msg);
+  String response = httpGetDomoticz(message);
+  //procesamos la respuesta para ver si se ha producido error:
+  if (Estado.estado == ERROR && response.startsWith("Err")) {
+    if (response == "Err3") response = "Err4";  //para distinguir tipo error si llamada desde aqui
+    display->print(response.c_str());
     #ifdef DEBUG
-      Serial.println(message);
+      Serial.printf("DOMOTICZSWITH IDX: %d [HTTP] GET... failed\n", idx);
     #endif
-    client.println(message);
-    char c = client.read();
-    #ifdef DEBUG
-      Serial.println(c)
-    #endif
-    client.stop();
-  #endif
-
-  #ifdef NET_HTTPCLIENT
-    char JSONMSG[200]="/json.htm?type=command&param=switchlight&idx=%d&switchcmd=%s";
-    char message[250];
-    sprintf(message,JSONMSG,idx,msg);
-    String response;
-    #ifdef MEGA256
-      int statusCode = 0;
-      httpclient.get(message);
-      statusCode = httpclient.responseStatusCode();
-      response = httpclient.responseBody();
-      if(statusCode != 200){
-        #ifdef DEBUG
-          Serial.print("Status code: ");
-          Serial.println(statusCode);
-        #endif
-        display->print("Err9");
-        Estado.estado = ERROR;
-        httpclient.stop();
-        return;
-      }
-    #endif
-
-    #ifdef NODEMCU
-      String tmpStr = "http://" + String(serverAddress) + ":" + DOMOTICZPORT + String(message);
-      //httpclient.begin(tmpStr);
-      httpclient.begin(client, tmpStr); // para v3.0.0 de platform esp8266
-      int httpCode = httpclient.GET();
-      if(httpCode > 0) {
-        if(httpCode == HTTP_CODE_OK) {
-          response = httpclient.getString();
-          #ifdef EXTRADEBUG
-            Serial.println(response);
-          #endif
-        }
-      }
-      else {
-        Estado.estado = ERROR;
-        display->print("Err3");
-        #ifdef DEBUG
-          Serial.println("[ERROR] domoticzSwitch: SE HA DEVUELTO ERROR"); 
-          Serial.printf("DOMOTICZSWITH IDX: %d [HTTP] GET... failed, error: %s\n", idx, httpclient.errorToString(httpCode).c_str());
-        #endif
-        return false;
-      }
-    #endif
-
-    int pos = response.indexOf("\"status\" : \"ERR\"");
-    if(pos != -1) {
-      if(NONETWORK) return true;
-      #ifdef DEBUG
-        Serial.println("[ERROR] domoticzSwitch: SE HA DEVUELTO ERROR"); 
-      #endif
-      display->print("Err4");
-      Estado.estado = ERROR;
-      return false;
-    }
-
-    #ifdef MEGA256
-      httpclient.stop();
-    #endif
-
-    #ifdef NODEMCU
-      httpclient.end();
-    #endif
-
-    if(Estado.estado != ERROR && strcmp(msg,"On") == 0) Estado.estado = REGANDO;
-  #endif
-
-  #ifdef NET_MQTTCLIENT
-    if (!MqttClient.connected()){
-      mqttReconnect();
-    }
-    MqttClient.publish("out","HOLA");
-    //MqttClient.loop();
-  #endif
+    return false;
+  }
+  if(Estado.estado != ERROR && strcmp(msg,"On") == 0) Estado.estado = REGANDO;
   return true;
 }
 

@@ -417,6 +417,7 @@
   S_MULTI *getMultibyId(uint16_t);
   S_MULTI *getMultibyIndex(int);
   uint16_t getMultiStatus(void);
+  String *httpGetDomoticz(String *);
   uint idarrayRiego(uint16_t);
   void initCD4021B(void);
   void initClock(void);
