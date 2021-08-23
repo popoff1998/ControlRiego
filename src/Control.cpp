@@ -5,6 +5,7 @@
 
 S_BOTON *boton;
 S_BOTON *ultimoBoton;
+
 bool ret;
 bool flagV = OFF;
 int ledState = LOW;
@@ -467,7 +468,7 @@ void procesaEstados()
                 configure->stop();
               }
               if(configure->configuringIdx()) {
-                Serial << "SAVE EEPROM IDX" << endl;
+                Serial << "SAVE EEPROM IDX value: "<< value << endl;
                 Boton[configure->getActualIdxIndex()].idx = value;
                 EEPROM.put(offsetof(__eeprom_data, botonIdx[0]) + 2*configure->getActualIdxIndex(),value);
                 #ifdef NODEMCU
@@ -936,11 +937,13 @@ void stopRiego(uint16_t id)
   else {     //avisa de que no se ha podido terminar un riego
     if (simErrorOFF) {  // simula error si simErrorOFF es true
       Estado.estado = ERROR;
-      display->print("Err3");
-    errorOFF = true;  // recordatorio error
+      display->print("Err4");
     }
-    tic_parpadeoLedON.attach(0.2,parpadeoLedON);
-    longbip(5);  
+    if (!errorOFF) { //para no repetir bips en caso de stopAllRiego
+      errorOFF = true;  // recordatorio error
+      tic_parpadeoLedON.attach(0.2,parpadeoLedON);
+      longbip(5); 
+    } 
   }
 }
 
@@ -1013,7 +1016,8 @@ void refreshTime()
 }
 
 // Comunicacion con Domoticz usando httpGet
-String httpGetDomoticz(String message) {
+String httpGetDomoticz(String message) 
+{
   #ifdef TRACE
     Serial.println("TRACE: in httpGetDomoticz");
   #endif
@@ -1042,7 +1046,7 @@ String httpGetDomoticz(String message) {
     return "Err2";
   }
   //`vemos si la respuesta indica status error
-  #ifdef DEBUG
+  #ifdef EXTRADEBUG
     Serial.print("response: ");Serial.println(response);
   #endif
   int pos = response.indexOf("\"status\" : \"ERR\"");
@@ -1088,7 +1092,6 @@ int getFactor(uint16_t idx)
   //asi que hay que controlarlo
   const size_t bufferSize = 2*JSON_ARRAY_SIZE(1) + JSON_OBJECT_SIZE(16) + JSON_OBJECT_SIZE(46) + 1500;
   DynamicJsonBuffer jsonBuffer(bufferSize);
-
   JsonObject &root = jsonBuffer.parseObject(response);
   if (!root.success()) {
     #ifdef DEBUG
