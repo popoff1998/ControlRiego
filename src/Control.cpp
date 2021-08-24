@@ -20,10 +20,9 @@ bool simErrorOFF = false;
 
 #ifdef NODEMCU
   WiFiUDP ntpUDP;
-  //ESP8266WiFiMulti WiFiMulti;
 #endif
 
-NTPClient timeClient(ntpUDP,"192.168.100.60");
+NTPClient timeClient(ntpUDP,ntpServer);
 
 TimeChangeRule CEST = {"CEST", Last, Sun, Mar, 2, 120};
 TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};
@@ -95,6 +94,10 @@ void setup()
   //Para la red
   //setupRed();
   setupRedWM();
+  if (saveConfig) {
+    EEPROM.commit();
+    saveConfig = false;
+  }
   #ifdef EXTRADEBUG
     Serial.printf("estado LEDR: %d \n",ledStatusId(LEDR));
     Serial.printf("estado LEDG: %d \n",ledStatusId(LEDG));
@@ -626,7 +629,6 @@ void procesaEeprom()
   n_Grupos = nGrupos();
   //verificamos si encoderSW esta pulsado (estado OFF) y selector de multirriego esta en posicion:
   //   - Grupo1 (CESPED)
-  //   (no se verifica - Grupo3 (TODO)
   // --> en ese caso inicializariamos la eeprom
   if (testButton(bENCODER, OFF) && testButton(bCESPED,ON))
   {
@@ -665,10 +667,12 @@ void procesaEeprom()
     Serial << "escrito tiempo riego por defecto, minutos: " << minutes << " segundos: " << seconds << endl;
     EEPROM.put(offsetof(__eeprom_data, minutes),minutes);
     EEPROM.put(offsetof(__eeprom_data, seconds),seconds);
+    //escribe parametros conexion a Domoticz y ntp
+    eepromWriteRed();
+    //escribe grupos de multirriego y su tamaño
+    eepromWriteGroups();
     // marca la eeprom como inicializada
     EEPROM.put(offsetof(__eeprom_data, initialized),(uint8_t)1);   
-    //escribe grupos de multirriego y su tamaño
-        eepromWriteGroups();
     #ifdef NODEMCU
       bool bRc = EEPROM.commit();
       if(bRc) Serial.println("Write eeprom OK");
@@ -712,6 +716,13 @@ void procesaEeprom()
   Serial << "leido tiempo riego por defecto, minutos: " << minutes << " segundos: " << seconds << endl;
   value = ((seconds==0)?minutes:seconds);
   StaticTimeUpdate();
+  //leemos parametros conexion a Domoticz y ntp
+  EEPROM.get(offsetof(__eeprom_data, serverAddress),serverAddress);
+  EEPROM.get(offsetof(__eeprom_data, DOMOTICZPORT),DOMOTICZPORT);
+  EEPROM.get(offsetof(__eeprom_data, ntpServer),ntpServer);
+  Serial.println("leidos parametros de conexion a domoticz en la eeprom");
+  Serial << " - Domoticz ip: " << serverAddress << " puerto: " << DOMOTICZPORT << endl;
+  Serial << " - NTP server: " << ntpServer << endl;
   //leemos grupos de multirriego
   EEPROM.get(offsetof(__eeprom_data, numgroups),n_Grupos); //numero de grupos de multirriego
   Serial << "leido n_Grupos de la eeprom: " << n_Grupos << " grupos" << endl;
@@ -831,6 +842,14 @@ void eepromWriteGroups()
       grupoAddr += 2;
     }
   }
+}
+
+void eepromWriteRed() 
+{ //escribe parametros conexion a Domoticz y ntp
+  Serial.println("Escribiendo parametros de conexion a domoticz en la eeprom");
+  EEPROM.put(offsetof(__eeprom_data, serverAddress),serverAddress);
+  EEPROM.put(offsetof(__eeprom_data, DOMOTICZPORT),DOMOTICZPORT);
+  EEPROM.put(offsetof(__eeprom_data, ntpServer),ntpServer);
 }
 
 void dimmerLeds()
@@ -1240,26 +1259,3 @@ void clientConnect()
 }
 #endif
 
-#ifdef NET_MQTTCLIENT
-void mqttReconnect()
-{
-  // Loop until we're reconnected
-  while (!MqttClient.connected()) {
-    Serial.print("Attempting MQTT connection...");
-    // Attempt to connect
-    if (MqttClient.connect("arduinoClient")) {
-      Serial.println("connected");
-      // Once connected, publish an announcement...
-      MqttClient.publish("outTopic","hello world");
-      // ... and resubscribe
-      MqttClient.subscribe("inTopic");
-    } else {
-      Serial.print("failed, rc=");
-      Serial.print(MqttClient.state());
-      Serial.println(" try again in 5 seconds");
-      // Wait 5 seconds before retrying
-      delay(5000);
-    }
-  }
-}
-#endif

@@ -1,7 +1,5 @@
 PENDIENTES
 ==========
-
-- parametros de conexion a Domoticz por interfax web
 - boton Pause reflejado en Domoticz (en ambos sentidos)
 - Si estado REGANDO tiempo de riego restante reflejado en Domoticz
 
@@ -19,6 +17,8 @@ HECHOS
 - se resalta el error en caso de no poder parar un riego comenzado (LEDR parpadea y bips periodicos) V1.3
 - en modo DEBUG activacion simulacion errores por serial input. V1.3
 - en estado ERROR pulsando Stop se reinicia V1.3.1
+- reconexion si no wifi en arranque (corte corriente) V1.3.2
+- parametros de conexion a Domoticz por interfax web V1.3.3
 
 
 
