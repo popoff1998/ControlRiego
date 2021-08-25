@@ -72,6 +72,8 @@
     después poner a 0 y volver a cargar */
   #define FORCEINITEEPROM     0
 
+  #define VERSION  "1.3.3"
+
   //estructura para salvar grupos de multirriego en la eeprom:
   struct _eeprom_group {
     int size;
@@ -323,6 +325,7 @@
     char DOMOTICZPORT[6] = "3380";
     char ntpServer[40] = "192.168.100.60";
     bool saveConfig = false;
+    char version_n[10];
 
   #else
     extern S_BOTON Boton [];
@@ -335,6 +338,7 @@
     extern char DOMOTICZPORT[6];
     extern char ntpServer[40];
     extern bool saveConfig;
+    extern char version_n;
 
   #endif
 

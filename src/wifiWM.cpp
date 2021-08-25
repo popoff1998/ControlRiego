@@ -93,6 +93,8 @@ void setupRedWM()  // conexion a la red por medio de WifiManager
   wm.setAPCallback(configModeCallback);
   wm.setSaveConfigCallback(saveWifiCallback);
   wm.setSaveParamsCallback(saveParamCallback);
+  //muestra version en el titulo de la pagina web inicial
+  wm.setTitle("Version: " + String(VERSION));
   // activamos modo AP y portal cautivo y comprobamos si se establece la conexión
   if(!wm.autoConnect("Ardomo")){
     Serial.println("Fallo en la conexión (timeout)");

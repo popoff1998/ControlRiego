@@ -36,24 +36,27 @@ Ticker tic_verificaciones; //para verificaciones periodicas
 //Para JSON
 StaticJsonBuffer<2000> jsonBuffer;
 
+
 /*----------------------------------------------*
  *               Setup inicial                  *
  *----------------------------------------------*/
 void setup()
 {
-#ifdef RELEASE
-               NONETWORK=false; 
-#endif
-#ifdef DEVELOP
-               NONETWORK=false;
-#endif
-#ifdef DEMO
-               NONETWORK=true;
-#endif
+  #ifdef RELEASE
+                NONETWORK=false; 
+  #endif
+  #ifdef DEVELOP
+                NONETWORK=false;
+  #endif
+  #ifdef DEMO
+                NONETWORK=true;
+  #endif
 
   Serial.begin(115200);
   Serial.print("\n\n");
-  Serial.println("CONTROL RIEGO V1.3.3");
+  Serial.println("CONTROL RIEGO V" + String(VERSION) + "    Built on " __DATE__ " at " __TIME__ );
+  strncpy(version_n, VERSION, 10); //eliminamos "." para mostrar version en el display
+  std::remove(std::begin(version_n),std::end(version_n),'.');
   Serial.print("Startup reason: ");Serial.println(ESP.getResetReason());
   #ifdef TRACE
     Serial.println("TRACE: in setup");
@@ -66,7 +69,7 @@ void setup()
   #ifdef DEBUG
    Serial.println("Display inicializado");
   #endif
-  display->clearDisplay();;
+  display->clearDisplay();
   //Para el encoder
   #ifdef DEBUG
    Serial.println("Inicializando Encoder");
@@ -344,11 +347,18 @@ void procesaBotones()
             #endif
             // si esta pulsado el boton del encoder --> solo hacemos encendido de los leds del grupo
             if (encoderSW) {
+              savedValue = value;
+              display->print(version_n);
+              #ifdef DEBUG
+                Serial.printf("#10 savedValue: %d  value: %d \n",savedValue,value);
+              #endif
               displayGrupo(multi->serie, multi->size);
               multiriego = false;
               #ifdef DEBUG
                 Serial << "en MULTIRRIEGO + encoderSW, display de grupo: " << multi->desc << " tamaño : " << multi->size << endl;
-              #endif            
+              #endif
+              value = savedValue;  // para que restaure reloj
+              StaticTimeUpdate();
               break;              
             }  
             else {
