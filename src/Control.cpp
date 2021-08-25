@@ -140,10 +140,13 @@ void loop()
   Verificaciones();
 }
 
-/*----------------------------------------------*
- *                 Funciones                    *
- *----------------------------------------------*/
+              /*----------------------------------------------*
+              *                 Funciones                    *
+              *----------------------------------------------*/
 
+/**---------------------------------------------------------------
+ * Tratamiento boton pulsado (si ha cambiado de estado)
+ */
 void procesaBotones()
 {
   #ifdef EXTRATRACE
@@ -435,6 +438,9 @@ void procesaBotones()
   }
 }
 
+/**---------------------------------------------------------------
+ * Proceso en funcion del estado
+ */
 void procesaEstados()
 {
   #ifdef EXTRATRACE
@@ -572,6 +578,9 @@ void procesaEstados()
   }
 }
 
+/**---------------------------------------------------------------
+ * Estado final al acabar Setup en funcion de la conexion a la red
+ */
   void setupEstado() 
   {
     #ifdef TRACE
@@ -600,7 +609,9 @@ void procesaEstados()
     longbip(3);
   }
 
-// Initial check
+/**---------------------------------------------------------------
+ * Chequeo de perifericos
+ */
 void check(void)
 {
   display->print("----");
@@ -621,6 +632,9 @@ void timerIsr()
   Encoder->service();
 }
 
+/**---------------------------------------------------------------
+ * Lectura y/o escritura de la eeprom
+ */
 void procesaEeprom() 
 {
   int i,botonAddr;
@@ -758,6 +772,9 @@ void procesaEeprom()
     
 }
 
+/**---------------------------------------------------------------
+ * Lee factores de riego del domoticz
+ */
 void initFactorRiegos()
 {
   #ifdef TRACE
@@ -1034,7 +1051,9 @@ void refreshTime()
   display->printTime(T.ShowMinutes(),T.ShowSeconds());
 }
 
-// Comunicacion con Domoticz usando httpGet
+/**---------------------------------------------------------------
+ * Comunicacion con Domoticz usando httpGet
+ */
 String httpGetDomoticz(String message) 
 {
   #ifdef TRACE
@@ -1077,7 +1096,9 @@ String httpGetDomoticz(String message)
   return response;
 }
 
-//lee factor de riego del Domoticz, almacenado en campo comentarios
+/**---------------------------------------------------------------
+ * lee factor de riego del Domoticz, almacenado en campo comentarios
+ */
 int getFactor(uint16_t idx)
 {
   #ifdef TRACE
@@ -1137,6 +1158,9 @@ int getFactor(uint16_t idx)
   return (int)factor;
 }
 
+/**---------------------------------------------------------------
+ * Envia a domoticz orden de on/off del idx correspondiente
+ */
 bool domoticzSwitch(int idx,char *msg)
 {
   #ifdef TRACE
@@ -1166,6 +1190,9 @@ bool domoticzSwitch(int idx,char *msg)
   return true;
 }
 
+/**---------------------------------------------------------------
+ * lectura del puerto serie para debug
+ */
 void leeSerial() 
 {
   if (Serial.available() > 0) {
@@ -1200,8 +1227,11 @@ void flagVerificaciones()
   flagV = ON; //aqui solo activamos flagV para no usar llamadas a funciones bloqueantes en Ticker
 }
 
+/**---------------------------------------------------------------
+ * verificaciones periodicas de estado (wifi, hora correcta, ...)
+ */
 void Verificaciones() 
-{   //verificaciones periodicas de estado wifi y hora correcta
+{   
   #ifdef DEBUG
     leeSerial();  // para ver si simulamos algun tipo de error
   #endif
@@ -1210,24 +1240,10 @@ void Verificaciones()
   if (errorOFF) bip(2);  //recordatorio error grave
   if (!NONETWORK && (Estado.estado == STANDBY || (Estado.estado == ERROR && !connected))) {
     if (checkWifi()) Estado.estado = STANDBY; //verificamos si seguimos connectados a la wifi
-  /*  if (!connected && falloAP) {  //si no hemos podido conectar en el setup
-      unsigned int ssidLength = WiFi.SSID().length();
-      Serial.println("SSID: " + WiFi.SSID() + " longitud: " + ssidLength);
-      if (ssidLength) {          //y hay wifi guardada volvemos a intentar conexion
-        if (startWiFi()) { // Connect
-          Serial.println("startWifi devuelve TRUE");
-          falloAP = false;
-          initFactorRiegos();
-        }
-        else Serial.println("startWifi devuelve FALSE");
-      }
-    } */
     if (connected && falloAP) {
       Serial.println("Wifi conectada despues Setup, leemos factor riegos");
       falloAP = false;
-      initFactorRiegos();
-      //if (factorRiegosOK) Estado.estado = STANDBY;
-      //Estado.estado = STANDBY;
+      initFactorRiegos(); //esta funcion ya dejara el estado correspondiente
     }
     if (!timeOK && connected) initClock();    //verificamos time
   }
