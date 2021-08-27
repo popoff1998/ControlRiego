@@ -230,8 +230,9 @@ void procesaBotones()
                   if(encoderSW) {  //si encoderSW+Pause --> conmutamos estado NONETWORK
                     if (NONETWORK) {
                         NONETWORK = false;
-                        Serial.println("encoderSW+PAUSE pasamos a modo NORMAL");
+                        Serial.println("encoderSW+PAUSE pasamos a modo NORMAL y leemos factor riegos");
                         bip(2);
+                        initFactorRiegos();
                         led(LEDB,OFF);
                     }
                     else {
@@ -346,18 +347,14 @@ void procesaBotones()
               Serial << "en MULTIRRIEGO, encoderSW status  : " << encoderSW << endl;
             #endif
             // si esta pulsado el boton del encoder --> solo hacemos encendido de los leds del grupo
+            // y mostramos en el display la version del programa.
             if (encoderSW) {
-              savedValue = value;
               display->print(version_n);
-              #ifdef DEBUG
-                Serial.printf("#10 savedValue: %d  value: %d \n",savedValue,value);
-              #endif
               displayGrupo(multi->serie, multi->size);
               multiriego = false;
               #ifdef DEBUG
                 Serial << "en MULTIRRIEGO + encoderSW, display de grupo: " << multi->desc << " tamaño : " << multi->size << endl;
               #endif
-              value = savedValue;  // para que restaure reloj
               StaticTimeUpdate();
               break;              
             }  

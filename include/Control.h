@@ -72,7 +72,7 @@
     después poner a 0 y volver a cargar */
   #define FORCEINITEEPROM     0
 
-  #define VERSION  "1.3.3"
+  #define VERSION  "1.3.3.1"
 
   //estructura para salvar grupos de multirriego en la eeprom:
   struct _eeprom_group {
