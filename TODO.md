@@ -20,6 +20,7 @@ HECHOS
 - en estado ERROR pulsando Stop se reinicia V1.3.1
 - reconexion si no wifi en arranque (corte corriente) V1.3.2
 - parametros de conexion a Domoticz por interfax web (incluye OTA) V1.3.3
+- actualiza factor riegos al pasar de NONETWORK a NORMAL (encoderSW+PAUSE)
 
 
 
