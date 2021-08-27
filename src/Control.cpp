@@ -5,6 +5,7 @@
 
 S_BOTON *boton;
 S_BOTON *ultimoBoton;
+
 bool ret;
 bool flagV = OFF;
 int ledState = LOW;
@@ -19,10 +20,9 @@ bool simErrorOFF = false;
 
 #ifdef NODEMCU
   WiFiUDP ntpUDP;
-  //ESP8266WiFiMulti WiFiMulti;
 #endif
 
-NTPClient timeClient(ntpUDP,"192.168.100.60");
+NTPClient timeClient(ntpUDP,ntpServer);
 
 TimeChangeRule CEST = {"CEST", Last, Sun, Mar, 2, 120};
 TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};
@@ -36,24 +36,27 @@ Ticker tic_verificaciones; //para verificaciones periodicas
 //Para JSON
 StaticJsonBuffer<2000> jsonBuffer;
 
+
 /*----------------------------------------------*
  *               Setup inicial                  *
  *----------------------------------------------*/
 void setup()
 {
-#ifdef RELEASE
-               NONETWORK=false; 
-#endif
-#ifdef DEVELOP
-               NONETWORK=false;
-#endif
-#ifdef DEMO
-               NONETWORK=true;
-#endif
+  #ifdef RELEASE
+                NONETWORK=false; 
+  #endif
+  #ifdef DEVELOP
+                NONETWORK=false;
+  #endif
+  #ifdef DEMO
+                NONETWORK=true;
+  #endif
 
   Serial.begin(115200);
   Serial.print("\n\n");
-  Serial.println("CONTROL RIEGO V1.3.2");
+  Serial.println("CONTROL RIEGO V" + String(VERSION) + "    Built on " __DATE__ " at " __TIME__ );
+  strncpy(version_n, VERSION, 10); //eliminamos "." para mostrar version en el display
+  std::remove(std::begin(version_n),std::end(version_n),'.');
   Serial.print("Startup reason: ");Serial.println(ESP.getResetReason());
   #ifdef TRACE
     Serial.println("TRACE: in setup");
@@ -66,7 +69,7 @@ void setup()
   #ifdef DEBUG
    Serial.println("Display inicializado");
   #endif
-  display->clearDisplay();;
+  display->clearDisplay();
   //Para el encoder
   #ifdef DEBUG
    Serial.println("Inicializando Encoder");
@@ -94,6 +97,10 @@ void setup()
   //Para la red
   //setupRed();
   setupRedWM();
+  if (saveConfig) {
+    EEPROM.commit();
+    saveConfig = false;
+  }
   #ifdef EXTRADEBUG
     Serial.printf("estado LEDR: %d \n",ledStatusId(LEDR));
     Serial.printf("estado LEDG: %d \n",ledStatusId(LEDG));
@@ -136,10 +143,13 @@ void loop()
   Verificaciones();
 }
 
-/*----------------------------------------------*
- *                 Funciones                    *
- *----------------------------------------------*/
+              /*----------------------------------------------*
+              *                 Funciones                    *
+              *----------------------------------------------*/
 
+/**---------------------------------------------------------------
+ * Tratamiento boton pulsado (si ha cambiado de estado)
+ */
 void procesaBotones()
 {
   #ifdef EXTRATRACE
@@ -337,11 +347,18 @@ void procesaBotones()
             #endif
             // si esta pulsado el boton del encoder --> solo hacemos encendido de los leds del grupo
             if (encoderSW) {
+              savedValue = value;
+              display->print(version_n);
+              #ifdef DEBUG
+                Serial.printf("#10 savedValue: %d  value: %d \n",savedValue,value);
+              #endif
               displayGrupo(multi->serie, multi->size);
               multiriego = false;
               #ifdef DEBUG
                 Serial << "en MULTIRRIEGO + encoderSW, display de grupo: " << multi->desc << " tamaño : " << multi->size << endl;
-              #endif            
+              #endif
+              value = savedValue;  // para que restaure reloj
+              StaticTimeUpdate();
               break;              
             }  
             else {
@@ -431,6 +448,9 @@ void procesaBotones()
   }
 }
 
+/**---------------------------------------------------------------
+ * Proceso en funcion del estado
+ */
 void procesaEstados()
 {
   #ifdef EXTRATRACE
@@ -467,9 +487,9 @@ void procesaEstados()
                 configure->stop();
               }
               if(configure->configuringIdx()) {
-                Serial << "SAVE EEPROM IDX" << endl;
-                Boton[configure->getActualIdxIndex()].idx = value;
-                EEPROM.put(offsetof(__eeprom_data, botonIdx[0]) + 2*configure->getActualIdxIndex(),value);
+                Serial << "SAVE EEPROM IDX value: "<< value << endl;
+                Boton[configure->getActualIdxIndex()].idx = (uint16_t)value;
+                EEPROM.put(offsetof(__eeprom_data, botonIdx[0]) + 2*configure->getActualIdxIndex(),(uint16_t)value);
                 #ifdef NODEMCU
                   EEPROM.commit();
                 #endif
@@ -568,6 +588,9 @@ void procesaEstados()
   }
 }
 
+/**---------------------------------------------------------------
+ * Estado final al acabar Setup en funcion de la conexion a la red
+ */
   void setupEstado() 
   {
     #ifdef TRACE
@@ -596,7 +619,9 @@ void procesaEstados()
     longbip(3);
   }
 
-// Initial check
+/**---------------------------------------------------------------
+ * Chequeo de perifericos
+ */
 void check(void)
 {
   display->print("----");
@@ -617,6 +642,9 @@ void timerIsr()
   Encoder->service();
 }
 
+/**---------------------------------------------------------------
+ * Lectura y/o escritura de la eeprom
+ */
 void procesaEeprom() 
 {
   int i,botonAddr;
@@ -625,7 +653,6 @@ void procesaEeprom()
   n_Grupos = nGrupos();
   //verificamos si encoderSW esta pulsado (estado OFF) y selector de multirriego esta en posicion:
   //   - Grupo1 (CESPED)
-  //   (no se verifica - Grupo3 (TODO)
   // --> en ese caso inicializariamos la eeprom
   if (testButton(bENCODER, OFF) && testButton(bCESPED,ON))
   {
@@ -664,10 +691,12 @@ void procesaEeprom()
     Serial << "escrito tiempo riego por defecto, minutos: " << minutes << " segundos: " << seconds << endl;
     EEPROM.put(offsetof(__eeprom_data, minutes),minutes);
     EEPROM.put(offsetof(__eeprom_data, seconds),seconds);
+    //escribe parametros conexion a Domoticz y ntp
+    eepromWriteRed();
+    //escribe grupos de multirriego y su tamaño
+    eepromWriteGroups();
     // marca la eeprom como inicializada
     EEPROM.put(offsetof(__eeprom_data, initialized),(uint8_t)1);   
-    //escribe grupos de multirriego y su tamaño
-        eepromWriteGroups();
     #ifdef NODEMCU
       bool bRc = EEPROM.commit();
       if(bRc) Serial.println("Write eeprom OK");
@@ -711,6 +740,13 @@ void procesaEeprom()
   Serial << "leido tiempo riego por defecto, minutos: " << minutes << " segundos: " << seconds << endl;
   value = ((seconds==0)?minutes:seconds);
   StaticTimeUpdate();
+  //leemos parametros conexion a Domoticz y ntp
+  EEPROM.get(offsetof(__eeprom_data, serverAddress),serverAddress);
+  EEPROM.get(offsetof(__eeprom_data, DOMOTICZPORT),DOMOTICZPORT);
+  EEPROM.get(offsetof(__eeprom_data, ntpServer),ntpServer);
+  Serial.println("leidos parametros de conexion a domoticz en la eeprom");
+  Serial << " - Domoticz ip: " << serverAddress << " puerto: " << DOMOTICZPORT << endl;
+  Serial << " - NTP server: " << ntpServer << endl;
   //leemos grupos de multirriego
   EEPROM.get(offsetof(__eeprom_data, numgroups),n_Grupos); //numero de grupos de multirriego
   Serial << "leido n_Grupos de la eeprom: " << n_Grupos << " grupos" << endl;
@@ -746,6 +782,9 @@ void procesaEeprom()
     
 }
 
+/**---------------------------------------------------------------
+ * Lee factores de riego del domoticz
+ */
 void initFactorRiegos()
 {
   #ifdef TRACE
@@ -830,6 +869,14 @@ void eepromWriteGroups()
       grupoAddr += 2;
     }
   }
+}
+
+void eepromWriteRed() 
+{ //escribe parametros conexion a Domoticz y ntp
+  Serial.println("Escribiendo parametros de conexion a domoticz en la eeprom");
+  EEPROM.put(offsetof(__eeprom_data, serverAddress),serverAddress);
+  EEPROM.put(offsetof(__eeprom_data, DOMOTICZPORT),DOMOTICZPORT);
+  EEPROM.put(offsetof(__eeprom_data, ntpServer),ntpServer);
 }
 
 void dimmerLeds()
@@ -936,11 +983,13 @@ void stopRiego(uint16_t id)
   else {     //avisa de que no se ha podido terminar un riego
     if (simErrorOFF) {  // simula error si simErrorOFF es true
       Estado.estado = ERROR;
-      display->print("Err3");
-      errorOFF = true;  // recordatorio error
+      display->print("Err4");
     }
-    tic_parpadeoLedON.attach(0.2,parpadeoLedON);
-    longbip(5);  
+    if (!errorOFF) { //para no repetir bips en caso de stopAllRiego
+      errorOFF = true;  // recordatorio error
+      tic_parpadeoLedON.attach(0.2,parpadeoLedON);
+      longbip(5); 
+    } 
   }
 }
 
@@ -1012,53 +1061,54 @@ void refreshTime()
   display->printTime(T.ShowMinutes(),T.ShowSeconds());
 }
 
-/*
-void setupRed()
+/**---------------------------------------------------------------
+ * Comunicacion con Domoticz usando httpGet
+ */
+String httpGetDomoticz(String message) 
 {
-   #ifdef NET_MQTTCLIENT
-    MqttClient.setClient(client);
-    MqttClient.setServer(MQTT_SERVER,1883);
+  #ifdef TRACE
+    Serial.println("TRACE: in httpGetDomoticz");
   #endif
-  #ifdef MEGA256
-    Ethernet.begin(mac,ip,gateway,subnet);
+  String tmpStr = "http://" + String(serverAddress) + ":" + DOMOTICZPORT + String(message);
+  #ifdef DEBUG
+    Serial.print("TMPSTR: ");Serial.println(tmpStr);
   #endif
-  #ifdef NODEMCU
-    for (int i=0;i < sizeof(ssid)/sizeof(ssid[0]); i++) {
-      int j=0;
-      WiFiMulti.addAP(ssid[i],pass);
-      #ifdef DEBUG
-              Serial.println("");
-              Serial.print("Intentando conectar a:   ");
-              Serial.print(ssid[i]);
+  httpclient.begin(client, tmpStr); // para v3.0.0 de platform esp8266
+  String response = "{}";
+  int httpCode = httpclient.GET();
+  if(httpCode > 0) {
+    if(httpCode == HTTP_CODE_OK) {
+      response = httpclient.getString();
+      #ifdef EXTRADEBUG
+        Serial.print("RESPONSE: ");Serial.println(response);
       #endif
-      connected = true;
-      while(WiFiMulti.run() != WL_CONNECTED) {
-        led(LEDG,ON);
-        Serial.print(".");
-        delay(200);
-        led(LEDG,OFF);
-        delay(200);
-        j++;
-        if(j == MAXCONNECTRETRY) {
-          connected = false;
-          break;
-        }
-      }
-      if(connected) {
-        Serial.println("");
-        Serial.printf("Wifi conectado a SSID: %s\n", WiFi.SSID().c_str());
-        Serial.print("IP address: ");
-        Serial.println(WiFi.localIP());
-        Serial.printf("RSSI: %d dBm\n", WiFi.RSSI());
-        led(LEDG,ON);
-        break;
-      }
     }
-  #endif
-
+  }
+  else {
+    if(Estado.estado != ERROR) {
+      Estado.estado = ERROR;
+      #ifdef DEBUG
+        Serial.printf("[ERROR] httpGetDomoticz: ERROR comunicando con Domoticz error: %s\n", httpclient.errorToString(httpCode).c_str()); 
+      #endif
+    }
+    return "Err2";
+  }
+  //`vemos si la respuesta indica status error
+  int pos = response.indexOf("\"status\" : \"ERR\"");
+  if(pos != -1) {
+    #ifdef DEBUG
+      Serial.println("[ERROR] httpGetDomoticz: SE HA DEVUELTO ERROR"); 
+    #endif
+    Estado.estado = ERROR;
+    return "Err3";
+  }
+  httpclient.end();
+  return response;
 }
-*/
 
+/**---------------------------------------------------------------
+ * lee factor de riego del Domoticz, almacenado en campo comentarios
+ */
 int getFactor(uint16_t idx)
 {
   #ifdef TRACE
@@ -1066,87 +1116,29 @@ int getFactor(uint16_t idx)
   #endif
   factorRiegosOK = false;
   //Ante cualquier problema devolvemos 100% para no factorizar ese riego
-  #ifdef NODEMCU
-    if(!checkWifi()) return 100;
-  #endif
+  if(!checkWifi()) return 100;
 
   char JSONMSG[200]="/json.htm?type=devices&rid=%d";
   char message[250];
   sprintf(message,JSONMSG,idx);
-  String response;
-
-  #ifdef NODEMCU
-    String tmpStr = "http://" + String(serverAddress) + ":" + DOMOTICZPORT + String(message);
-    #ifdef DEBUG
-      Serial.print("TMPSTR: ");Serial.println(tmpStr);
-    #endif
-    //httpclient.begin(tmpStr);
-    httpclient.begin(client, tmpStr); // para v3.0.0 de platform esp8266
-    int httpCode = httpclient.GET();
-    if(httpCode > 0) {
-      if(httpCode == HTTP_CODE_OK) {
-        response = httpclient.getString();
-        #ifdef EXTRADEBUG
-          Serial.print("RESPONSE: ");Serial.println(response);
-        #endif
-      }
-    }
-    else {
-      if(!NONETWORK && Estado.estado != ERROR) {
-        Estado.estado = ERROR;
-        display->print("Err2");
-        #ifdef DEBUG
-          Serial.println("[ERROR] getFactor: ERROR comunicando con Domoticz"); 
-          Serial.printf("GETFACTOR IDX: %d [HTTP] GET... failed, error: %s\n", idx,httpclient.errorToString(httpCode).c_str());
-        #endif
-      }
+  String response = httpGetDomoticz(message);
+  //procesamos la respuesta para ver si se ha producido error:
+  if (Estado.estado == ERROR && response.startsWith("Err")) {
+    if (NONETWORK) {  //si estamos en modo NONETWORK devolvemos 100 y no damos error
+      Estado.estado = STANDBY;
       return 100;
     }
-  #endif
-
-  #ifdef MEGA256
-    int statusCode = 0;
-    httpclient.get(message);
-    statusCode = httpclient.responseStatusCode();
-    response = httpclient.responseBody();
-    if(statusCode != 200){
-      #ifdef DEBUG
-        Serial.print("Status code: ");
-        Serial.println(statusCode);
-      #endif
-      display->print("Err9");
-      Estado.estado = ERROR;
-      httpclient.stop();
-      return 100;
-    }
-  #endif
-
-  //Procesamos
-  int pos = response.indexOf("\"status\" : \"ERR\"");
-  if(pos != -1) {
-    if(NONETWORK) return 100;
+    display->print(response.c_str());
     #ifdef DEBUG
-      Serial.println("[ERROR] getFactor: SE HA DEVUELTO ERROR"); 
+      Serial.printf("GETFACTOR IDX: %d [HTTP] GET... failed\n", idx);
     #endif
-    display->print("Err4");
-    Estado.estado = ERROR;
     return 100;
   }
-
-  #ifdef MEGA256
-    httpclient.stop();
-  #endif
-
-  #ifdef NODEMCU
-    httpclient.end();
-  #endif
-
   //Teoricamente ya tenemos en response el JSON, lo procesamos
   //pero acabo de darme cuenta que si preguntamos por un rid como el 0 que devuelve cosas, puede dar una excepcion
   //asi que hay que controlarlo
   const size_t bufferSize = 2*JSON_ARRAY_SIZE(1) + JSON_OBJECT_SIZE(16) + JSON_OBJECT_SIZE(46) + 1500;
   DynamicJsonBuffer jsonBuffer(bufferSize);
-
   JsonObject &root = jsonBuffer.parseObject(response);
   if (!root.success()) {
     #ifdef DEBUG
@@ -1176,119 +1168,41 @@ int getFactor(uint16_t idx)
   return (int)factor;
 }
 
+/**---------------------------------------------------------------
+ * Envia a domoticz orden de on/off del idx correspondiente
+ */
 bool domoticzSwitch(int idx,char *msg)
 {
   #ifdef TRACE
     Serial.println("TRACE: in domoticzSwitch");
   #endif
-
-  #ifdef NODEMCU
-    if(NONETWORK) return true; //simulamos que ha ido OK
-    if(!checkWifi()) {
-      Estado.estado = ERROR;
-      display->print("Err1");
-      longbip(3);
-      return false;
-    }
-  #endif
-
-  #ifdef NET_DIRECT
-    char JSONMSG[200]="GET /json.htm?type=command&param=switchlight&idx=%d&switchcmd=%s HTTP/1.1\r\n\r\n";
-    char message[250];
-    sprintf(message,JSONMSG,idx,msg);
-    if (!client.available())
-    {
-      clientConnect();
-    }
+  if(NONETWORK) return true; //simulamos que ha ido OK
+  if(!checkWifi()) {
+    Estado.estado = ERROR;
+    display->print("Err1");
+    longbip(3);
+    return false;
+  }
+  char JSONMSG[200]="/json.htm?type=command&param=switchlight&idx=%d&switchcmd=%s";
+  char message[250];
+  sprintf(message,JSONMSG,idx,msg);
+  String response = httpGetDomoticz(message);
+  //procesamos la respuesta para ver si se ha producido error:
+  if (Estado.estado == ERROR && response.startsWith("Err")) {
+    if (response == "Err3") response = "Err4";  //para distinguir tipo error si llamada desde aqui
+    display->print(response.c_str());
     #ifdef DEBUG
-      Serial.println(message);
+      Serial.printf("DOMOTICZSWITH IDX: %d [HTTP] GET... failed\n", idx);
     #endif
-    client.println(message);
-    char c = client.read();
-    #ifdef DEBUG
-      Serial.println(c)
-    #endif
-    client.stop();
-  #endif
-
-  #ifdef NET_HTTPCLIENT
-    char JSONMSG[200]="/json.htm?type=command&param=switchlight&idx=%d&switchcmd=%s";
-    char message[250];
-    sprintf(message,JSONMSG,idx,msg);
-    String response;
-    #ifdef MEGA256
-      int statusCode = 0;
-      httpclient.get(message);
-      statusCode = httpclient.responseStatusCode();
-      response = httpclient.responseBody();
-      if(statusCode != 200){
-        #ifdef DEBUG
-          Serial.print("Status code: ");
-          Serial.println(statusCode);
-        #endif
-        display->print("Err9");
-        Estado.estado = ERROR;
-        httpclient.stop();
-        return;
-      }
-    #endif
-
-    #ifdef NODEMCU
-      String tmpStr = "http://" + String(serverAddress) + ":" + DOMOTICZPORT + String(message);
-      //httpclient.begin(tmpStr);
-      httpclient.begin(client, tmpStr); // para v3.0.0 de platform esp8266
-      int httpCode = httpclient.GET();
-      if(httpCode > 0) {
-        if(httpCode == HTTP_CODE_OK) {
-          response = httpclient.getString();
-          #ifdef EXTRADEBUG
-            Serial.println(response);
-          #endif
-        }
-      }
-      else {
-        Estado.estado = ERROR;
-        display->print("Err3");
-        #ifdef DEBUG
-          Serial.println("[ERROR] domoticzSwitch: SE HA DEVUELTO ERROR"); 
-          Serial.printf("DOMOTICZSWITH IDX: %d [HTTP] GET... failed, error: %s\n", idx, httpclient.errorToString(httpCode).c_str());
-        #endif
-        return false;
-      }
-    #endif
-
-    int pos = response.indexOf("\"status\" : \"ERR\"");
-    if(pos != -1) {
-      if(NONETWORK) return true;
-      #ifdef DEBUG
-        Serial.println("[ERROR] domoticzSwitch: SE HA DEVUELTO ERROR"); 
-      #endif
-      display->print("Err4");
-      Estado.estado = ERROR;
-      return false;
-    }
-
-    #ifdef MEGA256
-      httpclient.stop();
-    #endif
-
-    #ifdef NODEMCU
-      httpclient.end();
-    #endif
-
-    if(Estado.estado != ERROR && strcmp(msg,"On") == 0) Estado.estado = REGANDO;
-  #endif
-
-  #ifdef NET_MQTTCLIENT
-    if (!MqttClient.connected()){
-      mqttReconnect();
-    }
-    MqttClient.publish("out","HOLA");
-    //MqttClient.loop();
-  #endif
+    return false;
+  }
+  if(Estado.estado != ERROR && strcmp(msg,"On") == 0) Estado.estado = REGANDO;
   return true;
 }
 
+/**---------------------------------------------------------------
+ * lectura del puerto serie para debug
+ */
 void leeSerial() 
 {
   if (Serial.available() > 0) {
@@ -1323,8 +1237,11 @@ void flagVerificaciones()
   flagV = ON; //aqui solo activamos flagV para no usar llamadas a funciones bloqueantes en Ticker
 }
 
+/**---------------------------------------------------------------
+ * verificaciones periodicas de estado (wifi, hora correcta, ...)
+ */
 void Verificaciones() 
-{   //verificaciones periodicas de estado wifi y hora correcta
+{   
   #ifdef DEBUG
     leeSerial();  // para ver si simulamos algun tipo de error
   #endif
@@ -1333,24 +1250,10 @@ void Verificaciones()
   if (errorOFF) bip(2);  //recordatorio error grave
   if (!NONETWORK && (Estado.estado == STANDBY || (Estado.estado == ERROR && !connected))) {
     if (checkWifi()) Estado.estado = STANDBY; //verificamos si seguimos connectados a la wifi
-  /*  if (!connected && falloAP) {  //si no hemos podido conectar en el setup
-      unsigned int ssidLength = WiFi.SSID().length();
-      Serial.println("SSID: " + WiFi.SSID() + " longitud: " + ssidLength);
-      if (ssidLength) {          //y hay wifi guardada volvemos a intentar conexion
-        if (startWiFi()) { // Connect
-          Serial.println("startWifi devuelve TRUE");
-          falloAP = false;
-          initFactorRiegos();
-        }
-        else Serial.println("startWifi devuelve FALSE");
-      }
-    } */
     if (connected && falloAP) {
       Serial.println("Wifi conectada despues Setup, leemos factor riegos");
       falloAP = false;
-      initFactorRiegos();
-      //if (factorRiegosOK) Estado.estado = STANDBY;
-      //Estado.estado = STANDBY;
+      initFactorRiegos(); //esta funcion ya dejara el estado correspondiente
     }
     if (!timeOK && connected) initClock();    //verificamos time
   }
@@ -1382,26 +1285,3 @@ void clientConnect()
 }
 #endif
 
-#ifdef NET_MQTTCLIENT
-void mqttReconnect()
-{
-  // Loop until we're reconnected
-  while (!MqttClient.connected()) {
-    Serial.print("Attempting MQTT connection...");
-    // Attempt to connect
-    if (MqttClient.connect("arduinoClient")) {
-      Serial.println("connected");
-      // Once connected, publish an announcement...
-      MqttClient.publish("outTopic","hello world");
-      // ... and resubscribe
-      MqttClient.subscribe("inTopic");
-    } else {
-      Serial.print("failed, rc=");
-      Serial.print(MqttClient.state());
-      Serial.println(" try again in 5 seconds");
-      // Wait 5 seconds before retrying
-      delay(5000);
-    }
-  }
-}
-#endif

@@ -6,11 +6,8 @@
 
   #ifdef NODEMCU
     #include <ESP8266WiFi.h>
-    //#include <ESP8266WiFiMulti.h>
     #include <WifiUdp.h>
-    #ifdef NET_HTTPCLIENT
-      #include <ESP8266HTTPClient.h>
-    #endif
+    #include <ESP8266HTTPClient.h>
     #include <DNSServer.h>
     #include <ESP8266WebServer.h >
     #include <WiFiManager.h>
@@ -20,9 +17,7 @@
   #ifdef MEGA256
     #include <Ethernet.h>
     #include <EthernetUdp.h>
-    #ifdef NET_HTTPCLIENT
-      #include <ArduinoHttpClient.h>
-    #endif
+    #include <ArduinoHttpClient.h>
   #endif
 
   #include <SPI.h>
@@ -35,10 +30,6 @@
   #include <ClickEncoder.h>
   #include <CountUpDownTimer.h>
   #include <Streaming.h>
-
-  #ifdef NET_MQTTCLIENT
-    #include <PubSubClient.h>
-  #endif
   #include <ArduinoJson.h>
 
   //Para mis clases
@@ -81,6 +72,8 @@
     después poner a 0 y volver a cargar */
   #define FORCEINITEEPROM     0
 
+  #define VERSION  "1.3.3"
+
   //estructura para salvar grupos de multirriego en la eeprom:
   struct _eeprom_group {
     int size;
@@ -93,6 +86,9 @@
     uint16_t  botonIdx[16]; // IDX de cada boton para el Domoticz
     uint8_t   minutes;      // minutos de riego por defecto 
     uint8_t   seconds;      // segundos de riego por defecto
+    char serverAddress[40];
+    char DOMOTICZPORT[6];
+    char ntpServer[40];
     int       numgroups;     // numero de grupos de multirriego
     _eeprom_group groups[]; // grupos de multirriego
   };
@@ -126,7 +122,6 @@
   #define MINSECONDS          5
   #define HOLDTIME            3000
   #define MAXCONNECTRETRY     10
-  #define DOMOTICZPORT        3380
 
   #ifdef MEGA256
     #define CD4021B_LATCH         43
@@ -322,9 +317,15 @@
     S_MULTI *multi;
     //numero de grupos de multirriego:
     int n_Grupos;
+    //parametros de conexion a la red
     bool connected;
     bool NONETWORK;
     bool falloAP;
+    char serverAddress[40] = "192.168.100.60";
+    char DOMOTICZPORT[6] = "3380";
+    char ntpServer[40] = "192.168.100.60";
+    bool saveConfig = false;
+    char version_n[10];
 
   #else
     extern S_BOTON Boton [];
@@ -333,6 +334,12 @@
     extern bool connected;
     extern bool NONETWORK;
     extern bool falloAP;
+    extern char serverAddress[40];
+    extern char DOMOTICZPORT[6];
+    extern char ntpServer[40];
+    extern bool saveConfig;
+    extern char version_n;
+
   #endif
 
   //Globales
@@ -376,26 +383,16 @@
     byte gateway[] = {192, 168, 100, 100};
     byte subnet[] = {255, 255, 255, 0};
     byte server[] = {192,168,100,60};
-    int port = DOMOTICZPORT;
+    //Para configuracion por web portal (valores por defecto)
+    // (ojo ver NOTA1 en Control.h --> FORCEINITEEPROM=1 para actualizarlos)
 
-    #ifdef NET_MQTTCLIENT
-      #define DEVICE_ID "Control"
-      #define MQTT_SERVER "192.168.100.60"
-      PubSubClient MqttClient;
-      char clientID[50];
-      char topic[50];
-      char msg[50];
+    #ifdef MEGA256
+      HttpClient httpclient = HttpClient(client,serverAddress,port);
+    #endif
+    #ifdef NODEMCU
+      HTTPClient httpclient;
     #endif
 
-    #ifdef NET_HTTPCLIENT
-      char serverAddress[] = "192.168.100.60";
-      #ifdef MEGA256
-        HttpClient httpclient = HttpClient(client,serverAddress,port);
-      #endif
-      #ifdef NODEMCU
-        HTTPClient httpclient;
-      #endif
-    #endif
   #endif
 
   //Funciones (prototipos)
@@ -410,13 +407,15 @@
   void displayGrupo(uint16_t *, int);
   bool domoticzSwitch(int,char *);
   void eepromWriteSignal(uint);
-  void eepromWriteGroups();
+  void eepromWriteGroups(void);
+  void eepromWriteRed(void);
   void enciendeLeds(void);
   void flagVerificaciones(void);
   int  getFactor(uint16_t);
   S_MULTI *getMultibyId(uint16_t);
   S_MULTI *getMultibyIndex(int);
   uint16_t getMultiStatus(void);
+  String *httpGetDomoticz(String *);
   uint idarrayRiego(uint16_t);
   void initCD4021B(void);
   void initClock(void);

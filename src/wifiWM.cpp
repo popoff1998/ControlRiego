@@ -48,77 +48,94 @@ void configModeCallback (WiFiManager *myWiFiManager) {
   tic_APLed.attach(0.5, parpadeoLedAP);
 }
 
+//llamado cuando WiFiManager recibe parametros adicionales
+void saveParamCallback()
+{
+  Serial.println("[CALLBACK] saveParamCallback fired");
+  Serial.println("Should save config");
+  saveConfig = true;
+}
+
+
 void setupRedWM()  // conexion a la red por medio de WifiManager
 {
-   #ifdef NET_MQTTCLIENT
-    MqttClient.setClient(client);
-    MqttClient.setServer(MQTT_SERVER,1883);
-  #endif
-  #ifdef MEGA256
-    Ethernet.begin(mac,ip,gateway,subnet);
-  #endif
-  #ifdef NODEMCU
-    bool wifiSW = false;
+  bool wifiSW = false;
+  connected = false;
+  falloAP = false;
+  saveConfig = false;
+  //verificamos si encoderSW esta pulsado (estado OFF) y selector de multirriego esta en posicion:
+  //   - Grupo2 (GOTEOS)
+  // --> en ese caso borramos red wifi almacenada en el ESP8266
+  if (testButton(bENCODER, OFF) && testButton(bGOTEOS,ON)) wifiSW = true;
+  else wifiSW = false;
+  if(wifiSW) {
+    Serial.println("encoderSW pulsado y multirriego en GOTEOS --> borramos red WIFI");
+    WiFi.disconnect(); //borra wifi guardada
+    wifiClearSignal(5);
+    led(LEDR,ON);
+  }
+  // explicitly set mode, esp defaults to STA+AP   
+  WiFi.mode(WIFI_STA); 
+  // Descomentar para resetear configuración
+  //wm.resetSettings();
+  // Empezamos el temporizador que hará parpadear el LED indicador de wifi
+  tic_WifiLed.attach(0.2, parpadeoLedWifi);
+  //sets timeout until configuration portal gets turned off
+  wm.setConfigPortalTimeout(180);
+  //parametros custom de configuracion en la pagina web de wifi
+  WiFiManagerParameter custom_domoticz_server("serverAddress", "Domoticz_ip" ,serverAddress, 40);
+  WiFiManagerParameter custom_domoticz_port("DOMOTICZPORT", "puerto", DOMOTICZPORT, 5);
+  WiFiManagerParameter custom_ntpserver("ntpServer", "NTP_server", ntpServer, 40);
+  wm.addParameter(&custom_domoticz_server);
+  wm.addParameter(&custom_domoticz_port);
+  wm.addParameter(&custom_ntpserver);
+  // callbacks
+  wm.setAPCallback(configModeCallback);
+  wm.setSaveConfigCallback(saveWifiCallback);
+  wm.setSaveParamsCallback(saveParamCallback);
+  //muestra version en el titulo de la pagina web inicial
+  wm.setTitle("Version: " + String(VERSION));
+  // activamos modo AP y portal cautivo y comprobamos si se establece la conexión
+  if(!wm.autoConnect("Ardomo")){
+    Serial.println("Fallo en la conexión (timeout)");
+    falloAP = true;
+    //WiFi.mode(WIFI_STA); 
+    //ESP.reset();
+    delay(1000);
+  }
+  /* 
+    * Podemos continuar hasta aqui por tres razones:
+    *   - nos hemos conectado a la red wifi almacenada
+    *   - nos hemos podido conectara a la red wifi que hemos introducido en la web de configuracion
+    *   - no nos hemos podido conectar a la red wifi almacenada o no habia y el modo configuracion ha 
+    *     dado timeout
+    */
+  // Eliminamos el temporizador y dejamos LEDB segun estado de NONETWORK
+  tic_APLed.detach();
+  NONETWORK ? led(LEDB,ON) : led(LEDB,OFF);
+  if(WiFi.status() == WL_CONNECTED) {
+    Serial.printf("\n Wifi conectado a SSID: %s\n", WiFi.SSID().c_str());
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+    Serial.printf("RSSI: %d dBm \n\n", WiFi.RSSI());
+    // Eliminamos el temporizador y encendemos el led indicador de wifi
+    tic_WifiLed.detach();
+    led(LEDG,ON);
+    connected = true;
+  }
+  else {
+    // apagamos el LED indicador de wifi
+    tic_WifiLed.detach();
+    led(LEDG,OFF);
     connected = false;
-    falloAP = false;
-    //verificamos si encoderSW esta pulsado (estado OFF) y selector de multirriego esta en posicion:
-    //   - Grupo2 (GOTEOS)
-    // --> en ese caso borramos red wifi almacenada en el ESP8266
-    if (testButton(bENCODER, OFF) && testButton(bGOTEOS,ON)) wifiSW = true;
-    else wifiSW = false;
-    if(wifiSW) {
-      Serial.println("encoderSW pulsado y multirriego en GOTEOS --> borramos red WIFI");
-      WiFi.disconnect(); //borra wifi guardada
-      wifiClearSignal(5);
-      led(LEDR,ON);
-    }
-    // explicitly set mode, esp defaults to STA+AP   
-    WiFi.mode(WIFI_STA); 
-    // Descomentar para resetear configuración
-    //wm.resetSettings();
-    // Empezamos el temporizador que hará parpadear el LED indicador de wifi
-    tic_WifiLed.attach(0.2, parpadeoLedWifi);
-    //sets timeout until configuration portal gets turned off
-    wm.setConfigPortalTimeout(180);
-    // callbacks
-    wm.setAPCallback(configModeCallback);
-    wm.setSaveConfigCallback(saveWifiCallback);
-    // activamos modo AP y portal cautivo y comprobamos si se establece la conexión
-    if(!wm.autoConnect("Ardomo")){
-      Serial.println("Fallo en la conexión (timeout)");
-      falloAP = true;
-      //WiFi.mode(WIFI_STA); 
-      //ESP.reset();
-      delay(1000);
-    }
-    /* 
-     * Podemos continuar hasta aqui por tres razones:
-     *   - nos hemos conectado a la red wifi almacenada
-     *   - nos hemos podido conectara a la red wifi que hemos introducido en la web de configuracion
-     *   - no nos hemos podido conectar a la red wifi almacenada o no habia y el modo configuracion ha 
-     *     dado timeout
-     */
-    // Eliminamos el temporizador y dejamos LEDB segun estado de NONETWORK
-    tic_APLed.detach();
-    NONETWORK ? led(LEDB,ON) : led(LEDB,OFF);
-
-    if(WiFi.status() == WL_CONNECTED) {
-      Serial.printf("\n Wifi conectado a SSID: %s\n", WiFi.SSID().c_str());
-      Serial.print("IP address: ");
-      Serial.println(WiFi.localIP());
-      Serial.printf("RSSI: %d dBm \n\n", WiFi.RSSI());
-      // Eliminamos el temporizador y encendemos el led indicador de wifi
-      tic_WifiLed.detach();
-      led(LEDG,ON);
-      connected = true;
-    }
-    else {
-      // apagamos el LED indicador de wifi
-      tic_WifiLed.detach();
-      led(LEDG,OFF);
-      connected = false;
-    }
-  #endif
+  }
+  // ----------------------------- save the custom parameters to eeprom
+  if (saveConfig) {
+    strcpy(serverAddress, custom_domoticz_server.getValue());
+    strcpy(DOMOTICZPORT, custom_domoticz_port.getValue());
+    strcpy(ntpServer, custom_ntpserver.getValue());
+    eepromWriteRed();
+  }
 }
 
 bool checkWifi() {
