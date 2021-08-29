@@ -72,7 +72,7 @@
     después poner a 0 y volver a cargar */
   #define FORCEINITEEPROM     0
 
-  #define VERSION  "1.3.3.1"
+  #define VERSION  "1.3.3.2"
 
   //estructura para salvar grupos de multirriego en la eeprom:
   struct _eeprom_group {
@@ -252,7 +252,12 @@
               holddisabled  : 1,
               spare0        : 1;
     };
-  } ;
+  };
+  struct S_initFlags     {
+    uint8_t initEeprom    : 1,
+            initWifi      : 1,
+            spare1        : 1;
+  };
 
   struct S_BOTON {
     uint16_t   id;
@@ -325,6 +330,9 @@
     char DOMOTICZPORT[6] = "3380";
     char ntpServer[40] = "192.168.100.60";
     bool saveConfig = false;
+
+    S_initFlags initFlags ;
+
     char version_n[10];
 
   #else
@@ -339,6 +347,7 @@
     extern char ntpServer[40];
     extern bool saveConfig;
     extern char version_n;
+    extern S_initFlags initFlags;
 
   #endif
 
@@ -372,7 +381,6 @@
     bool multiSemaforo = false;
     bool holdPause = false;
     bool encoderSW = false;
-    bool eepromSW = false;
     unsigned long countHoldPause;
 
     //Para Ethernet
@@ -440,6 +448,7 @@
   void refreshDisplay(void);
   void saveWifiCallback(void);
   void setupEstado(void);
+  void setupInit(void);
   void setupRed(void);
   void setupRedWM(void);
   void StaticTimeUpdate(void);

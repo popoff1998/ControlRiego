@@ -88,6 +88,8 @@ void setup()
   initCD4021B();
   //Para el 74HC595
   initHC595();
+  //preparo indicadores de inicializaciones opcionales
+  setupInit();
   //Inicializo la EEPROM (escribo en ella si asi se indica y/o se lee de ella valores configurados)
   procesaEeprom();
   //led encendido
@@ -616,6 +618,27 @@ void procesaEstados()
   }
 
 /**---------------------------------------------------------------
+ * verificamos si encoderSW esta pulsado (estado OFF) y selector de multirriego esta en:
+ *    - Grupo1 (CESPED) --> en ese caso inicializariamos la eeprom
+ *    - Grupo2 (GOTEOS) --> en ese caso borramos red wifi almacenada en el ESP8266
+ */
+  void setupInit(void) {
+    //S_initFlags initFlags = 0;
+    if (testButton(bENCODER, OFF)) {
+      if (testButton(bCESPED,ON)) {
+        initFlags.initEeprom = true;
+        Serial.println("encoderSW pulsado y multirriego en CESPED  --> flag de init EEPROM true");
+        eepromWriteSignal(6);
+      }
+      if (testButton(bGOTEOS,ON)) {
+        initFlags.initWifi = true;
+        Serial.println("encoderSW pulsado y multirriego en GOTEOS  --> flag de init WIFI true");
+        wifiClearSignal(6);
+      }
+    }
+  };
+
+/**---------------------------------------------------------------
  * Chequeo de perifericos
  */
 void check(void)
@@ -647,15 +670,6 @@ void procesaEeprom()
   int grupoAddr;
   bool eeinitialized=0;
   n_Grupos = nGrupos();
-  //verificamos si encoderSW esta pulsado (estado OFF) y selector de multirriego esta en posicion:
-  //   - Grupo1 (CESPED)
-  // --> en ese caso inicializariamos la eeprom
-  if (testButton(bENCODER, OFF) && testButton(bCESPED,ON))
-  {
-    eepromSW = true;
-    Serial.println("encoderSW pulsado y multirriego en CESPED  --> Inicializando la EEPROM");
-  }
-  else eepromSW = false;  
 
   #ifdef NODEMCU
     EEPROM.begin(sizeof(__eeprom_data) + sizeof(_eeprom_group)*n_Grupos);
@@ -669,11 +683,11 @@ void procesaEeprom()
     Serial << "tamaño de la eeprom : " << sizeof(__eeprom_data) + sizeof(_eeprom_group)*n_Grupos << endl;
     Serial << "eeinitialized= " << eeinitialized << endl;
     Serial << "FORCEINITEEPROM= " << FORCEINITEEPROM << endl;
-    Serial << "eepromSW= " << eepromSW << endl;
+    Serial << "initEeprom= " << initFlags.initEeprom << endl;
     Serial << "boton0 offset= " << botonAddr << endl;
   #endif
 
-  if( eeinitialized == 0 || FORCEINITEEPROM == 1 || eepromSW) {
+  if( eeinitialized == 0 || FORCEINITEEPROM == 1 || initFlags.initEeprom) {
     Serial.println(">>>>>>>>>>>>>>  Inicializando la EEPROM  <<<<<<<<<<<<<<");
     //escribe valores de los IDX de los botones
     for(i=0;i<16;i++) {
@@ -713,10 +727,7 @@ void procesaEeprom()
       Serial << "OFFnumgroups: " << offsetof(__eeprom_data, numgroups) << endl;
     #endif
     //señala la escritura de la eeprom
-    if(bRc) {
-      eepromWriteSignal(5);
-      longbip(3);
-    }
+    if(bRc) longbip(3);
   }
   //siempre leemos valores de la eeprom para cargar las variables correspondientes:
   Serial.println("<<<<<<<<<<<<<<<<<<<<<   Leyendo valores de la EEPROM   >>>>>>>>>>>>>>>>>>>>>>>>>>>>");
