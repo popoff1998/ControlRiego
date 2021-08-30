@@ -64,6 +64,7 @@ void setupRedWM()  // conexion a la red por medio de WifiManager
   saveConfig = false;
   if(initFlags.initWifi) {
     WiFi.disconnect(); //borra wifi guardada
+    delay(300);
     Serial.println("encoderSW pulsado y multirriego en GOTEOS --> borramos red WIFI");
     //señala la escritura de la eeprom
     longbip(3);

@@ -70,9 +70,10 @@
           - tiempo por defecto para el riego
       ya que estos valores se graban en la eeprom y se usan los leidos de ella en setup.    
     después poner a 0 y volver a cargar */
+  
   #define FORCEINITEEPROM     0
 
-  #define VERSION  "1.3.3.2"
+  #define VERSION  "1.3.4"
 
   //estructura para salvar grupos de multirriego en la eeprom:
   struct _eeprom_group {
@@ -380,7 +381,7 @@
     bool multiriego = false;
     bool multiSemaforo = false;
     bool holdPause = false;
-    bool encoderSW = false;
+    //bool encoderSW = false;
     unsigned long countHoldPause;
 
     //Para Ethernet
