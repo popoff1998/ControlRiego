@@ -59,20 +59,15 @@ void saveParamCallback()
 
 void setupRedWM()  // conexion a la red por medio de WifiManager
 {
-  bool wifiSW = false;
   connected = false;
   falloAP = false;
   saveConfig = false;
-  //verificamos si encoderSW esta pulsado (estado OFF) y selector de multirriego esta en posicion:
-  //   - Grupo2 (GOTEOS)
-  // --> en ese caso borramos red wifi almacenada en el ESP8266
-  if (testButton(bENCODER, OFF) && testButton(bGOTEOS,ON)) wifiSW = true;
-  else wifiSW = false;
-  if(wifiSW) {
-    Serial.println("encoderSW pulsado y multirriego en GOTEOS --> borramos red WIFI");
+  if(initFlags.initWifi) {
     WiFi.disconnect(); //borra wifi guardada
-    wifiClearSignal(5);
-    led(LEDR,ON);
+    delay(300);
+    Serial.println("encoderSW pulsado y multirriego en GOTEOS --> borramos red WIFI");
+    //señala la escritura de la eeprom
+    longbip(3);
   }
   // explicitly set mode, esp defaults to STA+AP   
   WiFi.mode(WIFI_STA); 
