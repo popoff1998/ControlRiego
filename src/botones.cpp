@@ -148,7 +148,7 @@ byte shiftInCD4021B(int myDataPin, int myClockPin)
 
 int bId2bIndex(uint16_t id)
 {
-  for (int i=0;i<18;i++) {
+  for (int i=0;i<NUM_S_BOTON;i++) {
     if (Boton[i].id == id) return i;
   }
   return 999;
@@ -186,7 +186,7 @@ S_BOTON *parseInputs()
   if(currentMillis < (lastMillis + DEBOUNCEMILLIS)) return NULL;
   else lastMillis = currentMillis;
   uint16_t inputs = readInputs();
-  for (i=0;i<18;i++) {
+  for (i=0;i<NUM_S_BOTON;i++) {
     //Nos saltamos los DISABLED
     if (!Boton[i].flags.enabled) continue;
     Boton[i].estado = inputs & Boton[i].id;

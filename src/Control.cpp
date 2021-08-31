@@ -1,18 +1,9 @@
 #define __MAIN__
 #include "Control.h"
 #include <EEPROM.h>
-//#include <wifissid.h>
 
 S_BOTON *boton;
 S_BOTON *ultimoBoton;
-
-bool ret;
-bool flagV = OFF;
-int ledState = LOW;
-bool timeOK = false;
-bool factorRiegosOK = false;
-bool errorOFF = false;
-bool simErrorOFF = false;
 
 #ifdef MEGA256
   EthernetUDP ntpUDP;
@@ -66,9 +57,6 @@ void setup()
    Serial.println("Inicializando display");
   #endif
   display = new Display(DISPCLK,DISPDIO);
-  #ifdef DEBUG
-   Serial.println("Display inicializado");
-  #endif
   display->clearDisplay();
   //Para el encoder
   #ifdef DEBUG
@@ -170,7 +158,7 @@ void procesaBotones()
   // si no se ha pulsado ningun boton salimos
   if(boton == NULL) return;
   //Si estamos en reposo pulsar cualquier boton solo nos saca de ese estado
-  if (reposo && boton->id != bSTOP) {  //TODO ¿puede estar Stop pulsado y estar en reposo?
+  if (reposo && boton->id != bSTOP) {
     Serial.println("Salimos de reposo");
     reposo = false;
     StaticTimeUpdate();
@@ -406,8 +394,6 @@ void procesaBotones()
             Serial.printf("Boton: %s Factor de riego: %d \n", boton->desc,factorRiegos[idarrayRiego(boton->id)]);
             Serial.printf("          boton.index: %d \n", index);
             Serial.printf("          boton(%d).led: %d \n", index, Boton[index].led);
-          #endif
-          #ifdef DEBUG
             Serial.printf("#04 savedValue: %d  value: %d \n",savedValue,value);
           #endif
           savedValue = value;
@@ -590,54 +576,54 @@ void procesaEstados()
 /**---------------------------------------------------------------
  * Estado final al acabar Setup en funcion de la conexion a la red
  */
-  void setupEstado() 
-  {
-    #ifdef TRACE
-      Serial.println("TRACE: in setupEstado");
-    #endif
-    // Si estamos en modo NONETWORK pasamos a STANDBY aunque no exista conexión wifi o estemos en ERROR
-    if (NONETWORK) {
-      Estado.estado = STANDBY;
-      bip(2);
-      return;
-    }
-    // Si estado actual es ERROR seguimos así
-    if (Estado.estado == ERROR) {
-      longbip(3);
-      return;
-    }
-    // Si estamos conectados pasamos a STANDBY
-    if (checkWifi()) {
-      Estado.estado = STANDBY;
-      bip(1);
-      return;
-    }
-    //si no estamos conectados a la red y no estamos en modo NONETWORK pasamos a estado ERROR
-    Estado.estado = ERROR;
-    display->print("Err1");
-    longbip(3);
+void setupEstado() 
+{
+  #ifdef TRACE
+    Serial.println("TRACE: in setupEstado");
+  #endif
+  // Si estamos en modo NONETWORK pasamos a STANDBY aunque no exista conexión wifi o estemos en ERROR
+  if (NONETWORK) {
+    Estado.estado = STANDBY;
+    bip(2);
+    return;
   }
+  // Si estado actual es ERROR seguimos así
+  if (Estado.estado == ERROR) {
+    longbip(3);
+    return;
+  }
+  // Si estamos conectados pasamos a STANDBY
+  if (checkWifi()) {
+    Estado.estado = STANDBY;
+    bip(1);
+    return;
+  }
+  //si no estamos conectados a la red y no estamos en modo NONETWORK pasamos a estado ERROR
+  Estado.estado = ERROR;
+  display->print("Err1");
+  longbip(3);
+}
 
 /**---------------------------------------------------------------
  * verificamos si encoderSW esta pulsado (estado OFF) y selector de multirriego esta en:
  *    - Grupo1 (CESPED) --> en ese caso inicializariamos la eeprom
  *    - Grupo2 (GOTEOS) --> en ese caso borramos red wifi almacenada en el ESP8266
  */
-  void setupInit(void) {
-    //S_initFlags initFlags = 0;
-    if (testButton(bENCODER, OFF)) {
-      if (testButton(bCESPED,ON)) {
-        initFlags.initEeprom = true;
-        Serial.println("encoderSW pulsado y multirriego en CESPED  --> flag de init EEPROM true");
-        eepromWriteSignal(6);
-      }
-      if (testButton(bGOTEOS,ON)) {
-        initFlags.initWifi = true;
-        Serial.println("encoderSW pulsado y multirriego en GOTEOS  --> flag de init WIFI true");
-        wifiClearSignal(6);
-      }
+void setupInit(void) {
+  //S_initFlags initFlags = 0;
+  if (testButton(bENCODER, OFF)) {
+    if (testButton(bCESPED,ON)) {
+      initFlags.initEeprom = true;
+      Serial.println("encoderSW pulsado y multirriego en CESPED  --> flag de init EEPROM true");
+      eepromWriteSignal(6);
     }
-  };
+    if (testButton(bGOTEOS,ON)) {
+      initFlags.initWifi = true;
+      Serial.println("encoderSW pulsado y multirriego en GOTEOS  --> flag de init WIFI true");
+      wifiClearSignal(6);
+    }
+  }
+};
 
 /**---------------------------------------------------------------
  * Chequeo de perifericos

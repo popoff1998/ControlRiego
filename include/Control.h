@@ -1,19 +1,15 @@
-//TIPO DE RED
 #ifndef control_h
   #define control_h
-  //Modelo de red que vamos a usar
-  #define NET_HTTPCLIENT
-
+  
   #ifdef NODEMCU
-    #include <ESP8266WiFi.h>
     #include <WifiUdp.h>
     #include <ESP8266HTTPClient.h>
+    #include <ESP8266WiFi.h>
     #include <DNSServer.h>
     #include <ESP8266WebServer.h >
-    #include <WiFiManager.h>
-    #include <Ticker.h>
+    #include <WiFiManager.h> 
   #endif
-
+  
   #ifdef MEGA256
     #include <Ethernet.h>
     #include <EthernetUdp.h>
@@ -31,6 +27,7 @@
   #include <CountUpDownTimer.h>
   #include <Streaming.h>
   #include <ArduinoJson.h>
+  #include <Ticker.h>
 
   //Para mis clases
   #include "Display.h"
@@ -68,39 +65,13 @@
           - estructura BOTONES (idX)
           - estructura multiGroup (botones y tamaño de cada grupo de multirriegos)
           - tiempo por defecto para el riego
+          - parametros conexion a Domoticz y Ntp
       ya que estos valores se graban en la eeprom y se usan los leidos de ella en setup.    
     después poner a 0 y volver a cargar */
   
   #define FORCEINITEEPROM     0
 
-  #define VERSION  "1.3.4"
-
-  //estructura para salvar grupos de multirriego en la eeprom:
-  struct _eeprom_group {
-    int size;
-    uint16_t serie[16];
-  } ;
-
-  //Estructura de mi eeprom (se reserva más tamaño despues en funcion del numero de grupos)
-  struct __eeprom_data {
-    uint8_t   initialized;
-    uint16_t  botonIdx[16]; // IDX de cada boton para el Domoticz
-    uint8_t   minutes;      // minutos de riego por defecto 
-    uint8_t   seconds;      // segundos de riego por defecto
-    char serverAddress[40];
-    char DOMOTICZPORT[6];
-    char ntpServer[40];
-    int       numgroups;     // numero de grupos de multirriego
-    _eeprom_group groups[]; // grupos de multirriego
-  };
-
-  struct S_MULTI {
-    uint16_t id;
-    uint16_t *serie;
-    int size;
-    int actual;
-    char desc[20];
-  } ;
+  #define VERSION  "1.3.4.1"
 
   //Comportamiento General
   #define STANDBYSECS         15
@@ -238,7 +209,34 @@
   #define bCOMPLETO 0xFF01
   #define bCONFIG   0xFF02
 
-  //TypeDefs
+  //estructura para salvar grupos de multirriego en la eeprom:
+  struct _eeprom_group {
+    int size;
+    uint16_t serie[16];
+  } ;
+
+  //Estructura de mi eeprom (se reserva más tamaño despues en funcion del numero de grupos)
+  struct __eeprom_data {
+    uint8_t   initialized;
+    uint16_t  botonIdx[16]; // IDX de cada boton para el Domoticz
+    uint8_t   minutes;      // minutos de riego por defecto 
+    uint8_t   seconds;      // segundos de riego por defecto
+    char serverAddress[40];
+    char DOMOTICZPORT[6];
+    char ntpServer[40];
+    int       numgroups;     // numero de grupos de multirriego
+    _eeprom_group groups[]; // grupos de multirriego
+  };
+
+  //estructura de un grupo de multirriego
+  struct S_MULTI {
+    uint16_t id;
+    uint16_t *serie;
+    int size;
+    int actual;
+    char desc[20];
+  } ;
+
   union S_bFLAGS
   {
     uint8_t all_flags;
@@ -270,28 +268,16 @@
     uint16_t   idx;
   } ;
 
-  /*typedef union {
-    uint8_t estado;
-    struct {
-      uint8_t standby       : 1,
-              regando       : 1,
-              configurando  : 1,
-              terminando    : 1,
-              pausa         : 1,
-              spare2        : 1,
-              spare1        : 1,
-              spare0        : 1;
-    };
-  } U_Estado; */
-
   struct S_Estado {
     uint8_t estado; 
   } ;
 
   //mantenemos aqui definicion completo a efectos de display de lo regado:
   #define NUMRIEGOS sizeof(COMPLETO)/sizeof(COMPLETO[0])
-  #define NUM_S_BOTON sizeof(Boton)/sizeof(Boton[0])
+
   #ifdef __MAIN__
+
+    uint16_t COMPLETO[]  = {bTURBINAS, bPORCHE, bCUARTILLO, bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA};
     
       S_BOTON Boton [] =  { 
         //ID,          S   uS  LED          FLAGS                             DESC          IDX
@@ -315,7 +301,8 @@
         {bCONFIG,     0,  0,  0,           DISABLED,                         "CONFIG",      0}
                         };
 
-    uint16_t COMPLETO[]  = {bTURBINAS, bPORCHE, bCUARTILLO, bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA};
+    int NUM_S_BOTON = sizeof(Boton)/sizeof(Boton[0]);
+
     time_t   lastRiegos[NUMRIEGOS];
     uint     factorRiegos[NUMRIEGOS];
     uint ledOrder[] = {lTURBINAS, lPORCHE, lCUARTILLO, lGOTEOALTO, lGOTEOBAJO, lOLIVOS, lROCALLA,
@@ -327,6 +314,8 @@
     bool connected;
     bool NONETWORK;
     bool falloAP;
+    //Para configuracion por web portal (valores por defecto)
+    // (ojo ver NOTA1 en Control.h --> FORCEINITEEPROM=1 para actualizarlos)
     char serverAddress[40] = "192.168.100.60";
     char DOMOTICZPORT[6] = "3380";
     char ntpServer[40] = "192.168.100.60";
@@ -349,6 +338,7 @@
     extern bool saveConfig;
     extern char version_n;
     extern S_initFlags initFlags;
+    extern int NUM_S_BOTON;
 
   #endif
 
@@ -381,8 +371,13 @@
     bool multiriego = false;
     bool multiSemaforo = false;
     bool holdPause = false;
-    //bool encoderSW = false;
     unsigned long countHoldPause;
+    bool flagV = OFF;
+    int ledState = LOW;
+    bool timeOK = false;
+    bool factorRiegosOK = false;
+    bool errorOFF = false;
+    bool simErrorOFF = false;
 
     //Para Ethernet
     byte mac[] = {
@@ -392,8 +387,6 @@
     byte gateway[] = {192, 168, 100, 100};
     byte subnet[] = {255, 255, 255, 0};
     byte server[] = {192,168,100,60};
-    //Para configuracion por web portal (valores por defecto)
-    // (ojo ver NOTA1 en Control.h --> FORCEINITEEPROM=1 para actualizarlos)
 
     #ifdef MEGA256
       HttpClient httpclient = HttpClient(client,serverAddress,port);

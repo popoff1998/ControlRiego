@@ -3,11 +3,6 @@
  *  - no se codifican en el pgm (wifissid.h) las redes wifi y sus pw
 */
 #include "Control.h"
-#include <ESP8266WiFi.h>
-#include <DNSServer.h>
-#include <ESP8266WebServer.h >
-#include <WiFiManager.h>
-#include <Ticker.h>
 
 //#define ledWifi             LEDG   
 //#define ledAP               LEDB
@@ -56,8 +51,8 @@ void saveParamCallback()
   saveConfig = true;
 }
 
-
-void setupRedWM()  // conexion a la red por medio de WifiManager
+// conexion a la red por medio de WifiManager
+void setupRedWM()
 {
   connected = false;
   falloAP = false;
@@ -133,6 +128,7 @@ void setupRedWM()  // conexion a la red por medio de WifiManager
   }
 }
 
+// verificacion estado de la conexion wifi
 bool checkWifi() {
   #ifdef TRACE
     Serial.println("TRACE: in checkWifi");
@@ -151,28 +147,3 @@ bool checkWifi() {
     return false;
   }
 }
-
-bool startWiFi()
-{
-    if (!WiFi.isConnected()) {
-        Serial.println("Intentando CONECTAR a wifi SSID: " + WiFi.SSID());
-        int conn_result = WiFi.waitForConnectResult(10000); // connect try it for 10 seconds
-        Serial.print("conn_result: "); Serial.println(conn_result, DEC);
-    }
-    if (WiFi.isConnected()) {
-      Serial.println("Wifi is connected!");
-      return true;
-    }
-    else {
-      Serial.println("Wifi is NOT connected!");
-      return false;
-    }
-
-}
-
-void startWiFi2()
-{
-    if (!WiFi.isConnected()) WiFi.begin();
-    WiFi.isConnected() ? Serial.println("Wifi is connected!") : Serial.println("Wifi is NOT connected!");
-}
-
