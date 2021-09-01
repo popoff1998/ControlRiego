@@ -178,7 +178,7 @@ void procesaBotones()
       Serial.println("estado en ERROR y PAUSA pulsada pasamos a modo NONETWORK y reseteamos");
       bip(2);
       led(LEDB,ON);
-      //TODO: ¿es necesario mas reseteo de estados o leds?
+      stopAllRiego(false); //para apagar leds activos
       multiriego = false;
       multiSemaforo = false;
       StaticTimeUpdate();
@@ -279,7 +279,7 @@ void procesaBotones()
         //De alguna manera esta regando y hay que parar
         if (Estado.estado == REGANDO || Estado.estado == MULTIREGANDO || Estado.estado == PAUSE) {
           display->print("stop");
-          stopAllRiego();
+          stopAllRiego(true);
           T.StopTimer();
           bip(3);
           display->blink(DEFAULTBLINK);
@@ -291,7 +291,7 @@ void procesaBotones()
           //Lo hemos pulsado en standby - seguro antinenes
           bip(3);
           display->print("stop");
-          stopAllRiego();
+          stopAllRiego(true);
           reposo = false;
           Estado.estado = STOP;
         }
@@ -987,15 +987,15 @@ void stopRiego(uint16_t id)
   }
 }
 
-void stopAllRiego()
+//Esta funcion pondra a off todos los botones y detiene riegos (solo si la llamamos con true)
+void stopAllRiego(bool stop)
 {
-  //Esta funcion pondra a off todos los botones
   //Apago los leds de multiriego
   led(Boton[bId2bIndex(multi->id)].led,OFF);
   //Apago los leds de riego
   for(unsigned int i=0;i<sizeof(COMPLETO)/2;i++) {
     led(Boton[bId2bIndex(COMPLETO[i])].led,OFF);
-    stopRiego(COMPLETO[i]);
+    if (stop) stopRiego(COMPLETO[i]);
   }
 }
 

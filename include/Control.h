@@ -447,7 +447,7 @@
   void setupRedWM(void);
   void StaticTimeUpdate(void);
   void stopRiego(uint16_t);
-  void stopAllRiego(void);
+  void stopAllRiego(bool);
   bool testButton(uint16_t, bool);
   void timeByFactor(int,uint8_t *,uint8_t *);
   void ultimosRiegos(int);
