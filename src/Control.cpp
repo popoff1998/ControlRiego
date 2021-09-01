@@ -46,8 +46,9 @@ void setup()
   Serial.begin(115200);
   Serial.print("\n\n");
   Serial.println("CONTROL RIEGO V" + String(VERSION) + "    Built on " __DATE__ " at " __TIME__ );
-  strncpy(version_n, VERSION, 10); //eliminamos "." para mostrar version en el display
+  strncpy(version_n, VERSION, 10); //eliminamos "." y "-" para mostrar version en el display
   std::remove(std::begin(version_n),std::end(version_n),'.');
+  std::remove(std::begin(version_n),std::end(version_n),'-');
   Serial.print("Startup reason: ");Serial.println(ESP.getResetReason());
   #ifdef TRACE
     Serial.println("TRACE: in setup");

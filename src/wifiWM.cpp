@@ -92,6 +92,7 @@ void setupRedWM()
     //WiFi.mode(WIFI_STA); 
     //ESP.reset();
     delay(1000);
+    //delay(9000);
   }
   /* 
     * Podemos continuar hasta aqui por tres razones:
@@ -103,19 +104,35 @@ void setupRedWM()
   // Eliminamos el temporizador y dejamos LEDB segun estado de NONETWORK
   tic_APLed.detach();
   NONETWORK ? led(LEDB,ON) : led(LEDB,OFF);
+  //si no hemos podido conectar reintentamos hasta 10 seg. (para caso corte de corriente)
+  if (falloAP) {
+    int j=0;
+    falloAP = false;
+    tic_WifiLed.attach(0.2, parpadeoLedWifi);
+    while(WiFi.status() != WL_CONNECTED) {
+      Serial.print(".");
+      delay(1000);
+      j++;
+      if(j == MAXCONNECTRETRY) {
+        falloAP = true;
+        Serial.println("Fallo en la reconexión (timeout 10 seg.)");
+        break;
+      }
+    }
+  }
+  //detenemos parpadeo led wifi
+  tic_WifiLed.detach();
   if(WiFi.status() == WL_CONNECTED) {
-    Serial.printf("\n Wifi conectado a SSID: %s\n", WiFi.SSID().c_str());
-    Serial.print("IP address: ");
+    Serial.printf("\nWifi conectado a SSID: %s\n", WiFi.SSID().c_str());
+    Serial.print(" IP address: ");
     Serial.println(WiFi.localIP());
-    Serial.printf("RSSI: %d dBm \n\n", WiFi.RSSI());
-    // Eliminamos el temporizador y encendemos el led indicador de wifi
-    tic_WifiLed.detach();
+    Serial.printf(" RSSI: %d dBm \n\n", WiFi.RSSI());
+    // Encendemos el led indicador de wifi
     led(LEDG,ON);
     connected = true;
   }
   else {
-    // apagamos el LED indicador de wifi
-    tic_WifiLed.detach();
+    // Apagamos el LED indicador de wifi
     led(LEDG,OFF);
     connected = false;
   }
