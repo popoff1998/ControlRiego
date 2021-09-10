@@ -71,7 +71,7 @@
   
   #define FORCEINITEEPROM     0
 
-  #define VERSION  "1.3.4-1"
+  #define VERSION  "1.3.5"
 
   //Comportamiento General
   #define STANDBYSECS         15

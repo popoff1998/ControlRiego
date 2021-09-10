@@ -86,7 +86,6 @@ void setup()
   //Chequeo de perifericos de salida (leds, display, buzzer)
   check();
   //Para la red
-  //setupRed();
   setupRedWM();
   if (saveConfig) {
     EEPROM.commit();
@@ -373,7 +372,6 @@ void procesaBotones()
               fminutes = minutes;
               fseconds = seconds;
             }
-            //
             #ifdef DEBUG
               Serial.printf("Minutos: %d Segundos: %d FMinutos: %d FSegundos: %d\n",minutes,seconds,fminutes,fseconds);
             #endif
@@ -389,7 +387,6 @@ void procesaBotones()
         }
         else {  // mostramos en el display el factor de riego del boton pulsado
           int index = bId2bIndex(boton->id);
-          //led(Boton[index].led,ON); //para que funcione encendido led 16
           led(Boton[index].led,ON);
           #ifdef DEBUG
             Serial.printf("Boton: %s Factor de riego: %d \n", boton->desc,factorRiegos[idarrayRiego(boton->id)]);
@@ -701,16 +698,7 @@ void procesaEeprom()
       else    Serial.println("Write eeprom error");
     #endif                
     #ifdef DEBUG
-      uint16_t boton0;  //dbg
-      uint16_t boton1;  //dbg
-      int boton0Addr, boton1Addr; //dbg    
       Serial << "OFFinitialized: " << offsetof(__eeprom_data, initialized) << endl;
-      boton0Addr = offsetof(__eeprom_data, botonIdx[0]);  //dbg
-      EEPROM.get(offsetof(__eeprom_data, botonIdx[0]), boton0);  //dbg
-      boton1Addr = offsetof(__eeprom_data, botonIdx[1]);  //dbg
-      EEPROM.get(offsetof(__eeprom_data, botonIdx[1]), boton1);  //dbg
-      Serial << "leido boton 0 : " << boton0 << " address: " << boton0Addr << endl;  //dbg
-      Serial << "leido boton 1 : " << boton1 << " address: " << boton1Addr << endl;  //dbg
       Serial << "OFFm: " << offsetof(__eeprom_data, minutes) << " OFFs: " << offsetof(__eeprom_data, seconds) << endl;
       Serial << "OFFnumgroups: " << offsetof(__eeprom_data, numgroups) << endl;
     #endif
@@ -866,18 +854,19 @@ void eepromWriteGroups()
   }
 }
 
+//escribe parametros conexion a Domoticz y ntp
 void eepromWriteRed() 
-{ //escribe parametros conexion a Domoticz y ntp
+{
   Serial.println("Escribiendo parametros de conexion a domoticz en la eeprom");
   EEPROM.put(offsetof(__eeprom_data, serverAddress),serverAddress);
   EEPROM.put(offsetof(__eeprom_data, DOMOTICZPORT),DOMOTICZPORT);
   EEPROM.put(offsetof(__eeprom_data, ntpServer),ntpServer);
 }
 
+//conmuta estado LEDR, LEDG y LEDB para atenuarlos
 void dimmerLeds()
 {
   if (reposo) { 
-    //conmuta estado LEDR, LEDG y LEDB para atenuarlos
     led(LEDR,OFF);
     led(LEDG,OFF);
     led(LEDB,OFF);

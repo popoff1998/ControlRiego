@@ -61,7 +61,7 @@ void setupRedWM()
     WiFi.disconnect(); //borra wifi guardada
     delay(300);
     Serial.println("encoderSW pulsado y multirriego en GOTEOS --> borramos red WIFI");
-    //señala la escritura de la eeprom
+    //señala borrado wifi
     longbip(3);
   }
   // explicitly set mode, esp defaults to STA+AP   
@@ -92,14 +92,13 @@ void setupRedWM()
     //WiFi.mode(WIFI_STA); 
     //ESP.reset();
     delay(1000);
-    //delay(9000);
   }
   /* 
     * Podemos continuar hasta aqui por tres razones:
     *   - nos hemos conectado a la red wifi almacenada
     *   - nos hemos podido conectara a la red wifi que hemos introducido en la web de configuracion
     *   - no nos hemos podido conectar a la red wifi almacenada o no habia y el modo configuracion ha 
-    *     dado timeout
+    *     dado timeout (falloAP=true)
     */
   // Eliminamos el temporizador y dejamos LEDB segun estado de NONETWORK
   tic_APLed.detach();
@@ -157,8 +156,8 @@ bool checkWifi() {
     return true;
   }
   else {
-    // apagamos el LED indicador de wifi
     Serial.println("[ERROR] No estamos conectados a la wifi");
+    // apagamos el LED indicador de wifi
     led(LEDG,OFF);
     connected = false;
     return false;
