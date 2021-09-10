@@ -1,18 +1,9 @@
 #define __MAIN__
 #include "Control.h"
 #include <EEPROM.h>
-//#include <wifissid.h>
 
 S_BOTON *boton;
 S_BOTON *ultimoBoton;
-
-bool ret;
-bool flagV = OFF;
-int ledState = LOW;
-bool timeOK = false;
-bool factorRiegosOK = false;
-bool errorOFF = false;
-bool simErrorOFF = false;
 
 #ifdef MEGA256
   EthernetUDP ntpUDP;
@@ -55,8 +46,9 @@ void setup()
   Serial.begin(115200);
   Serial.print("\n\n");
   Serial.println("CONTROL RIEGO V" + String(VERSION) + "    Built on " __DATE__ " at " __TIME__ );
-  strncpy(version_n, VERSION, 10); //eliminamos "." para mostrar version en el display
+  strncpy(version_n, VERSION, 10); //eliminamos "." y "-" para mostrar version en el display
   std::remove(std::begin(version_n),std::end(version_n),'.');
+  std::remove(std::begin(version_n),std::end(version_n),'-');
   Serial.print("Startup reason: ");Serial.println(ESP.getResetReason());
   #ifdef TRACE
     Serial.println("TRACE: in setup");
@@ -66,9 +58,6 @@ void setup()
    Serial.println("Inicializando display");
   #endif
   display = new Display(DISPCLK,DISPDIO);
-  #ifdef DEBUG
-   Serial.println("Display inicializado");
-  #endif
   display->clearDisplay();
   //Para el encoder
   #ifdef DEBUG
@@ -97,7 +86,6 @@ void setup()
   //Chequeo de perifericos de salida (leds, display, buzzer)
   check();
   //Para la red
-  //setupRed();
   setupRedWM();
   if (saveConfig) {
     EEPROM.commit();
@@ -170,7 +158,7 @@ void procesaBotones()
   // si no se ha pulsado ningun boton salimos
   if(boton == NULL) return;
   //Si estamos en reposo pulsar cualquier boton solo nos saca de ese estado
-  if (reposo && boton->id != bSTOP) {  //TODO ¿puede estar Stop pulsado y estar en reposo?
+  if (reposo && boton->id != bSTOP) {
     Serial.println("Salimos de reposo");
     reposo = false;
     StaticTimeUpdate();
@@ -190,7 +178,7 @@ void procesaBotones()
       Serial.println("estado en ERROR y PAUSA pulsada pasamos a modo NONETWORK y reseteamos");
       bip(2);
       led(LEDB,ON);
-      //TODO: ¿es necesario mas reseteo de estados o leds?
+      stopAllRiego(false); //para apagar leds activos
       multiriego = false;
       multiSemaforo = false;
       StaticTimeUpdate();
@@ -291,7 +279,7 @@ void procesaBotones()
         //De alguna manera esta regando y hay que parar
         if (Estado.estado == REGANDO || Estado.estado == MULTIREGANDO || Estado.estado == PAUSE) {
           display->print("stop");
-          stopAllRiego();
+          stopAllRiego(true);
           T.StopTimer();
           bip(3);
           display->blink(DEFAULTBLINK);
@@ -303,7 +291,7 @@ void procesaBotones()
           //Lo hemos pulsado en standby - seguro antinenes
           bip(3);
           display->print("stop");
-          stopAllRiego();
+          stopAllRiego(true);
           reposo = false;
           Estado.estado = STOP;
         }
@@ -384,7 +372,6 @@ void procesaBotones()
               fminutes = minutes;
               fseconds = seconds;
             }
-            //
             #ifdef DEBUG
               Serial.printf("Minutos: %d Segundos: %d FMinutos: %d FSegundos: %d\n",minutes,seconds,fminutes,fseconds);
             #endif
@@ -400,14 +387,11 @@ void procesaBotones()
         }
         else {  // mostramos en el display el factor de riego del boton pulsado
           int index = bId2bIndex(boton->id);
-          //led(Boton[index].led,ON); //para que funcione encendido led 16
           led(Boton[index].led,ON);
           #ifdef DEBUG
             Serial.printf("Boton: %s Factor de riego: %d \n", boton->desc,factorRiegos[idarrayRiego(boton->id)]);
             Serial.printf("          boton.index: %d \n", index);
             Serial.printf("          boton(%d).led: %d \n", index, Boton[index].led);
-          #endif
-          #ifdef DEBUG
             Serial.printf("#04 savedValue: %d  value: %d \n",savedValue,value);
           #endif
           savedValue = value;
@@ -590,54 +574,54 @@ void procesaEstados()
 /**---------------------------------------------------------------
  * Estado final al acabar Setup en funcion de la conexion a la red
  */
-  void setupEstado() 
-  {
-    #ifdef TRACE
-      Serial.println("TRACE: in setupEstado");
-    #endif
-    // Si estamos en modo NONETWORK pasamos a STANDBY aunque no exista conexión wifi o estemos en ERROR
-    if (NONETWORK) {
-      Estado.estado = STANDBY;
-      bip(2);
-      return;
-    }
-    // Si estado actual es ERROR seguimos así
-    if (Estado.estado == ERROR) {
-      longbip(3);
-      return;
-    }
-    // Si estamos conectados pasamos a STANDBY
-    if (checkWifi()) {
-      Estado.estado = STANDBY;
-      bip(1);
-      return;
-    }
-    //si no estamos conectados a la red y no estamos en modo NONETWORK pasamos a estado ERROR
-    Estado.estado = ERROR;
-    display->print("Err1");
-    longbip(3);
+void setupEstado() 
+{
+  #ifdef TRACE
+    Serial.println("TRACE: in setupEstado");
+  #endif
+  // Si estamos en modo NONETWORK pasamos a STANDBY aunque no exista conexión wifi o estemos en ERROR
+  if (NONETWORK) {
+    Estado.estado = STANDBY;
+    bip(2);
+    return;
   }
+  // Si estado actual es ERROR seguimos así
+  if (Estado.estado == ERROR) {
+    longbip(3);
+    return;
+  }
+  // Si estamos conectados pasamos a STANDBY
+  if (checkWifi()) {
+    Estado.estado = STANDBY;
+    bip(1);
+    return;
+  }
+  //si no estamos conectados a la red y no estamos en modo NONETWORK pasamos a estado ERROR
+  Estado.estado = ERROR;
+  display->print("Err1");
+  longbip(3);
+}
 
 /**---------------------------------------------------------------
  * verificamos si encoderSW esta pulsado (estado OFF) y selector de multirriego esta en:
  *    - Grupo1 (CESPED) --> en ese caso inicializariamos la eeprom
  *    - Grupo2 (GOTEOS) --> en ese caso borramos red wifi almacenada en el ESP8266
  */
-  void setupInit(void) {
-    //S_initFlags initFlags = 0;
-    if (testButton(bENCODER, OFF)) {
-      if (testButton(bCESPED,ON)) {
-        initFlags.initEeprom = true;
-        Serial.println("encoderSW pulsado y multirriego en CESPED  --> flag de init EEPROM true");
-        eepromWriteSignal(6);
-      }
-      if (testButton(bGOTEOS,ON)) {
-        initFlags.initWifi = true;
-        Serial.println("encoderSW pulsado y multirriego en GOTEOS  --> flag de init WIFI true");
-        wifiClearSignal(6);
-      }
+void setupInit(void) {
+  //S_initFlags initFlags = 0;
+  if (testButton(bENCODER, OFF)) {
+    if (testButton(bCESPED,ON)) {
+      initFlags.initEeprom = true;
+      Serial.println("encoderSW pulsado y multirriego en CESPED  --> flag de init EEPROM true");
+      eepromWriteSignal(6);
     }
-  };
+    if (testButton(bGOTEOS,ON)) {
+      initFlags.initWifi = true;
+      Serial.println("encoderSW pulsado y multirriego en GOTEOS  --> flag de init WIFI true");
+      wifiClearSignal(6);
+    }
+  }
+};
 
 /**---------------------------------------------------------------
  * Chequeo de perifericos
@@ -714,16 +698,7 @@ void procesaEeprom()
       else    Serial.println("Write eeprom error");
     #endif                
     #ifdef DEBUG
-      uint16_t boton0;  //dbg
-      uint16_t boton1;  //dbg
-      int boton0Addr, boton1Addr; //dbg    
       Serial << "OFFinitialized: " << offsetof(__eeprom_data, initialized) << endl;
-      boton0Addr = offsetof(__eeprom_data, botonIdx[0]);  //dbg
-      EEPROM.get(offsetof(__eeprom_data, botonIdx[0]), boton0);  //dbg
-      boton1Addr = offsetof(__eeprom_data, botonIdx[1]);  //dbg
-      EEPROM.get(offsetof(__eeprom_data, botonIdx[1]), boton1);  //dbg
-      Serial << "leido boton 0 : " << boton0 << " address: " << boton0Addr << endl;  //dbg
-      Serial << "leido boton 1 : " << boton1 << " address: " << boton1Addr << endl;  //dbg
       Serial << "OFFm: " << offsetof(__eeprom_data, minutes) << " OFFs: " << offsetof(__eeprom_data, seconds) << endl;
       Serial << "OFFnumgroups: " << offsetof(__eeprom_data, numgroups) << endl;
     #endif
@@ -879,18 +854,19 @@ void eepromWriteGroups()
   }
 }
 
+//escribe parametros conexion a Domoticz y ntp
 void eepromWriteRed() 
-{ //escribe parametros conexion a Domoticz y ntp
+{
   Serial.println("Escribiendo parametros de conexion a domoticz en la eeprom");
   EEPROM.put(offsetof(__eeprom_data, serverAddress),serverAddress);
   EEPROM.put(offsetof(__eeprom_data, DOMOTICZPORT),DOMOTICZPORT);
   EEPROM.put(offsetof(__eeprom_data, ntpServer),ntpServer);
 }
 
+//conmuta estado LEDR, LEDG y LEDB para atenuarlos
 void dimmerLeds()
 {
   if (reposo) { 
-    //conmuta estado LEDR, LEDG y LEDB para atenuarlos
     led(LEDR,OFF);
     led(LEDG,OFF);
     led(LEDB,OFF);
@@ -1001,15 +977,15 @@ void stopRiego(uint16_t id)
   }
 }
 
-void stopAllRiego()
+//Esta funcion pondra a off todos los botones y detiene riegos (solo si la llamamos con true)
+void stopAllRiego(bool stop)
 {
-  //Esta funcion pondra a off todos los botones
   //Apago los leds de multiriego
   led(Boton[bId2bIndex(multi->id)].led,OFF);
   //Apago los leds de riego
   for(unsigned int i=0;i<sizeof(COMPLETO)/2;i++) {
     led(Boton[bId2bIndex(COMPLETO[i])].led,OFF);
-    stopRiego(COMPLETO[i]);
+    if (stop) stopRiego(COMPLETO[i]);
   }
 }
 

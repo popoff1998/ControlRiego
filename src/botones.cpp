@@ -100,27 +100,20 @@ void led(uint8_t id,int estado)
     //convertimos a la parte baja y alta
     uint8_t bajo = (uint8_t)((ledStatus & 0x00FF));
     uint8_t alto = (uint8_t)((ledStatus & 0xFF00) >> 8);
-    /*
-    #ifdef EXTRADEBUG
-      Serial.print("<<<<< bajo >>>>> ");Serial.print(bajo,BIN);
-      Serial.print("<<<<< alto >>>>> ");Serial.println(alto,BIN);
-    #endif
-    */
     digitalWrite(HC595_LATCH, LOW);
     shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, alto); //repetimos para que funcione encendido led 16
     shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, alto);
     shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, bajo);
     digitalWrite(HC595_LATCH, HIGH);
-    //delay(5);
 }
 
 bool ledStatusId(int ledID)
 {
-  return((ledStatus & (1 << (ledID-1))));
   #ifdef EXTRADEBUG
     Serial.print("ledStatus : ");Serial.println(ledStatus,BIN);
     Serial.print("ledID : ");Serial.println(ledID,DEC);
   #endif
+  return((ledStatus & (1 << (ledID-1))));
 }
 
 void initCD4021B()
@@ -148,7 +141,7 @@ byte shiftInCD4021B(int myDataPin, int myClockPin)
 
 int bId2bIndex(uint16_t id)
 {
-  for (int i=0;i<18;i++) {
+  for (int i=0;i<NUM_S_BOTON;i++) {
     if (Boton[i].id == id) return i;
   }
   return 999;
@@ -186,7 +179,7 @@ S_BOTON *parseInputs()
   if(currentMillis < (lastMillis + DEBOUNCEMILLIS)) return NULL;
   else lastMillis = currentMillis;
   uint16_t inputs = readInputs();
-  for (i=0;i<18;i++) {
+  for (i=0;i<NUM_S_BOTON;i++) {
     //Nos saltamos los DISABLED
     if (!Boton[i].flags.enabled) continue;
     Boton[i].estado = inputs & Boton[i].id;
