@@ -1,6 +1,10 @@
 #ifndef control_h
   #define control_h
-  
+
+  #ifndef _GNU_SOURCE  // LOCAL WORK-AROUND
+   #define _GNU_SOURCE // evitar error uint no definido tras update a espressif8266 3.2.0
+  #endif               // ver: https://community.platformio.org/t/error-acessing-eeprom-of-esp8266-after-plattform-update/22747/2
+
   #ifdef NODEMCU
     #include <WifiUdp.h>
     #include <ESP8266HTTPClient.h>
