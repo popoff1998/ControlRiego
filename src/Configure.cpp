@@ -44,7 +44,8 @@ bool Configure::configuringIdx()
 
 bool Configure::configuringMulti()
 {
-  Serial << "configuringMulti: " << _configuringMulti << endl;
+  //Serial << "configuringMulti: " << _configuringMulti << endl;
+  Serial.printf( "configuringMulti: %d \n" , _configuringMulti );
   return _configuringMulti;
 }
 
@@ -67,7 +68,7 @@ void Configure::configureTime(void)
 
 void Configure::configureMulti(void)
 {
-  Serial << "configureMulti" << endl;
+  Serial.println( "configureMulti" );
   _configuringTime = false;
   _configuringIdx = false;
   _configuringMulti = true;
