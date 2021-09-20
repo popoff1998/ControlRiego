@@ -58,7 +58,8 @@ void setupRedWM()
   falloAP = false;
   saveConfig = false;
   if(initFlags.initWifi) {
-    WiFi.disconnect(); //borra wifi guardada
+    //WiFi.disconnect(); //borra wifi guardada (no funciona con V3.2.0 de platform espressif)
+    wm.resetSettings(); //borra wifi guardada
     delay(300);
     Serial.println("encoderSW pulsado y multirriego en GOTEOS --> borramos red WIFI");
     //señala borrado wifi
