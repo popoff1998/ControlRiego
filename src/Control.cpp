@@ -1082,7 +1082,7 @@ String httpGetDomoticz(String message)
     return "Err2";
   }
   //vemos si la respuesta indica status error
-  int pos = response.indexOf("\"status\" : \"ERR\"");
+  int pos = response.indexOf("\"status\" : \"ERR");
   if(pos != -1) {
     #ifdef DEBUG
       Serial.println("[ERROR] httpGetDomoticz: SE HA DEVUELTO ERROR"); 
