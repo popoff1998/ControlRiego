@@ -12,7 +12,6 @@ Configure::Configure(class Display *disp)
 
 void Configure::start()
 {
-  //Serial << "Conf start" << endl;
   bip(1);
   _configuringIdx = false;
   _configuringTime = false;
@@ -22,7 +21,6 @@ void Configure::start()
 
 void Configure::stop()
 {
-  //Serial << "Conf stop" << endl;
   bip(1);
   _configuringIdx = false;
   _configuringTime = false;
@@ -32,25 +30,22 @@ void Configure::stop()
 
 bool Configure::configuringTime()
 {
-  //Serial << "configuringTime: " << _configuringTime << endl;
   return _configuringTime;
 }
 
 bool Configure::configuringIdx()
 {
-  //Serial << "configuringIdx: " << _configuringIdx << endl;
   return _configuringIdx;
 }
 
 bool Configure::configuringMulti()
 {
-  Serial << "configuringMulti: " << _configuringMulti << endl;
+  Serial.printf( "configuringMulti: %d \n" , _configuringMulti );
   return _configuringMulti;
 }
 
 void Configure::configureIdx(int index)
 {
-  //Serial << "configureIdx" << endl;
   _configuringIdx = true;
   _configuringTime = false;
   _configuringMulti = false;
@@ -59,7 +54,6 @@ void Configure::configureIdx(int index)
 
 void Configure::configureTime(void)
 {
-  //Serial << "configureTime" << endl;
   _configuringTime = true;
   _configuringIdx = false;
   _configuringMulti = false;
@@ -67,7 +61,7 @@ void Configure::configureTime(void)
 
 void Configure::configureMulti(void)
 {
-  Serial << "configureMulti" << endl;
+  Serial.println( "configureMulti" );
   _configuringTime = false;
   _configuringIdx = false;
   _configuringMulti = true;

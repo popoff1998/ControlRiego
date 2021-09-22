@@ -62,16 +62,15 @@ void printMultiGroup()
 {
   S_MULTI *multi;
   for (int j=0; j<n_Grupos; j++) {
-    Serial << endl;
     multi = getMultibyIndex(j);
-    Serial.printf("Grupo%d : %d elementos \n", j+1, multi->size);
+    Serial.printf("\n Grupo%d : %d elementos \n", j+1, multi->size);
     for (int i=0;i < multi->size; i++) {
       Serial.printf("     elemento %d: x",i+1);
-      Serial.print(multi->serie[i],HEX);
-      Serial << endl;
+      Serial.println(multi->serie[i],HEX);
     }  
   }  
-  Serial << endl;
+  Serial.println()
+  ;
 }
 
 int nGrupos()
