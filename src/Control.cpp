@@ -161,6 +161,7 @@ void procesaBotones()
   if (reposo && boton->id != bSTOP) {
     Serial.println("Salimos de reposo");
     reposo = false;
+    standbyTime = millis();
     StaticTimeUpdate();
     return;
   }
@@ -172,15 +173,20 @@ void procesaBotones()
   if(Estado.estado == ERROR) 
   {
     //Si estamos en error y pulsamos pausa, nos ponemos en estado NONETWORK para test
-    if(boton->id == bPAUSE) {
+    if(boton->id == bPAUSE && boton->estado) {  //evita procesar el release del pause
       Estado.estado = STANDBY;
       NONETWORK = true;
       Serial.println("estado en ERROR y PAUSA pulsada pasamos a modo NONETWORK y reseteamos");
       bip(2);
       led(LEDB,ON);
+      //reseteos varios:
       stopAllRiego(false); //para apagar leds activos
+      tic_parpadeoLedON.detach(); //detiene parpadeo led ON por si estuviera activado
+      led(LEDR,ON);               // y lo deja fijo
       multiriego = false;
       multiSemaforo = false;
+      errorOFF = false;
+      standbyTime = millis();
       StaticTimeUpdate();
     }
     //Si estamos en ERROR y pulsamos STOP, reseteamos
@@ -220,12 +226,14 @@ void procesaBotones()
             break;
           case STANDBY:
               if(encoderSW) {  //si encoderSW+Pause --> conmutamos estado NONETWORK
+                boton = NULL;
                 if (NONETWORK) {
                     NONETWORK = false;
                     Serial.println("encoderSW+PAUSE pasamos a modo NORMAL y leemos factor riegos");
                     bip(2);
-                    initFactorRiegos();
                     led(LEDB,OFF);
+                    display->print("----");
+                    initFactorRiegos();
                 }
                 else {
                     NONETWORK = true;
@@ -293,6 +301,7 @@ void procesaBotones()
           display->print("stop");
           stopAllRiego(true);
           reposo = false;
+          standbyTime = millis();
           Estado.estado = STOP;
         }
       }
@@ -537,12 +546,13 @@ void procesaEstados()
     case TERMINANDO:
       bip(5);
       stopRiego(ultimoBoton->id);
+      if (Estado.estado == ERROR) break; //no continuamos si se ha producido error al parar el riego
       display->blink(DEFAULTBLINK);
       led(Boton[bId2bIndex(ultimoBoton->id)].led,OFF);
       StaticTimeUpdate();
       standbyTime = millis();
       reposo = false;
-      if(Estado.estado != ERROR) Estado.estado = STANDBY;
+      Estado.estado = STANDBY;
 
       //Comprobamos si estamos en un multiriego
       if (multiriego) {
@@ -775,9 +785,14 @@ void initFactorRiegos()
   #ifdef TRACE
     Serial.println("TRACE: in initFactorRiegos");
   #endif
+  //inicializamos a valor 100 por defecto para caso de error
+  for(uint i=0;i<NUMRIEGOS;i++) {
+    factorRiegos[i]=100;
+  }
 
   for(uint i=0;i<NUMRIEGOS;i++) {
     factorRiegos[i]=getFactor(Boton[bId2bIndex(COMPLETO[i])].idx);
+    if(!factorRiegosOK) break; //al primer error salimos
   }
   #ifdef VERBOSE
     //Leemos los valores para comprobar que lo hizo bien
@@ -815,7 +830,7 @@ void initClock()
     }
 }
 
-//muestra lo regado desde las 0h encendiendo sus leds o apagandolos
+//muestra lo regado desde las 0h encendiendo sus leds y mostrando hora o apagandolos
 void ultimosRiegos(int modo)
 {
   switch(modo) {
@@ -957,6 +972,7 @@ void initRiego(uint16_t id)
   t = CE.toLocal(utc,&tcr);
   lastRiegos[arrayIndex] = t;
   domoticzSwitch(Boton[index].idx,(char *)"On");
+  if (Estado.estado == ERROR) longbip(3);  //se ha devuelto error
 }
 
 //Termina el riego correspondiente al idx
