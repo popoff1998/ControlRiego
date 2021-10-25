@@ -2,6 +2,8 @@ PENDIENTES
 ==========
 - boton Pause reflejado en Domoticz (en ambos sentidos)
 - Si estado REGANDO tiempo de riego restante reflejado en Domoticz
+- fichero parámetros por defecto en lugar de variables del pgm
+- en modo configuración poder activar portal AP para configurar parámetros conexión (ConF + encoderSW + PAUSA)
 
 HECHOS
 ======
@@ -14,13 +16,15 @@ HECHOS
 - Si no se ha podido conectar a la wifi entra en modo AP para permitir configuracion por portalweb.  
 - Monitorizacion periodica conexion wifi. V1.3
 - la puesta en hora por NTP si no se ha hecho correctamente se reintenta periodicamente sin bloqueo del sistema. V1.3
-- hay que respetar factor riego=0 cuando se lee (para que se salte ese boton) V1.3
+- Respeta factor riego=0 cuando se lee (para que se salte ese boton) V1.3
 - se resalta el error en caso de no poder parar un riego comenzado (LEDR parpadea y bips periodicos) V1.3
 - en modo DEBUG activacion simulacion errores por serial input. V1.3
 - en estado ERROR pulsando Stop se reinicia V1.3.1
 - reconexion si no wifi en arranque (corte corriente) V1.3.2
 - parametros de conexion a Domoticz por interfax web (incluye OTA) V1.3.3
-- actualiza factor riegos al pasar de NONETWORK a NORMAL (encoderSW+PAUSE)
+- actualiza factor riegos al pasar de NONETWORK a NORMAL (encoderSW+PAUSE) V1.3.4
+- si falloAP reintenta conexion max 10 seg. V1.3.5
+- bloqueo seguridad botones (STOP en Stanby) pasa a reposo tras 4 * STANDBYSECS V1.3.7
 
 
 

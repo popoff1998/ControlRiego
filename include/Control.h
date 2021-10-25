@@ -75,7 +75,7 @@
   
   #define FORCEINITEEPROM     0
 
-  #define VERSION  "1.3.6"
+  #define VERSION  "1.3.7"
 
   //Comportamiento General
   #define STANDBYSECS         15
@@ -382,6 +382,7 @@
     bool factorRiegosOK = false;
     bool errorOFF = false;
     bool simErrorOFF = false;
+    bool displayOFF = false;
 
     //Para Ethernet
     byte mac[] = {
@@ -429,7 +430,7 @@
   void initHC595(void);
   void initLastRiegos(void);
   void initLeds(void);
-  void initRiego(uint16_t);
+  bool initRiego(uint16_t);
   void led(uint8_t,int);
   void ledRGB(int,int,int);
   bool ledStatusId(int);
@@ -450,7 +451,8 @@
   void setupRed(void);
   void setupRedWM(void);
   void StaticTimeUpdate(void);
-  void stopRiego(uint16_t);
+  void statusError(String, int n);
+  bool stopRiego(uint16_t);
   void stopAllRiego(bool);
   bool testButton(uint16_t, bool);
   void timeByFactor(int,uint8_t *,uint8_t *);
