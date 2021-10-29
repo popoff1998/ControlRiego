@@ -35,12 +35,15 @@ void setup()
 {
   #ifdef RELEASE
                 NONETWORK=false; 
+                VERIFY=true; 
   #endif
   #ifdef DEVELOP
                 NONETWORK=false;
+                VERIFY=true; 
   #endif
   #ifdef DEMO
                 NONETWORK=true;
+                VERIFY=false;
   #endif
 
   Serial.begin(115200);
@@ -106,15 +109,19 @@ void setup()
   initFactorRiegos();
   //Deshabilitamos el hold de Pause
   Boton[bId2bIndex(bPAUSE)].flags.holddisabled = true;
+  //Llamo a parseInputs CLEAR para eliminar prepulsaciones antes del bucle loop
+  parseInputs(CLEAR);
   // estado final en funcion de la conexion
   setupEstado();
-  //Llamo a parseInputs una vez para eliminar prepulsaciones antes del bucle loop
-  parseInputs();
   //inicializamos apuntador estructura multi (posicion del selector multirriego):
   multi = getMultibyId(getMultiStatus());
   //lanzamos supervision periodica estado cada 10 seg.
   tic_verificaciones.attach_scheduled(10, flagVerificaciones);
   standbyTime = millis();
+  #ifdef TRACE
+    Serial.println("TRACE: ending setup");
+  #endif
+
 }
 
 /*----------------------------------------------*
@@ -152,7 +159,7 @@ void procesaBotones()
   //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multiriego
   if (!multiSemaforo) {
     boton = NULL;
-    boton = parseInputs();
+    boton = parseInputs(READ);
   }
   else multiSemaforo = false;
   // si no se ha pulsado ningun boton salimos
@@ -194,7 +201,7 @@ void procesaBotones()
     }
     //Si estamos en ERROR y pulsamos STOP, reseteamos
     if(boton->id == bSTOP) {
-      Serial.println("Reset..");
+      Serial.println("ERROR + STOP --> Reset.....");
       longbip(3);
       ESP.restart();  
     }
@@ -223,13 +230,15 @@ void procesaBotones()
           case CONFIGURANDO:
             if(!configure->configuringIdx() && !configure->configuringTime() && !configure->configuringMulti()) {
               configure->configureTime();
+              Serial.println("[ConF] configurando tiempo riego por defecto");
               delay(500);
               boton = NULL;
             }
             break;
           case STANDBY:
               if(encoderSW) {  //si encoderSW+Pause --> conmutamos estado NONETWORK
-                boton = NULL;
+                // es necesario? puede dar problemas? exception(28)?
+                //boton = NULL; a ver que pasa si lo quitamos
                 if (NONETWORK) {
                     NONETWORK = false;
                     Serial.println("encoderSW+PAUSE pasamos a modo NORMAL y leemos factor riegos");
@@ -237,6 +246,7 @@ void procesaBotones()
                     led(LEDB,OFF);
                     display->print("----");
                     initFactorRiegos();
+                    if(VERIFY && Estado.estado != ERROR) stopAllRiego(true); //verificamos operativa OFF para los IDX's 
                 }
                 else {
                     NONETWORK = true;
@@ -247,7 +257,7 @@ void procesaBotones()
               }
               else {    // muestra hora y ultimos riegos
                 ultimosRiegos(SHOW);
-                boton = NULL;
+                //boton = NULL; a ver que pasa si lo quitamos 
                 delay(3000);
                 ultimosRiegos(HIDE);
               }
@@ -267,7 +277,7 @@ void procesaBotones()
                 configure->start();
                 longbip(1);
                 Estado.estado = CONFIGURANDO;
-                boton = NULL;
+                //boton = NULL; a ver que pasa si lo quitamos
                 holdPause = false;
                 #ifdef DEBUG
                   Serial.printf("#01 savedValue: %d  value: %d \n",savedValue,value);
@@ -275,7 +285,7 @@ void procesaBotones()
                 savedValue = value;
               }
               else {   //si esta pulsado encoderSW hacemos un soft reset
-                Serial.println("Reset..");
+                Serial.println("ConF + encoderSW + PAUSA --> Reset.....");
                 longbip(3);
                 ESP.restart();  // Hard RESET: ESP.reset()
               }
@@ -304,8 +314,9 @@ void procesaBotones()
           display->print("stop");
           bip(1);
           longbip(1);
-          stopAllRiego(false);  // apagar leds solo, no parar riegos ¿?
+          stopAllRiego(true);  // apagar leds y parar riegos ¿?
           standbyTime = millis();
+          if (Estado.estado == ERROR) break; //error en stopAllRiego
           Estado.estado = STOP;
           //pasamos directamente a reposo
           Serial.println("Stanby + Stop : Entramos en reposo");
@@ -323,7 +334,7 @@ void procesaBotones()
         }
         StaticTimeUpdate();
         led(Boton[bId2bIndex(bCONFIG)].led,OFF);
-        Serial.println("Salimos de reposo -2-");
+        //Serial.println("Salimos de reposo -2-");
         reposo = false; //por si salimos de stop antinenes
         displayOFF = false;
         Estado.estado = STANDBY;
@@ -396,8 +407,10 @@ void procesaBotones()
               Serial.printf("Minutos: %d Segundos: %d FMinutos: %d FSegundos: %d\n",minutes,seconds,fminutes,fseconds);
             #endif
             ultimoBoton = boton;
-            if (fminutes == 0 && fseconds == 0) {
+            //if (fminutes == 0 && fseconds == 0) {
+            if ((fminutes == 0 && fseconds == 0) || boton->idx == 0) {
               Estado.estado = TERMINANDO; // nos saltamos este riego
+              display->print("-00-");
               break;
             }
             T.SetTimer(0,fminutes,fseconds);
@@ -418,7 +431,6 @@ void procesaBotones()
           value = factorRiegos[idarrayRiego(boton->id)];
           display->print(value);
           delay(2000);
-          // boton = NULL;  //--> provoca reset
           #ifdef DEBUG
             Serial.printf("#05 savedValue: %d  value: %d \n",savedValue,value);
           #endif
@@ -444,6 +456,7 @@ void procesaBotones()
             Serial.printf("#06 savedValue: %d  value: %d \n",savedValue,value);
           #endif
           savedValue = value;
+          Serial.printf("[ConF] configurando IDX boton: %s \n",boton->desc);
           configure->configureIdx(bId2bIndex(boton->id));
           value = boton->idx;
         }
@@ -524,6 +537,7 @@ void procesaEstados()
                 configure->stop();
                 Estado.estado = STANDBY;
                 standbyTime = millis();
+                // ¿deberia ir aqui value = savedValue; para caso de salir sin salvar???
               }
               break;
           }
@@ -562,8 +576,8 @@ void procesaEstados()
       led(Boton[bId2bIndex(ultimoBoton->id)].led,OFF);
       StaticTimeUpdate();
       standbyTime = millis();
-      Serial.println("Salimos de reposo -3-");
-      reposo = false;
+      //Serial.println("Salimos de reposo -3-");
+      //reposo = false;
       Estado.estado = STANDBY;
 
       //Comprobamos si estamos en un multiriego
@@ -618,9 +632,15 @@ void setupEstado()
   if (Estado.estado == ERROR) {
     return;
   }
-  // Si estamos conectados pasamos a STANDBY
+  // Si estamos conectados pasamos a STANDBY o STOP (caso de estar pulsado este al inicio)
   if (checkWifi()) {
-    Estado.estado = STANDBY;
+    if (Boton[bId2bIndex(bSTOP)].estado) {
+      Estado.estado = STOP;
+      display->print("stop");
+      bip(1);
+      longbip(1);
+    }
+    else Estado.estado = STANDBY;
     bip(1);
     return;
   }
@@ -715,7 +735,9 @@ void procesaEeprom()
     EEPROM.put(offsetof(__eeprom_data, minutes),minutes);
     EEPROM.put(offsetof(__eeprom_data, seconds),seconds);
     //escribe parametros conexion a Domoticz y ntp
-    eepromWriteRed();
+    //eepromWriteRed();
+    //escribe parametros conexion a Domoticz y ntp solo si FORCEINITEEPROM o no inicializada
+    if(eeinitialized == 0 || FORCEINITEEPROM == 1) eepromWriteRed();
     //escribe grupos de multirriego y su tamaño
     eepromWriteGroups();
     // marca la eeprom como inicializada
@@ -923,7 +945,8 @@ void procesaEncoder()
       #endif
       value -= Encoder->getValue();
       if (value > 1000) value = 1000;
-      if (value <  1) value = 1;
+      //if (value <  1) value = 1;
+      if (value <  1) value = 0; //permitimos IDX=0 para desactivar ese boton
       display->print(value);
       return;
   }
@@ -982,7 +1005,7 @@ bool initRiego(uint16_t id)
   #endif
   uint arrayIndex = idarrayRiego(id);
   time_t t;
-  if(arrayIndex == 999) return false; //¿para que es esto?
+  if(arrayIndex == 999) return false;
   Serial.printf( "Iniciando riego: %s \n", Boton[index].desc);
   led(Boton[index].led,ON);
   utc = timeClient.getEpochTime();
@@ -1019,7 +1042,11 @@ void stopAllRiego(bool stop)
   //Apago los leds de riego
   for(unsigned int i=0;i<sizeof(COMPLETO)/2;i++) {
     led(Boton[bId2bIndex(COMPLETO[i])].led,OFF);
-    if (stop) stopRiego(COMPLETO[i]);
+    if (stop) {  //paramos todas las zonas de riego
+      if(!stopRiego(COMPLETO[i])) { 
+        break; //al primer error salimos
+      }  
+    }
   }
 }
 
@@ -1121,6 +1148,7 @@ String httpGetDomoticz(String message)
     return "ErrX";
   }
   httpclient.end();
+  Serial.println("TRACE: in httpGetDomoticz **return");
   return response;
 }
 
@@ -1137,9 +1165,11 @@ int getFactor(uint16_t idx)
     if(NONETWORK) return 100; //si estamos en modo NONETWORK devolvemos 100 y no damos error
     else {
       statusError("Err1",3);
-      return 999;
+      return 0;
     }
   }
+  // si el IDX es 0 devolvemos 0 sin procesarlo (boton no asignado)
+  if(idx == 0) return 0;
   char JSONMSG[200]="/json.htm?type=devices&rid=%d";
   char message[250];
   sprintf(message,JSONMSG,idx);
@@ -1155,12 +1185,13 @@ int getFactor(uint16_t idx)
     #ifdef DEBUG
       Serial.printf("GETFACTOR IDX: %d [HTTP] GET... failed\n", idx);
     #endif
-    return 999;
+    return 100;
   }
-  //Teoricamente ya tenemos en response el JSON, lo procesamos
-  //pero acabo de darme cuenta que si preguntamos por un rid como el 0 que devuelve cosas, puede dar una excepcion
-  //asi que hay que controlarlo
-  //Ante cualquier problema (no de error), devolvemos 100% para no factorizar ese riego
+  /* Teoricamente ya tenemos en response el JSON, lo procesamos
+     Si el IDX no existe Domoticz no devuelve error, asi que hay que controlarlo
+     Ante cualquier problema (no de error), devolvemos 100% para no factorizar ese riego
+     si VERIFY=false, o Err2 si VERIFY=true
+  */
   const size_t bufferSize = 2*JSON_ARRAY_SIZE(1) + JSON_OBJECT_SIZE(16) + JSON_OBJECT_SIZE(46) + 1500;
   DynamicJsonBuffer jsonBuffer(bufferSize);
   JsonObject &root = jsonBuffer.parseObject(response);
@@ -1168,16 +1199,24 @@ int getFactor(uint16_t idx)
     #ifdef DEBUG
       Serial.println("parseObject() failed");
     #endif
-    return 100;
+    if(!VERIFY) return 100;
+    else {
+      statusError("Err2",3);
+      return 100;
+    }
   }
   //Tenemos que controlar para que no resetee en caso de no haber leido por un rid malo
   const char *factorstr = root["result"][0]["Description"];
   if(factorstr == NULL) {
-    //El rid (idx) seguramente era 0 o parecido, así que devolvemos 100
+    //El rid (idx) no esta definido en el Domoticz
     #ifdef VERBOSE
       Serial.printf("El idx %d no se ha podido leer del JSON\n",idx);
     #endif
-    return 100;
+    if(!VERIFY) return 100;
+    else {
+      statusError("Err2",3);
+      return 100;
+    }
   }
   //si hemos leido correctamente (numero, campo vacio o solo con comentarios)
   //consideramos leido OK el factor riego. En los dos ultimos casos se
@@ -1200,7 +1239,8 @@ bool domoticzSwitch(int idx,char *msg)
   #ifdef TRACE
     Serial.println("TRACE: in domoticzSwitch");
   #endif
-  if(NONETWORK) return true; //simulamos que ha ido OK
+  //if(NONETWORK) return true; //simulamos que ha ido OK
+  if(NONETWORK || idx == 0) return true; //simulamos que ha ido OK
   if(!checkWifi()) {
     statusError("Err1",3);
     return false;

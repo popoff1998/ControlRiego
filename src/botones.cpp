@@ -171,7 +171,7 @@ bool testButton(uint16_t id,bool state)
    else return 0;
 }
 
-S_BOTON *parseInputs()
+S_BOTON *parseInputs(bool read)
 {
   int i;
   //Para el debounce
@@ -190,10 +190,11 @@ S_BOTON *parseInputs()
       if (Boton[i].estado || Boton[i].flags.dual) {
         #ifdef DEBUG
           bool bEstado = Boton[i].estado;
+          if (!read) Serial.print("Cleared: ");
           Serial.printf("Boton: %s  idx: %d  id: %#X  Estado: %d \n", Boton[i].desc, Boton[i].idx, Boton[i].id, bEstado);
           //bip(1);
         #endif
-        return &Boton[i];
+        if (read) return &Boton[i]; //si no clear retorna 1er boton que ha cambiado de estado
       }
     }
   }
