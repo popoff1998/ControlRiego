@@ -61,7 +61,7 @@ void setupRedWM()
     //WiFi.disconnect(); //borra wifi guardada (no funciona con V3.2.0 de platform espressif)
     wm.resetSettings(); //borra wifi guardada
     delay(300);
-    Serial.println("encoderSW pulsado y multirriego en GOTEOS --> borramos red WIFI");
+    Serial.println("encoderSW pulsado y multirriego en GRUPO3 --> borramos red WIFI");
     //señala borrado wifi
     longbip(3);
   }

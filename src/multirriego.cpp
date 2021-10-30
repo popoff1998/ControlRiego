@@ -4,26 +4,26 @@
 //valores y tamaño de las series por defecto 
 // (ojo ver NOTA1 en Control.h --> FORCEINITEEPROM=1 para actualizarlos)
    
-uint16_t Grupo1[16]    = {bTURBINAS, bPORCHE, bCUARTILLO};
-uint16_t Grupo2[16]    = {bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA };
-uint16_t Grupo3[16]    = {bTURBINAS, bPORCHE, bCUARTILLO, bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA};
+uint16_t Grupo1[16]    = { bZONA1, bZONA2, bZONA3 };
+uint16_t Grupo2[16]    = { bZONA1, bZONA2, bZONA3, bZONA4, bZONA5, bZONA6, bZONA7 };
+uint16_t Grupo3[16]    = { bZONA4, bZONA5, bZONA6, bZONA7 };
 int size_Grupo1 = 3;
-int size_Grupo2 = 4;
-int size_Grupo3 = 7;
+int size_Grupo2 = 7;
+int size_Grupo3 = 4;
 
 S_MULTI multiGroup [] =  { 
       //id,        serie        size        actual     descripcion
-      { bCESPED,   Grupo1,    size_Grupo1,    0,       "CESPED"},
-      { bGOTEOS,   Grupo2,    size_Grupo2,    0,       "GOTEOS"},
-      { bCOMPLETO, Grupo3,    size_Grupo3,    0,       "COMPLETO"}
+      { bGRUPO1,   Grupo1,    size_Grupo1,    0,       "CESPED"},
+      { bGRUPO2  , Grupo2,    size_Grupo2,    0,       "COMPLETO"},
+      { bGRUPO3,   Grupo3,    size_Grupo3,    0,       "GOTEOS"}
 };
 
 //devuelve posicion del selector de multirriego
 uint16_t getMultiStatus()
 {
-  if (Boton[bId2bIndex(bCESPED)].estado) return bCESPED;
-  if (Boton[bId2bIndex(bGOTEOS)].estado) return bGOTEOS;
-  return bCOMPLETO;
+  if (Boton[bId2bIndex(bGRUPO1)].estado) return bGRUPO1;
+  if (Boton[bId2bIndex(bGRUPO3)].estado) return bGRUPO3;
+  return bGRUPO2  ;
 }
 
 //devuelve apuntador al elemento de multiGroup correspondiente el id pasado

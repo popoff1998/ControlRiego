@@ -14,19 +14,10 @@
     #include <WiFiManager.h> 
   #endif
   
-  #ifdef MEGA256
-    #include <Ethernet.h>
-    #include <EthernetUdp.h>
-    #include <ArduinoHttpClient.h>
-  #endif
-
   #include <SPI.h>
   #include <NTPClient.h>
   #include <Time.h>
   #include <Timezone.h>
-  #ifdef MEGA256
-    #include <TimerOne.h>
-  #endif
   #include <ClickEncoder.h>
   #include <CountUpDownTimer.h>
   #include <Streaming.h>
@@ -75,21 +66,21 @@
   
   #define FORCEINITEEPROM     0
 
-  #define VERSION  "1.4"
+  #define VERSION  "2.0"
 
   //Comportamiento General
   #define STANDBYSECS         15
   #ifdef RELEASE
-  #define DEFAULTMINUTES      10
-  #define DEFAULTSECONDS      0
+    #define DEFAULTMINUTES      10
+    #define DEFAULTSECONDS      0
   #endif
   #ifdef DEVELOP
-  #define DEFAULTMINUTES      0
-  #define DEFAULTSECONDS      10
+    #define DEFAULTMINUTES      0
+    #define DEFAULTSECONDS      10
   #endif
   #ifdef DEMO
-  #define DEFAULTMINUTES      0
-  #define DEFAULTSECONDS      7
+    #define DEFAULTMINUTES      0
+    #define DEFAULTSECONDS      7
   #endif
   #define DEFAULTBLINK        5
   #define DEFAULTBLINKMILLIS  500
@@ -99,68 +90,31 @@
   #define HOLDTIME            3000
   #define MAXCONNECTRETRY     10
 
-  #ifdef MEGA256
-    #define CD4021B_LATCH         43
-    #define CD4021B_CLOCK         45
-    #define CD4021B_DATA          47
-
-    #define HC595_DATA            26
-    #define HC595_LATCH           28
-    #define HC595_CLOCK           45
-
-    #define ENCCLK              35
-    #define ENCDT               37
-    #define ENCSW               24
-    #define BUZZER              41
-  #endif
 
   #ifdef NODEMCU
-    #define ENCCLK              D0
-    #define ENCDT               D1
-    #define ENCSW               100
-    #define BUZZER              2
-    #ifdef NEWPCB
-      #define HC595_DATA            D8
-      #define HC595_LATCH           D4
-      #define HC595_CLOCK           D5
-      #define CD4021B_CLOCK         D5
-      #define CD4021B_LATCH         D6
-      #define CD4021B_DATA          D7
-      #define LEDR                  4
-      #define LEDG                  5
-      #define LEDB                  3 
-      #define lCESPED               6
-      #define lCOMPLETO             7
-      #define lGOTEOS               8
-      #define lTURBINAS             10
-      #define lPORCHE               11
-      #define lCUARTILLO            12
-      #define lGOTEOALTO            13
-      #define lGOTEOBAJO            14
-      #define lOLIVOS               15
-      #define lROCALLA              16
-    #else
-      #define HC595_DATA            D8
-      #define HC595_LATCH           D4
-      #define HC595_CLOCK           D5
-      #define CD4021B_CLOCK         D5
-      #define CD4021B_LATCH         D6
-      #define CD4021B_DATA          D7
-      #define LEDR                  7
-      #define LEDG                  6
-      #define LEDB                  0 //No se está usando ningun led RGB
-      #define lCESPED               8
-      #define lCOMPLETO             5
-      #define lGOTEOS               3
-      #define lTURBINAS             15
-      #define lPORCHE               14
-      #define lCUARTILLO            13
-      #define lGOTEOALTO            16
-      #define lGOTEOBAJO            10
-      #define lOLIVOS               11
-      #define lROCALLA              12
-    #endif
-
+    #define ENCCLK                D0
+    #define ENCDT                 D1
+    #define ENCSW                 100
+    #define BUZZER                2
+    #define HC595_DATA            D8
+    #define HC595_LATCH           D4
+    #define HC595_CLOCK           D5
+    #define CD4021B_CLOCK         D5
+    #define CD4021B_LATCH         D6
+    #define CD4021B_DATA          D7
+    #define LEDR                  4
+    #define LEDG                  5
+    #define LEDB                  3 
+    #define lGRUPO1               6
+    #define lGRUPO2               7
+    #define lGRUPO3               8
+    #define lZONA1                10
+    #define lZONA2                11
+    #define lZONA3                12
+    #define lZONA4                13
+    #define lZONA5                14
+    #define lZONA6                15
+    #define lZONA7                16
   #endif
 
   //Para legibilidad del codigo
@@ -193,17 +147,17 @@
   };
 
   enum _botones {
-    bTURBINAS   = 0x0001,
-    bPORCHE     = 0x0002,
-    bCUARTILLO  = 0x0004,
-    bGOTEOALTO  = 0x0008,
-    bOLIVOS     = 0x0010,
+    bZONA1      = 0x0001,
+    bZONA2      = 0x0002,
+    bZONA3      = 0x0004,
+    bZONA4      = 0x0008,
+    bZONA6      = 0x0010,
     bMULTIRIEGO = 0x0020,
-    bROCALLA    = 0x0040,
-    bGOTEOBAJO  = 0x0080,
+    bZONA7      = 0x0040,
+    bZONA5      = 0x0080,
     bSPARE13    = 0x0100,
-    bGOTEOS     = 0x0200,
-    bCESPED     = 0x0400,
+    bGRUPO3     = 0x0200,
+    bGRUPO1     = 0x0400,
     bSTOP       = 0x0800,
     bENCODER    = 0x1000,
     bSPARE15    = 0x2000,
@@ -212,7 +166,7 @@
   };
 
   //Pseudobotones
-  #define bCOMPLETO 0xFF01
+  #define bGRUPO2   0xFF01
   #define bCONFIG   0xFF02
 
   //estructura para salvar grupos de multirriego en la eeprom:
@@ -283,27 +237,27 @@
 
   #ifdef __MAIN__
 
-    uint16_t COMPLETO[]  = {bTURBINAS, bPORCHE, bCUARTILLO, bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA};
+    uint16_t COMPLETO[]  = { bZONA1 , bZONA2 , bZONA3 , bZONA4 , bZONA5 , bZONA6 , bZONA7 };
     
     S_BOTON Boton [] =  { 
       //ID,          S   uS  LED          FLAGS                             DESC          IDX
-      {bTURBINAS,   0,  0,  lTURBINAS,   ENABLED | ACTION,                 "TURBINAS",   25},
-      {bPORCHE,     0,  0,  lPORCHE,     ENABLED | ACTION,                 "PORCHE",     27},
-      {bCUARTILLO,  0,  0,  lCUARTILLO,  ENABLED | ACTION,                 "CUARTILLO",  58},
-      {bGOTEOALTO,  0,  0,  lGOTEOALTO,  ENABLED | ACTION,                 "GOTEOALTO",  59},
-      {bOLIVOS,     0,  0,  lOLIVOS,     ENABLED | ACTION,                 "OLIVOS",     61},
+      {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "TURBINAS",   25},
+      {bZONA2 ,     0,  0,  lZONA2 ,     ENABLED | ACTION,                 "PORCHE",     27},
+      {bZONA3    ,  0,  0,  lZONA3    ,  ENABLED | ACTION,                 "CUARTILLO",  58},
+      {bZONA4    ,  0,  0,  lZONA4    ,  ENABLED | ACTION,                 "GOTEOALTO",  59},
+      {bZONA6 ,     0,  0,  lZONA6 ,     ENABLED | ACTION,                 "OLIVOS",     61},
       {bMULTIRIEGO, 0,  0,  0,           ENABLED | ACTION,                 "MULTIRIEGO",  0},
-      {bROCALLA,    0,  0,  lROCALLA,    ENABLED | ACTION,                 "ROCALLA",    30},
-      {bGOTEOBAJO,  0,  0,  lGOTEOBAJO,  ENABLED | ACTION,                 "GOTEOBAJO",  24},
+      {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ROCALLA",    30},
+      {bZONA5    ,  0,  0,  lZONA5    ,  ENABLED | ACTION,                 "GOTEOBAJO",  24},
       {bSPARE13,    0,  0,  0,           DISABLED,                         "SPARE13",     0},
-      {bGOTEOS,     0,  0,  lGOTEOS,     ENABLED | ONLYSTATUS | DUAL,      "GOTEOS",      0},
-      {bCESPED,     0,  0,  lCESPED,     ENABLED | ONLYSTATUS | DUAL,      "CESPED",      0},
+      {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ONLYSTATUS | DUAL,      "GOTEOS",      0},
+      {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ONLYSTATUS | DUAL,      "CESPED",      0},
       {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",        0},
       {bENCODER,    0,  0,  0,           ENABLED | ONLYSTATUS | DUAL,      "ENCODER",     0},
       {bSPARE15,    0,  0,  0,           DISABLED,                         "SPARE15",     0},
       {bSPARE16,    0,  0,  0,           DISABLED,                         "SPARE16",     0},
       {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE",       0},
-      {bCOMPLETO,   0,  0,  lCOMPLETO,   DISABLED,                         "COMPLETO",    0},
+      {bGRUPO2  ,   0,  0,  lGRUPO2  ,   DISABLED,                         "COMPLETO",    0},
       {bCONFIG,     0,  0,  0,           DISABLED,                         "CONFIG",      0}
     };
 
@@ -311,8 +265,8 @@
 
     time_t   lastRiegos[NUMRIEGOS];
     uint     factorRiegos[NUMRIEGOS];
-    uint ledOrder[] = {lTURBINAS, lPORCHE, lCUARTILLO, lGOTEOALTO, lGOTEOBAJO, lOLIVOS, lROCALLA,
-                        LEDR, LEDG, lCESPED, lCOMPLETO, lGOTEOS};
+    uint ledOrder[] = {lZONA1 , lZONA2 , lZONA3 , lZONA4    , lZONA5    , lZONA6 , lZONA7  ,
+                        LEDR, LEDG, lGRUPO1, lGRUPO2  , lGRUPO3};
     S_MULTI *multi;
     //numero de grupos de multirriego:
     int n_Grupos;
@@ -352,15 +306,12 @@
 
   //Globales
   #ifdef __MAIN__
-    //Segun la arquitectura
-    #ifdef MEGA256
-      EthernetClient client;
-    #endif
 
+    //Segun la arquitectura
     #ifdef NODEMCU
       WiFiClient client;
+      HTTPClient httpclient;
     #endif
-
     //Globales
     CountUpDownTimer T(DOWN);
     S_Estado Estado;
@@ -387,22 +338,6 @@
     bool errorOFF = false;
     bool simErrorOFF = false;
     bool displayOFF = false;
-
-    //Para Ethernet
-    byte mac[] = {
-    0xDE, 0xAD, 0xBE, 0xBF, 0xFE, 0xED
-    };
-    IPAddress ip(192, 168, 100, 80);
-    byte gateway[] = {192, 168, 100, 100};
-    byte subnet[] = {255, 255, 255, 0};
-    byte server[] = {192,168,100,60};
-
-    #ifdef MEGA256
-      HttpClient httpclient = HttpClient(client,serverAddress,port);
-    #endif
-    #ifdef NODEMCU
-      HTTPClient httpclient;
-    #endif
 
   #endif
 

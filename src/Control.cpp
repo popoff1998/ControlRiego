@@ -5,10 +5,6 @@
 S_BOTON *boton;
 S_BOTON *ultimoBoton;
 
-#ifdef MEGA256
-  EthernetUDP ntpUDP;
-#endif
-
 #ifdef NODEMCU
   WiFiUDP ntpUDP;
 #endif
@@ -67,10 +63,6 @@ void setup()
    Serial.println("Inicializando Encoder");
   #endif
   Encoder = new ClickEncoder(ENCCLK,ENCDT,ENCSW);
-  #ifdef MEGA256
-    Timer1.initialize(1000);
-    Timer1.attachInterrupt(timerIsr);
-  #endif
   //Para el Configure le paso encoder y display porque lo usara.
   #ifdef DEBUG
    Serial.println("Inicializando Configure");
@@ -650,8 +642,8 @@ void setupEstado()
 
 /**---------------------------------------------------------------
  * verificamos si encoderSW esta pulsado (estado OFF) y selector de multirriego esta en:
- *    - Grupo1 (CESPED) --> en ese caso inicializariamos la eeprom
- *    - Grupo2 (GOTEOS) --> en ese caso borramos red wifi almacenada en el ESP8266
+ *    - Grupo1 (arriba) --> en ese caso inicializariamos la eeprom
+ *    - Grupo3 (abajo) --> en ese caso borramos red wifi almacenada en el ESP8266
  */
 void setupInit(void) {
   #ifdef TRACE
@@ -659,14 +651,14 @@ void setupInit(void) {
   #endif
   //S_initFlags initFlags = 0;
   if (testButton(bENCODER, OFF)) {
-    if (testButton(bCESPED,ON)) {
+    if (testButton(bGRUPO1,ON)) {
       initFlags.initEeprom = true;
-      Serial.println("encoderSW pulsado y multirriego en CESPED  --> flag de init EEPROM true");
+      Serial.println("encoderSW pulsado y multirriego en GRUPO1  --> flag de init EEPROM true");
       eepromWriteSignal(6);
     }
-    if (testButton(bGOTEOS,ON)) {
+    if (testButton(bGRUPO3,ON)) {
       initFlags.initWifi = true;
-      Serial.println("encoderSW pulsado y multirriego en GOTEOS  --> flag de init WIFI true");
+      Serial.println("encoderSW pulsado y multirriego en GRUPO3  --> flag de init WIFI true");
       wifiClearSignal(6);
     }
   }
@@ -837,7 +829,7 @@ void initFactorRiegos()
     Serial.print("Factores de riego ");
     factorRiegosOK ? Serial.println("leidos: ") :  Serial.println("(simulados): ");
     for(uint i=0;i<NUMRIEGOS;i++) {
-      Serial.printf("FACTOR %d: %d \n",i,factorRiegos[i]);
+      Serial.printf("factor ZONA%d: %d \n",i+1,factorRiegos[i]);
     }
   #endif
 }
