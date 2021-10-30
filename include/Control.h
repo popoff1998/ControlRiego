@@ -146,6 +146,7 @@
     HOLD         = 0x20,
   };
 
+  // ojo esta es la posición del bit de cada boton en el stream serie - no modificar -
   enum _botones {
     bZONA1      = 0x0001,
     bZONA2      = 0x0002,
@@ -232,12 +233,16 @@
     uint8_t estado; 
   } ;
 
-  //mantenemos aqui definicion completo a efectos de display de lo regado:
   #define NUMRIEGOS sizeof(COMPLETO)/sizeof(COMPLETO[0])
 
+   //Globales a todos los módulos
   #ifdef __MAIN__
 
+    // lista de todos los botones de zonas de riego disponibles:
     uint16_t COMPLETO[]  = { bZONA1 , bZONA2 , bZONA3 , bZONA4 , bZONA5 , bZONA6 , bZONA7 };
+    // lista de todos los leds disponibles (para su encendido en el autochequeo):
+    uint ledOrder[] = { lZONA1 , lZONA2 , lZONA3 , lZONA4 , lZONA5 , lZONA6 , lZONA7 ,
+                        LEDR , LEDG , lGRUPO1 , lGRUPO2 , lGRUPO3 };
     
     S_BOTON Boton [] =  { 
       //ID,          S   uS  LED          FLAGS                             DESC          IDX
@@ -245,19 +250,19 @@
       {bZONA2 ,     0,  0,  lZONA2 ,     ENABLED | ACTION,                 "PORCHE",     27},
       {bZONA3    ,  0,  0,  lZONA3    ,  ENABLED | ACTION,                 "CUARTILLO",  58},
       {bZONA4    ,  0,  0,  lZONA4    ,  ENABLED | ACTION,                 "GOTEOALTO",  59},
-      {bZONA6 ,     0,  0,  lZONA6 ,     ENABLED | ACTION,                 "OLIVOS",     61},
-      {bMULTIRIEGO, 0,  0,  0,           ENABLED | ACTION,                 "MULTIRIEGO",  0},
-      {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ROCALLA",    30},
       {bZONA5    ,  0,  0,  lZONA5    ,  ENABLED | ACTION,                 "GOTEOBAJO",  24},
+      {bZONA6 ,     0,  0,  lZONA6 ,     ENABLED | ACTION,                 "OLIVOS",     61},
+      {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ROCALLA",    30},
       {bSPARE13,    0,  0,  0,           DISABLED,                         "SPARE13",     0},
-      {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ONLYSTATUS | DUAL,      "GOTEOS",      0},
-      {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ONLYSTATUS | DUAL,      "CESPED",      0},
-      {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",        0},
-      {bENCODER,    0,  0,  0,           ENABLED | ONLYSTATUS | DUAL,      "ENCODER",     0},
       {bSPARE15,    0,  0,  0,           DISABLED,                         "SPARE15",     0},
       {bSPARE16,    0,  0,  0,           DISABLED,                         "SPARE16",     0},
-      {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE",       0},
+      {bENCODER,    0,  0,  0,           ENABLED | ONLYSTATUS | DUAL,      "ENCODER",     0},
+      {bMULTIRIEGO, 0,  0,  0,           ENABLED | ACTION,                 "MULTIRIEGO",  0},
+      {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ONLYSTATUS | DUAL,      "CESPED",      0},
       {bGRUPO2  ,   0,  0,  lGRUPO2  ,   DISABLED,                         "COMPLETO",    0},
+      {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ONLYSTATUS | DUAL,      "GOTEOS",      0},
+      {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE",       0},
+      {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",        0},
       {bCONFIG,     0,  0,  0,           DISABLED,                         "CONFIG",      0}
     };
 
@@ -265,8 +270,6 @@
 
     time_t   lastRiegos[NUMRIEGOS];
     uint     factorRiegos[NUMRIEGOS];
-    uint ledOrder[] = {lZONA1 , lZONA2 , lZONA3 , lZONA4    , lZONA5    , lZONA6 , lZONA7  ,
-                        LEDR, LEDG, lGRUPO1, lGRUPO2  , lGRUPO3};
     S_MULTI *multi;
     //numero de grupos de multirriego:
     int n_Grupos;
@@ -277,9 +280,12 @@
     bool falloAP;
     //Para configuracion por web portal (valores por defecto)
     // (ojo ver NOTA1 en Control.h --> FORCEINITEEPROM=1 para actualizarlos)
-    char serverAddress[40] = "192.168.100.60";
-    char DOMOTICZPORT[6] = "3380";
-    char ntpServer[40] = "192.168.100.60";
+    char serverAddress[40] = "192.168.1.50";
+    char DOMOTICZPORT[6] = "8080";
+    char ntpServer[40] = "es.pool.ntp.org";
+    //char serverAddress[40] = "192.168.100.60";
+    //char DOMOTICZPORT[6] = "3380";
+    //char ntpServer[40] = "192.168.100.60";
     bool saveConfig = false;
 
     S_initFlags initFlags ;
@@ -304,7 +310,7 @@
 
   #endif
 
-  //Globales
+  //Globales a este módulo
   #ifdef __MAIN__
 
     //Segun la arquitectura
