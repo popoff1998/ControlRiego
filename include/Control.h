@@ -22,6 +22,7 @@
   #include <CountUpDownTimer.h>
   #include <Streaming.h>
   #include <ArduinoJson.h>
+  #include <ArduinoJson.hpp>
   #include <Ticker.h>
 
   //Para mis clases
@@ -31,7 +32,7 @@
   #ifdef DEVELOP
     //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
     #define DEBUG
-    //#define EXTRADEBUG
+    #define EXTRADEBUG
     #define TRACE
     //#define EXTRATRACE
     #define VERBOSE

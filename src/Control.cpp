@@ -19,11 +19,6 @@ time_t utc;
 Ticker tic_parpadeoLedON;  //para parpadeo led ON (LEDR)
 Ticker tic_verificaciones; //para verificaciones periodicas
 
-
-//Para JSON
-StaticJsonBuffer<2000> jsonBuffer;
-
-
 /*----------------------------------------------*
  *               Setup inicial                  *
  *----------------------------------------------*/
@@ -1117,7 +1112,7 @@ String httpGetDomoticz(String message)
     if(httpCode == HTTP_CODE_OK) {
       response = httpclient.getString();
       #ifdef EXTRADEBUG
-        Serial.print("RESPONSE: ");Serial.println(response);
+        Serial.print("httpGetDomoticz RESPONSE: ");Serial.println(response);
       #endif
     }
   }
@@ -1184,13 +1179,13 @@ int getFactor(uint16_t idx)
      Ante cualquier problema (no de error), devolvemos 100% para no factorizar ese riego
      si VERIFY=false, o Err2 si VERIFY=true
   */
-  const size_t bufferSize = 2*JSON_ARRAY_SIZE(1) + JSON_OBJECT_SIZE(16) + JSON_OBJECT_SIZE(46) + 1500;
-  DynamicJsonBuffer jsonBuffer(bufferSize);
-  JsonObject &root = jsonBuffer.parseObject(response);
-  if (!root.success()) {
-    #ifdef DEBUG
-      Serial.println("parseObject() failed");
-    #endif
+  // ojo el ArduinoJson Assistant recomienda usar char* en vez de String (gasta menos memoria)
+  char* response_pointer = &response[0];
+  DynamicJsonDocument jsondoc(2048);
+  DeserializationError error = deserializeJson(jsondoc, response_pointer);
+  if (error) {
+    Serial.print(F("[ERROR] getFactor: deserializeJson() failed: "));
+    Serial.println(error.f_str());
     if(!VERIFY) return 100;
     else {
       statusError("Err2",3);
@@ -1198,7 +1193,7 @@ int getFactor(uint16_t idx)
     }
   }
   //Tenemos que controlar para que no resetee en caso de no haber leido por un rid malo
-  const char *factorstr = root["result"][0]["Description"];
+  const char *factorstr = jsondoc["result"][0]["Description"];
   if(factorstr == NULL) {
     //El rid (idx) no esta definido en el Domoticz
     #ifdef VERBOSE
