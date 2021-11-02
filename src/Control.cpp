@@ -17,6 +17,7 @@ Timezone CE(CEST, CET);
 TimeChangeRule *tcr;
 time_t utc;
 Ticker tic_parpadeoLedON;  //para parpadeo led ON (LEDR)
+Ticker tic_parpadeoLedZona;  //para parpadeo led zona de riego
 Ticker tic_verificaciones; //para verificaciones periodicas
 
 /*----------------------------------------------*
@@ -817,7 +818,11 @@ void initFactorRiegos()
   //leemos factores del Domoticz
   for(uint i=0;i<NUMRIEGOS;i++) {
     factorRiegos[i]=getFactor(Boton[bId2bIndex(COMPLETO[i])].idx);
-    if(Estado.estado == ERROR) break; //al primer error salimos
+    if(Estado.estado == ERROR) {  //al primer error salimos y señalamos zona que falla
+      ledID = Boton[bId2bIndex(COMPLETO[i])].led;
+      tic_parpadeoLedZona.attach(0.2,parpadeoLedZona);
+      break;
+    }
   }
   #ifdef VERBOSE
     //Leemos los valores para comprobar que lo hizo bien
@@ -1005,6 +1010,7 @@ bool initRiego(uint16_t id)
 bool stopRiego(uint16_t id)
 {
   int index = bId2bIndex(id);
+  ledID = Boton[index].led;
   #ifdef DEBUG
   Serial.printf( "Terminando riego: %s \n", Boton[index].desc);
   #endif
@@ -1015,6 +1021,7 @@ bool stopRiego(uint16_t id)
       if (simErrorOFF) statusError("Err5",5); // simula error si simErrorOFF es true
       errorOFF = true;  // recordatorio error
       tic_parpadeoLedON.attach(0.2,parpadeoLedON);
+      tic_parpadeoLedZona.attach(0.2,parpadeoLedZona);
     } 
     return false;
   }
@@ -1327,6 +1334,11 @@ void parpadeoLedON()
 {
   byte estado = ledStatusId(LEDR);
   led(LEDR,!estado);
+}
+void parpadeoLedZona()
+{
+  byte estado = ledStatusId(ledID);
+  led(ledID,!estado);
 }
 
 #ifdef NET_DIRECT

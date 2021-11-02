@@ -32,7 +32,7 @@
   #ifdef DEVELOP
     //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
     #define DEBUG
-    #define EXTRADEBUG
+    //#define EXTRADEBUG
     #define TRACE
     //#define EXTRATRACE
     #define VERBOSE
@@ -329,6 +329,7 @@
     uint8_t seconds = DEFAULTSECONDS;
     int value = minutes;
     int savedValue;
+    int ledID = 0;
     bool tiempoTerminado;
     bool reposo = false;
     unsigned long standbyTime;
@@ -383,6 +384,7 @@
   void longbip(int);
   int  nGrupos();
   void parpadeoLedON(void);
+  void parpadeoLedZona(void);
   S_BOTON *parseInputs(bool);
   void printMultiGroup(void);
   void procesaBotones(void);
