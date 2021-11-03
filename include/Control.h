@@ -22,8 +22,9 @@
   #include <CountUpDownTimer.h>
   #include <Streaming.h>
   #include <ArduinoJson.h>
-  #include <ArduinoJson.hpp>
   #include <Ticker.h>
+  #include <LittleFS.h>
+
 
   //Para mis clases
   #include "Display.h"
@@ -171,6 +172,39 @@
   #define bGRUPO2   0xFF01
   #define bCONFIG   0xFF02
 
+  //----------------------------------------------------------------------------------
+
+  //estructura para salvar un grupo
+  struct Grupo_parm {
+    uint16_t id;
+    int size;
+    uint16_t serie[16];
+    char desc[20];
+  } ;
+
+  //estructura para salvar parametros de un boton
+  struct Boton_parm {
+    char  desc[30];
+    uint16_t   idx;
+  } ;
+
+  struct Config_parm {
+    uint8_t   initialized=0;
+    static const int  n_Zonas=7;   
+    Boton_parm botonConfig[7];
+    uint16_t  botonIdx[16]; // IDX de cada boton para el Domoticz
+    uint8_t   minutes=5;      // minutos de riego por defecto 
+    uint8_t   seconds;      // segundos de riego por defecto
+    char domoticz_ip[40];
+    char domoticz_port[6];
+    char ntpServer[40];
+    static const int  n_Grupos=3;   //static const int n_Grupos = nGrupos();
+    Grupo_parm groupConfig[n_Grupos];
+  };
+
+  //--------------------------------------------------------------------------------------
+
+
   //estructura para salvar grupos de multirriego en la eeprom:
   struct _eeprom_group {
     int size;
@@ -183,8 +217,8 @@
     uint16_t  botonIdx[16]; // IDX de cada boton para el Domoticz
     uint8_t   minutes;      // minutos de riego por defecto 
     uint8_t   seconds;      // segundos de riego por defecto
-    char serverAddress[40];
-    char DOMOTICZPORT[6];
+    char domoticz_ip[40];
+    char domoticz_port[6];
     char ntpServer[40];
     int       numgroups;     // numero de grupos de multirriego
     _eeprom_group groups[]; // grupos de multirriego
@@ -281,11 +315,11 @@
     bool falloAP;
     //Para configuracion por web portal (valores por defecto)
     // (ojo ver NOTA1 en Control.h --> FORCEINITEEPROM=1 para actualizarlos)
-    char serverAddress[40] = "192.168.1.50";
-    char DOMOTICZPORT[6] = "8080";
+    char domoticz_ip[40] = "192.168.1.50";
+    char domoticz_port[6] = "8080";
     char ntpServer[40] = "es.pool.ntp.org";
-    //char serverAddress[40] = "192.168.100.60";
-    //char DOMOTICZPORT[6] = "3380";
+    //char domoticz_ip[40] = "192.168.100.60";
+    //char domoticz_port[6] = "3380";
     //char ntpServer[40] = "192.168.100.60";
     bool saveConfig = false;
 
@@ -301,8 +335,8 @@
     extern bool NONETWORK;
     extern bool VERIFY;
     extern bool falloAP;
-    extern char serverAddress[40];
-    extern char DOMOTICZPORT[6];
+    extern char domoticz_ip[40];
+    extern char domoticz_port[6];
     extern char ntpServer[40];
     extern bool saveConfig;
     extern char version_n;
@@ -356,6 +390,7 @@
   void blinkPause(void);
   void check(void);
   bool checkWifi(void);
+  void cleanFS(void);
   void configModeCallback (WiFiManager *);
   void dimmerLeds(void);
   void displayGrupo(uint16_t *, int);
@@ -381,12 +416,15 @@
   void led(uint8_t,int);
   void ledRGB(int,int,int);
   bool ledStatusId(int);
+  bool loadConfigFile(const char*, Config_parm&);
   void longbip(int);
   int  nGrupos();
   void parpadeoLedON(void);
   void parpadeoLedZona(void);
   S_BOTON *parseInputs(bool);
+  void printFile(const char*);
   void printMultiGroup(void);
+  void printParms(Config_parm&);
   void procesaBotones(void);
   void procesaEeprom(void);
   void procesaEncoder(void);
@@ -396,6 +434,7 @@
   void saveWifiCallback(void);
   void setupEstado(void);
   void setupInit(void);
+  void setupParm(void);
   void setupRed(void);
   void setupRedWM(void);
   void StaticTimeUpdate(void);

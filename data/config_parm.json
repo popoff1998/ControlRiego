@@ -1,0 +1,70 @@
+{
+  "numzonas": 7,	
+  "botones": [
+    {
+      "zona": 1,
+      "idx": 25,
+      "nombre": "TURBINAS"
+    },
+    {
+      "zona": 2,
+      "idx": 27,
+      "nombre": "PORCHE"
+    },
+    {
+      "zona": 3,
+      "idx": 58,
+      "nombre": "CUARTILLO"
+    },
+    {
+      "zona": 4,
+      "idx": 59,
+      "nombre": "GOTEOALTO"
+    },
+    {
+      "zona": 5,
+      "idx": 24,
+      "nombre": "GOTEOBAJO"
+    },
+    {
+      "zona": 6,
+      "idx": 61,
+      "nombre": "OLIVOS"
+    },
+    {
+      "zona": 7,
+      "idx": 30,
+      "nombre": "ROCALLA"
+    }
+  ],
+  "tiempo" : {
+    "minutos": 0,
+    "segundos": 10
+    },
+  "domoticz" : {	
+    "ip": "192.168.1.50",
+    "port": "8080"
+    },
+  "ntpServer": "es.pool.ntp.org",
+  "numgroups": 3,
+  "groups": [
+    {
+      "grupo": 1,
+      "desc": "CESPED",
+      "size": 3,
+      "zonas": [1,2,3]
+    },
+    {
+      "grupo": 2,
+      "desc": "COMPLETO",
+      "size": 7,
+      "zonas": [1,2,3,4,5,6,7]
+    },
+    {
+      "grupo": 3,
+      "desc": "GOTEOS",
+      "size": 4,
+      "zonas": [4,5,6,7]
+    }
+  ]  
+}

@@ -74,8 +74,8 @@ void setupRedWM()
   //sets timeout until configuration portal gets turned off
   wm.setConfigPortalTimeout(180);
   //parametros custom de configuracion en la pagina web de wifi
-  WiFiManagerParameter custom_domoticz_server("serverAddress", "Domoticz_ip" ,serverAddress, 40);
-  WiFiManagerParameter custom_domoticz_port("DOMOTICZPORT", "puerto", DOMOTICZPORT, 5);
+  WiFiManagerParameter custom_domoticz_server("domoticz_ip", "Domoticz_ip" ,domoticz_ip, 40);
+  WiFiManagerParameter custom_domoticz_port("domoticz_port", "puerto", domoticz_port, 5);
   WiFiManagerParameter custom_ntpserver("ntpServer", "NTP_server", ntpServer, 40);
   wm.addParameter(&custom_domoticz_server);
   wm.addParameter(&custom_domoticz_port);
@@ -138,8 +138,8 @@ void setupRedWM()
   }
   // ----------------------------- save the custom parameters to eeprom
   if (saveConfig) {
-    strcpy(serverAddress, custom_domoticz_server.getValue());
-    strcpy(DOMOTICZPORT, custom_domoticz_port.getValue());
+    strcpy(domoticz_ip, custom_domoticz_server.getValue());
+    strcpy(domoticz_port, custom_domoticz_port.getValue());
     strcpy(ntpServer, custom_ntpserver.getValue());
     eepromWriteRed();
   }

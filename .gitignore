@@ -7,3 +7,4 @@
 src/wifissid.h
 \.vscode/
 include/wifissid.h
+data/config_pruebas.json

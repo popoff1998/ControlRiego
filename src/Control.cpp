@@ -20,6 +20,12 @@ Ticker tic_parpadeoLedON;  //para parpadeo led ON (LEDR)
 Ticker tic_parpadeoLedZona;  //para parpadeo led zona de riego
 Ticker tic_verificaciones; //para verificaciones periodicas
 
+Config_parm config;
+
+const char *parmFile = "/config_parm.json";       // fichero de parametros activos
+const char *defaultFile = "/config_default.json"; // fichero de parametros por defecto
+bool clean_FS = false;
+
 /*----------------------------------------------*
  *               Setup inicial                  *
  *----------------------------------------------*/
@@ -70,6 +76,8 @@ void setup()
   initHC595();
   //preparo indicadores de inicializaciones opcionales
   setupInit();
+  //setup parametros configuracion
+  setupParm();
   //Inicializo la EEPROM (escribo en ella si asi se indica y/o se lee de ella valores configurados)
   procesaEeprom();
   //led encendido
@@ -762,11 +770,11 @@ void procesaEeprom()
   value = ((seconds==0)?minutes:seconds);
   StaticTimeUpdate();
   //leemos parametros conexion a Domoticz y ntp
-  EEPROM.get(offsetof(__eeprom_data, serverAddress),serverAddress);
-  EEPROM.get(offsetof(__eeprom_data, DOMOTICZPORT),DOMOTICZPORT);
+  EEPROM.get(offsetof(__eeprom_data, domoticz_ip),domoticz_ip);
+  EEPROM.get(offsetof(__eeprom_data, domoticz_port),domoticz_port);
   EEPROM.get(offsetof(__eeprom_data, ntpServer),ntpServer);
   Serial.println("leidos parametros de conexion a domoticz en la eeprom");
-  Serial.printf( " - Domoticz ip: %s puerto: %s \n", serverAddress, DOMOTICZPORT);
+  Serial.printf( " - Domoticz ip: %s puerto: %s \n", domoticz_ip, domoticz_port);
   Serial.printf( " - NTP server: %s \n", ntpServer );
   //leemos grupos de multirriego
   EEPROM.get(offsetof(__eeprom_data, numgroups),n_Grupos); //numero de grupos de multirriego
@@ -906,8 +914,8 @@ void eepromWriteGroups()
 void eepromWriteRed() 
 {
   Serial.println("Escribiendo parametros de conexion a domoticz en la eeprom");
-  EEPROM.put(offsetof(__eeprom_data, serverAddress),serverAddress);
-  EEPROM.put(offsetof(__eeprom_data, DOMOTICZPORT),DOMOTICZPORT);
+  EEPROM.put(offsetof(__eeprom_data, domoticz_ip),domoticz_ip);
+  EEPROM.put(offsetof(__eeprom_data, domoticz_port),domoticz_port);
   EEPROM.put(offsetof(__eeprom_data, ntpServer),ntpServer);
 }
 
@@ -1108,7 +1116,7 @@ String httpGetDomoticz(String message)
   #ifdef TRACE
     Serial.println("TRACE: in httpGetDomoticz");
   #endif
-  String tmpStr = "http://" + String(serverAddress) + ":" + DOMOTICZPORT + String(message);
+  String tmpStr = "http://" + String(domoticz_ip) + ":" + domoticz_port + String(message);
   #ifdef DEBUG
     Serial.print("TMPSTR: ");Serial.println(tmpStr);
   #endif
@@ -1341,22 +1349,18 @@ void parpadeoLedZona()
   led(ledID,!estado);
 }
 
-#ifdef NET_DIRECT
-void clientConnect()
+void setupParm()
 {
-  while(1)
-  {
-    delay(1000);
-    Serial.println("Conectando a domoticz ...");
-    if (client.connect(server,port)) {
-      Serial.println("conectado");
-      break;
-    }
-    else {
-      Serial.println("Conexion fallida");
-      client.stop();
-    }
-  }
+  if(clean_FS) cleanFS(); 
+  Serial.printf("\n\nLeyendo fichero parametros %s", parmFile);
+  printFile(parmFile);
+  Serial.println();
+  if (config.initialized) Serial.println("\n Parametros Iniciales: ");
+  else Serial.println("\n Parametros zero-config: ");
+  printParms(config);
+  bool loaded = loadConfigFile(parmFile, config);
+  if (loaded) printParms(config);
+  else Serial.println("parámetros de configuración no cargados");
+  Serial.println();
 }
-#endif
 
