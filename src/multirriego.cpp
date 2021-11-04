@@ -61,7 +61,7 @@ void displayGrupo(uint16_t *serie, int serieSize)
 void printMultiGroup()
 {
   S_MULTI *multi;
-  for (int j=0; j<n_Grupos; j++) {
+  for (int j=0; j<NUMGRUPOS; j++) {
     multi = getMultibyIndex(j);
     Serial.printf("\n Grupo%d : %d elementos \n", j+1, multi->size);
     for (int i=0;i < multi->size; i++) {

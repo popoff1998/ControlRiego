@@ -9,7 +9,14 @@ S_BOTON *ultimoBoton;
   WiFiUDP ntpUDP;
 #endif
 
-NTPClient timeClient(ntpUDP,ntpServer);
+Config_parm config; //parametros configurables
+
+const char *parmFile = "/config_parm.json";       // fichero de parametros activos
+const char *defaultFile = "/config_default.json"; // fichero de parametros por defecto
+const char *testFile = "/config_pruebas.json"; // fichero de parametros para pruebas
+bool clean_FS = false;
+
+NTPClient timeClient(ntpUDP,config.ntpServer);
 
 TimeChangeRule CEST = {"CEST", Last, Sun, Mar, 2, 120};
 TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};
@@ -19,12 +26,6 @@ time_t utc;
 Ticker tic_parpadeoLedON;  //para parpadeo led ON (LEDR)
 Ticker tic_parpadeoLedZona;  //para parpadeo led zona de riego
 Ticker tic_verificaciones; //para verificaciones periodicas
-
-Config_parm config;
-
-const char *parmFile = "/config_parm.json";       // fichero de parametros activos
-const char *defaultFile = "/config_default.json"; // fichero de parametros por defecto
-bool clean_FS = false;
 
 /*----------------------------------------------*
  *               Setup inicial                  *
@@ -77,7 +78,7 @@ void setup()
   //preparo indicadores de inicializaciones opcionales
   setupInit();
   //setup parametros configuracion
-  setupParm();
+  setupParm(testFile);
   //Inicializo la EEPROM (escribo en ella si asi se indica y/o se lee de ella valores configurados)
   procesaEeprom();
   //led encendido
@@ -85,7 +86,7 @@ void setup()
   //Chequeo de perifericos de salida (leds, display, buzzer)
   check();
   //Para la red
-  setupRedWM();
+  setupRedWM(config);
   if (saveConfig) {
     EEPROM.commit();
     saveConfig = false;
@@ -699,17 +700,17 @@ void procesaEeprom()
   int i,botonAddr;
   int grupoAddr;
   bool eeinitialized=0;
-  n_Grupos = nGrupos();
+  //n_Grupos = nGrupos();
 
   #ifdef NODEMCU
-    EEPROM.begin(sizeof(__eeprom_data) + sizeof(_eeprom_group)*n_Grupos);
+    EEPROM.begin(sizeof(__eeprom_data) + sizeof(_eeprom_group)*NUMGRUPOS);
   #endif
 
   EEPROM.get(0,eeinitialized);
   botonAddr = offsetof(__eeprom_data, botonIdx[0]);
   
   #ifdef DEBUG
-    Serial.printf( "\n tamaño de la eeprom : %d \n", sizeof(__eeprom_data) + sizeof(_eeprom_group)*n_Grupos );
+    Serial.printf( "\n tamaño de la eeprom : %d \n", sizeof(__eeprom_data) + sizeof(_eeprom_group)*NUMGRUPOS );
     Serial.printf( "\t eeinitialized= %d \n", eeinitialized );
     Serial.printf( "\t FORCEINITEEPROM= %d \n", FORCEINITEEPROM );
     Serial.printf( "\t initEeprom= %d \n", initFlags.initEeprom );
@@ -725,11 +726,11 @@ void procesaEeprom()
       botonAddr += 2;
     }
     //escribe tiempo de riego por defecto
-    minutes = DEFAULTMINUTES;
-    seconds = DEFAULTSECONDS;
-    Serial.printf( "escrito tiempo riego por defecto, minutos: %d segundos: %d \n",minutes ,seconds );
-    EEPROM.put(offsetof(__eeprom_data, minutes),minutes);
-    EEPROM.put(offsetof(__eeprom_data, seconds),seconds);
+    //minutes = DEFAULTMINUTES;
+    //seconds = DEFAULTSECONDS;
+    Serial.printf( "simulado... escrito tiempo riego por defecto, minutos: %d segundos: %d \n",minutes ,seconds );
+    //EEPROM.put(offsetof(__eeprom_data, minutes),minutes);
+    //EEPROM.put(offsetof(__eeprom_data, seconds),seconds);
     //escribe parametros conexion a Domoticz y ntp
     //eepromWriteRed();
     //escribe parametros conexion a Domoticz y ntp solo si FORCEINITEEPROM o no inicializada
@@ -743,7 +744,7 @@ void procesaEeprom()
       if(bRc) Serial.println("Write eeprom OK");
       else    Serial.println("Write eeprom error");
     #endif                
-    #ifdef DEBUG
+    #ifdef EXTRADEBUG
       Serial.printf( "OFFinitialized: %d \n", offsetof(__eeprom_data, initialized));
       Serial.printf( "OFFm: %d OFFS: %d \n", offsetof(__eeprom_data, minutes), offsetof(__eeprom_data, seconds));
       Serial.printf( "OFFnumgroups: %d \n", offsetof(__eeprom_data, numgroups));
@@ -754,32 +755,32 @@ void procesaEeprom()
   //siempre leemos valores de la eeprom para cargar las variables correspondientes:
   Serial.println("<<<<<<<<<<<<<<<<<<<<<   Leyendo valores de la EEPROM   >>>>>>>>>>>>>>>>>>>>>>>>>>>>");
   //leemos valores de los IDX de los botones
-  Serial.println("Leyendo idx de los botones");
-  botonAddr = offsetof(__eeprom_data, botonIdx[0]);
-  for(i=0;i<16;i++) {
-    EEPROM.get(botonAddr,Boton[i].idx);
+  Serial.println("simulado... Leyendo idx de los botones");
+  //botonAddr = offsetof(__eeprom_data, botonIdx[0]);
+  for(i=0;i<NUMZONAS;i++) {
+    //EEPROM.get(botonAddr,Boton[i].idx);
     #ifdef VERBOSE
-      Serial.printf( "leido boton %d idx: %d address: %d \n", i, Boton[i].idx, botonAddr);
+      Serial.printf( "  boton zona%d idx: %d descripcion: %s \n", i+1, Boton[i].idx, Boton[i].desc);
     #endif
-    botonAddr += sizeof(Boton[i].idx);
+    //botonAddr += sizeof(Boton[i].idx);
   }
   //leemos tiempo de riego por defecto
-  EEPROM.get(offsetof(__eeprom_data, minutes),minutes);
-  EEPROM.get(offsetof(__eeprom_data, seconds),seconds);
-  Serial.printf( "leido tiempo riego por defecto, minutos: %d segundos: %d \n",minutes ,seconds );
-  value = ((seconds==0)?minutes:seconds);
+  //EEPROM.get(offsetof(__eeprom_data, minutes),minutes);
+  //EEPROM.get(offsetof(__eeprom_data, seconds),seconds);
+  //value = ((seconds==0)?minutes:seconds);
+  Serial.printf( "simulado...leido tiempo riego por defecto, minutos: %d segundos: %d \n",minutes ,seconds );
   StaticTimeUpdate();
   //leemos parametros conexion a Domoticz y ntp
-  EEPROM.get(offsetof(__eeprom_data, domoticz_ip),domoticz_ip);
-  EEPROM.get(offsetof(__eeprom_data, domoticz_port),domoticz_port);
-  EEPROM.get(offsetof(__eeprom_data, ntpServer),ntpServer);
-  Serial.println("leidos parametros de conexion a domoticz en la eeprom");
-  Serial.printf( " - Domoticz ip: %s puerto: %s \n", domoticz_ip, domoticz_port);
-  Serial.printf( " - NTP server: %s \n", ntpServer );
+  //EEPROM.get(offsetof(__eeprom_data, domoticz_ip),domoticz_ip);
+  //EEPROM.get(offsetof(__eeprom_data, domoticz_port),domoticz_port);
+  //EEPROM.get(offsetof(__eeprom_data, ntpServer),config.ntpServer);
+  Serial.println("simulados....leidos parametros de conexion a domoticz en la eeprom");
+  Serial.printf( " - Domoticz ip: %s puerto: %s \n", config.domoticz_ip, config.domoticz_port);
+  Serial.printf( " - NTP server: %s \n", config.ntpServer );
   //leemos grupos de multirriego
-  EEPROM.get(offsetof(__eeprom_data, numgroups),n_Grupos); //numero de grupos de multirriego
-  Serial.printf( "leido n_Grupos de la eeprom: %d grupos \n", n_Grupos );
-  #ifdef DEBUG
+  //EEPROM.get(offsetof(__eeprom_data, numgroups),NUMGRUPOS); //numero de grupos de multirriego
+  Serial.printf( "simulamos..leido NUMGRUPOS de la eeprom: %d grupos \n", NUMGRUPOS );
+  #ifdef EXTRADEBUG
       int k;
       k = offsetof(__eeprom_data, groups[0].size);
       Serial.printf( "offset Grupo1.size  : %d \n" , k );
@@ -795,7 +796,7 @@ void procesaEeprom()
       Serial.printf( "offset Grupo3.serie  : %d \n" , k );
   #endif
   grupoAddr = offsetof(__eeprom_data, groups[0]);
-  for(i=0;i<n_Grupos;i++) {
+  for(i=0;i<NUMGRUPOS;i++) {
     multi = getMultibyIndex(i);
     EEPROM.get(grupoAddr,multi->size);
     #ifdef VERBOSE
@@ -897,8 +898,8 @@ void eepromWriteGroups()
 {
   int grupoAddr;
   grupoAddr = offsetof(__eeprom_data, groups[0]);
-  EEPROM.put(offsetof(__eeprom_data, numgroups),n_Grupos); //numero de grupos de multirriego
-  for(int i=0;i<n_Grupos;i++) {
+  EEPROM.put(offsetof(__eeprom_data, numgroups),NUMGRUPOS); //numero de grupos de multirriego
+  for(int i=0;i<NUMGRUPOS;i++) {
     multi = getMultibyIndex(i);
     Serial.printf( "escribiendo elementos Grupo%d : %d elementos \n" , i+1 , multi->size );
     EEPROM.put(grupoAddr,multi->size);
@@ -914,9 +915,9 @@ void eepromWriteGroups()
 void eepromWriteRed() 
 {
   Serial.println("Escribiendo parametros de conexion a domoticz en la eeprom");
-  EEPROM.put(offsetof(__eeprom_data, domoticz_ip),domoticz_ip);
-  EEPROM.put(offsetof(__eeprom_data, domoticz_port),domoticz_port);
-  EEPROM.put(offsetof(__eeprom_data, ntpServer),ntpServer);
+  EEPROM.put(offsetof(__eeprom_data, domoticz_ip),config.domoticz_ip);
+  EEPROM.put(offsetof(__eeprom_data, domoticz_port),config.domoticz_port);
+  EEPROM.put(offsetof(__eeprom_data, ntpServer),config.ntpServer);
 }
 
 //conmuta estado LEDR, LEDG y LEDB para atenuarlos
@@ -1116,7 +1117,7 @@ String httpGetDomoticz(String message)
   #ifdef TRACE
     Serial.println("TRACE: in httpGetDomoticz");
   #endif
-  String tmpStr = "http://" + String(domoticz_ip) + ":" + domoticz_port + String(message);
+  String tmpStr = "http://" + String(config.domoticz_ip) + ":" + config.domoticz_port + String(message);
   #ifdef DEBUG
     Serial.print("TMPSTR: ");Serial.println(tmpStr);
   #endif
@@ -1349,18 +1350,28 @@ void parpadeoLedZona()
   led(ledID,!estado);
 }
 
-void setupParm()
+void setupParm(const char *filename)
 {
+  #ifdef TRACE
+    Serial.println("TRACE: in setupParm");
+  #endif
   if(clean_FS) cleanFS(); 
-  Serial.printf("\n\nLeyendo fichero parametros %s", parmFile);
-  printFile(parmFile);
-  Serial.println();
-  if (config.initialized) Serial.println("\n Parametros Iniciales: ");
-  else Serial.println("\n Parametros zero-config: ");
-  printParms(config);
-  bool loaded = loadConfigFile(parmFile, config);
+  Serial.printf("Leyendo fichero parametros %s \n", filename);
+  #ifdef EXTRADEBUG
+    printFile(parmFile);
+    if (config.initialized) Serial.println("\n Parametros Iniciales: ");
+    else Serial.println("\n Parametros zero-config: ");
+    printParms(config);
+  #endif
+  bool loaded = loadConfigFile(filename, config);
   if (loaded) printParms(config);
-  else Serial.println("parámetros de configuración no cargados");
-  Serial.println();
+  else Serial.println("[ERROR?] parámetros de configuración no cargados");
+  minutes = config.minutes;
+  seconds = config.seconds;
+  value = ((seconds==0)?minutes:seconds);
+  for(int i=0;i<NUMZONAS;i++) {
+    Boton[i].idx = config.botonConfig[i].idx;
+    strlcpy(Boton[i].desc, config.botonConfig[i].desc, sizeof(Boton[i].desc));
+  }
 }
 

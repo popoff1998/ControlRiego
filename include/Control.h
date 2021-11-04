@@ -91,6 +91,8 @@
   #define MINSECONDS          5
   #define HOLDTIME            3000
   #define MAXCONNECTRETRY     10
+  #define NUMGRUPOS           3  // numero de grupos multirriego
+  #define NUMZONAS            7  // numero de zonas (botones riego individual)
 
 
   #ifdef NODEMCU
@@ -188,17 +190,18 @@
     uint16_t   idx;
   } ;
 
+  //estructura para parametros configurables
   struct Config_parm {
     uint8_t   initialized=0;
-    static const int  n_Zonas=7;   
-    Boton_parm botonConfig[7];
-    uint16_t  botonIdx[16]; // IDX de cada boton para el Domoticz
-    uint8_t   minutes=5;      // minutos de riego por defecto 
-    uint8_t   seconds;      // segundos de riego por defecto
+    static const int  n_Zonas = NUMZONAS; //no modificable por fichero de parámetros (depende HW) 
+    Boton_parm botonConfig[n_Zonas];
+    uint16_t  botonIdx[16];
+    uint8_t   minutes = DEFAULTMINUTES; 
+    uint8_t   seconds = DEFAULTSECONDS;
     char domoticz_ip[40];
     char domoticz_port[6];
     char ntpServer[40];
-    static const int  n_Grupos=3;   //static const int n_Grupos = nGrupos();
+    static const int  n_Grupos = NUMGRUPOS;  //no modificable por fichero de parámetros (depende HW)
     Grupo_parm groupConfig[n_Grupos];
   };
 
@@ -307,7 +310,7 @@
     uint     factorRiegos[NUMRIEGOS];
     S_MULTI *multi;
     //numero de grupos de multirriego:
-    int n_Grupos;
+    //int n_Grupos;
     //parametros de conexion a la red
     bool connected;
     bool NONETWORK;
@@ -315,9 +318,9 @@
     bool falloAP;
     //Para configuracion por web portal (valores por defecto)
     // (ojo ver NOTA1 en Control.h --> FORCEINITEEPROM=1 para actualizarlos)
-    char domoticz_ip[40] = "192.168.1.50";
-    char domoticz_port[6] = "8080";
-    char ntpServer[40] = "es.pool.ntp.org";
+    //char domoticz_ip[40] = "192.168.1.50";
+    //char domoticz_port[6] = "8080";
+    //char ntpServer[40] = "es.pool.ntp.org";
     //char domoticz_ip[40] = "192.168.100.60";
     //char domoticz_port[6] = "3380";
     //char ntpServer[40] = "192.168.100.60";
@@ -330,14 +333,14 @@
   #else
     extern S_BOTON Boton [];
     extern uint ledOrder[];
-    extern int n_Grupos;
+    //extern int n_Grupos;
     extern bool connected;
     extern bool NONETWORK;
     extern bool VERIFY;
     extern bool falloAP;
-    extern char domoticz_ip[40];
-    extern char domoticz_port[6];
-    extern char ntpServer[40];
+    //extern char domoticz_ip[40];
+    //extern char domoticz_port[6];
+    //extern char ntpServer[40];
     extern bool saveConfig;
     extern char version_n;
     extern S_initFlags initFlags;
@@ -359,9 +362,10 @@
     ClickEncoder *Encoder;
     Display     *display;
     Configure *configure;
-    uint8_t minutes = DEFAULTMINUTES;
-    uint8_t seconds = DEFAULTSECONDS;
-    int value = minutes;
+    uint8_t minutes;
+    uint8_t seconds;
+    //int value = minutes;
+    int value;
     int savedValue;
     int ledID = 0;
     bool tiempoTerminado;
@@ -434,9 +438,8 @@
   void saveWifiCallback(void);
   void setupEstado(void);
   void setupInit(void);
-  void setupParm(void);
-  void setupRed(void);
-  void setupRedWM(void);
+  void setupParm(const char*);
+  void setupRedWM(Config_parm&);
   void StaticTimeUpdate(void);
   void statusError(String, int n);
   bool stopRiego(uint16_t);
