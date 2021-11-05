@@ -50,6 +50,7 @@ bool loadConfigFile(const char *filename, Config_parm &cfg)
   //--------------  procesa grupos  ---------------------------------------------------------
   for (JsonObject groups_item : doc["groups"].as<JsonArray>()) {
     int i = groups_item["grupo"]; // 1, 2, 3
+    cfg.groupConfig[i-1].id = GRUPOS[i-1];  //obtiene el id del boton de ese grupo (ojo: no viene en el json)
     cfg.groupConfig[i-1].size = groups_item["size"]; // 3, 7, 4
     strlcpy(cfg.groupConfig[i-1].desc, groups_item["desc"], sizeof(cfg.groupConfig[i-1].desc)); 
     JsonArray array = groups_item["zonas"].as<JsonArray>();

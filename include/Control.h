@@ -195,7 +195,6 @@
     uint8_t   initialized=0;
     static const int  n_Zonas = NUMZONAS; //no modificable por fichero de parámetros (depende HW) 
     Boton_parm botonConfig[n_Zonas];
-    uint16_t  botonIdx[16];
     uint8_t   minutes = DEFAULTMINUTES; 
     uint8_t   seconds = DEFAULTSECONDS;
     char domoticz_ip[40];
@@ -226,6 +225,18 @@
     int       numgroups;     // numero de grupos de multirriego
     _eeprom_group groups[]; // grupos de multirriego
   };
+
+  //estructura de un grupo de multirriego *nueva
+  // (todos son pointer al multirriego correspondiente en config menos:    )
+  // (          actual  <- es una variable de trabajo durante el multirriego)
+  // (          serie[] <- contiene el id del boton, no el numero de la zona de config)
+  struct S_MULTI2 {
+    uint16_t *id;
+    uint16_t serie[16];
+    int *size;
+    int actual;
+    char *desc;
+  } ;
 
   //estructura de un grupo de multirriego
   struct S_MULTI {
@@ -276,39 +287,43 @@
    //Globales a todos los módulos
   #ifdef __MAIN__
 
-    // lista de todos los botones de zonas de riego disponibles:
-    uint16_t COMPLETO[]  = { bZONA1 , bZONA2 , bZONA3 , bZONA4 , bZONA5 , bZONA6 , bZONA7 };
-    // lista de todos los leds disponibles (para su encendido en el autochequeo):
-    uint ledOrder[] = { lZONA1 , lZONA2 , lZONA3 , lZONA4 , lZONA5 , lZONA6 , lZONA7 ,
-                        LEDR , LEDG , lGRUPO1 , lGRUPO2 , lGRUPO3 };
-    
-    S_BOTON Boton [] =  { 
-      //ID,          S   uS  LED          FLAGS                             DESC          IDX
-      {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "TURBINAS",   25},
-      {bZONA2 ,     0,  0,  lZONA2 ,     ENABLED | ACTION,                 "PORCHE",     27},
-      {bZONA3    ,  0,  0,  lZONA3    ,  ENABLED | ACTION,                 "CUARTILLO",  58},
-      {bZONA4    ,  0,  0,  lZONA4    ,  ENABLED | ACTION,                 "GOTEOALTO",  59},
-      {bZONA5    ,  0,  0,  lZONA5    ,  ENABLED | ACTION,                 "GOTEOBAJO",  24},
-      {bZONA6 ,     0,  0,  lZONA6 ,     ENABLED | ACTION,                 "OLIVOS",     61},
-      {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ROCALLA",    30},
-      {bSPARE13,    0,  0,  0,           DISABLED,                         "SPARE13",     0},
-      {bSPARE15,    0,  0,  0,           DISABLED,                         "SPARE15",     0},
-      {bSPARE16,    0,  0,  0,           DISABLED,                         "SPARE16",     0},
-      {bENCODER,    0,  0,  0,           ENABLED | ONLYSTATUS | DUAL,      "ENCODER",     0},
-      {bMULTIRIEGO, 0,  0,  0,           ENABLED | ACTION,                 "MULTIRIEGO",  0},
-      {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ONLYSTATUS | DUAL,      "CESPED",      0},
-      {bGRUPO2  ,   0,  0,  lGRUPO2  ,   DISABLED,                         "COMPLETO",    0},
-      {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ONLYSTATUS | DUAL,      "GOTEOS",      0},
-      {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE",       0},
-      {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",        0},
-      {bCONFIG,     0,  0,  0,           DISABLED,                         "CONFIG",      0}
-    };
-
-    int NUM_S_BOTON = sizeof(Boton)/sizeof(Boton[0]);
+    // dependientes del HW (número, orden y caracteristicas) :
+        // lista de todos los botones de zonas de riego disponibles:
+        uint16_t COMPLETO[]  = { bZONA1 , bZONA2 , bZONA3 , bZONA4 , bZONA5 , bZONA6 , bZONA7 };
+        // lista de todos los botones (selector) de grupos disponibles:
+        uint16_t GRUPOS[]  = { bGRUPO1 , bGRUPO2 , bGRUPO3 };
+        // lista de todos los leds disponibles (para su encendido en el autochequeo):
+        uint ledOrder[] = { lZONA1 , lZONA2 , lZONA3 , lZONA4 , lZONA5 , lZONA6 , lZONA7 ,
+                            LEDR , LEDG , lGRUPO1 , lGRUPO2 , lGRUPO3 };
+        
+        S_BOTON Boton [] =  { 
+          //ID,          S   uS  LED          FLAGS                             DESC          IDX
+          {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "TURBINAS",   25},
+          {bZONA2 ,     0,  0,  lZONA2 ,     ENABLED | ACTION,                 "PORCHE",     27},
+          {bZONA3    ,  0,  0,  lZONA3    ,  ENABLED | ACTION,                 "CUARTILLO",  58},
+          {bZONA4    ,  0,  0,  lZONA4    ,  ENABLED | ACTION,                 "GOTEOALTO",  59},
+          {bZONA5    ,  0,  0,  lZONA5    ,  ENABLED | ACTION,                 "GOTEOBAJO",  24},
+          {bZONA6 ,     0,  0,  lZONA6 ,     ENABLED | ACTION,                 "OLIVOS",     61},
+          {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ROCALLA",    30},
+          {bSPARE13,    0,  0,  0,           DISABLED,                         "SPARE13",     0},
+          {bSPARE15,    0,  0,  0,           DISABLED,                         "SPARE15",     0},
+          {bSPARE16,    0,  0,  0,           DISABLED,                         "SPARE16",     0},
+          {bENCODER,    0,  0,  0,           ENABLED | ONLYSTATUS | DUAL,      "ENCODER",     0},
+          {bMULTIRIEGO, 0,  0,  0,           ENABLED | ACTION,                 "MULTIRIEGO",  0},
+          {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ONLYSTATUS | DUAL,      "CESPED",      0},
+          {bGRUPO2  ,   0,  0,  lGRUPO2  ,   DISABLED,                         "COMPLETO",    0},
+          {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ONLYSTATUS | DUAL,      "GOTEOS",      0},
+          {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE",       0},
+          {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",        0},
+          {bCONFIG,     0,  0,  0,           DISABLED,                         "CONFIG",      0}
+        };
+        int NUM_S_BOTON = sizeof(Boton)/sizeof(Boton[0]);
+    // fin dependientes del HW
 
     time_t   lastRiegos[NUMRIEGOS];
     uint     factorRiegos[NUMRIEGOS];
     S_MULTI *multi;
+    S_MULTI2 multi2;  //estructura con variables del multigrupo activo
     //numero de grupos de multirriego:
     //int n_Grupos;
     //parametros de conexion a la red
@@ -333,6 +348,8 @@
   #else
     extern S_BOTON Boton [];
     extern uint ledOrder[];
+    extern uint16_t GRUPOS[];
+    extern uint16_t COMPLETO[];
     //extern int n_Grupos;
     extern bool connected;
     extern bool NONETWORK;
@@ -345,6 +362,7 @@
     extern char version_n;
     extern S_initFlags initFlags;
     extern int NUM_S_BOTON;
+    extern S_MULTI2 multi2;
 
   #endif
 
@@ -405,8 +423,7 @@
   void enciendeLeds(void);
   void flagVerificaciones(void);
   int  getFactor(uint16_t);
-  S_MULTI *getMultibyId(uint16_t);
-  S_MULTI *getMultibyIndex(int);
+  bool getMultibyId2(uint16_t , Config_parm&);
   uint16_t getMultiStatus(void);
   String *httpGetDomoticz(String *);
   uint idarrayRiego(uint16_t);
@@ -427,7 +444,8 @@
   void parpadeoLedZona(void);
   S_BOTON *parseInputs(bool);
   void printFile(const char*);
-  void printMultiGroup(void);
+  void printMulti2(void);
+  void printMultiGroup(Config_parm&);
   void printParms(Config_parm&);
   void procesaBotones(void);
   void procesaEeprom(void);

@@ -45,7 +45,7 @@
     "ip": "192.168.1.50",
     "port": "8080"
     },
-  "ntpServer": "ACTIVOS",
+  "ntpServer": "es.pool.ntp.org",
   "numgroups": 3,
   "groups": [
     {
