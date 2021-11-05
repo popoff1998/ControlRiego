@@ -79,6 +79,7 @@ void setup()
   setupInit();
   //setup parametros configuracion
   setupParm(parmFile);
+  //setupParm(testFile);
   //Inicializo la EEPROM (escribo en ella si asi se indica y/o se lee de ella valores configurados)
   procesaEeprom();
   //led encendido

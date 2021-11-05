@@ -1,24 +1,6 @@
 
 #include "Control.h"
 
-//valores y tamaño de las series por defecto 
-// (ojo ver NOTA1 en Control.h --> FORCEINITEEPROM=1 para actualizarlos)
-/*    
-uint16_t Grupo1[16]    = { bZONA1, bZONA2, bZONA3 };
-uint16_t Grupo2[16]    = { bZONA1, bZONA2, bZONA3, bZONA4, bZONA5, bZONA6, bZONA7 };
-uint16_t Grupo3[16]    = { bZONA4, bZONA5, bZONA6, bZONA7 };
-int size_Grupo1 = 3;
-int size_Grupo2 = 7;
-int size_Grupo3 = 4;
-
-S_MULTI multiGroup [] =  { 
-      //id,        serie        size        actual     descripcion
-      { bGRUPO1,   Grupo1,    size_Grupo1,    0,       "CESPED"},
-      { bGRUPO2  , Grupo2,    size_Grupo2,    0,       "COMPLETO"},
-      { bGRUPO3,   Grupo3,    size_Grupo3,    0,       "GOTEOS"}
-};
- */
-
 //devuelve posicion del selector de multirriego
 uint16_t getMultiStatus()
 {

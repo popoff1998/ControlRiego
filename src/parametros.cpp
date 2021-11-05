@@ -35,23 +35,25 @@ bool loadConfigFile(const char *filename, Config_parm &cfg)
   if (numzonas != cfg.n_Zonas) Serial.print("ERROR numero de zonas incorrecto");
   for (JsonObject botones_item : doc["botones"].as<JsonArray>()) {
     int i = botones_item["zona"]; // 1, 2, 3, 4, 5, 6, 7
-    cfg.botonConfig[i-1].idx = botones_item["idx"]; // 25, 27, 58, 59, 24, 61, 30
-    strlcpy(cfg.botonConfig[i-1].desc, botones_item["nombre"], sizeof(cfg.botonConfig[i-1].desc)); // "TURBINAS", "PORCHE", "CUARTILLO", "GOTEOALTO", ...
+    cfg.botonConfig[i-1].idx = botones_item["idx"];
+    strlcpy(cfg.botonConfig[i-1].desc, botones_item["nombre"], sizeof(cfg.botonConfig[i-1].desc));
+    //actualiza la descripcion leida en estructura Boton:
+    strlcpy(Boton[i-1].desc,  cfg.botonConfig[i-1].desc, sizeof(Boton[i-1].desc));
     i++;
   }
   //--------------  procesa parametro individuales   ----------------------------------------
   cfg.minutes = doc["tiempo"]["minutos"]; // 0
   cfg.seconds = doc["tiempo"]["segundos"]; // 10
-  strlcpy(cfg.domoticz_ip, doc["domoticz"]["ip"], sizeof(cfg.domoticz_ip)); // "192.168.1.50"
-  strlcpy(cfg.domoticz_port, doc["domoticz"]["port"], sizeof(cfg.domoticz_port)); // "8080"
-  strlcpy(cfg.ntpServer, doc["ntpServer"], sizeof(cfg.ntpServer)); // "ToMaS"
-  int numgroups = doc["numgroups"]; // 3
+  strlcpy(cfg.domoticz_ip, doc["domoticz"]["ip"], sizeof(cfg.domoticz_ip));
+  strlcpy(cfg.domoticz_port, doc["domoticz"]["port"], sizeof(cfg.domoticz_port));
+  strlcpy(cfg.ntpServer, doc["ntpServer"], sizeof(cfg.ntpServer));
+  int numgroups = doc["numgroups"];
   if (numgroups != cfg.n_Grupos) Serial.print("ERROR numero de grupos incorrecto");
   //--------------  procesa grupos  ---------------------------------------------------------
   for (JsonObject groups_item : doc["groups"].as<JsonArray>()) {
     int i = groups_item["grupo"]; // 1, 2, 3
     cfg.groupConfig[i-1].id = GRUPOS[i-1];  //obtiene el id del boton de ese grupo (ojo: no viene en el json)
-    cfg.groupConfig[i-1].size = groups_item["size"]; // 3, 7, 4
+    cfg.groupConfig[i-1].size = groups_item["size"];
     strlcpy(cfg.groupConfig[i-1].desc, groups_item["desc"], sizeof(cfg.groupConfig[i-1].desc)); 
     JsonArray array = groups_item["zonas"].as<JsonArray>();
     int count = array.size();
