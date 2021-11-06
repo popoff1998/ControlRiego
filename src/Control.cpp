@@ -14,6 +14,7 @@ Config_parm config; //parametros configurables
 const char *parmFile = "/config_parm.json";       // fichero de parametros activos
 const char *defaultFile = "/config_default.json"; // fichero de parametros por defecto
 const char *testFile = "/config_pruebas.json"; // fichero de parametros para pruebas
+const char *testwriteFile = "/config_pruebas_w.json"; // fichero de parametros para pruebas
 bool clean_FS = false;
 
 NTPClient timeClient(ntpUDP,config.ntpServer);
@@ -80,6 +81,8 @@ void setup()
   //setup parametros configuracion
   setupParm(parmFile);
   //setupParm(testFile);
+  saveConfigFile(testwriteFile, config);
+  printFile(testwriteFile);
   //Inicializo la EEPROM (escribo en ella si asi se indica y/o se lee de ella valores configurados)
   procesaEeprom();
   //led encendido
@@ -112,7 +115,7 @@ void setup()
   // estado final en funcion de la conexion
   setupEstado();
   //inicializamos apuntador estructura multi (posicion del selector multirriego):
-  getMultibyId2(getMultiStatus(), config);
+  getMultibyId(getMultiStatus(), config);
   #ifdef DEBUG
     printMulti2();
   #endif
@@ -350,34 +353,34 @@ void procesaBotones()
         #endif
         savedValue = value;
         configure->configureMulti();
-        getMultibyId2(getMultiStatus(), config); 
+        getMultibyId(getMultiStatus(), config); 
         #ifdef DEBUG
-          Serial.printf( "en configuracion de MULTIRRIEGO, getMultibyId devuelve: %s \n" , multi2.desc);
-          Serial.printf( "                                           *multi2.size: %d \n" , *multi2.size);
+          Serial.printf( "en configuracion de MULTIRRIEGO, getMultibyId devuelve: %s \n" , multi.desc);
+          Serial.printf( "                                           *multi.size: %d \n" , *multi.size);
         #endif            
-        displayGrupo(multi2.serie, *multi2.size);
-        *multi2.size = 0 ; // borramos grupo actual
+        displayGrupo(multi.serie, *multi.size);
+        *multi.size = 0 ; // borramos grupo actual
         display->print("push");
         break;
       }
       if (Estado.estado == STANDBY && !multiriego) {
         bip(4);
         multiriego = true;
-        getMultibyId2(getMultiStatus(), config);
-        multi2.actual = 0;
+        getMultibyId(getMultiStatus(), config);
+        multi.actual = 0;
         #ifdef DEBUG
-          Serial.printf( "en MULTIRRIEGO, getMultibyId2 devuelve: %s multi2.size=%d \n" , multi2.desc, *multi2.size);
-          for (int k=0; k < *multi2.size; k++) Serial.printf( "       multi.serie: x%x \n" , multi2.serie[k]);
+          Serial.printf( "en MULTIRRIEGO, getMultibyId devuelve: %s multi.size=%d \n" , multi.desc, *multi.size);
+          for (int k=0; k < *multi.size; k++) Serial.printf( "       multi.serie: x%x \n" , multi.serie[k]);
           Serial.printf( "en MULTIRRIEGO, encoderSW status  : %d \n", encoderSW );
         #endif
         // si esta pulsado el boton del encoder --> solo hacemos encendido de los leds del grupo
         // y mostramos en el display la version del programa.
         if (encoderSW) {
           display->print(version_n);
-          displayGrupo(multi2.serie, *multi2.size);
+          displayGrupo(multi.serie, *multi.size);
           multiriego = false;
           #ifdef DEBUG
-            Serial.printf( "en MULTIRRIEGO + encoderSW, display de grupo: %s tamaño: %d \n", multi2.desc , *multi2.size );
+            Serial.printf( "en MULTIRRIEGO + encoderSW, display de grupo: %s tamaño: %d \n", multi.desc , *multi.size );
           #endif
           StaticTimeUpdate();
           break;              
@@ -385,9 +388,9 @@ void procesaBotones()
         else {
           //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
           //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
-          Serial.printf("MULTIRRIEGO iniciado: %s \n", multi2.desc);
-          led(Boton[bId2bIndex(*multi2.id)].led,ON);
-          boton = &Boton[bId2bIndex(multi2.serie[multi2.actual])];
+          Serial.printf("MULTIRRIEGO iniciado: %s \n", multi.desc);
+          led(Boton[bId2bIndex(*multi.id)].led,ON);
+          boton = &Boton[bId2bIndex(multi.serie[multi.actual])];
         }
         //Aqui no hay break para que comience multirriego por default
       }
@@ -442,16 +445,16 @@ void procesaBotones()
       }
       if (Estado.estado == CONFIGURANDO ) {
         if (configure->configuringMulti()) {  //Configuramos el multirriego seleccionado
-          if (*multi2.size < 16) {
-                #ifdef DEBUG
-                  Serial.printf("#07 savedValue: %d  value: %d \n",savedValue,value);
-                #endif
-                savedValue = value;
-                multi2.serie[*multi2.size] = boton->id;
-                Serial.printf("[ConF] configurando multigrupo numero elementos (antes): %d \n",*multi2.size);
-                *multi2.size = *multi2.size + 1;
-                Serial.printf("[ConF] configurando multigrupo numero elementos (despues): %d \n",*multi2.size);
-                led(Boton[bId2bIndex(boton->id)].led,ON);
+          if (*multi.size < 16) {
+            #ifdef DEBUG
+              Serial.printf("#07 savedValue: %d  value: %d \n",savedValue,value);
+            #endif
+            savedValue = value;
+            multi.serie[*multi.size] = boton->id;
+            Serial.printf("[ConF] configurando multigrupo numero elementos (antes): %d \n",*multi.size);
+            *multi.size = *multi.size + 1;
+            Serial.printf("[ConF] configurando multigrupo numero elementos (despues): %d \n",*multi.size);
+            led(Boton[bId2bIndex(boton->id)].led,ON);
           }
         }
         else {          //Configuramos el idx
@@ -520,7 +523,7 @@ void procesaEstados()
                 configure->stop();
               }
               if(configure->configuringMulti()) {
-                Serial.printf( "SAVE EEPROM Multi : %s  tamaño: %d \n", multi2.desc , *multi2.size);
+                Serial.printf( "SAVE EEPROM Multi : %s  tamaño: %d \n", multi.desc , *multi.size);
                 //graba en la eeprom los 3 grupos
                 eepromWriteGroups();
                 #ifdef NODEMCU
@@ -585,18 +588,18 @@ void procesaEstados()
 
       //Comprobamos si estamos en un multiriego
       if (multiriego) {
-        multi2.actual++;
-        if (multi2.actual < *multi2.size) {
+        multi.actual++;
+        if (multi.actual < *multi.size) {
           //Simular la pulsacion del siguiente boton de la serie de multiriego
-          boton = &Boton[bId2bIndex(multi2.serie[multi2.actual])];
+          boton = &Boton[bId2bIndex(multi.serie[multi.actual])];
           multiSemaforo = true;
         }
         else {
           longbip(3);
           multiriego = false;
           multiSemaforo = false;
-            Serial.printf("MULTIRRIEGO %s terminado \n", multi2.desc);
-          led(Boton[bId2bIndex(*multi2.id)].led,OFF);
+            Serial.printf("MULTIRRIEGO %s terminado \n", multi.desc);
+          led(Boton[bId2bIndex(*multi.id)].led,OFF);
         }
       }
       break;
@@ -853,11 +856,11 @@ void eepromWriteGroups()
   //EEPROM.put(offsetof(__eeprom_data, numgroups),NUMGRUPOS); //numero de grupos de multirriego
   for(int i=0;i<NUMGRUPOS;i++) {
     //multi = getMultibyIndex(i);
-    Serial.printf( "escribiendo elementos Grupo%d : %d elementos \n" , i+1 , *multi2.size );
-    //EEPROM.put(grupoAddr,*multi2.size);
+    Serial.printf( "escribiendo elementos Grupo%d : %d elementos \n" , i+1 , *multi.size );
+    //EEPROM.put(grupoAddr,*multi.size);
     grupoAddr += 4;
-    for (int j=0;j < *multi2.size; j++) {
-      //EEPROM.put(grupoAddr,multi2.serie[j]);
+    for (int j=0;j < *multi.size; j++) {
+      //EEPROM.put(grupoAddr,multi.serie[j]);
       grupoAddr += 2;
     }
   }
@@ -993,7 +996,7 @@ bool stopRiego(uint16_t id)
 void stopAllRiego(bool stop)
 {
   //Apago los leds de multiriego
-  led(Boton[bId2bIndex(*multi2.id)].led,OFF);
+  led(Boton[bId2bIndex(*multi.id)].led,OFF);
   //Apago los leds de riego
   for(unsigned int i=0;i<sizeof(COMPLETO)/2;i++) {
     led(Boton[bId2bIndex(COMPLETO[i])].led,OFF);
@@ -1328,14 +1331,14 @@ void setupParm(const char *filename)
 }
 
 #ifdef DEBUG
-  //imprime contenido actual de la estructura multi2
+  //imprime contenido actual de la estructura multi
   void printMulti2()
   {
       Serial.println("TRACE: in printMulti2");
       //Serial.printf("en config Grupo2 id: x%x \n", config.groupConfig[1].id);
-      Serial.printf("MULTI2 Boton_id x%x: size=%d (%s)\n", *multi2.id, *multi2.size, multi2.desc);
-      for(int j = 0; j < *multi2.size; j++) {
-        Serial.printf("  Zona  id: x%x \n", multi2.serie[j]);
+      Serial.printf("MULTI Boton_id x%x: size=%d (%s)\n", *multi.id, *multi.size, multi.desc);
+      for(int j = 0; j < *multi.size; j++) {
+        Serial.printf("  Zona  id: x%x \n", multi.serie[j]);
       }
     Serial.println();
   }

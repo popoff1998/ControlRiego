@@ -230,21 +230,12 @@
   // (todos son pointer al multirriego correspondiente en config menos:    )
   // (          actual  <- es una variable de trabajo durante el multirriego)
   // (          serie[] <- contiene el id del boton, no el numero de la zona de config)
-  struct S_MULTI2 {
+  struct S_MULTI {
     uint16_t *id;
     uint16_t serie[16];
     int *size;
     int actual;
     char *desc;
-  } ;
-
-  //estructura de un grupo de multirriego
-  struct S_MULTI {
-    uint16_t id;
-    uint16_t *serie;
-    int size;
-    int actual;
-    char desc[20];
   } ;
 
   union S_bFLAGS
@@ -322,8 +313,7 @@
 
     time_t   lastRiegos[NUMRIEGOS];
     uint     factorRiegos[NUMRIEGOS];
-    S_MULTI *multi;
-    S_MULTI2 multi2;  //estructura con variables del multigrupo activo
+    S_MULTI multi;  //estructura con variables del multigrupo activo
     //numero de grupos de multirriego:
     //int n_Grupos;
     //parametros de conexion a la red
@@ -362,7 +352,7 @@
     extern char version_n;
     extern S_initFlags initFlags;
     extern int NUM_S_BOTON;
-    extern S_MULTI2 multi2;
+    extern S_MULTI multi;
 
   #endif
 
@@ -423,7 +413,7 @@
   void enciendeLeds(void);
   void flagVerificaciones(void);
   int  getFactor(uint16_t);
-  bool getMultibyId2(uint16_t , Config_parm&);
+  bool getMultibyId(uint16_t , Config_parm&);
   uint16_t getMultiStatus(void);
   String *httpGetDomoticz(String *);
   uint idarrayRiego(uint16_t);
@@ -453,6 +443,7 @@
   void procesaEstados(void);
   void refreshTime(void);
   void refreshDisplay(void);
+  bool saveConfigFile(const char*, Config_parm&);
   void saveWifiCallback(void);
   void setupEstado(void);
   void setupInit(void);

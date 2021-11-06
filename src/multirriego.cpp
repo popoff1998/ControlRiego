@@ -10,24 +10,24 @@ uint16_t getMultiStatus()
 }
 
 //asigna en multi valores o apuntadores en/a config del grupo cuyo id se recibe
-bool getMultibyId2(uint16_t id, Config_parm &cfg)
+bool getMultibyId(uint16_t id, Config_parm &cfg)
 {
   #ifdef TRACE
-    Serial.println("TRACE: in getMultibyId2");
+    Serial.println("TRACE: in getMultibyId");
   #endif
   for(int i=0; i<NUMGRUPOS; i++)
   {
     if(cfg.groupConfig[i].id == id) {
-      multi2.id = &cfg.groupConfig[i].id;
-      multi2.size = &cfg.groupConfig[i].size;
-      for (int j=0; j < *multi2.size; j++) {
-        multi2.serie[j] = COMPLETO[cfg.groupConfig[i].serie[j]-1];  //obtiene el id del boton de cada zona (ojo: no viene en el json)
+      multi.id = &cfg.groupConfig[i].id;
+      multi.size = &cfg.groupConfig[i].size;
+      for (int j=0; j < *multi.size; j++) {
+        multi.serie[j] = COMPLETO[cfg.groupConfig[i].serie[j]-1];  //obtiene el id del boton de cada zona (ojo: no viene en el json)
         #ifdef DEBUG 
           Serial.printf("  Zona%d   id: x", cfg.groupConfig[i].serie[j]);
           Serial.println(Boton[cfg.groupConfig[i].serie[j]-1].id,HEX); //id(boton) asociado a la zona
         #endif  
       }
-      multi2.desc = cfg.groupConfig[i].desc;
+      multi.desc = cfg.groupConfig[i].desc;
       return true;
     }
   }
