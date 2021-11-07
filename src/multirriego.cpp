@@ -22,7 +22,7 @@ bool getMultibyId(uint16_t id, Config_parm &cfg)
       multi.size = &cfg.groupConfig[i].size;
       for (int j=0; j < *multi.size; j++) {
         multi.serie[j] = COMPLETO[cfg.groupConfig[i].serie[j]-1];  //obtiene el id del boton de cada zona (ojo: no viene en el json)
-        #ifdef DEBUG 
+        #ifdef EXTRADEBUG 
           Serial.printf("  Zona%d   id: x", cfg.groupConfig[i].serie[j]);
           Serial.println(Boton[cfg.groupConfig[i].serie[j]-1].id,HEX); //id(boton) asociado a la zona
         #endif  

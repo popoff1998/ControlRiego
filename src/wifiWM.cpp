@@ -136,12 +136,11 @@ void setupRedWM(Config_parm &config)
     led(LEDG,OFF);
     connected = false;
   }
-  // ----------------------------- save the custom parameters to eeprom
+  // ----------------------------- save the custom parameters
   if (saveConfig) {
     strcpy(config.domoticz_ip, custom_domoticz_server.getValue());
     strcpy(config.domoticz_port, custom_domoticz_port.getValue());
     strcpy(config.ntpServer, custom_ntpserver.getValue());
-    eepromWriteRed();
   }
 }
 

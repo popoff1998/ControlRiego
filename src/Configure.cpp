@@ -1,6 +1,5 @@
 #include "Configure.h"
 #include "Control.h"
-#include <EEPROM.h>
 
 Configure::Configure(class Display *disp)
 {

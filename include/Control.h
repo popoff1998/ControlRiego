@@ -57,17 +57,6 @@
     #define VERBOSE
   #endif
 
-  /* NOTA1: es necesario ejecutar una vez con FORCEINITEEPROM=1 para actualizar los valores asignados en el 
-    programa a:
-          - estructura BOTONES (idX)
-          - estructura multiGroup (botones y tamaño de cada grupo de multirriegos)
-          - tiempo por defecto para el riego
-          - parametros conexion a Domoticz y Ntp
-      ya que estos valores se graban en la eeprom y se usan los leidos de ella en setup.    
-    después poner a 0 y volver a cargar */
-  
-  #define FORCEINITEEPROM     0
-
   #define VERSION  "2.0"
 
   //Comportamiento General
@@ -206,26 +195,6 @@
 
   //--------------------------------------------------------------------------------------
 
-
-  //estructura para salvar grupos de multirriego en la eeprom:
-  struct _eeprom_group {
-    int size;
-    uint16_t serie[16];
-  } ;
-
-  //Estructura de mi eeprom (se reserva más tamaño despues en funcion del numero de grupos)
-  struct __eeprom_data {
-    uint8_t   initialized;
-    uint16_t  botonIdx[16]; // IDX de cada boton para el Domoticz
-    uint8_t   minutes;      // minutos de riego por defecto 
-    uint8_t   seconds;      // segundos de riego por defecto
-    char domoticz_ip[40];
-    char domoticz_port[6];
-    char ntpServer[40];
-    int       numgroups;     // numero de grupos de multirriego
-    _eeprom_group groups[]; // grupos de multirriego
-  };
-
   //estructura de un grupo de multirriego *nueva
   // (todos son pointer al multirriego correspondiente en config menos:    )
   // (          actual  <- es una variable de trabajo durante el multirriego)
@@ -254,7 +223,7 @@
     };
   };
   struct S_initFlags     {
-    uint8_t initEeprom    : 1,
+    uint8_t initParm    : 1,
             initWifi      : 1,
             spare1        : 1;
   };
@@ -314,21 +283,10 @@
     time_t   lastRiegos[NUMRIEGOS];
     uint     factorRiegos[NUMRIEGOS];
     S_MULTI multi;  //estructura con variables del multigrupo activo
-    //numero de grupos de multirriego:
-    //int n_Grupos;
-    //parametros de conexion a la red
     bool connected;
     bool NONETWORK;
     bool VERIFY;
     bool falloAP;
-    //Para configuracion por web portal (valores por defecto)
-    // (ojo ver NOTA1 en Control.h --> FORCEINITEEPROM=1 para actualizarlos)
-    //char domoticz_ip[40] = "192.168.1.50";
-    //char domoticz_port[6] = "8080";
-    //char ntpServer[40] = "es.pool.ntp.org";
-    //char domoticz_ip[40] = "192.168.100.60";
-    //char domoticz_port[6] = "3380";
-    //char ntpServer[40] = "192.168.100.60";
     bool saveConfig = false;
 
     S_initFlags initFlags ;
@@ -340,14 +298,10 @@
     extern uint ledOrder[];
     extern uint16_t GRUPOS[];
     extern uint16_t COMPLETO[];
-    //extern int n_Grupos;
     extern bool connected;
     extern bool NONETWORK;
     extern bool VERIFY;
     extern bool falloAP;
-    //extern char domoticz_ip[40];
-    //extern char domoticz_port[6];
-    //extern char ntpServer[40];
     extern bool saveConfig;
     extern char version_n;
     extern S_initFlags initFlags;
@@ -404,12 +358,11 @@
   bool checkWifi(void);
   void cleanFS(void);
   void configModeCallback (WiFiManager *);
+  bool copyConfigFile(const char*, const char*);
   void dimmerLeds(void);
   void displayGrupo(uint16_t *, int);
   bool domoticzSwitch(int,char *);
-  void eepromWriteSignal(uint);
-  void eepromWriteGroups(void);
-  void eepromWriteRed(void);
+  void loadDefaultSignal(uint);
   void enciendeLeds(void);
   void flagVerificaciones(void);
   int  getFactor(uint16_t);
@@ -434,20 +387,20 @@
   void parpadeoLedZona(void);
   S_BOTON *parseInputs(bool);
   void printFile(const char*);
-  void printMulti2(void);
+  void printMulti(void);
   void printMultiGroup(Config_parm&);
   void printParms(Config_parm&);
   void procesaBotones(void);
-  void procesaEeprom(void);
   void procesaEncoder(void);
   void procesaEstados(void);
   void refreshTime(void);
   void refreshDisplay(void);
   bool saveConfigFile(const char*, Config_parm&);
   void saveWifiCallback(void);
+  bool setupConfig(const char*, Config_parm&);
   void setupEstado(void);
   void setupInit(void);
-  void setupParm(const char*);
+  void setupParm(void);
   void setupRedWM(Config_parm&);
   void StaticTimeUpdate(void);
   void statusError(String, int n);

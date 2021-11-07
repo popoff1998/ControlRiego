@@ -25,10 +25,10 @@ void enciendeLeds()
   delay(200);
 }
 
-void eepromWriteSignal(uint veces)
+void loadDefaultSignal(uint veces)
 {
   #ifdef TRACE
-    Serial.println("TRACE: in eepromWriteSignal");
+    Serial.println("TRACE: in loadDefaultSignal");
   #endif
   uint i;
   for(i=0;i<veces;i++) {
