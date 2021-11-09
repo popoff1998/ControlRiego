@@ -47,7 +47,7 @@
     },
   "ntpServer": "es.pool.ntp.org",
   "numgroups": 3,
-  "groups": [
+  "grupos": [
     {
       "grupo": 1,
       "desc": "CESPED",

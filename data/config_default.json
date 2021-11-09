@@ -4,7 +4,7 @@
     {
       "zona": 1,
       "idx": 25,
-      "nombre": "TURBINAS"
+      "nombre": "dfTURBINAS"
     },
     {
       "zona": 2,
@@ -45,9 +45,9 @@
     "ip": "192.168.1.50",
     "port": "8080"
     },
-  "ntpServer": "DEFAULT",
+  "ntpServer": "es.pool.ntp.org",
   "numgroups": 3,
-  "groups": [
+  "grupos": [
     {
       "grupo": 1,
       "desc": "CESPED",
