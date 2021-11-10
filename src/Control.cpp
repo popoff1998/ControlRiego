@@ -78,7 +78,9 @@ void setup()
   //preparo indicadores de inicializaciones opcionales
   setupInit();
   //setup parametros configuracion
-  printFile(parmFile);
+  #ifdef DEBUG
+    printFile(parmFile);
+  #endif
   setupParm();
   //led encendido
   led(LEDR,ON);
@@ -110,7 +112,7 @@ void setup()
   // estado final en funcion de la conexion
   setupEstado();
   //inicializamos apuntador estructura multi (posicion del selector multirriego):
-  getMultibyId(getMultiStatus(), config);
+  setMultibyId(getMultiStatus(), config);
   #ifdef DEBUG
     printMulti();
     printFile(parmFile);
@@ -321,7 +323,7 @@ void procesaBotones()
           if (Estado.estado == ERROR) break; //error en stopAllRiego
           Estado.estado = STOP;
           //pasamos directamente a reposo
-          Serial.println("Stanby + Stop : Entramos en reposo");
+          //Serial.println("Stanby + Stop : Entramos en reposo");
           reposo = true;
           displayOFF = false;
         }
@@ -346,31 +348,31 @@ void procesaBotones()
       break;
     case bMULTIRIEGO:
         //Configuramos el grupo de multirriego activo
-        //TODO revisar esto
       if (Estado.estado == CONFIGURANDO) {
         #ifdef DEBUG
           Serial.printf("#03 savedValue: %d  value: %d \n",savedValue,value);
         #endif
         savedValue = value;
-        int n_grupo = getMultibyId(getMultiStatus(), config); 
+        int n_grupo = setMultibyId(getMultiStatus(), config); 
         configure->configureMulti(n_grupo);
+        Serial.printf( "[ConF] configurando: GRUPO%d (%s) \n" , n_grupo, multi.desc);
         #ifdef DEBUG
-          Serial.printf( "en configuracion de MULTIRRIEGO, getMultibyId devuelve: Grupo%d (%s) multi.size=%d \n" , n_grupo, multi.desc, *multi.size);
-          //Serial.printf( "en configuracion de MULTIRRIEGO, getMultibyId devuelve: Grupo%d (%s) multi.size=nada \n" , n_grupo, multi.desc);
+          Serial.printf( "en configuracion de MULTIRRIEGO, setMultibyId devuelve: Grupo%d (%s) multi.size=%d \n" , n_grupo, multi.desc, *multi.size);
         #endif            
         displayGrupo(multi.serie, *multi.size);
-        *multi.size = 0 ; // borramos grupo actual
+        //TODO revisar esto para no machacar grupo (multi.) sino almacenar en working variables hasta PAUSA
+        //*multi.size = 0 ; // borramos grupo actual
+        multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
         display->print("push");
         break;
       }
       if (Estado.estado == STANDBY && !multiriego) {
         bip(4);
         multiriego = true;
-        int n_grupo = getMultibyId(getMultiStatus(), config);
+        int n_grupo = setMultibyId(getMultiStatus(), config);
         multi.actual = 0;
         #ifdef DEBUG
-          Serial.printf( "en MULTIRRIEGO, getMultibyId devuelve: Grupo%d (%s) multi.size=%d \n" , n_grupo, multi.desc, *multi.size);
-          //Serial.printf( "en MULTIRRIEGO, getMultibyId devuelve: Grupo%d (%s) multi.size=nadaa \n" , n_grupo, multi.desc);
+          Serial.printf( "en MULTIRRIEGO, setMultibyId devuelve: Grupo%d (%s) multi.size=%d \n" , n_grupo, multi.desc, *multi.size);
           for (int k=0; k < *multi.size; k++) Serial.printf( "       multi.serie: x%x \n" , multi.serie[k]);
           Serial.printf( "en MULTIRRIEGO, encoderSW status  : %d \n", encoderSW );
         #endif
@@ -447,18 +449,22 @@ void procesaBotones()
       if (Estado.estado == CONFIGURANDO ) {
         if (configure->configuringMulti()) {  //Configuramos el multirriego seleccionado
           //TODO revisar esto
-          if (*multi.size < 16) {
+          //if (*multi.size < 16) {
+          if (multi.w_size < 16) {
             #ifdef DEBUG
               Serial.printf("#07 savedValue: %d  value: %d \n",savedValue,value);
             #endif
             savedValue = value;
-            multi.serie[*multi.size] = boton->id;
-            *multi.zserie = bId2bIndex(boton->id)+1;
-            Serial.printf("[ConF] configurando multigrupo numero elementos (antes): %d \n",*multi.size);
-            Serial.printf("[ConF] añadiendo zona%d \n",bId2bIndex(boton->id));
-            *multi.size = *multi.size + 1;
-            ++multi.zserie;
-            Serial.printf("[ConF] configurando multigrupo numero elementos (despues): %d \n",*multi.size);
+            //multi.serie[*multi.size] = boton->id;
+            multi.serie[multi.w_size] = boton->id;
+            //*multi.zserie = bId2bIndex(boton->id)+1;
+            //Serial.printf("[ConF] configurando multigrupo numero elementos (antes): %d \n",*multi.size);
+            Serial.printf("[ConF] añadiendo ZONA%d (%s) \n",bId2bIndex(boton->id)+1, boton->desc);
+            //*multi.size = *multi.size + 1;
+            multi.w_size = multi.w_size + 1;
+            //++multi.zserie;
+            //Serial.printf("[ConF] configurando multigrupo numero elementos (despues): %d \n",*multi.size);
+            Serial.printf("[ConF] configurando multigrupo numero elementos (despues): %d \n",multi.w_size);
             led(Boton[bId2bIndex(boton->id)].led,ON);
           }
         }
@@ -489,7 +495,7 @@ void procesaEstados()
     case CONFIGURANDO:
       if (boton != NULL) {
         if (boton->flags.action) {
-          Serial.println( "En estado CONFIGURANDO pulsado ACTION" );
+          //Serial.println( "En estado CONFIGURANDO pulsado ACTION" );
           switch(boton->id) {
             case bMULTIRIEGO:
               break;
@@ -515,9 +521,15 @@ void procesaEstados()
                 longbip(2);
                 configure->stop();
               }
-              //TODO revisar esto
+              //TODO: aqui es donde debemos actualizar config del grupo ¿de una de trabajo?
               if(configure->configuringMulti()) {
-                Serial.printf( "SAVE PARM Multi : %s  tamaño: %d \n", multi.desc , *multi.size);
+                // actualizamos config con las zonas introducidas
+                *multi.size = multi.w_size;
+                int g = configure->getActualGrupo();
+                Serial.printf( "[ConF] SAVE PARM Multi : GRUPO%d  tamaño: %d (%s)\n", g+1 , *multi.size , multi.desc );
+                for (int i=0; i<multi.w_size; ++i) {
+                  config.groupConfig[g-1].serie[i] = bId2bIndex(multi.serie[i])+1;
+                }
                 saveConfig = true;
                 #ifdef DEBUG
                   Serial.printf("#09 savedValue: %d  value: %d \n",savedValue,value);
@@ -531,21 +543,21 @@ void procesaEstados()
             case bSTOP:
               if(!boton->estado) {
                 configure->stop();
-                Serial.println( "release de STOP en modo ConF" );
+                //Serial.println( "release de STOP en modo ConF" );
                 if (saveConfig) {
                   Serial.println("saveConfig=true  --> salvando parametros a fichero");
                   if (saveConfigFile(parmFile, config)) longbip(3);
-                  Serial.println( "[DEBUG] volviendo de saveConfigFile" );
+                  //Serial.println( "[DEBUG] volviendo de saveConfigFile" );
                   saveConfig = false;
                 }  
                 Estado.estado = STANDBY;
                 standbyTime = millis();
-                Serial.println( "[DEBUG] ConF - acabando case bSTOP " );
+                //Serial.println( "[DEBUG] ConF - acabando case bSTOP " );
               }
-              Serial.println( "[DEBUG] ConF - saliendo de case bSTOP " );
+              //Serial.println( "[DEBUG] ConF - saliendo de case bSTOP " );
               break;
           }
-          Serial.println( "[DEBUG] ConF - terminando if (boton->flags.action) " );
+          //Serial.println( "[DEBUG] ConF - terminando if (boton->flags.action) " );
         }
       }
       else procesaEncoder();
@@ -1019,7 +1031,7 @@ String httpGetDomoticz(String message)
     return "ErrX";
   }
   httpclient.end();
-  Serial.println("TRACE: in httpGetDomoticz **return");
+  //Serial.println("TRACE: in httpGetDomoticz **return");
   return response;
 }
 

@@ -4,9 +4,8 @@
 .gcc-flags.json
 .pio
 .VSCodeCounter
-src/wifissid.h
 \.vscode/
-include/wifissid.h
-data/config_pruebas.json
-data/config_parm.json
-data/config_default.json
+#data/config_pruebas.json
+#data/config_parm.json
+#data/config_default.json
+test/

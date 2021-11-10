@@ -64,7 +64,7 @@ bool loadConfigFile(const char *filename, Config_parm &cfg)
     cfg.groupConfig[i-1].size = groups_item["size"] | 1;
     if (cfg.groupConfig[i-1].size == 0) {
       cfg.groupConfig[i-1].size =1;
-      Serial.print("ERROR tamaño del grupo incorrecto es 0 -> ponemos 1");
+      Serial.print("ERROR tamaño del grupo incorrecto, es 0 -> ponemos 1");
     }
     strlcpy(cfg.groupConfig[i-1].desc, groups_item["desc"] | "", sizeof(cfg.groupConfig[i-1].desc)); 
     JsonArray array = groups_item["zonas"].as<JsonArray>();

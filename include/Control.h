@@ -81,6 +81,8 @@
   #define HOLDTIME            3000
   #define MAXCONNECTRETRY     10
 
+ //----------------  dependientes del HW   ----------------------------------------
+
   #ifdef NODEMCU
     #define ENCCLK                D0
     #define ENCDT                 D1
@@ -106,6 +108,8 @@
     #define lZONA6                15
     #define lZONA7                16
   #endif
+ //----------------  fin dependientes del HW   ----------------------------------------
+
 
   //Para legibilidad del codigo
   #define ON  1
@@ -136,6 +140,7 @@
     HOLD         = 0x20,
   };
 
+  //----------------  dependientes del HW   ----------------------------------------
   // ojo esta es la posición del bit de cada boton en el stream serie - no modificar -
   enum _botones {
     bZONA1      = 0x0001,
@@ -161,19 +166,19 @@
   #define bCONFIG   0xFF02
 
   //----------------  dependientes del HW (número, orden)  ----------------------------
-           // lista de todos los botones de zonas de riego disponibles:
+    // lista de todos los botones de zonas de riego disponibles:
   #define _ZONAS  bZONA1 , bZONA2 , bZONA3 , bZONA4 , bZONA5 , bZONA6 , bZONA7
-           // lista de todos los botones (selector) de grupos disponibles:
+    // lista de todos los botones (selector) de grupos disponibles:
   #define _GRUPOS bGRUPO1 , bGRUPO2 , bGRUPO3
   #define _NUMZONAS            7  // numero de zonas (botones riego individual)
   #define _NUMGRUPOS           3  // numero de grupos multirriego
-  //----------------------------------------------------------------------------------
+ //----------------  fin dependientes del HW   ----------------------------------------
 
   //estructura para salvar un grupo
   struct Grupo_parm {
     uint16_t id;
     int size;
-    uint16_t serie[16];  // ojo! numero de la zona no boton asociado a ella
+    uint16_t serie[16];  // ojo! numero de la zona, no es el boton asociado a ella
     char desc[20];
   } ;
 
@@ -197,19 +202,16 @@
     Grupo_parm groupConfig[n_Grupos];
   };
 
-  //--------------------------------------------------------------------------------------
-
-  //estructura de un grupo de multirriego *nueva
-  // (todos son pointer al multirriego correspondiente en config menos:    )
-  // (          actual  <- es una variable de trabajo durante el multirriego)
-  // (          serie[] <- contiene el id del boton, no el numero de la zona de config)
+  // estructura de un grupo de multirriego *nueva
+  // (todos son pointer al multirriego correspondiente en config menos los indicados)
   struct S_MULTI {
-    uint16_t *id;
-    uint16_t serie[16];
-    uint16_t *zserie;
-    int *size;
-    int actual;
-    char *desc;
+    uint16_t *id;        //apuntador al id del selector grupo en estructura config (bGrupo_x)
+    uint16_t serie[16];  //contiene los id de los botones del grupo (bZona_x)
+    uint16_t *zserie;    //apuntador a config con las zonas del grupo (Zona_x)
+    int *size;           //apuntador a config con el tamaño del grupo
+    int w_size;          //variable auxiliar durante ConF
+    int actual;          //variable auxiliar durante un multirriego 
+    char *desc;          //apuntador a config con la descripcion del grupo
   } ;
 
   union S_bFLAGS
@@ -255,42 +257,32 @@
    //Globales a todos los módulos
   #ifdef __MAIN__
 
+    uint ledOrder[] = { lZONA1 , lZONA2 , lZONA3 , lZONA4 , lZONA5 , lZONA6 , lZONA7 ,
+                        LEDR , LEDG , lGRUPO1 , lGRUPO2 , lGRUPO3 };
+    
+    S_BOTON Boton [] =  { 
+      //ID,          S   uS  LED          FLAGS                             DESC          IDX
+      {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "ZONA1",       0},
+      {bZONA2 ,     0,  0,  lZONA2 ,     ENABLED | ACTION,                 "ZONA2",       0},
+      {bZONA3    ,  0,  0,  lZONA3    ,  ENABLED | ACTION,                 "ZONA3",       0},
+      {bZONA4    ,  0,  0,  lZONA4    ,  ENABLED | ACTION,                 "ZONA4",       0},
+      {bZONA5    ,  0,  0,  lZONA5    ,  ENABLED | ACTION,                 "ZONA5",       0},
+      {bZONA6 ,     0,  0,  lZONA6 ,     ENABLED | ACTION,                 "ZONA6",       0},
+      {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ZONA7",       0},
+      {bSPARE13,    0,  0,  0,           DISABLED,                         "spare13",     0},
+      {bSPARE15,    0,  0,  0,           DISABLED,                         "spare15",     0},
+      {bSPARE16,    0,  0,  0,           DISABLED,                         "spare16",     0},
+      {bENCODER,    0,  0,  0,           ENABLED | ONLYSTATUS | DUAL,      "ENCODER",     0},
+      {bMULTIRIEGO, 0,  0,  0,           ENABLED | ACTION,                 "MULTIRIEGO",  0},
+      {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ONLYSTATUS | DUAL,      "CESPED",      0},
+      {bGRUPO2  ,   0,  0,  lGRUPO2  ,   DISABLED,                         "COMPLETO",    0},
+      {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ONLYSTATUS | DUAL,      "GOTEOS",      0},
+      {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE",       0},
+      {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",        0},
+      {bCONFIG,     0,  0,  0,           DISABLED,                         "CONFIG",      0}
+    };
+    int NUM_S_BOTON = sizeof(Boton)/sizeof(Boton[0]);
 
-    // dependientes del HW (número, orden y caracteristicas) :
-        // lista de todos los botones de zonas de riego disponibles:
-    //    uint16_t ZONAS[]  = { bZONA1 , bZONA2 , bZONA3 , bZONA4 , bZONA5 , bZONA6 , bZONA7 };
-        // lista de todos los botones (selector) de grupos disponibles:
-    //    uint16_t GRUPOS[]  = { bGRUPO1 , bGRUPO2 , bGRUPO3 };
-        // lista de todos los leds disponibles (para su encendido en el autochequeo):
-        uint ledOrder[] = { lZONA1 , lZONA2 , lZONA3 , lZONA4 , lZONA5 , lZONA6 , lZONA7 ,
-                            LEDR , LEDG , lGRUPO1 , lGRUPO2 , lGRUPO3 };
-        
-        S_BOTON Boton [] =  { 
-          //ID,          S   uS  LED          FLAGS                             DESC          IDX
-          {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "ZONA1",       0},
-          {bZONA2 ,     0,  0,  lZONA2 ,     ENABLED | ACTION,                 "ZONA2",       0},
-          {bZONA3    ,  0,  0,  lZONA3    ,  ENABLED | ACTION,                 "ZONA3",       0},
-          {bZONA4    ,  0,  0,  lZONA4    ,  ENABLED | ACTION,                 "ZONA4",       0},
-          {bZONA5    ,  0,  0,  lZONA5    ,  ENABLED | ACTION,                 "ZONA5",       0},
-          {bZONA6 ,     0,  0,  lZONA6 ,     ENABLED | ACTION,                 "ZONA6",       0},
-          {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ZONA7",       0},
-          {bSPARE13,    0,  0,  0,           DISABLED,                         "spare13",     0},
-          {bSPARE15,    0,  0,  0,           DISABLED,                         "spare15",     0},
-          {bSPARE16,    0,  0,  0,           DISABLED,                         "spare16",     0},
-          {bENCODER,    0,  0,  0,           ENABLED | ONLYSTATUS | DUAL,      "ENCODER",     0},
-          {bMULTIRIEGO, 0,  0,  0,           ENABLED | ACTION,                 "MULTIRIEGO",  0},
-          {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ONLYSTATUS | DUAL,      "CESPED",      0},
-          {bGRUPO2  ,   0,  0,  lGRUPO2  ,   DISABLED,                         "COMPLETO",    0},
-          {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ONLYSTATUS | DUAL,      "GOTEOS",      0},
-          {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE",       0},
-          {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",        0},
-          {bCONFIG,     0,  0,  0,           DISABLED,                         "CONFIG",      0}
-        };
-        int NUM_S_BOTON = sizeof(Boton)/sizeof(Boton[0]);
-    // fin dependientes del HW
-
-    time_t   lastRiegos[NUMZONAS];
-    uint     factorRiegos[NUMZONAS];
     S_MULTI multi;  //estructura con variables del multigrupo activo
     bool connected;
     bool NONETWORK;
@@ -305,11 +297,7 @@
   #else
     extern S_BOTON Boton [];
     extern uint ledOrder[];
-/*     extern const uint16_t GRUPOS[];
-    extern const uint16_t ZONAS[];
-    extern const int NUMGRUPOS;
-    extern const int NUMZONAS;
- */    extern bool connected;
+    extern bool connected;
     extern bool NONETWORK;
     extern bool VERIFY;
     extern bool falloAP;
@@ -330,6 +318,8 @@
       HTTPClient httpclient;
     #endif
     //Globales
+    time_t   lastRiegos[NUMZONAS];
+    uint     factorRiegos[NUMZONAS];
     CountUpDownTimer T(DOWN);
     S_Estado Estado;
     ClickEncoder *Encoder;
@@ -377,7 +367,7 @@
   void enciendeLeds(void);
   void flagVerificaciones(void);
   int  getFactor(uint16_t);
-  int getMultibyId(uint16_t , Config_parm&);
+  int setMultibyId(uint16_t , Config_parm&);
   uint16_t getMultiStatus(void);
   String *httpGetDomoticz(String *);
   uint idarrayRiego(uint16_t);
