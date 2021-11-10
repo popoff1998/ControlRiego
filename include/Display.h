@@ -4,19 +4,9 @@
   #include <Control.h>
 
   //Para el display
-  #ifdef MEGA256
-    #define DISPCLK             31
-    #define DISPDIO             33
-  #endif
-
   #ifdef NODEMCU
-    #ifdef NEWPCB
-      #define DISPCLK             D3
-      #define DISPDIO             D2
-    #else
-      #define DISPCLK             D2
-      #define DISPDIO             D3
-    #endif
+    #define DISPCLK             D3
+    #define DISPDIO             D2
   #endif
 
   class Display

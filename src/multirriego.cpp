@@ -1,54 +1,48 @@
 
 #include "Control.h"
 
-//valores y tamaño de las series por defecto 
-// (ojo ver NOTA1 en Control.h --> FORCEINITEEPROM=1 para actualizarlos)
-   
-uint16_t Grupo1[16]    = {bTURBINAS, bPORCHE, bCUARTILLO};
-uint16_t Grupo2[16]    = {bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA };
-uint16_t Grupo3[16]    = {bTURBINAS, bPORCHE, bCUARTILLO, bGOTEOALTO, bGOTEOBAJO, bOLIVOS, bROCALLA};
-int size_Grupo1 = 3;
-int size_Grupo2 = 4;
-int size_Grupo3 = 7;
-
-S_MULTI multiGroup [] =  { 
-      //id,        serie        size        actual     descripcion
-      { bCESPED,   Grupo1,    size_Grupo1,    0,       "CESPED"},
-      { bGOTEOS,   Grupo2,    size_Grupo2,    0,       "GOTEOS"},
-      { bCOMPLETO, Grupo3,    size_Grupo3,    0,       "COMPLETO"}
-};
-
 //devuelve posicion del selector de multirriego
 uint16_t getMultiStatus()
 {
-  if (Boton[bId2bIndex(bCESPED)].estado) return bCESPED;
-  if (Boton[bId2bIndex(bGOTEOS)].estado) return bGOTEOS;
-  return bCOMPLETO;
+  if (Boton[bId2bIndex(bGRUPO1)].estado) return bGRUPO1;
+  if (Boton[bId2bIndex(bGRUPO3)].estado) return bGRUPO3;
+  return bGRUPO2  ;
 }
 
-//devuelve apuntador al elemento de multiGroup correspondiente el id pasado
-S_MULTI *getMultibyId(uint16_t id)
+//asigna en multi valores o apuntadores en/a config del grupo cuyo id se recibe
+// y devuelve el numero del grupo (1,2,3) , 0 en caso de que no exista
+int setMultibyId(uint16_t id, Config_parm &cfg)
 {
-  int i;
-  for(i=0;i<(sizeof(multiGroup)/sizeof(S_MULTI));i++)
+  #ifdef TRACE
+    Serial.printf("TRACE: in setMultibyId - recibe id=x%x \n", id);
+  #endif
+  for(int i=0; i<NUMGRUPOS; i++)
   {
-    if(multiGroup[i].id == id) 
-      return (S_MULTI *) &multiGroup[i];
+    if(cfg.groupConfig[i].id == id) {
+      multi.id = &cfg.groupConfig[i].id;
+      multi.size = &cfg.groupConfig[i].size;
+      multi.zserie = &cfg.groupConfig[i].serie[0];
+      //Serial.printf("  multi.size = %d \n", *multi.size);
+      for (int j=0; j < *multi.size; j++) {
+        multi.serie[j] = ZONAS[cfg.groupConfig[i].serie[j]-1];  //obtiene el id del boton de cada zona (ojo: no viene en el json)
+        #ifdef DEBUG 
+          Serial.printf("  Zona%d   id: x", cfg.groupConfig[i].serie[j]);
+          Serial.println(Boton[cfg.groupConfig[i].serie[j]-1].id,HEX); //id(boton) asociado a la zona
+        #endif  
+      }
+      multi.desc = cfg.groupConfig[i].desc;
+      return i+1;
+    }
   }
-  return NULL;
+  Serial.println("[ERROR] setMultibyID devuelve -not found-");
+  return 0;
 }
 
-//devuelve apuntador al elemento n de multiGroup
-S_MULTI *getMultibyIndex(int n)
-{
-  return (S_MULTI *) &multiGroup[n];
-}
-
-// muestra (enciende leds) elementos y orden de cada grupo de multirriego:
 void displayGrupo(uint16_t *serie, int serieSize)
 {
   int i;
   for(i=0;i<serieSize;i++) {
+    //Serial.printf("[displayGrupo]  encendiendo led %d \n", bId2bIndex(serie[i])+1);
     led(Boton[bId2bIndex(serie[i])].led,ON);
     delay(300);
     bip(i+1);
@@ -58,22 +52,12 @@ void displayGrupo(uint16_t *serie, int serieSize)
 }
 
 //imprime contenido actual de la estructura multiGroup
-void printMultiGroup()
+void printMultiGroup(Config_parm &cfg, int pgrupo)
 {
-  S_MULTI *multi;
-  for (int j=0; j<n_Grupos; j++) {
-    multi = getMultibyIndex(j);
-    Serial.printf("\n Grupo%d : %d elementos \n", j+1, multi->size);
-    for (int i=0;i < multi->size; i++) {
-      Serial.printf("     elemento %d: x",i+1);
-      Serial.println(multi->serie[i],HEX);
-    }  
-  }  
-  Serial.println()
-  ;
+  for(int j = 0; j < cfg.groupConfig[pgrupo].size; j++) {
+    Serial.printf("  Zona%d   id: x", cfg.groupConfig[pgrupo].serie[j]);
+    Serial.println(Boton[cfg.groupConfig[pgrupo].serie[j]-1].id,HEX); //id(boton) asociado a la zona
+  }
+  Serial.println();
 }
 
-int nGrupos()
-{
-  return sizeof(multiGroup)/sizeof(S_MULTI);
-}

@@ -52,7 +52,7 @@ void saveParamCallback()
 }
 
 // conexion a la red por medio de WifiManager
-void setupRedWM()
+void setupRedWM(Config_parm &config)
 {
   connected = false;
   falloAP = false;
@@ -61,7 +61,7 @@ void setupRedWM()
     //WiFi.disconnect(); //borra wifi guardada (no funciona con V3.2.0 de platform espressif)
     wm.resetSettings(); //borra wifi guardada
     delay(300);
-    Serial.println("encoderSW pulsado y multirriego en GOTEOS --> borramos red WIFI");
+    Serial.println("encoderSW pulsado y multirriego en GRUPO3 --> borramos red WIFI");
     //señala borrado wifi
     longbip(3);
   }
@@ -74,9 +74,9 @@ void setupRedWM()
   //sets timeout until configuration portal gets turned off
   wm.setConfigPortalTimeout(180);
   //parametros custom de configuracion en la pagina web de wifi
-  WiFiManagerParameter custom_domoticz_server("serverAddress", "Domoticz_ip" ,serverAddress, 40);
-  WiFiManagerParameter custom_domoticz_port("DOMOTICZPORT", "puerto", DOMOTICZPORT, 5);
-  WiFiManagerParameter custom_ntpserver("ntpServer", "NTP_server", ntpServer, 40);
+  WiFiManagerParameter custom_domoticz_server("domoticz_ip", "Domoticz_ip" ,config.domoticz_ip, 40);
+  WiFiManagerParameter custom_domoticz_port("domoticz_port", "puerto", config.domoticz_port, 5);
+  WiFiManagerParameter custom_ntpserver("ntpServer", "NTP_server", config.ntpServer, 40);
   wm.addParameter(&custom_domoticz_server);
   wm.addParameter(&custom_domoticz_port);
   wm.addParameter(&custom_ntpserver);
@@ -136,12 +136,11 @@ void setupRedWM()
     led(LEDG,OFF);
     connected = false;
   }
-  // ----------------------------- save the custom parameters to eeprom
+  // ----------------------------- save the custom parameters
   if (saveConfig) {
-    strcpy(serverAddress, custom_domoticz_server.getValue());
-    strcpy(DOMOTICZPORT, custom_domoticz_port.getValue());
-    strcpy(ntpServer, custom_ntpserver.getValue());
-    eepromWriteRed();
+    strcpy(config.domoticz_ip, custom_domoticz_server.getValue());
+    strcpy(config.domoticz_port, custom_domoticz_port.getValue());
+    strcpy(config.ntpServer, custom_ntpserver.getValue());
   }
 }
 

@@ -1,6 +1,5 @@
 #include "Configure.h"
 #include "Control.h"
-#include <EEPROM.h>
 
 Configure::Configure(class Display *disp)
 {
@@ -40,7 +39,6 @@ bool Configure::configuringIdx()
 
 bool Configure::configuringMulti()
 {
-  Serial.printf( "configuringMulti: %d \n" , _configuringMulti );
   return _configuringMulti;
 }
 
@@ -59,15 +57,21 @@ void Configure::configureTime(void)
   _configuringMulti = false;
 }
 
-void Configure::configureMulti(void)
+void Configure::configureMulti(int grupo)
 {
-  Serial.println( "configureMulti" );
+  //Serial.println( "configureMulti" );
   _configuringTime = false;
   _configuringIdx = false;
   _configuringMulti = true;
+  _actualGrupo = grupo;
 }
 
 int Configure::getActualIdxIndex(void)
 {
   return _actualIdxIndex;
+}
+
+int Configure::getActualGrupo(void)
+{
+  return _actualGrupo;
 }

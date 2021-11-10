@@ -10,17 +10,19 @@ class Configure
     bool _configuringIdx;
     bool _configuringMulti;
     int _actualIdxIndex;
+    int _actualGrupo;
   public:
     Configure(class Display *);
     void start(void);
     void stop(void);
     void configureTime(void);
     void configureIdx(int);
-    void configureMulti(void);
+    void configureMulti(int);
     bool configuringTime(void);
     bool configuringIdx(void);
     bool configuringMulti(void);
     int getActualIdxIndex(void);
+    int getActualGrupo(void);
 };
 
 #endif

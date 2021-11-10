@@ -1,19 +1,22 @@
 #define __MAIN__
 #include "Control.h"
-#include <EEPROM.h>
 
 S_BOTON *boton;
 S_BOTON *ultimoBoton;
-
-#ifdef MEGA256
-  EthernetUDP ntpUDP;
-#endif
 
 #ifdef NODEMCU
   WiFiUDP ntpUDP;
 #endif
 
-NTPClient timeClient(ntpUDP,ntpServer);
+Config_parm config; //parametros configurables
+
+const char *parmFile = "/config_parm.json";       // fichero de parametros activos
+const char *defaultFile = "/config_default.json"; // fichero de parametros por defecto
+const char *testFile = "/config_pruebas.json"; // fichero de parametros para pruebas
+const char *testwriteFile = "/config_pruebas_w.json"; // fichero de parametros para pruebas
+bool clean_FS = false;
+
+NTPClient timeClient(ntpUDP,config.ntpServer);
 
 TimeChangeRule CEST = {"CEST", Last, Sun, Mar, 2, 120};
 TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};
@@ -21,12 +24,8 @@ Timezone CE(CEST, CET);
 TimeChangeRule *tcr;
 time_t utc;
 Ticker tic_parpadeoLedON;  //para parpadeo led ON (LEDR)
+Ticker tic_parpadeoLedZona;  //para parpadeo led zona de riego
 Ticker tic_verificaciones; //para verificaciones periodicas
-
-
-//Para JSON
-StaticJsonBuffer<2000> jsonBuffer;
-
 
 /*----------------------------------------------*
  *               Setup inicial                  *
@@ -67,10 +66,6 @@ void setup()
    Serial.println("Inicializando Encoder");
   #endif
   Encoder = new ClickEncoder(ENCCLK,ENCDT,ENCSW);
-  #ifdef MEGA256
-    Timer1.initialize(1000);
-    Timer1.attachInterrupt(timerIsr);
-  #endif
   //Para el Configure le paso encoder y display porque lo usara.
   #ifdef DEBUG
    Serial.println("Inicializando Configure");
@@ -82,16 +77,19 @@ void setup()
   initHC595();
   //preparo indicadores de inicializaciones opcionales
   setupInit();
-  //Inicializo la EEPROM (escribo en ella si asi se indica y/o se lee de ella valores configurados)
-  procesaEeprom();
+  //setup parametros configuracion
+  #ifdef EXTRADEBUG
+    printFile(parmFile);
+  #endif
+  setupParm();
   //led encendido
   led(LEDR,ON);
   //Chequeo de perifericos de salida (leds, display, buzzer)
   check();
   //Para la red
-  setupRedWM();
+  setupRedWM(config);
   if (saveConfig) {
-    EEPROM.commit();
+    if (saveConfigFile(parmFile, config))  bipOK(3);;
     saveConfig = false;
   }
   #ifdef EXTRADEBUG
@@ -113,8 +111,10 @@ void setup()
   parseInputs(CLEAR);
   // estado final en funcion de la conexion
   setupEstado();
-  //inicializamos apuntador estructura multi (posicion del selector multirriego):
-  multi = getMultibyId(getMultiStatus());
+  #ifdef EXTRADEBUG
+    printMulti();
+    printFile(parmFile);
+  #endif
   //lanzamos supervision periodica estado cada 10 seg.
   tic_verificaciones.attach_scheduled(10, flagVerificaciones);
   standbyTime = millis();
@@ -130,7 +130,8 @@ void setup()
 void loop()
 {
   #ifdef EXTRATRACE
-    Serial.println("TRACE: in loop");
+    //Serial.println("TRACE: in loop");
+    Serial.print("L");
   #endif
 
   procesaBotones();
@@ -150,7 +151,8 @@ void loop()
 void procesaBotones()
 {
   #ifdef EXTRATRACE
-    Serial.println("TRACE: in procesaBotones");
+    //Serial.println("TRACE: in procesaBotones");
+    Serial.print("B");
   #endif
   // almacenamos estado pulsador del encoder (para modificar comportamiento de otros botones)
   //NOTA: el encoderSW esta en estado HIGH en reposo y en estado LOW cuando esta pulsado
@@ -319,7 +321,7 @@ void procesaBotones()
           if (Estado.estado == ERROR) break; //error en stopAllRiego
           Estado.estado = STOP;
           //pasamos directamente a reposo
-          Serial.println("Stanby + Stop : Entramos en reposo");
+          //Serial.println("Stanby + Stop : Entramos en reposo");
           reposo = true;
           displayOFF = false;
         }
@@ -327,17 +329,18 @@ void procesaBotones()
       //si hemos liberado STOP: salimos del estado stop o de configuracion
       if (!boton->estado && (Estado.estado == STOP || Estado.estado == CONFIGURANDO)) {
         if (savedValue>0) {
-            #ifdef DEBUG
-            Serial.printf("#02 savedValue: %d  value: %d \n",savedValue,value);
-            #endif
-            value = savedValue;  // para que restaure reloj aunque no salvemos con pause el valor configurado
+          #ifdef EXTRADEBUG
+          Serial.printf("#02 savedValue: %d  value: %d \n",savedValue,value);
+          #endif
+          value = savedValue;  // para que restaure reloj aunque no salvemos con pause el valor configurado
         }
         StaticTimeUpdate();
         led(Boton[bId2bIndex(bCONFIG)].led,OFF);
-        //Serial.println("Salimos de reposo -2-");
         reposo = false; //por si salimos de stop antinenes
         displayOFF = false;
-        Estado.estado = STANDBY;
+        //Estado.estado = STANDBY;
+        //dejamos el procesado del release del STOP en modo ConF para que actue el codigo de procesaEstados
+        if (Estado.estado == STOP) Estado.estado = STANDBY;
       }
       standbyTime = millis();
       break;
@@ -348,35 +351,36 @@ void procesaBotones()
           Serial.printf("#03 savedValue: %d  value: %d \n",savedValue,value);
         #endif
         savedValue = value;
-        configure->configureMulti();
-        multi = getMultibyId(getMultiStatus()); 
+        int n_grupo = setMultibyId(getMultiStatus(), config); 
+        configure->configureMulti(n_grupo);
+        Serial.printf( "[ConF] configurando: GRUPO%d (%s) \n" , n_grupo, multi.desc);
         #ifdef DEBUG
-          Serial.printf( "en configuracion de MULTIRRIEGO, getMultibyId devuelve: %s \n" , multi->desc);
-          Serial.printf( "                                           multi->size: %d \n" , multi->size);
+          Serial.printf( "en configuracion de MULTIRRIEGO, setMultibyId devuelve: Grupo%d (%s) multi.size=%d \n" , n_grupo, multi.desc, *multi.size);
         #endif            
-        displayGrupo(multi->serie, multi->size);
-        multi->size = 0 ; // borramos grupo actual
+        displayGrupo(multi.serie, *multi.size);
+        //*multi.size = 0 ; // borramos grupo actual
+        multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
         display->print("push");
         break;
       }
       if (Estado.estado == STANDBY && !multiriego) {
         bip(4);
         multiriego = true;
-        multi = getMultibyId(getMultiStatus());
-        multi->actual = 0;
+        int n_grupo = setMultibyId(getMultiStatus(), config);
+        multi.actual = 0;
         #ifdef DEBUG
-          Serial.printf( "en MULTIRRIEGO, getMultibyId devuelve: %s \n" , multi->desc);
-          Serial.printf( "                          multi->size: %d \n" , multi->size);
+          Serial.printf( "en MULTIRRIEGO, setMultibyId devuelve: Grupo%d (%s) multi.size=%d \n" , n_grupo, multi.desc, *multi.size);
+          for (int k=0; k < *multi.size; k++) Serial.printf( "       multi.serie: x%x \n" , multi.serie[k]);
           Serial.printf( "en MULTIRRIEGO, encoderSW status  : %d \n", encoderSW );
         #endif
         // si esta pulsado el boton del encoder --> solo hacemos encendido de los leds del grupo
         // y mostramos en el display la version del programa.
         if (encoderSW) {
           display->print(version_n);
-          displayGrupo(multi->serie, multi->size);
+          displayGrupo(multi.serie, *multi.size);
           multiriego = false;
           #ifdef DEBUG
-            Serial.printf( "en MULTIRRIEGO + encoderSW, display de grupo: %s tamaño: %d \n", multi->desc , multi->size );
+            Serial.printf( "en MULTIRRIEGO + encoderSW, display de grupo: %s tamaño: %d \n", multi.desc , *multi.size );
           #endif
           StaticTimeUpdate();
           break;              
@@ -384,9 +388,9 @@ void procesaBotones()
         else {
           //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
           //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
-          Serial.printf("MULTIRRIEGO iniciado: %s \n", multi->desc);
-          led(Boton[bId2bIndex(multi->id)].led,ON);
-          boton = &Boton[bId2bIndex(multi->serie[multi->actual])];
+          Serial.printf("MULTIRRIEGO iniciado: %s \n", multi.desc);
+          led(Boton[bId2bIndex(*multi.id)].led,ON);
+          boton = &Boton[bId2bIndex(multi.serie[multi.actual])];
         }
         //Aqui no hay break para que comience multirriego por default
       }
@@ -441,14 +445,16 @@ void procesaBotones()
       }
       if (Estado.estado == CONFIGURANDO ) {
         if (configure->configuringMulti()) {  //Configuramos el multirriego seleccionado
-          if (multi->size < 16) {
-                #ifdef DEBUG
-                  Serial.printf("#07 savedValue: %d  value: %d \n",savedValue,value);
-                #endif
-                savedValue = value;
-                multi->serie[multi->size] = boton->id;
-                multi->size++;
-                led(Boton[bId2bIndex(boton->id)].led,ON);
+          if (multi.w_size < 16) {
+            #ifdef DEBUG
+              Serial.printf("#07 savedValue: %d  value: %d \n",savedValue,value);
+            #endif
+            savedValue = value;
+            multi.serie[multi.w_size] = boton->id;
+            Serial.printf("[ConF] añadiendo ZONA%d (%s) \n",bId2bIndex(boton->id)+1, boton->desc);
+            multi.w_size = multi.w_size + 1;
+            Serial.printf("[ConF] configurando multigrupo numero elementos (despues): %d \n",multi.w_size);
+            led(Boton[bId2bIndex(boton->id)].led,ON);
           }
         }
         else {          //Configuramos el idx
@@ -470,74 +476,71 @@ void procesaBotones()
 void procesaEstados()
 {
   #ifdef EXTRATRACE
-    Serial.println("TRACE: in procesaEstados");
+    //Serial.println("TRACE: in procesaEstados");
+    Serial.print("E");
   #endif
 
   switch (Estado.estado) {
     case CONFIGURANDO:
       if (boton != NULL) {
         if (boton->flags.action) {
-          Serial.println( "En estado CONFIGURANDO pulsado ACTION" );
+          //Serial.println( "En estado CONFIGURANDO pulsado ACTION" );
           switch(boton->id) {
             case bMULTIRIEGO:
               break;
             case bPAUSE:
-              if(!boton->estado)
-              {
-                Serial.println( "Release de Pause" );
-                return;
-              }
+              if(!boton->estado) return; //no se procesa el release del PAUSE
               if(configure->configuringTime()) {
-                uint8_t m=0,s=0;
-                Serial.printf( "SAVE EEPROM TIME, minutes: %d  secons: %d \n", minutes, seconds);
-                EEPROM.put(offsetof(__eeprom_data, minutes),minutes);
-                EEPROM.put(offsetof(__eeprom_data, seconds),seconds);
-                #ifdef NODEMCU
-                  EEPROM.commit();
-                #endif
-                longbip(2);
-                EEPROM.get(offsetof(__eeprom_data, minutes),m);
-                EEPROM.get(offsetof(__eeprom_data, seconds),s);
-                Serial.printf( "OFFm: %d  OFFs: %d \n", offsetof(__eeprom_data, minutes), offsetof(__eeprom_data, seconds));
-                Serial.printf( "READ EEPROM TIME, minutes: %d  secons: %d \n", m , s);
+                Serial.printf( "SAVE DEFAULT TIME, minutes: %d  secons: %d \n", minutes, seconds);
+                config.minutes = minutes;
+                config.seconds = seconds;
+                saveConfig = true;
+                bipOK(3);
                 configure->stop();
               }
               if(configure->configuringIdx()) {
-                Serial.printf( "SAVE EEPROM IDX value: %d \n", value);
+                Serial.printf( "SAVE PARM IDX value: %d \n", value);
                 Boton[configure->getActualIdxIndex()].idx = (uint16_t)value;
-                EEPROM.put(offsetof(__eeprom_data, botonIdx[0]) + 2*configure->getActualIdxIndex(),(uint16_t)value);
-                #ifdef NODEMCU
-                  EEPROM.commit();
-                #endif
-                #ifdef DEBUG
+                config.botonConfig[configure->getActualIdxIndex()].idx = (uint16_t)value;
+                saveConfig = true;
+                #ifdef EXTRADEBUG
                   Serial.printf("#08 savedValue: %d  value: %d \n",savedValue,value);
                 #endif
                 value = savedValue;
-                longbip(2);
+                bipOK(3);
                 configure->stop();
               }
               if(configure->configuringMulti()) {
-                Serial.printf( "SAVE EEPROM Multi : %s  tamaño: %d \n", multi->desc , multi->size);
-                //graba en la eeprom los 3 grupos
-                eepromWriteGroups();
-                #ifdef NODEMCU
-                  EEPROM.commit();
-                #endif
-                #ifdef DEBUG
+                // actualizamos config con las zonas introducidas
+                *multi.size = multi.w_size;
+                int g = configure->getActualGrupo();
+                for (int i=0; i<multi.w_size; ++i) {
+                  config.groupConfig[g-1].serie[i] = bId2bIndex(multi.serie[i])+1;
+                }
+                Serial.printf( "[ConF] SAVE PARM Multi : GRUPO%d  tamaño: %d (%s)\n", g+1 , *multi.size , multi.desc );
+                printMultiGroup(config, g-1);
+                saveConfig = true;
+                #ifdef EXTRADEBUG
                   Serial.printf("#09 savedValue: %d  value: %d \n",savedValue,value);
                 #endif
                 value = savedValue;
                 ultimosRiegos(HIDE);
-                longbip(2);
+                bipOK(3);
                 configure->stop();
               }
               break;
             case bSTOP:
               if(!boton->estado) {
                 configure->stop();
+                //Serial.println( "release de STOP en modo ConF" );
+                if (saveConfig) {
+                  Serial.println("saveConfig=true  --> salvando parametros a fichero");
+                  if (saveConfigFile(parmFile, config)) bipOK(3);
+                  saveConfig = false;
+                }
+                ultimosRiegos(HIDE);  
                 Estado.estado = STANDBY;
                 standbyTime = millis();
-                // ¿deberia ir aqui value = savedValue; para caso de salir sin salvar???
               }
               break;
           }
@@ -576,24 +579,22 @@ void procesaEstados()
       led(Boton[bId2bIndex(ultimoBoton->id)].led,OFF);
       StaticTimeUpdate();
       standbyTime = millis();
-      //Serial.println("Salimos de reposo -3-");
-      //reposo = false;
       Estado.estado = STANDBY;
 
       //Comprobamos si estamos en un multiriego
       if (multiriego) {
-        multi->actual++;
-        if (multi->actual < multi->size) {
+        multi.actual++;
+        if (multi.actual < *multi.size) {
           //Simular la pulsacion del siguiente boton de la serie de multiriego
-          boton = &Boton[bId2bIndex(multi->serie[multi->actual])];
+          boton = &Boton[bId2bIndex(multi.serie[multi.actual])];
           multiSemaforo = true;
         }
         else {
-          longbip(3);
+          bipOK(5);
           multiriego = false;
           multiSemaforo = false;
-            Serial.printf("MULTIRRIEGO %s terminado \n", multi->desc);
-          led(Boton[bId2bIndex(multi->id)].led,OFF);
+            Serial.printf("MULTIRRIEGO %s terminado \n", multi.desc);
+          led(Boton[bId2bIndex(*multi.id)].led,OFF);
         }
       }
       break;
@@ -622,6 +623,11 @@ void setupEstado()
   #ifdef TRACE
     Serial.println("TRACE: in setupEstado");
   #endif
+  //inicializamos apuntador estructura multi (posicion del selector multirriego):
+  if(!setMultibyId(getMultiStatus(), config) || !config.initialized) {
+    statusError("Err0", 3);  //no se ha podido cargar parámetros de ficheros -> señalamos el error
+  return;
+  }
   // Si estamos en modo NONETWORK pasamos a STANDBY aunque no exista conexión wifi o estemos en ERROR
   if (NONETWORK) {
     Estado.estado = STANDBY;
@@ -650,8 +656,8 @@ void setupEstado()
 
 /**---------------------------------------------------------------
  * verificamos si encoderSW esta pulsado (estado OFF) y selector de multirriego esta en:
- *    - Grupo1 (CESPED) --> en ese caso inicializariamos la eeprom
- *    - Grupo2 (GOTEOS) --> en ese caso borramos red wifi almacenada en el ESP8266
+ *    - Grupo1 (arriba) --> en ese caso cargamos los parametros del fichero de configuracion por defecto
+ *    - Grupo3 (abajo) --> en ese caso borramos red wifi almacenada en el ESP8266
  */
 void setupInit(void) {
   #ifdef TRACE
@@ -659,14 +665,14 @@ void setupInit(void) {
   #endif
   //S_initFlags initFlags = 0;
   if (testButton(bENCODER, OFF)) {
-    if (testButton(bCESPED,ON)) {
-      initFlags.initEeprom = true;
-      Serial.println("encoderSW pulsado y multirriego en CESPED  --> flag de init EEPROM true");
-      eepromWriteSignal(6);
+    if (testButton(bGRUPO1,ON)) {
+      initFlags.initParm = true;
+      Serial.println("encoderSW pulsado y multirriego en GRUPO1  --> flag de load default PARM true");
+      loadDefaultSignal(6);
     }
-    if (testButton(bGOTEOS,ON)) {
+    if (testButton(bGRUPO3,ON)) {
       initFlags.initWifi = true;
-      Serial.println("encoderSW pulsado y multirriego en GOTEOS  --> flag de init WIFI true");
+      Serial.println("encoderSW pulsado y multirriego en GRUPO3  --> flag de init WIFI true");
       wifiClearSignal(6);
     }
   }
@@ -678,14 +684,16 @@ void setupInit(void) {
 void check(void)
 {
   display->print("----");
+  #ifndef DEBUG
   initLeds();
   display->check(1);
+  #endif
 }
 
 uint idarrayRiego(uint16_t id)
 {
-  for (uint i=0;i<NUMRIEGOS;i++) {
-    if(COMPLETO[i] == id) return i;
+  for (uint i=0;i<NUMZONAS;i++) {
+    if(ZONAS[i] == id) return i;
   }
   return 999;
 }
@@ -695,125 +703,6 @@ void timerIsr()
   Encoder->service();
 }
 
-/**---------------------------------------------------------------
- * Lectura y/o escritura de la eeprom
- */
-void procesaEeprom() 
-{
-  int i,botonAddr;
-  int grupoAddr;
-  bool eeinitialized=0;
-  n_Grupos = nGrupos();
-
-  #ifdef NODEMCU
-    EEPROM.begin(sizeof(__eeprom_data) + sizeof(_eeprom_group)*n_Grupos);
-  #endif
-
-  EEPROM.get(0,eeinitialized);
-  botonAddr = offsetof(__eeprom_data, botonIdx[0]);
-  
-  #ifdef DEBUG
-    Serial.printf( "\n tamaño de la eeprom : %d \n", sizeof(__eeprom_data) + sizeof(_eeprom_group)*n_Grupos );
-    Serial.printf( "\t eeinitialized= %d \n", eeinitialized );
-    Serial.printf( "\t FORCEINITEEPROM= %d \n", FORCEINITEEPROM );
-    Serial.printf( "\t initEeprom= %d \n", initFlags.initEeprom );
-    Serial.printf( "\t boton0 offset= %d \n", botonAddr );
-  #endif
-
-  if( eeinitialized == 0 || FORCEINITEEPROM == 1 || initFlags.initEeprom) {
-    Serial.println(">>>>>>>>>>>>>>  Inicializando la EEPROM  <<<<<<<<<<<<<<");
-    //escribe valores de los IDX de los botones
-    for(i=0;i<16;i++) {
-      EEPROM.put(botonAddr,Boton[i].idx);
-      Serial.printf( "escribiendo boton %d : %d address %d \n", i , Boton[i].idx, botonAddr );
-      botonAddr += 2;
-    }
-    //escribe tiempo de riego por defecto
-    minutes = DEFAULTMINUTES;
-    seconds = DEFAULTSECONDS;
-    Serial.printf( "escrito tiempo riego por defecto, minutos: %d segundos: %d \n",minutes ,seconds );
-    EEPROM.put(offsetof(__eeprom_data, minutes),minutes);
-    EEPROM.put(offsetof(__eeprom_data, seconds),seconds);
-    //escribe parametros conexion a Domoticz y ntp
-    //eepromWriteRed();
-    //escribe parametros conexion a Domoticz y ntp solo si FORCEINITEEPROM o no inicializada
-    if(eeinitialized == 0 || FORCEINITEEPROM == 1) eepromWriteRed();
-    //escribe grupos de multirriego y su tamaño
-    eepromWriteGroups();
-    // marca la eeprom como inicializada
-    EEPROM.put(offsetof(__eeprom_data, initialized),(uint8_t)1);   
-    #ifdef NODEMCU
-      bool bRc = EEPROM.commit();
-      if(bRc) Serial.println("Write eeprom OK");
-      else    Serial.println("Write eeprom error");
-    #endif                
-    #ifdef DEBUG
-      Serial.printf( "OFFinitialized: %d \n", offsetof(__eeprom_data, initialized));
-      Serial.printf( "OFFm: %d OFFS: %d \n", offsetof(__eeprom_data, minutes), offsetof(__eeprom_data, seconds));
-      Serial.printf( "OFFnumgroups: %d \n", offsetof(__eeprom_data, numgroups));
-    #endif
-    //señala la escritura de la eeprom
-    if(bRc) longbip(3);
-  }
-  //siempre leemos valores de la eeprom para cargar las variables correspondientes:
-  Serial.println("<<<<<<<<<<<<<<<<<<<<<   Leyendo valores de la EEPROM   >>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-  //leemos valores de los IDX de los botones
-  Serial.println("Leyendo idx de los botones");
-  botonAddr = offsetof(__eeprom_data, botonIdx[0]);
-  for(i=0;i<16;i++) {
-    EEPROM.get(botonAddr,Boton[i].idx);
-    #ifdef VERBOSE
-      Serial.printf( "leido boton %d idx: %d address: %d \n", i, Boton[i].idx, botonAddr);
-    #endif
-    botonAddr += sizeof(Boton[i].idx);
-  }
-  //leemos tiempo de riego por defecto
-  EEPROM.get(offsetof(__eeprom_data, minutes),minutes);
-  EEPROM.get(offsetof(__eeprom_data, seconds),seconds);
-  Serial.printf( "leido tiempo riego por defecto, minutos: %d segundos: %d \n",minutes ,seconds );
-  value = ((seconds==0)?minutes:seconds);
-  StaticTimeUpdate();
-  //leemos parametros conexion a Domoticz y ntp
-  EEPROM.get(offsetof(__eeprom_data, serverAddress),serverAddress);
-  EEPROM.get(offsetof(__eeprom_data, DOMOTICZPORT),DOMOTICZPORT);
-  EEPROM.get(offsetof(__eeprom_data, ntpServer),ntpServer);
-  Serial.println("leidos parametros de conexion a domoticz en la eeprom");
-  Serial.printf( " - Domoticz ip: %s puerto: %s \n", serverAddress, DOMOTICZPORT);
-  Serial.printf( " - NTP server: %s \n", ntpServer );
-  //leemos grupos de multirriego
-  EEPROM.get(offsetof(__eeprom_data, numgroups),n_Grupos); //numero de grupos de multirriego
-  Serial.printf( "leido n_Grupos de la eeprom: %d grupos \n", n_Grupos );
-  #ifdef DEBUG
-      int k;
-      k = offsetof(__eeprom_data, groups[0].size);
-      Serial.printf( "offset Grupo1.size  : %d \n" , k );
-      k = offsetof(__eeprom_data, groups[0].serie);
-      Serial.printf( "offset Grupo1.serie  : %d \n" , k );
-      k = offsetof(__eeprom_data, groups[1].size);
-      Serial.printf( "offset Grupo2.size  : %d \n" , k );
-      k = offsetof(__eeprom_data, groups[1].serie);
-      Serial.printf( "offset Grupo2.serie  : %d \n" , k );
-      k = offsetof(__eeprom_data, groups[2].size);
-      Serial.printf( "offset Grupo3.size  : %d \n" , k );
-      k = offsetof(__eeprom_data, groups[2].serie);
-      Serial.printf( "offset Grupo3.serie  : %d \n" , k );
-  #endif
-  grupoAddr = offsetof(__eeprom_data, groups[0]);
-  for(i=0;i<n_Grupos;i++) {
-    multi = getMultibyIndex(i);
-    EEPROM.get(grupoAddr,multi->size);
-    #ifdef VERBOSE
-      Serial.printf( "leyendo elementos Grupo%d : %d elementos \n" , i+1 , multi->size );
-    #endif
-    grupoAddr += 4;
-    for (int j=0;j < multi->size; j++) {
-      EEPROM.get(grupoAddr,multi->serie[j]);
-      grupoAddr += 2;
-    }
-  }
-  printMultiGroup();    
-    
-}
 
 /**---------------------------------------------------------------
  * Lee factores de riego del domoticz
@@ -824,20 +713,26 @@ void initFactorRiegos()
     Serial.println("TRACE: in initFactorRiegos");
   #endif
   //inicializamos a valor 100 por defecto para caso de error
-  for(uint i=0;i<NUMRIEGOS;i++) {
+  for(uint i=0;i<NUMZONAS;i++) {
     factorRiegos[i]=100;
   }
   //leemos factores del Domoticz
-  for(uint i=0;i<NUMRIEGOS;i++) {
-    factorRiegos[i]=getFactor(Boton[bId2bIndex(COMPLETO[i])].idx);
-    if(Estado.estado == ERROR) break; //al primer error salimos
+  for(uint i=0;i<NUMZONAS;i++) {
+    factorRiegos[i]=getFactor(Boton[bId2bIndex(ZONAS[i])].idx);
+    if(Estado.estado == ERROR) {  //al primer error salimos y señalamos zona que falla
+      if(connected) { //solo señalamos zona si no es error general de conexion
+        ledID = Boton[bId2bIndex(ZONAS[i])].led;
+        tic_parpadeoLedZona.attach(0.4,parpadeoLedZona);
+      }
+      break;
+    }
   }
   #ifdef VERBOSE
     //Leemos los valores para comprobar que lo hizo bien
     Serial.print("Factores de riego ");
     factorRiegosOK ? Serial.println("leidos: ") :  Serial.println("(simulados): ");
-    for(uint i=0;i<NUMRIEGOS;i++) {
-      Serial.printf("FACTOR %d: %d \n",i,factorRiegos[i]);
+    for(uint i=0;i<NUMZONAS;i++) {
+      Serial.printf("factor ZONA%d: %d \n",i+1,factorRiegos[i]);
     }
   #endif
 }
@@ -876,47 +771,21 @@ void ultimosRiegos(int modo)
       time_t t;
       utc = timeClient.getEpochTime();
       t = CE.toLocal(utc,&tcr);
-      for(uint i=0;i<NUMRIEGOS;i++) {
+      for(uint i=0;i<NUMZONAS;i++) {
         if(lastRiegos[i] > previousMidnight(t)) {
-            led(Boton[bId2bIndex(COMPLETO[i])].led,ON);
+            led(Boton[bId2bIndex(ZONAS[i])].led,ON);
         }
       }
       display->printTime(hour(t),minute(t));
       break;
     case HIDE:
       StaticTimeUpdate();
-      for(unsigned int i=0;i<sizeof(COMPLETO)/2;i++) {
-        led(Boton[bId2bIndex(COMPLETO[i])].led,OFF);
+      //for(unsigned int i=0;i<sizeof(ZONAS)/2;i++) {
+      for(unsigned int i=0;i<NUMZONAS;i++) {
+        led(Boton[bId2bIndex(ZONAS[i])].led,OFF);
       }
       break;
   }
-}
-
-//escribe en la eeprom grupos de multirriego y su tamaño
-void eepromWriteGroups() 
-{
-  int grupoAddr;
-  grupoAddr = offsetof(__eeprom_data, groups[0]);
-  EEPROM.put(offsetof(__eeprom_data, numgroups),n_Grupos); //numero de grupos de multirriego
-  for(int i=0;i<n_Grupos;i++) {
-    multi = getMultibyIndex(i);
-    Serial.printf( "escribiendo elementos Grupo%d : %d elementos \n" , i+1 , multi->size );
-    EEPROM.put(grupoAddr,multi->size);
-    grupoAddr += 4;
-    for (int j=0;j < multi->size; j++) {
-      EEPROM.put(grupoAddr,multi->serie[j]);
-      grupoAddr += 2;
-    }
-  }
-}
-
-//escribe parametros conexion a Domoticz y ntp
-void eepromWriteRed() 
-{
-  Serial.println("Escribiendo parametros de conexion a domoticz en la eeprom");
-  EEPROM.put(offsetof(__eeprom_data, serverAddress),serverAddress);
-  EEPROM.put(offsetof(__eeprom_data, DOMOTICZPORT),DOMOTICZPORT);
-  EEPROM.put(offsetof(__eeprom_data, ntpServer),ntpServer);
 }
 
 //conmuta estado LEDR, LEDG y LEDB para atenuarlos
@@ -941,7 +810,8 @@ void procesaEncoder()
   #endif
   if(Estado.estado == CONFIGURANDO && configure->configuringIdx()) {
       #ifdef EXTRATRACE
-       Serial.println("TRACE: en procesaencoder idx");
+       //Serial.println("TRACE: en procesaencoder idx");
+       Serial.print("i");
       #endif
       value -= Encoder->getValue();
       if (value > 1000) value = 1000;
@@ -991,7 +861,7 @@ void procesaEncoder()
 
 void initLastRiegos()
 {
-  for(uint i=0;i<NUMRIEGOS;i++) {
+  for(uint i=0;i<NUMZONAS;i++) {
    lastRiegos[i] = 0;
   }
 }
@@ -1018,6 +888,7 @@ bool initRiego(uint16_t id)
 bool stopRiego(uint16_t id)
 {
   int index = bId2bIndex(id);
+  ledID = Boton[index].led;
   #ifdef DEBUG
   Serial.printf( "Terminando riego: %s \n", Boton[index].desc);
   #endif
@@ -1028,6 +899,7 @@ bool stopRiego(uint16_t id)
       if (simErrorOFF) statusError("Err5",5); // simula error si simErrorOFF es true
       errorOFF = true;  // recordatorio error
       tic_parpadeoLedON.attach(0.2,parpadeoLedON);
+      tic_parpadeoLedZona.attach(0.4,parpadeoLedZona);
     } 
     return false;
   }
@@ -1038,12 +910,12 @@ bool stopRiego(uint16_t id)
 void stopAllRiego(bool stop)
 {
   //Apago los leds de multiriego
-  led(Boton[bId2bIndex(multi->id)].led,OFF);
+  led(Boton[bId2bIndex(*multi.id)].led,OFF);
   //Apago los leds de riego
-  for(unsigned int i=0;i<sizeof(COMPLETO)/2;i++) {
-    led(Boton[bId2bIndex(COMPLETO[i])].led,OFF);
+  for(unsigned int i=0;i<NUMZONAS;i++) {
+    led(Boton[bId2bIndex(ZONAS[i])].led,OFF);
     if (stop) {  //paramos todas las zonas de riego
-      if(!stopRiego(COMPLETO[i])) { 
+      if(!stopRiego(ZONAS[i])) { 
         break; //al primer error salimos
       }  
     }
@@ -1068,6 +940,16 @@ void longbip(int veces)
     led(BUZZER,OFF);
     delay(100);
   }
+}
+
+void bipOK(int veces)
+{
+    led(BUZZER,ON);
+    delay(500);
+    led(BUZZER,OFF);
+    delay(100);
+
+    bip(veces);
 }
 
 void blinkPause()
@@ -1114,7 +996,7 @@ String httpGetDomoticz(String message)
   #ifdef TRACE
     Serial.println("TRACE: in httpGetDomoticz");
   #endif
-  String tmpStr = "http://" + String(serverAddress) + ":" + DOMOTICZPORT + String(message);
+  String tmpStr = "http://" + String(config.domoticz_ip) + ":" + config.domoticz_port + String(message);
   #ifdef DEBUG
     Serial.print("TMPSTR: ");Serial.println(tmpStr);
   #endif
@@ -1125,7 +1007,7 @@ String httpGetDomoticz(String message)
     if(httpCode == HTTP_CODE_OK) {
       response = httpclient.getString();
       #ifdef EXTRADEBUG
-        Serial.print("RESPONSE: ");Serial.println(response);
+        Serial.print("httpGetDomoticz RESPONSE: ");Serial.println(response);
       #endif
     }
   }
@@ -1148,7 +1030,7 @@ String httpGetDomoticz(String message)
     return "ErrX";
   }
   httpclient.end();
-  Serial.println("TRACE: in httpGetDomoticz **return");
+  //Serial.println("TRACE: in httpGetDomoticz **return");
   return response;
 }
 
@@ -1192,13 +1074,13 @@ int getFactor(uint16_t idx)
      Ante cualquier problema (no de error), devolvemos 100% para no factorizar ese riego
      si VERIFY=false, o Err2 si VERIFY=true
   */
-  const size_t bufferSize = 2*JSON_ARRAY_SIZE(1) + JSON_OBJECT_SIZE(16) + JSON_OBJECT_SIZE(46) + 1500;
-  DynamicJsonBuffer jsonBuffer(bufferSize);
-  JsonObject &root = jsonBuffer.parseObject(response);
-  if (!root.success()) {
-    #ifdef DEBUG
-      Serial.println("parseObject() failed");
-    #endif
+  // ojo el ArduinoJson Assistant recomienda usar char* en vez de String (gasta menos memoria)
+  char* response_pointer = &response[0];
+  DynamicJsonDocument jsondoc(2048);
+  DeserializationError error = deserializeJson(jsondoc, response_pointer);
+  if (error) {
+    Serial.print(F("[ERROR] getFactor: deserializeJson() failed: "));
+    Serial.println(error.f_str());
     if(!VERIFY) return 100;
     else {
       statusError("Err2",3);
@@ -1206,7 +1088,7 @@ int getFactor(uint16_t idx)
     }
   }
   //Tenemos que controlar para que no resetee en caso de no haber leido por un rid malo
-  const char *factorstr = root["result"][0]["Description"];
+  const char *factorstr = jsondoc["result"][0]["Description"];
   if(factorstr == NULL) {
     //El rid (idx) no esta definido en el Domoticz
     #ifdef VERBOSE
@@ -1341,23 +1223,76 @@ void parpadeoLedON()
   byte estado = ledStatusId(LEDR);
   led(LEDR,!estado);
 }
-
-#ifdef NET_DIRECT
-void clientConnect()
+void parpadeoLedZona()
 {
-  while(1)
-  {
-    delay(1000);
-    Serial.println("Conectando a domoticz ...");
-    if (client.connect(server,port)) {
-      Serial.println("conectado");
-      break;
-    }
-    else {
-      Serial.println("Conexion fallida");
-      client.stop();
+  byte estado = ledStatusId(ledID);
+  led(ledID,!estado);
+}
+
+void setupParm()
+{
+  #ifdef TRACE
+    Serial.println("TRACE: in setupParm");
+  #endif
+  if(clean_FS) cleanFS();
+  #ifdef DEBUG
+    filesInfo();
+    Serial.printf( "initParm= %d \n", initFlags.initParm );
+  #endif
+  if( initFlags.initParm) {
+    Serial.println(">>>>>>>>>>>>>>  cargando parametros por defecto  <<<<<<<<<<<<<<");
+    bool bRC = copyConfigFile(defaultFile, parmFile); // defaultFile --> parmFile
+    if(bRC) Serial.println("carga parametros por defecto OK");
+    else    Serial.println("[ERROR] carga parametros por defecto");
+    //señala la carga parametros por defecto OK
+    if(bRC) bipOK(3);
+  }
+  if (!setupConfig(parmFile, config)) {
+    Serial.printf("[ERROR] Leyendo fichero parametros %s \n", parmFile);
+    if (!setupConfig(defaultFile, config)) {
+      Serial.printf("[ERROR] Leyendo fichero parametros %s \n", defaultFile);
     }
   }
+  if (!config.initialized) zeroConfig(config);  //init config con zero-config
+  #ifdef DEBUG
+    if (config.initialized) Serial.println("Parametros cargados: ");
+    else Serial.println("Parametros zero-config: ");
+    printParms(config);
+  #endif
 }
-#endif
 
+bool setupConfig(const char *p_filename, Config_parm &cfg) {
+  Serial.printf("Leyendo fichero parametros %s \n", p_filename);
+  bool loaded = loadConfigFile(p_filename, config);
+  minutes = config.minutes;
+  seconds = config.seconds;
+  value = ((seconds==0)?minutes:seconds);
+  if (loaded) {
+    for(int i=0;i<NUMZONAS;i++) {
+      //actualiza el IDX leido sobre estructura Boton:
+      Boton[i].idx = config.botonConfig[i].idx;
+      //actualiza la descripcion leida sobre estructura Boton:
+      strlcpy(Boton[i].desc, config.botonConfig[i].desc, sizeof(Boton[i].desc));
+    }
+    #ifdef DEBUG
+      printFile(p_filename);
+    #endif
+    return true;
+  }  
+  Serial.println("[ERROR] parámetros de configuración no cargados");
+  return false;
+}
+
+// funciones solo usadas en DEVELOP
+#ifdef DEBUG
+  //imprime contenido actual de la estructura multi
+  void printMulti()
+  {
+      Serial.println("TRACE: in printMulti");
+      Serial.printf("MULTI Boton_id x%x: size=%d (%s)\n", *multi.id, *multi.size, multi.desc);
+      for(int j = 0; j < *multi.size; j++) {
+        Serial.printf("  Zona  id: x%x \n", multi.serie[j]);
+      }
+    Serial.println();
+  }
+#endif  
