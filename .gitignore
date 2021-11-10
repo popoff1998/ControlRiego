@@ -5,7 +5,6 @@
 .pio
 .VSCodeCounter
 \.vscode/
-#data/config_pruebas.json
-#data/config_parm.json
+data/config_parm.json
 #data/config_default.json
 test/

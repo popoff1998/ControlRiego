@@ -34,7 +34,7 @@ int setMultibyId(uint16_t id, Config_parm &cfg)
       return i+1;
     }
   }
-  Serial.println("[ERROR] getMultibyID devuelve -not found-");
+  Serial.println("[ERROR] setMultibyID devuelve -not found-");
   return 0;
 }
 
@@ -50,15 +50,13 @@ void displayGrupo(uint16_t *serie, int serieSize)
     delay(100);
   }
 }
+
 //imprime contenido actual de la estructura multiGroup
-void printMultiGroup(Config_parm &cfg)
+void printMultiGroup(Config_parm &cfg, int pgrupo)
 {
-  for(int i = 0; i < cfg.n_Grupos; i++) {
-    Serial.printf("Grupo%d: size=%d (%s)\n", i+1, cfg.groupConfig[i].size, cfg.groupConfig[i].desc);
-    for(int j = 0; j < cfg.groupConfig[i].size; j++) {
-      Serial.printf("  Zona%d   id: x", cfg.groupConfig[i].serie[j]);
-      Serial.println(Boton[cfg.groupConfig[i].serie[j]-1].id,HEX); //id(boton) asociado a la zona
-    }
+  for(int j = 0; j < cfg.groupConfig[pgrupo].size; j++) {
+    Serial.printf("  Zona%d   id: x", cfg.groupConfig[pgrupo].serie[j]);
+    Serial.println(Boton[cfg.groupConfig[pgrupo].serie[j]-1].id,HEX); //id(boton) asociado a la zona
   }
   Serial.println();
 }

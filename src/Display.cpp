@@ -21,20 +21,20 @@ static int8_t TubeTab[] = {0x3f,0x06,0x5b,0x4f,
 
 Display::Display(uint8_t clk,uint8_t data) : ledDisp(clk,data)
 {
-  #ifdef DEBUG
+  #ifdef EXTRADEBUG
    Serial.println("DISPLAY: set brigth");
   #endif
   ledDisp.set(BRIGHT_TYPICAL); //BRIGHT_TYPICAL = 2,BRIGHT_DARKEST = 0,BRIGHTEST = 7
   //ledDisp.set(BRIGHTEST); //para leds verdes
-  #ifdef DEBUG
+  #ifdef EXTRADEBUG
    Serial.println("DISPLAY: init");
   #endif
   ledDisp.init();
-  #ifdef DEBUG
+  #ifdef EXTRADEBUG
    Serial.println("DISPLAY: point");
   #endif
   ledDisp.point(POINT_ON);
-  #ifdef DEBUG
+  #ifdef EXTRADEBUG
    Serial.println("DISPLAY: exit constructor");
   #endif
 }  

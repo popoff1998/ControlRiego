@@ -353,6 +353,7 @@
   //Funciones (prototipos)
   void apagaLeds(void);
   void bip(int);
+  void bipOK(int);
   int  bId2bIndex(uint16_t);
   void blinkPause(void);
   void check(void);
@@ -363,6 +364,7 @@
   void dimmerLeds(void);
   void displayGrupo(uint16_t *, int);
   bool domoticzSwitch(int,char *);
+  void filesInfo(void);
   void loadDefaultSignal(uint);
   void enciendeLeds(void);
   void flagVerificaciones(void);
@@ -390,7 +392,7 @@
   S_BOTON *parseInputs(bool);
   void printFile(const char*);
   void printMulti(void);
-  void printMultiGroup(Config_parm&);
+  void printMultiGroup(Config_parm&, int);
   void printParms(Config_parm&);
   void procesaBotones(void);
   void procesaEncoder(void);
@@ -413,5 +415,6 @@
   void ultimosRiegos(int);
   void Verificaciones(void);
   void wifiClearSignal(uint);
+  void zeroConfig(Config_parm&);
 
 #endif
