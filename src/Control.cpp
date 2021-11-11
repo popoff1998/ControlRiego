@@ -721,7 +721,8 @@ void initFactorRiegos()
     factorRiegos[i]=100;
   }
   //leemos factores del Domoticz
-  for(uint i=0;i<NUMZONAS;i++) {
+  for(uint i=0;i<NUMZONAS;i++) 
+  {
     factorRiegos[i]=getFactor(Boton[bId2bIndex(ZONAS[i])].idx);
     if(Estado.estado == ERROR) {  //al primer error salimos y señalamos zona que falla
       if(connected) { //solo señalamos zona si no es error general de conexion
@@ -730,13 +731,19 @@ void initFactorRiegos()
       }
       break;
     }
+    #ifdef xNAME
+      //actualizamos la DESCRIPCION del boton recibida del Domoticz (campo Name)
+      if (sizeof(descFR)) {
+        strlcpy(Boton[bId2bIndex(ZONAS[i])].desc, descFR, sizeof(Boton[bId2bIndex(ZONAS[i])].desc));
+      }
+    #endif  
   }
   #ifdef VERBOSE
     //Leemos los valores para comprobar que lo hizo bien
     Serial.print("Factores de riego ");
     factorRiegosOK ? Serial.println("leidos: ") :  Serial.println("(simulados): ");
     for(uint i=0;i<NUMZONAS;i++) {
-      Serial.printf("factor ZONA%d: %d \n",i+1,factorRiegos[i]);
+      Serial.printf("\tfactor ZONA%d: %d (%s) \n", i+1, factorRiegos[i], Boton[bId2bIndex(ZONAS[i])].desc);
     }
   #endif
 }
@@ -1103,6 +1110,10 @@ int getFactor(uint16_t idx)
       return 100;
     }
   }
+  #ifdef xNAME
+    //extraemos la DESCRIPCION para ese boton en Domoticz del json (campo Name)
+    strlcpy(descFR, jsondoc["result"][0]["Name"] | "", sizeof(descFR));
+  #endif  
   //si hemos leido correctamente (numero, campo vacio o solo con comentarios)
   //consideramos leido OK el factor riego. En los dos ultimos casos se
   //devuelve valor por defecto 100.
