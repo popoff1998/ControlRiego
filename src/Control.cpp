@@ -482,6 +482,8 @@ void procesaEstados()
 
   switch (Estado.estado) {
     case CONFIGURANDO:
+      //Deshabilitamos el hold de Pause
+      Boton[bId2bIndex(bPAUSE)].flags.holddisabled = true;
       if (boton != NULL) {
         if (boton->flags.action) {
           //Serial.println( "En estado CONFIGURANDO pulsado ACTION" );
@@ -512,20 +514,22 @@ void procesaEstados()
               }
               if(configure->configuringMulti()) {
                 // actualizamos config con las zonas introducidas
-                *multi.size = multi.w_size;
-                int g = configure->getActualGrupo();
-                for (int i=0; i<multi.w_size; ++i) {
-                  config.groupConfig[g-1].serie[i] = bId2bIndex(multi.serie[i])+1;
+                if (multi.w_size) {  //solo si se ha pulsado alguna
+                  *multi.size = multi.w_size;
+                  int g = configure->getActualGrupo();
+                  for (int i=0; i<multi.w_size; ++i) {
+                    config.groupConfig[g-1].serie[i] = bId2bIndex(multi.serie[i])+1;
+                  }
+                  Serial.printf( "[ConF] SAVE PARM Multi : GRUPO%d  tamaño: %d (%s)\n", g+1 , *multi.size , multi.desc );
+                  printMultiGroup(config, g-1);
+                  saveConfig = true;
+                  bipOK(3);
                 }
-                Serial.printf( "[ConF] SAVE PARM Multi : GRUPO%d  tamaño: %d (%s)\n", g+1 , *multi.size , multi.desc );
-                printMultiGroup(config, g-1);
-                saveConfig = true;
                 #ifdef EXTRADEBUG
                   Serial.printf("#09 savedValue: %d  value: %d \n",savedValue,value);
                 #endif
                 value = savedValue;
                 ultimosRiegos(HIDE);
-                bipOK(3);
                 configure->stop();
               }
               break;
@@ -948,7 +952,6 @@ void bipOK(int veces)
     delay(500);
     led(BUZZER,OFF);
     delay(100);
-
     bip(veces);
 }
 

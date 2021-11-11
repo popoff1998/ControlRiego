@@ -57,7 +57,7 @@
     #define VERBOSE
   #endif
 
-  #define VERSION  "2.0"
+  #define VERSION  "2.0.1"
 
   //Comportamiento General
   #define STANDBYSECS         15
