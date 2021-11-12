@@ -83,7 +83,6 @@ bool loadConfigFile(const char *p_filename, Config_parm &cfg)
     i++;
   cfg.initialized = 1; //solo marcamos como init config si pasa por este bucle
   }
-
   file.close();
   if (cfg.initialized) return true;
   else return false;

@@ -57,7 +57,11 @@
     #define VERBOSE
   #endif
 
-  #define VERSION  "2.0"
+  //-------------------------------------------------------------------------------------
+                            #define VERSION  "2.1"
+  //-------------------------------------------------------------------------------------
+
+  #define xNAME  //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
 
   //Comportamiento General
   #define STANDBYSECS         15
@@ -327,7 +331,7 @@
     Configure *configure;
     uint8_t minutes;
     uint8_t seconds;
-    //int value = minutes;
+    char  descFR[30];
     int value;
     int savedValue;
     int ledID = 0;

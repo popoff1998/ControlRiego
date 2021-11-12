@@ -230,7 +230,8 @@ void procesaBotones()
             if(Estado.estado != ERROR) Estado.estado = REGANDO; // para que no borre ERROR
             break;
           case CONFIGURANDO:
-            if(!configure->configuringIdx() && !configure->configuringTime() && !configure->configuringMulti()) {
+            //if(!configure->configuringIdx() && !configure->configuringTime() && !configure->configuringMulti()) {
+            if(!configure->configuring()) { //si no estamos ya configurando algo
               configure->configureTime();
               Serial.println("[ConF] configurando tiempo riego por defecto");
               delay(500);
@@ -345,13 +346,29 @@ void procesaBotones()
       standbyTime = millis();
       break;
     case bMULTIRIEGO:
-        //Configuramos el grupo de multirriego activo
       if (Estado.estado == CONFIGURANDO) {
         #ifdef DEBUG
           Serial.printf("#03 savedValue: %d  value: %d \n",savedValue,value);
         #endif
         savedValue = value;
-        int n_grupo = setMultibyId(getMultiStatus(), config); 
+        int n_grupo = setMultibyId(getMultiStatus(), config);
+        if (encoderSW && !configure->configuring()) 
+        {
+          //encoderSW pulsado y no estamos configurando nada: actuamos segun posicion selector multirriego
+          if (n_grupo == 1) {  // copiamos fichero parametros en fichero default
+            if (copyConfigFile(parmFile, defaultFile)) {
+              Serial.println("[ConF] salvado fichero de parametros actuales como DEFAULT");
+              display->print("-++-");
+              bipOK(5);
+              display->print("ConF"); 
+            }
+          } 
+          if (n_grupo == 3) {  // libre de momento
+               Serial.println("[ConF] accion a realizar con encoderSW + selector ABAJO");
+            }
+          break;
+        } 
+        //Configuramos el grupo de multirriego activo
         configure->configureMulti(n_grupo);
         Serial.printf( "[ConF] configurando: GRUPO%d (%s) \n" , n_grupo, multi.desc);
         #ifdef DEBUG
@@ -482,6 +499,8 @@ void procesaEstados()
 
   switch (Estado.estado) {
     case CONFIGURANDO:
+      //Deshabilitamos el hold de Pause
+      Boton[bId2bIndex(bPAUSE)].flags.holddisabled = true;
       if (boton != NULL) {
         if (boton->flags.action) {
           //Serial.println( "En estado CONFIGURANDO pulsado ACTION" );
@@ -512,20 +531,22 @@ void procesaEstados()
               }
               if(configure->configuringMulti()) {
                 // actualizamos config con las zonas introducidas
-                *multi.size = multi.w_size;
-                int g = configure->getActualGrupo();
-                for (int i=0; i<multi.w_size; ++i) {
-                  config.groupConfig[g-1].serie[i] = bId2bIndex(multi.serie[i])+1;
+                if (multi.w_size) {  //solo si se ha pulsado alguna
+                  *multi.size = multi.w_size;
+                  int g = configure->getActualGrupo();
+                  for (int i=0; i<multi.w_size; ++i) {
+                    config.groupConfig[g-1].serie[i] = bId2bIndex(multi.serie[i])+1;
+                  }
+                  Serial.printf( "[ConF] SAVE PARM Multi : GRUPO%d  tamaño: %d (%s)\n", g+1 , *multi.size , multi.desc );
+                  printMultiGroup(config, g-1);
+                  saveConfig = true;
+                  bipOK(3);
                 }
-                Serial.printf( "[ConF] SAVE PARM Multi : GRUPO%d  tamaño: %d (%s)\n", g+1 , *multi.size , multi.desc );
-                printMultiGroup(config, g-1);
-                saveConfig = true;
                 #ifdef EXTRADEBUG
                   Serial.printf("#09 savedValue: %d  value: %d \n",savedValue,value);
                 #endif
                 value = savedValue;
                 ultimosRiegos(HIDE);
-                bipOK(3);
                 configure->stop();
               }
               break;
@@ -717,7 +738,8 @@ void initFactorRiegos()
     factorRiegos[i]=100;
   }
   //leemos factores del Domoticz
-  for(uint i=0;i<NUMZONAS;i++) {
+  for(uint i=0;i<NUMZONAS;i++) 
+  {
     factorRiegos[i]=getFactor(Boton[bId2bIndex(ZONAS[i])].idx);
     if(Estado.estado == ERROR) {  //al primer error salimos y señalamos zona que falla
       if(connected) { //solo señalamos zona si no es error general de conexion
@@ -726,13 +748,19 @@ void initFactorRiegos()
       }
       break;
     }
+    #ifdef xNAME
+      //actualizamos la DESCRIPCION del boton recibida del Domoticz (campo Name)
+      if (sizeof(descFR)) {
+        strlcpy(Boton[bId2bIndex(ZONAS[i])].desc, descFR, sizeof(Boton[bId2bIndex(ZONAS[i])].desc));
+      }
+    #endif  
   }
   #ifdef VERBOSE
     //Leemos los valores para comprobar que lo hizo bien
     Serial.print("Factores de riego ");
     factorRiegosOK ? Serial.println("leidos: ") :  Serial.println("(simulados): ");
     for(uint i=0;i<NUMZONAS;i++) {
-      Serial.printf("factor ZONA%d: %d \n",i+1,factorRiegos[i]);
+      Serial.printf("\tfactor ZONA%d: %d (%s) \n", i+1, factorRiegos[i], Boton[bId2bIndex(ZONAS[i])].desc);
     }
   #endif
 }
@@ -948,7 +976,6 @@ void bipOK(int veces)
     delay(500);
     led(BUZZER,OFF);
     delay(100);
-
     bip(veces);
 }
 
@@ -1100,6 +1127,10 @@ int getFactor(uint16_t idx)
       return 100;
     }
   }
+  #ifdef xNAME
+    //extraemos la DESCRIPCION para ese boton en Domoticz del json (campo Name)
+    strlcpy(descFR, jsondoc["result"][0]["Name"] | "", sizeof(descFR));
+  #endif  
   //si hemos leido correctamente (numero, campo vacio o solo con comentarios)
   //consideramos leido OK el factor riego. En los dos ultimos casos se
   //devuelve valor por defecto 100.
