@@ -57,7 +57,9 @@
     #define VERBOSE
   #endif
 
-  #define VERSION  "2.0.2"
+  //-------------------------------------------------------------------------------------
+                            #define VERSION  "2.1"
+  //-------------------------------------------------------------------------------------
 
   #define xNAME  //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
 

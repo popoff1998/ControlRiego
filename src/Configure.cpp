@@ -42,6 +42,11 @@ bool Configure::configuringMulti()
   return _configuringMulti;
 }
 
+bool Configure::configuring()
+{
+  return (_configuringIdx | _configuringTime | _configuringMulti);
+}
+
 void Configure::configureIdx(int index)
 {
   _configuringIdx = true;

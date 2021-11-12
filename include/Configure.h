@@ -21,6 +21,7 @@ class Configure
     bool configuringTime(void);
     bool configuringIdx(void);
     bool configuringMulti(void);
+    bool configuring(void);
     int getActualIdxIndex(void);
     int getActualGrupo(void);
 };

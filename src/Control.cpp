@@ -230,7 +230,8 @@ void procesaBotones()
             if(Estado.estado != ERROR) Estado.estado = REGANDO; // para que no borre ERROR
             break;
           case CONFIGURANDO:
-            if(!configure->configuringIdx() && !configure->configuringTime() && !configure->configuringMulti()) {
+            //if(!configure->configuringIdx() && !configure->configuringTime() && !configure->configuringMulti()) {
+            if(!configure->configuring()) { //si no estamos ya configurando algo
               configure->configureTime();
               Serial.println("[ConF] configurando tiempo riego por defecto");
               delay(500);
@@ -345,13 +346,29 @@ void procesaBotones()
       standbyTime = millis();
       break;
     case bMULTIRIEGO:
-        //Configuramos el grupo de multirriego activo
       if (Estado.estado == CONFIGURANDO) {
         #ifdef DEBUG
           Serial.printf("#03 savedValue: %d  value: %d \n",savedValue,value);
         #endif
         savedValue = value;
-        int n_grupo = setMultibyId(getMultiStatus(), config); 
+        int n_grupo = setMultibyId(getMultiStatus(), config);
+        if (encoderSW && !configure->configuring()) 
+        {
+          //encoderSW pulsado y no estamos configurando nada: actuamos segun posicion selector multirriego
+          if (n_grupo == 1) {  // copiamos fichero parametros en fichero default
+            if (copyConfigFile(parmFile, defaultFile)) {
+              Serial.println("[ConF] salvado fichero de parametros actuales como DEFAULT");
+              display->print("-++-");
+              bipOK(5);
+              display->print("ConF"); 
+            }
+          } 
+          if (n_grupo == 3) {  // libre de momento
+               Serial.println("[ConF] accion a realizar con encoderSW + selector ABAJO");
+            }
+          break;
+        } 
+        //Configuramos el grupo de multirriego activo
         configure->configureMulti(n_grupo);
         Serial.printf( "[ConF] configurando: GRUPO%d (%s) \n" , n_grupo, multi.desc);
         #ifdef DEBUG
