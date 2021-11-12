@@ -406,6 +406,13 @@
   void procesaBotonZona(void);
   void procesaEncoder(void);
   void procesaEstados(void);
+  void procesaEstadoConfigurando(void);
+  void procesaEstadoError(void);
+  void procesaEstadoRegando(void);
+  void procesaEstadoStandby(void);
+  void procesaEstadoTerminando(void);
+  void procesaEstadoStop(void);
+  void procesaEstadoPause(void);
   void refreshTime(void);
   void refreshDisplay(void);
   bool saveConfigFile(const char*, Config_parm&);
