@@ -58,7 +58,7 @@
   #endif
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "2.1"
+                            #define VERSION  "2.1.1"
   //-------------------------------------------------------------------------------------
 
   #define xNAME  //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -351,6 +351,7 @@
     bool errorOFF = false;
     bool simErrorOFF = false;
     bool displayOFF = false;
+    bool encoderSW = false;
 
   #endif
 
@@ -399,6 +400,10 @@
   void printMultiGroup(Config_parm&, int);
   void printParms(Config_parm&);
   void procesaBotones(void);
+  void procesaBotonMultiriego(void);
+  void procesaBotonPause(void);
+  void procesaBotonStop(void);
+  void procesaBotonZona(void);
   void procesaEncoder(void);
   void procesaEstados(void);
   void refreshTime(void);

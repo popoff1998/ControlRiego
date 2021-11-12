@@ -156,7 +156,6 @@ void procesaBotones()
   #endif
   // almacenamos estado pulsador del encoder (para modificar comportamiento de otros botones)
   //NOTA: el encoderSW esta en estado HIGH en reposo y en estado LOW cuando esta pulsado
-  bool encoderSW;
   (!Boton[bId2bIndex(bENCODER)].estado) ? encoderSW = true : encoderSW = false;
   //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multiriego
   if (!multiSemaforo) {
@@ -213,277 +212,16 @@ void procesaBotones()
   switch (boton->id) {
     //Primero procesamos los botones singulares, el resto van por default
     case bPAUSE:
-      if (Estado.estado != STOP) {
-        //No procesamos los release del boton salvo en STOP
-        if(!boton->estado) break;
-        switch (Estado.estado) {
-          case REGANDO:
-            bip(1);
-            Estado.estado = PAUSE;
-            if(ultimoBoton) stopRiego(ultimoBoton->id);
-            T.PauseTimer();
-            break;
-          case PAUSE:
-            bip(2);
-            if(ultimoBoton) initRiego(ultimoBoton->id);
-            T.ResumeTimer();
-            if(Estado.estado != ERROR) Estado.estado = REGANDO; // para que no borre ERROR
-            break;
-          case CONFIGURANDO:
-            //if(!configure->configuringIdx() && !configure->configuringTime() && !configure->configuringMulti()) {
-            if(!configure->configuring()) { //si no estamos ya configurando algo
-              configure->configureTime();
-              Serial.println("[ConF] configurando tiempo riego por defecto");
-              delay(500);
-              boton = NULL;
-            }
-            break;
-          case STANDBY:
-              if(encoderSW) {  //si encoderSW+Pause --> conmutamos estado NONETWORK
-                // es necesario? puede dar problemas? exception(28)?
-                //boton = NULL; a ver que pasa si lo quitamos
-                if (NONETWORK) {
-                    NONETWORK = false;
-                    Serial.println("encoderSW+PAUSE pasamos a modo NORMAL y leemos factor riegos");
-                    bip(2);
-                    led(LEDB,OFF);
-                    display->print("----");
-                    initFactorRiegos();
-                    if(VERIFY && Estado.estado != ERROR) stopAllRiego(true); //verificamos operativa OFF para los IDX's 
-                }
-                else {
-                    NONETWORK = true;
-                    Serial.println("encoderSW+PAUSE pasamos a modo NONETWORK (DEMO)");
-                    bip(2);
-                    led(LEDB,ON);
-                }
-              }
-              else {    // muestra hora y ultimos riegos
-                ultimosRiegos(SHOW);
-                //boton = NULL; a ver que pasa si lo quitamos 
-                delay(3000);
-                ultimosRiegos(HIDE);
-              }
-              standbyTime = millis();
-        }
-      }
-      else {
-        //Procesamos el posible hold del boton pause
-        if(boton->estado) {
-          if(!holdPause) {
-            countHoldPause = millis();
-            holdPause = true;
-          }
-          else {
-            if((millis() - countHoldPause) > HOLDTIME) {
-              if(!encoderSW) { //pasamos a modo Configuracion
-                configure->start();
-                longbip(1);
-                Estado.estado = CONFIGURANDO;
-                //boton = NULL; a ver que pasa si lo quitamos
-                holdPause = false;
-                #ifdef DEBUG
-                  Serial.printf("#01 savedValue: %d  value: %d \n",savedValue,value);
-                #endif
-                savedValue = value;
-              }
-              else {   //si esta pulsado encoderSW hacemos un soft reset
-                Serial.println("ConF + encoderSW + PAUSA --> Reset.....");
-                longbip(3);
-                ESP.restart();  // Hard RESET: ESP.reset()
-              }
-            }
-          }
-        }
-        //Si lo hemos soltado quitamos holdPause
-        else holdPause = false;
-      }
+      procesaBotonPause();
       break;
     case bSTOP:
-      if (boton->estado) {  //si hemos PULSADO STOP
-        //De alguna manera esta regando y hay que parar
-        if (Estado.estado == REGANDO || Estado.estado == MULTIREGANDO || Estado.estado == PAUSE) {
-          display->print("stop");
-          stopAllRiego(true);
-          T.StopTimer();
-          bip(3);
-          display->blink(DEFAULTBLINK);
-          multiriego = false;
-          multiSemaforo = false;
-          Estado.estado = STOP;
-        }
-        else {
-          //Lo hemos pulsado en standby - seguro antinenes
-          display->print("stop");
-          bip(1);
-          longbip(1);
-          stopAllRiego(true);  // apagar leds y parar riegos ¿?
-          standbyTime = millis();
-          if (Estado.estado == ERROR) break; //error en stopAllRiego
-          Estado.estado = STOP;
-          //pasamos directamente a reposo
-          //Serial.println("Stanby + Stop : Entramos en reposo");
-          reposo = true;
-          displayOFF = false;
-        }
-      }
-      //si hemos liberado STOP: salimos del estado stop o de configuracion
-      if (!boton->estado && (Estado.estado == STOP || Estado.estado == CONFIGURANDO)) {
-        if (savedValue>0) {
-          #ifdef EXTRADEBUG
-          Serial.printf("#02 savedValue: %d  value: %d \n",savedValue,value);
-          #endif
-          value = savedValue;  // para que restaure reloj aunque no salvemos con pause el valor configurado
-        }
-        StaticTimeUpdate();
-        led(Boton[bId2bIndex(bCONFIG)].led,OFF);
-        reposo = false; //por si salimos de stop antinenes
-        displayOFF = false;
-        //Estado.estado = STANDBY;
-        //dejamos el procesado del release del STOP en modo ConF para que actue el codigo de procesaEstados
-        if (Estado.estado == STOP) Estado.estado = STANDBY;
-      }
-      standbyTime = millis();
+      procesaBotonStop();
       break;
     case bMULTIRIEGO:
-      if (Estado.estado == CONFIGURANDO) {
-        #ifdef DEBUG
-          Serial.printf("#03 savedValue: %d  value: %d \n",savedValue,value);
-        #endif
-        savedValue = value;
-        int n_grupo = setMultibyId(getMultiStatus(), config);
-        if (encoderSW && !configure->configuring()) 
-        {
-          //encoderSW pulsado y no estamos configurando nada: actuamos segun posicion selector multirriego
-          if (n_grupo == 1) {  // copiamos fichero parametros en fichero default
-            if (copyConfigFile(parmFile, defaultFile)) {
-              Serial.println("[ConF] salvado fichero de parametros actuales como DEFAULT");
-              display->print("-++-");
-              bipOK(5);
-              display->print("ConF"); 
-            }
-          } 
-          if (n_grupo == 3) {  // libre de momento
-               Serial.println("[ConF] accion a realizar con encoderSW + selector ABAJO");
-            }
-          break;
-        } 
-        //Configuramos el grupo de multirriego activo
-        configure->configureMulti(n_grupo);
-        Serial.printf( "[ConF] configurando: GRUPO%d (%s) \n" , n_grupo, multi.desc);
-        #ifdef DEBUG
-          Serial.printf( "en configuracion de MULTIRRIEGO, setMultibyId devuelve: Grupo%d (%s) multi.size=%d \n" , n_grupo, multi.desc, *multi.size);
-        #endif            
-        displayGrupo(multi.serie, *multi.size);
-        //*multi.size = 0 ; // borramos grupo actual
-        multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
-        display->print("push");
-        break;
-      }
-      if (Estado.estado == STANDBY && !multiriego) {
-        bip(4);
-        multiriego = true;
-        int n_grupo = setMultibyId(getMultiStatus(), config);
-        multi.actual = 0;
-        #ifdef DEBUG
-          Serial.printf( "en MULTIRRIEGO, setMultibyId devuelve: Grupo%d (%s) multi.size=%d \n" , n_grupo, multi.desc, *multi.size);
-          for (int k=0; k < *multi.size; k++) Serial.printf( "       multi.serie: x%x \n" , multi.serie[k]);
-          Serial.printf( "en MULTIRRIEGO, encoderSW status  : %d \n", encoderSW );
-        #endif
-        // si esta pulsado el boton del encoder --> solo hacemos encendido de los leds del grupo
-        // y mostramos en el display la version del programa.
-        if (encoderSW) {
-          display->print(version_n);
-          displayGrupo(multi.serie, *multi.size);
-          multiriego = false;
-          #ifdef DEBUG
-            Serial.printf( "en MULTIRRIEGO + encoderSW, display de grupo: %s tamaño: %d \n", multi.desc , *multi.size );
-          #endif
-          StaticTimeUpdate();
-          break;              
-        }  
-        else {
-          //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
-          //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
-          Serial.printf("MULTIRRIEGO iniciado: %s \n", multi.desc);
-          led(Boton[bId2bIndex(*multi.id)].led,ON);
-          boton = &Boton[bId2bIndex(multi.serie[multi.actual])];
-        }
-        //Aqui no hay break para que comience multirriego por default
-      }
+      procesaBotonMultiriego();
+      //Aqui no hay break para que comience multirriego por default
     default:
-      if (Estado.estado == STANDBY) {
-        if (!encoderSW) {  //iniciamos el riego correspondiente al boton seleccionado
-            bip(2);
-            //cambia minutes y seconds en funcion del factor de cada sector de riego
-            uint8_t fminutes=0,fseconds=0;
-            if(multiriego) {
-              timeByFactor(factorRiegos[idarrayRiego(boton->id)],&fminutes,&fseconds);
-            }
-            else {
-              fminutes = minutes;
-              fseconds = seconds;
-            }
-            #ifdef DEBUG
-              Serial.printf("Minutos: %d Segundos: %d FMinutos: %d FSegundos: %d\n",minutes,seconds,fminutes,fseconds);
-            #endif
-            ultimoBoton = boton;
-            //if (fminutes == 0 && fseconds == 0) {
-            if ((fminutes == 0 && fseconds == 0) || boton->idx == 0) {
-              Estado.estado = TERMINANDO; // nos saltamos este riego
-              display->print("-00-");
-              break;
-            }
-            T.SetTimer(0,fminutes,fseconds);
-            T.StartTimer();
-            initRiego(boton->id);
-            if(Estado.estado != ERROR) Estado.estado = REGANDO; // para que no borre ERROR
-        }
-        else {  // mostramos en el display el factor de riego del boton pulsado
-          int index = bId2bIndex(boton->id);
-          led(Boton[index].led,ON);
-          #ifdef DEBUG
-            Serial.printf("Boton: %s Factor de riego: %d \n", boton->desc,factorRiegos[idarrayRiego(boton->id)]);
-            Serial.printf("          boton.index: %d \n", index);
-            Serial.printf("          boton(%d).led: %d \n", index, Boton[index].led);
-            Serial.printf("#04 savedValue: %d  value: %d \n",savedValue,value);
-          #endif
-          savedValue = value;
-          value = factorRiegos[idarrayRiego(boton->id)];
-          display->print(value);
-          delay(2000);
-          #ifdef DEBUG
-            Serial.printf("#05 savedValue: %d  value: %d \n",savedValue,value);
-          #endif
-          value = savedValue;  // para que restaure reloj
-          led(Boton[index].led,OFF);
-          StaticTimeUpdate();
-        }
-      }
-      if (Estado.estado == CONFIGURANDO ) {
-        if (configure->configuringMulti()) {  //Configuramos el multirriego seleccionado
-          if (multi.w_size < 16) {
-            #ifdef DEBUG
-              Serial.printf("#07 savedValue: %d  value: %d \n",savedValue,value);
-            #endif
-            savedValue = value;
-            multi.serie[multi.w_size] = boton->id;
-            Serial.printf("[ConF] añadiendo ZONA%d (%s) \n",bId2bIndex(boton->id)+1, boton->desc);
-            multi.w_size = multi.w_size + 1;
-            Serial.printf("[ConF] configurando multigrupo numero elementos (despues): %d \n",multi.w_size);
-            led(Boton[bId2bIndex(boton->id)].led,ON);
-          }
-        }
-        else {          //Configuramos el idx
-          #ifdef DEBUG
-            Serial.printf("#06 savedValue: %d  value: %d \n",savedValue,value);
-          #endif
-          savedValue = value;
-          Serial.printf("[ConF] configurando IDX boton: %s \n",boton->desc);
-          configure->configureIdx(bId2bIndex(boton->id));
-          value = boton->idx;
-        }
-      }
+      procesaBotonZona();
   }
 }
 
@@ -601,7 +339,6 @@ void procesaEstados()
       StaticTimeUpdate();
       standbyTime = millis();
       Estado.estado = STANDBY;
-
       //Comprobamos si estamos en un multiriego
       if (multiriego) {
         multi.actual++;
@@ -698,6 +435,294 @@ void setupInit(void) {
     }
   }
 };
+
+void procesaBotonPause(void)
+{
+  if (Estado.estado != STOP) {
+    //No procesamos los release del boton salvo en STOP
+    if(!boton->estado) return;
+    switch (Estado.estado) {
+      case REGANDO:
+        bip(1);
+        Estado.estado = PAUSE;
+        if(ultimoBoton) stopRiego(ultimoBoton->id);
+        T.PauseTimer();
+        break;
+      case PAUSE:
+        bip(2);
+        if(ultimoBoton) initRiego(ultimoBoton->id);
+        T.ResumeTimer();
+        if(Estado.estado != ERROR) Estado.estado = REGANDO; // para que no borre ERROR
+        break;
+      case CONFIGURANDO:
+        //if(!configure->configuringIdx() && !configure->configuringTime() && !configure->configuringMulti()) {
+        if(!configure->configuring()) { //si no estamos ya configurando algo
+          configure->configureTime();
+          Serial.println("[ConF] configurando tiempo riego por defecto");
+          delay(500);
+          boton = NULL;
+        }
+        break;
+      case STANDBY:
+          if(encoderSW) {  //si encoderSW+Pause --> conmutamos estado NONETWORK
+            // es necesario? puede dar problemas? exception(28)?
+            //boton = NULL; a ver que pasa si lo quitamos
+            if (NONETWORK) {
+                NONETWORK = false;
+                Serial.println("encoderSW+PAUSE pasamos a modo NORMAL y leemos factor riegos");
+                bip(2);
+                led(LEDB,OFF);
+                display->print("----");
+                initFactorRiegos();
+                if(VERIFY && Estado.estado != ERROR) stopAllRiego(true); //verificamos operativa OFF para los IDX's 
+            }
+            else {
+                NONETWORK = true;
+                Serial.println("encoderSW+PAUSE pasamos a modo NONETWORK (DEMO)");
+                bip(2);
+                led(LEDB,ON);
+            }
+          }
+          else {    // muestra hora y ultimos riegos
+            ultimosRiegos(SHOW);
+            //boton = NULL; a ver que pasa si lo quitamos 
+            delay(3000);
+            ultimosRiegos(HIDE);
+          }
+          standbyTime = millis();
+    }
+  }
+  else {
+    //Procesamos el posible hold del boton pause
+    if(boton->estado) {
+      if(!holdPause) {
+        countHoldPause = millis();
+        holdPause = true;
+      }
+      else {
+        if((millis() - countHoldPause) > HOLDTIME) {
+          if(!encoderSW) { //pasamos a modo Configuracion
+            configure->start();
+            longbip(1);
+            Estado.estado = CONFIGURANDO;
+            //boton = NULL; a ver que pasa si lo quitamos
+            holdPause = false;
+            #ifdef DEBUG
+              Serial.printf("#01 savedValue: %d  value: %d \n",savedValue,value);
+            #endif
+            savedValue = value;
+          }
+          else {   //si esta pulsado encoderSW hacemos un soft reset
+            Serial.println("ConF + encoderSW + PAUSA --> Reset.....");
+            longbip(3);
+            ESP.restart();  // Hard RESET: ESP.reset()
+          }
+        }
+      }
+    }
+    //Si lo hemos soltado quitamos holdPause
+    else holdPause = false;
+  }
+};
+
+
+void procesaBotonStop(void)
+{
+  if (boton->estado) {  //si hemos PULSADO STOP
+    //De alguna manera esta regando y hay que parar
+    if (Estado.estado == REGANDO || Estado.estado == MULTIREGANDO || Estado.estado == PAUSE) {
+      display->print("stop");
+      stopAllRiego(true);
+      T.StopTimer();
+      bip(3);
+      display->blink(DEFAULTBLINK);
+      multiriego = false;
+      multiSemaforo = false;
+      Estado.estado = STOP;
+    }
+    else {
+      //Lo hemos pulsado en standby - seguro antinenes
+      display->print("stop");
+      bip(1);
+      longbip(1);
+      stopAllRiego(true);  // apagar leds y parar riegos ¿?
+      standbyTime = millis();
+      if (Estado.estado == ERROR) return; //error en stopAllRiego
+      Estado.estado = STOP;
+      //pasamos directamente a reposo
+      //Serial.println("Stanby + Stop : Entramos en reposo");
+      reposo = true;
+      displayOFF = false;
+    }
+  }
+  //si hemos liberado STOP: salimos del estado stop o de configuracion
+  if (!boton->estado && (Estado.estado == STOP || Estado.estado == CONFIGURANDO)) {
+    if (savedValue>0) {
+      #ifdef EXTRADEBUG
+      Serial.printf("#02 savedValue: %d  value: %d \n",savedValue,value);
+      #endif
+      value = savedValue;  // para que restaure reloj aunque no salvemos con pause el valor configurado
+    }
+    StaticTimeUpdate();
+    led(Boton[bId2bIndex(bCONFIG)].led,OFF);
+    reposo = false; //por si salimos de stop antinenes
+    displayOFF = false;
+    //Estado.estado = STANDBY;
+    //dejamos el procesado del release del STOP en modo ConF para que actue el codigo de procesaEstados
+    if (Estado.estado == STOP) Estado.estado = STANDBY;
+  }
+  standbyTime = millis();
+}
+
+
+void procesaBotonMultiriego(void)
+{
+  if (Estado.estado == CONFIGURANDO) {
+    if (configure->configuring()) return; //si ya estamos configurando algo salimos
+    #ifdef DEBUG
+      Serial.printf("#03 savedValue: %d  value: %d \n",savedValue,value);
+    #endif
+    savedValue = value;
+    int n_grupo = setMultibyId(getMultiStatus(), config);
+    if (encoderSW && !configure->configuring()) 
+    {
+      //encoderSW pulsado y no estamos configurando nada: actuamos segun posicion selector multirriego
+      if (n_grupo == 1) {  // copiamos fichero parametros en fichero default
+        if (copyConfigFile(parmFile, defaultFile)) {
+          Serial.println("[ConF] salvado fichero de parametros actuales como DEFAULT");
+          display->print("-++-");
+          bipOK(5);
+          display->print("ConF"); 
+        }
+      } 
+      if (n_grupo == 3) {  // libre de momento
+            Serial.println("[ConF] accion a realizar con encoderSW + selector ABAJO");
+        }
+      return;
+    } 
+    //Configuramos el grupo de multirriego activo
+    configure->configureMulti(n_grupo);
+    Serial.printf( "[ConF] configurando: GRUPO%d (%s) \n" , n_grupo, multi.desc);
+    #ifdef DEBUG
+      Serial.printf( "en configuracion de MULTIRRIEGO, setMultibyId devuelve: Grupo%d (%s) multi.size=%d \n" , n_grupo, multi.desc, *multi.size);
+    #endif            
+    displayGrupo(multi.serie, *multi.size);
+    //*multi.size = 0 ; // borramos grupo actual
+    multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
+    display->print("push");
+    return;
+  }
+  if (Estado.estado == STANDBY && !multiriego) {
+    bip(4);
+    multiriego = true;
+    int n_grupo = setMultibyId(getMultiStatus(), config);
+    multi.actual = 0;
+    #ifdef DEBUG
+      Serial.printf( "en MULTIRRIEGO, setMultibyId devuelve: Grupo%d (%s) multi.size=%d \n" , n_grupo, multi.desc, *multi.size);
+      for (int k=0; k < *multi.size; k++) Serial.printf( "       multi.serie: x%x \n" , multi.serie[k]);
+      Serial.printf( "en MULTIRRIEGO, encoderSW status  : %d \n", encoderSW );
+    #endif
+    // si esta pulsado el boton del encoder --> solo hacemos encendido de los leds del grupo
+    // y mostramos en el display la version del programa.
+    if (encoderSW) {
+      display->print(version_n);
+      displayGrupo(multi.serie, *multi.size);
+      multiriego = false;
+      #ifdef DEBUG
+        Serial.printf( "en MULTIRRIEGO + encoderSW, display de grupo: %s tamaño: %d \n", multi.desc , *multi.size );
+      #endif
+      StaticTimeUpdate();
+      return;             
+    }  
+    else {
+      //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
+      //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
+      Serial.printf("MULTIRRIEGO iniciado: %s \n", multi.desc);
+      led(Boton[bId2bIndex(*multi.id)].led,ON);
+      boton = &Boton[bId2bIndex(multi.serie[multi.actual])];
+    }
+  }
+}
+
+
+void procesaBotonZona(void)
+{
+  if (Estado.estado == STANDBY) {
+    if (!encoderSW) {  //iniciamos el riego correspondiente al boton seleccionado
+        bip(2);
+        //cambia minutes y seconds en funcion del factor de cada sector de riego
+        uint8_t fminutes=0,fseconds=0;
+        if(multiriego) {
+          timeByFactor(factorRiegos[idarrayRiego(boton->id)],&fminutes,&fseconds);
+        }
+        else {
+          fminutes = minutes;
+          fseconds = seconds;
+        }
+        #ifdef DEBUG
+          Serial.printf("Minutos: %d Segundos: %d FMinutos: %d FSegundos: %d\n",minutes,seconds,fminutes,fseconds);
+        #endif
+        ultimoBoton = boton;
+        //if (fminutes == 0 && fseconds == 0) {
+        if ((fminutes == 0 && fseconds == 0) || boton->idx == 0) {
+          Estado.estado = TERMINANDO; // nos saltamos este riego
+          display->print("-00-");
+          return;
+        }
+        T.SetTimer(0,fminutes,fseconds);
+        T.StartTimer();
+        initRiego(boton->id);
+        if(Estado.estado != ERROR) Estado.estado = REGANDO; // para que no borre ERROR
+    }
+    else {  // mostramos en el display el factor de riego del boton pulsado
+      int index = bId2bIndex(boton->id);
+      led(Boton[index].led,ON);
+      #ifdef DEBUG
+        Serial.printf("Boton: %s Factor de riego: %d \n", boton->desc,factorRiegos[idarrayRiego(boton->id)]);
+        Serial.printf("          boton.index: %d \n", index);
+        Serial.printf("          boton(%d).led: %d \n", index, Boton[index].led);
+        Serial.printf("#04 savedValue: %d  value: %d \n",savedValue,value);
+      #endif
+      savedValue = value;
+      value = factorRiegos[idarrayRiego(boton->id)];
+      display->print(value);
+      delay(2000);
+      #ifdef DEBUG
+        Serial.printf("#05 savedValue: %d  value: %d \n",savedValue,value);
+      #endif
+      value = savedValue;  // para que restaure reloj
+      led(Boton[index].led,OFF);
+      StaticTimeUpdate();
+    }
+  }
+  if (Estado.estado == CONFIGURANDO ) {
+    if (configure->configuringMulti()) {  //Configuramos el multirriego seleccionado
+      if (multi.w_size < 16) {
+        #ifdef DEBUG
+          Serial.printf("#07 savedValue: %d  value: %d \n",savedValue,value);
+        #endif
+        savedValue = value;
+        multi.serie[multi.w_size] = boton->id;
+        Serial.printf("[ConF] añadiendo ZONA%d (%s) \n",bId2bIndex(boton->id)+1, boton->desc);
+        multi.w_size = multi.w_size + 1;
+        Serial.printf("[ConF] configurando multigrupo numero elementos (despues): %d \n",multi.w_size);
+        led(Boton[bId2bIndex(boton->id)].led,ON);
+      }
+    }
+    else {          //Configuramos el idx
+      #ifdef DEBUG
+        Serial.printf("#06 savedValue: %d  value: %d \n",savedValue,value);
+      #endif
+      savedValue = value;
+      Serial.printf("[ConF] configurando IDX boton: %s \n",boton->desc);
+      configure->configureIdx(bId2bIndex(boton->id));
+      value = boton->idx;
+    }
+  }
+}
+
+
+
 
 /**---------------------------------------------------------------
  * Chequeo de perifericos
