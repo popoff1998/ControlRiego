@@ -61,7 +61,7 @@
                             #define VERSION  "2.1.1"
   //-------------------------------------------------------------------------------------
 
-  #define xNAME  //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
+  #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
 
   //Comportamiento General
   #define STANDBYSECS         15
@@ -395,12 +395,13 @@
   void parpadeoLedON(void);
   void parpadeoLedZona(void);
   S_BOTON *parseInputs(bool);
+  void printCharArray(char*, size_t);
   void printFile(const char*);
   void printMulti(void);
   void printMultiGroup(Config_parm&, int);
   void printParms(Config_parm&);
   void procesaBotones(void);
-  void procesaBotonMultiriego(void);
+  bool procesaBotonMultiriego(void);
   void procesaBotonPause(void);
   void procesaBotonStop(void);
   void procesaBotonZona(void);

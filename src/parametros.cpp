@@ -212,7 +212,7 @@ void printParms(Config_parm &cfg) {
   Serial.printf("\tnumzonas= %d \n", cfg.n_Zonas);
   Serial.println("\tBotones: ");
   for(int i=0; i<7; i++) {
-    Serial.printf("\t\t Zona%d: IDX=%d %s \n", i+1, cfg.botonConfig[i].idx, cfg.botonConfig[i].desc);
+    Serial.printf("\t\t Zona%d: IDX=%d (%s) l=%d \n", i+1, cfg.botonConfig[i].idx, cfg.botonConfig[i].desc, sizeof(cfg.botonConfig[i].desc));
   }
   //--------------  imprime parametro individuales   ----------------------------------------
   Serial.printf("\tminutes= %d seconds= %d \n", cfg.minutes, cfg.seconds);
@@ -309,6 +309,15 @@ void memoryInfo()
   
   Serial.printf("free RAM (max Head size): %d KB  <<<<<<<<<<<<<<<<<<<\n\n", freeHeadSize);
   Serial.println("#####################");
+}
+
+void printCharArray(char *arr, size_t len)
+{
+    printf("arr: ");
+    for (size_t i = 0; i < len; ++i) {
+        printf("x%x, ", arr[i]);
+    }
+    printf("\n");
 }
 
 #endif

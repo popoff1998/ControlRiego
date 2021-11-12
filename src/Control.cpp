@@ -189,7 +189,7 @@ void procesaBotones()
       procesaBotonStop();
       break;
     case bMULTIRIEGO:
-      procesaBotonMultiriego();
+      if (!procesaBotonMultiriego()) break;
       //Aqui no hay break para que comience multirriego por default
     default:
       procesaBotonZona();
@@ -368,7 +368,7 @@ void procesaBotonPause(void)
             //boton = NULL; a ver que pasa si lo quitamos
             holdPause = false;
             #ifdef DEBUG
-              Serial.printf("#01 savedValue: %d  value: %d \n",savedValue,value);
+              if(value!=savedValue) Serial.printf("#01 savedValue: %d  value: %d \n",savedValue,value);
             #endif
             savedValue = value;
           }
@@ -418,8 +418,8 @@ void procesaBotonStop(void)
   //si hemos liberado STOP: salimos del estado stop o de configuracion
   if (!boton->estado && (Estado.estado == STOP || Estado.estado == CONFIGURANDO)) {
     if (savedValue>0) {
-      #ifdef EXTRADEBUG
-      Serial.printf("#02 savedValue: %d  value: %d \n",savedValue,value);
+      #ifdef DEBUG
+      if(value!=savedValue) Serial.printf("#02 savedValue: %d  value: %d \n",savedValue,value);
       #endif
       value = savedValue;  // para que restaure reloj aunque no salvemos con pause el valor configurado
     }
@@ -435,18 +435,18 @@ void procesaBotonStop(void)
 }
 
 
-void procesaBotonMultiriego(void)
+bool procesaBotonMultiriego(void)
 {
   if (Estado.estado == CONFIGURANDO) {
-    if (configure->configuring()) return; //si ya estamos configurando algo salimos
+    if (configure->configuring()) return false; //si ya estamos configurando algo salimos
     #ifdef DEBUG
-      Serial.printf("#03 savedValue: %d  value: %d \n",savedValue,value);
+      if(value!=savedValue) Serial.printf("#03 savedValue: %d  value: %d \n",savedValue,value);
     #endif
     savedValue = value;
     int n_grupo = setMultibyId(getMultiStatus(), config);
-    if (encoderSW && !configure->configuring()) 
+    if (encoderSW) 
     {
-      //encoderSW pulsado y no estamos configurando nada: actuamos segun posicion selector multirriego
+      //encoderSW pulsado: actuamos segun posicion selector multirriego
       if (n_grupo == 1) {  // copiamos fichero parametros en fichero default
         if (copyConfigFile(parmFile, defaultFile)) {
           Serial.println("[ConF] salvado fichero de parametros actuales como DEFAULT");
@@ -458,7 +458,7 @@ void procesaBotonMultiriego(void)
       if (n_grupo == 3) {  // libre de momento
             Serial.println("[ConF] accion a realizar con encoderSW + selector ABAJO");
         }
-      return;
+      return false;    //para que procese el BREAK al volver a procesaBotones  
     } 
     //Configuramos el grupo de multirriego activo
     configure->configureMulti(n_grupo);
@@ -470,7 +470,7 @@ void procesaBotonMultiriego(void)
     //*multi.size = 0 ; // borramos grupo actual
     multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
     display->print("push");
-    return;
+    return false;    //para que procese el BREAK al volver a procesaBotones  
   }
   if (Estado.estado == STANDBY && !multiriego) {
     bip(4);
@@ -492,7 +492,7 @@ void procesaBotonMultiriego(void)
         Serial.printf( "en MULTIRRIEGO + encoderSW, display de grupo: %s tamaño: %d \n", multi.desc , *multi.size );
       #endif
       StaticTimeUpdate();
-      return;             
+      return false;    //para que procese el BREAK al volver a procesaBotones         
     }  
     else {
       //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
@@ -502,6 +502,7 @@ void procesaBotonMultiriego(void)
       boton = &Boton[bId2bIndex(multi.serie[multi.actual])];
     }
   }
+  return true;   //para que continue con el case DEFAULT al volver
 }
 
 
@@ -541,14 +542,14 @@ void procesaBotonZona(void)
         Serial.printf("Boton: %s Factor de riego: %d \n", boton->desc,factorRiegos[idarrayRiego(boton->id)]);
         Serial.printf("          boton.index: %d \n", index);
         Serial.printf("          boton(%d).led: %d \n", index, Boton[index].led);
-        Serial.printf("#04 savedValue: %d  value: %d \n",savedValue,value);
+        if(value!=savedValue) Serial.printf("#04 savedValue: %d  value: %d \n",savedValue,value);
       #endif
       savedValue = value;
       value = factorRiegos[idarrayRiego(boton->id)];
       display->print(value);
       delay(2000);
       #ifdef DEBUG
-        Serial.printf("#05 savedValue: %d  value: %d \n",savedValue,value);
+        if(value!=savedValue) Serial.printf("#05 savedValue: %d  value: %d \n",savedValue,value);
       #endif
       value = savedValue;  // para que restaure reloj
       led(Boton[index].led,OFF);
@@ -559,7 +560,7 @@ void procesaBotonZona(void)
     if (configure->configuringMulti()) {  //Configuramos el multirriego seleccionado
       if (multi.w_size < 16) {
         #ifdef DEBUG
-          Serial.printf("#07 savedValue: %d  value: %d \n",savedValue,value);
+          if(value!=savedValue) Serial.printf("#07 savedValue: %d  value: %d \n",savedValue,value);
         #endif
         savedValue = value;
         multi.serie[multi.w_size] = boton->id;
@@ -569,9 +570,9 @@ void procesaBotonZona(void)
         led(Boton[bId2bIndex(boton->id)].led,ON);
       }
     }
-    else {          //Configuramos el idx
+    if (!configure->configuring()) {   //si no estamos configurando nada, configuramos el idx
       #ifdef DEBUG
-        Serial.printf("#06 savedValue: %d  value: %d \n",savedValue,value);
+        if(value!=savedValue) Serial.printf("#06 savedValue: %d  value: %d \n",savedValue,value);
       #endif
       savedValue = value;
       Serial.printf("[ConF] configurando IDX boton: %s \n",boton->desc);
@@ -595,7 +596,7 @@ void procesaEstadoConfigurando()
         case bPAUSE:
           if(!boton->estado) return; //no se procesa el release del PAUSE
           if(configure->configuringTime()) {
-            Serial.printf( "SAVE DEFAULT TIME, minutes: %d  secons: %d \n", minutes, seconds);
+            Serial.printf( "Save DEFAULT TIME, minutes: %d  secons: %d \n", minutes, seconds);
             config.minutes = minutes;
             config.seconds = seconds;
             saveConfig = true;
@@ -603,12 +604,13 @@ void procesaEstadoConfigurando()
             configure->stop();
           }
           if(configure->configuringIdx()) {
-            Serial.printf( "SAVE PARM IDX value: %d \n", value);
-            Boton[configure->getActualIdxIndex()].idx = (uint16_t)value;
-            config.botonConfig[configure->getActualIdxIndex()].idx = (uint16_t)value;
+            int zonaN = configure->getActualIdxIndex();
+            Boton[zonaN].idx = (uint16_t)value;
+            config.botonConfig[zonaN].idx = (uint16_t)value;
             saveConfig = true;
-            #ifdef EXTRADEBUG
-              Serial.printf("#08 savedValue: %d  value: %d \n",savedValue,value);
+            Serial.printf( "Save Zona%d (%s) IDX value: %d \n", zonaN+1, Boton[zonaN].desc, value);
+            #ifdef DEBUG
+              if(value!=savedValue) Serial.printf("#08 savedValue: %d  value: %d \n",savedValue,value);
             #endif
             value = savedValue;
             bipOK(3);
@@ -627,8 +629,8 @@ void procesaEstadoConfigurando()
               saveConfig = true;
               bipOK(3);
             }
-            #ifdef EXTRADEBUG
-              Serial.printf("#09 savedValue: %d  value: %d \n",savedValue,value);
+            #ifdef DEBUG
+              if(value!=savedValue) Serial.printf("#09 savedValue: %d  value: %d \n",savedValue,value);
             #endif
             value = savedValue;
             ultimosRiegos(HIDE);
@@ -798,21 +800,32 @@ void initFactorRiegos()
   //leemos factores del Domoticz
   for(uint i=0;i<NUMZONAS;i++) 
   {
-    factorRiegos[i]=getFactor(Boton[bId2bIndex(ZONAS[i])].idx);
+    int zonaN = bId2bIndex(ZONAS[i]);
+    factorRiegos[i]=getFactor(Boton[zonaN].idx);
     if(Estado.estado == ERROR) {  //al primer error salimos y señalamos zona que falla
       if(connected) { //solo señalamos zona si no es error general de conexion
-        ledID = Boton[bId2bIndex(ZONAS[i])].led;
+        ledID = Boton[zonaN].led;
         tic_parpadeoLedZona.attach(0.4,parpadeoLedZona);
       }
       break;
     }
-    #ifdef xNAME
-      //actualizamos la DESCRIPCION del boton recibida del Domoticz (campo Name)
-      if (sizeof(descFR)) {
-        strlcpy(Boton[bId2bIndex(ZONAS[i])].desc, descFR, sizeof(Boton[bId2bIndex(ZONAS[i])].desc));
+    if (sizeof(descFR)) {
+      //actualizamos en Boton la DESCRIPCION con la recibida del Domoticz (campo Name)
+      if (xNAME) {
+        strlcpy(Boton[zonaN].desc, descFR, sizeof(Boton[zonaN].desc));
+        Serial.printf("\tdescripcion ZONA%d actualizada en boton \n", i+1);
       }
-    #endif  
+      //printCharArray(config.botonConfig[zonaN].desc, sizeof(config.botonConfig[zonaN].desc));
+      //si el parm desc estaba vacio actualizamos en todo caso (en config y Boton)
+      if (config.botonConfig[zonaN].desc[0] == 0) {
+        strlcpy(config.botonConfig[zonaN].desc, descFR, sizeof(config.botonConfig[zonaN].desc));
+        strlcpy(Boton[zonaN].desc, descFR, sizeof(Boton[zonaN].desc));
+        Serial.printf("\tdescripcion ZONA%d incluida en config \n", i+1);
+        // saveConfig = true;   TODO ¿deberiamos salvarlo?
+      }  
+    }
   }
+  //printParms(config);
   #ifdef VERBOSE
     //Leemos los valores para comprobar que lo hizo bien
     Serial.print("Factores de riego ");
