@@ -475,9 +475,9 @@ bool procesaBotonMultiriego(void)
   if (Estado.estado == STANDBY && !multiriego) {
     bip(4);
     multiriego = true;
-    int n_grupo = setMultibyId(getMultiStatus(), config);
     multi.actual = 0;
     #ifdef DEBUG
+      int n_grupo = setMultibyId(getMultiStatus(), config);
       Serial.printf( "en MULTIRRIEGO, setMultibyId devuelve: Grupo%d (%s) multi.size=%d \n" , n_grupo, multi.desc, *multi.size);
       for (int k=0; k < *multi.size; k++) Serial.printf( "       multi.serie: x%x \n" , multi.serie[k]);
       Serial.printf( "en MULTIRRIEGO, encoderSW status  : %d \n", encoderSW );
