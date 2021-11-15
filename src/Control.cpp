@@ -171,7 +171,7 @@ void procesaBotones()
     reposo = false;
     displayOFF = false;
     standbyTime = millis();
-    if(Estado.estado == STOP) display->print("stop");
+    if(Estado.estado == STOP) display->print("StoP");
     else StaticTimeUpdate();
     return;
   }
@@ -259,7 +259,7 @@ void setupEstado()
   if (checkWifi()) {
     if (Boton[bId2bIndex(bSTOP)].estado) {
       Estado.estado = STOP;
-      display->print("stop");
+      display->print("StoP");
       bip(1);
       longbip(1);
     }
@@ -391,7 +391,7 @@ void procesaBotonStop(void)
   if (boton->estado) {  //si hemos PULSADO STOP
     //De alguna manera esta regando y hay que parar
     if (Estado.estado == REGANDO || Estado.estado == MULTIREGANDO || Estado.estado == PAUSE) {
-      display->print("stop");
+      display->print("StoP");
       stopAllRiego(true);
       T.StopTimer();
       bip(3);
@@ -402,7 +402,7 @@ void procesaBotonStop(void)
     }
     else {
       //Lo hemos pulsado en standby - seguro antinenes
-      display->print("stop");
+      display->print("StoP");
       bip(1);
       longbip(1);
       stopAllRiego(true);  // apagar leds y parar riegos ¿?
@@ -450,7 +450,7 @@ bool procesaBotonMultiriego(void)
       if (n_grupo == 1) {  // copiamos fichero parametros en fichero default
         if (copyConfigFile(parmFile, defaultFile)) {
           Serial.println("[ConF] salvado fichero de parametros actuales como DEFAULT");
-          display->print("-++-");
+          display->print("-dEF");
           bipOK(5);
           display->print("ConF"); 
         }
@@ -469,7 +469,7 @@ bool procesaBotonMultiriego(void)
     displayGrupo(multi.serie, *multi.size);
     //*multi.size = 0 ; // borramos grupo actual
     multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
-    display->print("push");
+    display->print("PUSH");
     return false;    //para que procese el BREAK al volver a procesaBotones  
   }
   if (Estado.estado == STANDBY && !multiriego) {
