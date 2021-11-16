@@ -8,13 +8,13 @@ S_BOTON *ultimoBoton;
   WiFiUDP ntpUDP;
 #endif
 
-Config_parm config; //parametros configurables
-
 const char *parmFile = "/config_parm.json";       // fichero de parametros activos
 const char *defaultFile = "/config_default.json"; // fichero de parametros por defecto
 const char *testFile = "/config_pruebas.json"; // fichero de parametros para pruebas
 const char *testwriteFile = "/config_pruebas_w.json"; // fichero de parametros para pruebas
 bool clean_FS = false;
+
+Config_parm config; //estructura parametros configurables y runtime
 
 NTPClient timeClient(ntpUDP,config.ntpServer);
 
@@ -452,12 +452,14 @@ bool procesaBotonMultiriego(void)
           Serial.println("[ConF] salvado fichero de parametros actuales como DEFAULT");
           display->print("-dEF");
           bipOK(5);
+          delay(1000);
           display->print("ConF"); 
         }
       } 
-      if (n_grupo == 3) {  // libre de momento
-            Serial.println("[ConF] accion a realizar con encoderSW + selector ABAJO");
-        }
+      if (n_grupo == 3) {  // activamos AP y portal de configuracion (bloqueante)
+        Serial.println("[ConF] encoderSW + selector ABAJO: activamos AP y portal de configuracion");
+        starConfigPortal(config);
+      }
       return false;    //para que procese el BREAK al volver a procesaBotones  
     } 
     //Configuramos el grupo de multirriego activo
@@ -1357,8 +1359,8 @@ void setupParm()
   }
   if (!config.initialized) zeroConfig(config);  //init config con zero-config
   #ifdef DEBUG
-    if (config.initialized) Serial.println("Parametros cargados: ");
-    else Serial.println("Parametros zero-config: ");
+    if (config.initialized) Serial.print("Parametros cargados, ");
+    else Serial.print("Parametros zero-config, ");
     printParms(config);
   #endif
 }

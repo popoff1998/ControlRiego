@@ -22,15 +22,14 @@ int setMultibyId(uint16_t id, Config_parm &cfg)
       multi.id = &cfg.groupConfig[i].id;
       multi.size = &cfg.groupConfig[i].size;
       multi.zserie = &cfg.groupConfig[i].serie[0];
-      //Serial.printf("  multi.size = %d \n", *multi.size);
+      multi.desc = cfg.groupConfig[i].desc;
       for (int j=0; j < *multi.size; j++) {
         multi.serie[j] = ZONAS[cfg.groupConfig[i].serie[j]-1];  //obtiene el id del boton de cada zona (ojo: no viene en el json)
-        #ifdef DEBUG 
+        #ifdef EXTRADEBUG 
           Serial.printf("  Zona%d   id: x", cfg.groupConfig[i].serie[j]);
           Serial.println(Boton[cfg.groupConfig[i].serie[j]-1].id,HEX); //id(boton) asociado a la zona
         #endif  
       }
-      multi.desc = cfg.groupConfig[i].desc;
       return i+1;
     }
   }

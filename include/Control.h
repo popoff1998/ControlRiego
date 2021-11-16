@@ -58,7 +58,7 @@
   #endif
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "2.1.1"
+                            #define VERSION  "2.2"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -290,7 +290,6 @@
     bool NONETWORK;
     bool falloAP;
     bool saveConfig = false;
-
   #else
     extern S_BOTON Boton [];
     extern S_MULTI multi;
@@ -415,6 +414,7 @@
   void setupInit(void);
   void setupParm(void);
   void setupRedWM(Config_parm&);
+  void starConfigPortal(Config_parm&);
   void StaticTimeUpdate(void);
   void statusError(String, int n);
   bool stopRiego(uint16_t);
