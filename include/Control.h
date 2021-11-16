@@ -58,10 +58,10 @@
   #endif
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "2.1"
+                            #define VERSION  "2.1.1"
   //-------------------------------------------------------------------------------------
 
-  #define xNAME  //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
+  #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
 
   //Comportamiento General
   #define STANDBYSECS         15
@@ -261,9 +261,6 @@
    //Globales a todos los módulos
   #ifdef __MAIN__
 
-    uint ledOrder[] = { lZONA1 , lZONA2 , lZONA3 , lZONA4 , lZONA5 , lZONA6 , lZONA7 ,
-                        LEDR , LEDG , lGRUPO1 , lGRUPO2 , lGRUPO3 };
-    
     S_BOTON Boton [] =  { 
       //ID,          S   uS  LED          FLAGS                             DESC          IDX
       {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "ZONA1",       0},
@@ -288,28 +285,21 @@
     int NUM_S_BOTON = sizeof(Boton)/sizeof(Boton[0]);
 
     S_MULTI multi;  //estructura con variables del multigrupo activo
+    S_initFlags initFlags ;
     bool connected;
     bool NONETWORK;
-    bool VERIFY;
     bool falloAP;
     bool saveConfig = false;
 
-    S_initFlags initFlags ;
-
-    char version_n[10];
-
   #else
     extern S_BOTON Boton [];
-    extern uint ledOrder[];
+    extern S_MULTI multi;
+    extern S_initFlags initFlags;
     extern bool connected;
     extern bool NONETWORK;
-    extern bool VERIFY;
     extern bool falloAP;
     extern bool saveConfig;
-    extern char version_n;
-    extern S_initFlags initFlags;
     extern int NUM_S_BOTON;
-    extern S_MULTI multi;
 
   #endif
 
@@ -324,6 +314,7 @@
     //Globales
     time_t   lastRiegos[NUMZONAS];
     uint     factorRiegos[NUMZONAS];
+    char version_n[10];
     CountUpDownTimer T(DOWN);
     S_Estado Estado;
     ClickEncoder *Encoder;
@@ -351,6 +342,8 @@
     bool errorOFF = false;
     bool simErrorOFF = false;
     bool displayOFF = false;
+    bool VERIFY;
+    bool encoderSW = false;
 
   #endif
 
@@ -394,13 +387,25 @@
   void parpadeoLedON(void);
   void parpadeoLedZona(void);
   S_BOTON *parseInputs(bool);
+  void printCharArray(char*, size_t);
   void printFile(const char*);
   void printMulti(void);
   void printMultiGroup(Config_parm&, int);
   void printParms(Config_parm&);
   void procesaBotones(void);
+  bool procesaBotonMultiriego(void);
+  void procesaBotonPause(void);
+  void procesaBotonStop(void);
+  void procesaBotonZona(void);
   void procesaEncoder(void);
   void procesaEstados(void);
+  void procesaEstadoConfigurando(void);
+  void procesaEstadoError(void);
+  void procesaEstadoRegando(void);
+  void procesaEstadoStandby(void);
+  void procesaEstadoTerminando(void);
+  void procesaEstadoStop(void);
+  void procesaEstadoPause(void);
   void refreshTime(void);
   void refreshDisplay(void);
   bool saveConfigFile(const char*, Config_parm&);

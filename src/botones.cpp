@@ -60,7 +60,9 @@ void wifiClearSignal(uint veces)
 void initLeds()
 {
   int i;
-  size_t numLeds = 12;
+  uint ledOrder[] = { lZONA1 , lZONA2 , lZONA3 , lZONA4 , lZONA5 , lZONA6 , lZONA7 ,
+                      LEDR , LEDG , lGRUPO1 , lGRUPO2 , lGRUPO3 };
+  size_t numLeds = sizeof(ledOrder)/sizeof(ledOrder[0]);
   apagaLeds();
   delay(200);
   for(i=0;i<numLeds;i++) {
