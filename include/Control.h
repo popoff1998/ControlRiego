@@ -58,7 +58,7 @@
   #endif
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "2.1.1"
+                            #define VERSION  "2.2"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -256,7 +256,7 @@
   const uint16_t ZONAS[] = {_ZONAS};
   const uint16_t GRUPOS[]  = {_GRUPOS};
   const int NUMZONAS = sizeof(ZONAS)/sizeof(ZONAS[0]); // (7) numero de zonas (botones riego individual)
-  const int NUMGRUPOS = sizeof(GRUPOS)/sizeof(GRUPOS[0]); // (3) // numero de grupos multirriego
+  const int NUMGRUPOS = sizeof(GRUPOS)/sizeof(GRUPOS[0]); // (3) numero de grupos multirriego
 
    //Globales a todos los módulos
   #ifdef __MAIN__
@@ -290,7 +290,6 @@
     bool NONETWORK;
     bool falloAP;
     bool saveConfig = false;
-
   #else
     extern S_BOTON Boton [];
     extern S_MULTI multi;
@@ -303,23 +302,34 @@
 
   #endif
 
-  //Globales a este módulo
   #ifdef __MAIN__
-
+    //Globales a este módulo
     //Segun la arquitectura
     #ifdef NODEMCU
       WiFiClient client;
       HTTPClient httpclient;
+      WiFiUDP    ntpUDP;
     #endif
-    //Globales
-    time_t   lastRiegos[NUMZONAS];
-    uint     factorRiegos[NUMZONAS];
-    char version_n[10];
     CountUpDownTimer T(DOWN);
     S_Estado Estado;
+    S_BOTON  *boton;
+    S_BOTON  *ultimoBoton;
+    Config_parm config; //estructura parametros configurables y runtime
     ClickEncoder *Encoder;
-    Display     *display;
-    Configure *configure;
+    Display      *display;
+    Configure    *configure;
+    NTPClient timeClient(ntpUDP,config.ntpServer);
+    Ticker tic_parpadeoLedON;  //para parpadeo led ON (LEDR)
+    Ticker tic_parpadeoLedZona;  //para parpadeo led zona de riego
+    Ticker tic_verificaciones; //para verificaciones periodicas
+    TimeChangeRule CEST = {"CEST", Last, Sun, Mar, 2, 120};
+    TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};
+    Timezone CE(CEST, CET);
+    TimeChangeRule *tcr;
+    time_t utc;
+    time_t lastRiegos[NUMZONAS];
+    uint factorRiegos[NUMZONAS];
+    char version_n[10];
     uint8_t minutes;
     uint8_t seconds;
     char  descFR[30];
@@ -380,6 +390,7 @@
   void led(uint8_t,int);
   void ledRGB(int,int,int);
   bool ledStatusId(int);
+  void leeSerial(void);
   bool loadConfigFile(const char*, Config_parm&);
   void longbip(int);
   void memoryInfo(void);
@@ -415,6 +426,7 @@
   void setupInit(void);
   void setupParm(void);
   void setupRedWM(Config_parm&);
+  void starConfigPortal(Config_parm&);
   void StaticTimeUpdate(void);
   void statusError(String, int n);
   bool stopRiego(uint16_t);

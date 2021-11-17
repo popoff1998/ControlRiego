@@ -28,7 +28,7 @@ void enciendeLeds()
 void loadDefaultSignal(uint veces)
 {
   #ifdef TRACE
-    Serial.println("TRACE: in loadDefaultSignal");
+    Serial.println(F("TRACE: in loadDefaultSignal"));
   #endif
   uint i;
   for(i=0;i<veces;i++) {
@@ -44,7 +44,7 @@ void loadDefaultSignal(uint veces)
 void wifiClearSignal(uint veces)
 {
   #ifdef TRACE
-    Serial.println("TRACE: in wifiClearSignal");
+    Serial.println(F("TRACE: in wifiClearSignal"));
   #endif
   uint i;
   for(i=0;i<veces;i++) {
@@ -112,8 +112,8 @@ void led(uint8_t id,int estado)
 bool ledStatusId(int ledID)
 {
   #ifdef EXTRADEBUG
-    Serial.print("ledStatus : ");Serial.println(ledStatus,BIN);
-    Serial.print("ledID : ");Serial.println(ledID,DEC);
+    Serial.print(F("ledStatus : "));Serial.println(ledStatus,BIN);
+    Serial.print(F("ledID : "));Serial.println(ledID,DEC);
   #endif
   return((ledStatus & (1 << (ledID-1))));
 }
@@ -192,7 +192,7 @@ S_BOTON *parseInputs(bool read)
       if (Boton[i].estado || Boton[i].flags.dual) {
         #ifdef DEBUG
           bool bEstado = Boton[i].estado;
-          if (!read) Serial.print("Cleared: ");
+          if (!read) Serial.print(F("Cleared: "));
           Serial.printf("Boton: %s  idx: %d  id: %#X  Estado: %d \n", Boton[i].desc, Boton[i].idx, Boton[i].id, bEstado);
           //bip(1);
         #endif

@@ -10,8 +10,14 @@
 Ticker tic_WifiLed;
 Ticker tic_APLed;
 
+int timeout = 180;  //config portal timeout
+
 // Creamos una instancia de la clase WiFiManager
 WiFiManager wm;
+
+WiFiManagerParameter custom_domoticz_server("domoticz_ip", "Domoticz_ip");
+WiFiManagerParameter custom_domoticz_port("domoticz_port", "puerto");
+WiFiManagerParameter custom_ntpserver("ntpServer", "NTP_server");
 
 void parpadeoLedWifi(){
   byte estado = ledStatusId(LEDG);
@@ -25,7 +31,7 @@ void parpadeoLedAP(){
 
 //llamado cuando WiFiManager sale del modo configuracion
 void saveWifiCallback() {
-  Serial.println("[CALLBACK] saveCallback fired");
+  Serial.println(F("[CALLBACK] saveWifiCallback fired"));
     // Eliminamos el temporizador y apagamos el led indicador de modo AP
     tic_APLed.detach();
     led(LEDB,OFF);
@@ -35,7 +41,7 @@ void saveWifiCallback() {
 
 //llamado cuando WiFiManager entra en modo configuracion
 void configModeCallback (WiFiManager *myWiFiManager) {
-  Serial.println("[CALLBACK] configModeCallback fired");
+  Serial.println(F("[CALLBACK] configModeCallback fired"));
   // apagamos el LED indicador de wifi
   tic_WifiLed.detach();
   led(LEDG,OFF);
@@ -46,10 +52,20 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 //llamado cuando WiFiManager recibe parametros adicionales
 void saveParamCallback()
 {
-  Serial.println("[CALLBACK] saveParamCallback fired");
-  Serial.println("Should save config");
+  Serial.println(F("[CALLBACK] saveParamCallback fired"));
+  Serial.println(F("Should save config"));
   saveConfig = true;
+  wm.stopConfigPortal();
 }
+
+//lamado antes de empezar carga del sketch via OTA
+/* void setPreOtaUpdateCallback()
+{
+  Serial.println(F("[CALLBACK] setPreOtaUpdateCallback fired"));
+  //display->print("####");
+  longbip(3);
+}
+ */
 
 // conexion a la red por medio de WifiManager
 void setupRedWM(Config_parm &config)
@@ -58,10 +74,9 @@ void setupRedWM(Config_parm &config)
   falloAP = false;
   saveConfig = false;
   if(initFlags.initWifi) {
-    //WiFi.disconnect(); //borra wifi guardada (no funciona con V3.2.0 de platform espressif)
     wm.resetSettings(); //borra wifi guardada
     delay(300);
-    Serial.println("encoderSW pulsado y multirriego en GRUPO3 --> borramos red WIFI");
+    Serial.println(F("encoderSW pulsado y multirriego en GRUPO3 --> borramos red WIFI"));
     //señala borrado wifi
     longbip(3);
   }
@@ -72,26 +87,27 @@ void setupRedWM(Config_parm &config)
   // Empezamos el temporizador que hará parpadear el LED indicador de wifi
   tic_WifiLed.attach(0.2, parpadeoLedWifi);
   //sets timeout until configuration portal gets turned off
-  wm.setConfigPortalTimeout(180);
-  //parametros custom de configuracion en la pagina web de wifi
-  WiFiManagerParameter custom_domoticz_server("domoticz_ip", "Domoticz_ip" ,config.domoticz_ip, 40);
-  WiFiManagerParameter custom_domoticz_port("domoticz_port", "puerto", config.domoticz_port, 5);
-  WiFiManagerParameter custom_ntpserver("ntpServer", "NTP_server", config.ntpServer, 40);
-  wm.addParameter(&custom_domoticz_server);
-  wm.addParameter(&custom_domoticz_port);
-  wm.addParameter(&custom_ntpserver);
+  wm.setConfigPortalTimeout(timeout);
   // callbacks
   wm.setAPCallback(configModeCallback);
   wm.setSaveConfigCallback(saveWifiCallback);
   wm.setSaveParamsCallback(saveParamCallback);
+  //if this is set, it will exit after config, even if connection is unsuccessful
+  wm.setBreakAfterConfig(true);
   //muestra version en el titulo de la pagina web inicial
   wm.setTitle("Version: " + String(VERSION));
+  //pagina de parametros independiente
+  wm.setParamsPage(true);
+  wm.addParameter(&custom_domoticz_server);
+  wm.addParameter(&custom_domoticz_port);
+  wm.addParameter(&custom_ntpserver);
+  custom_domoticz_server.setValue(config.domoticz_ip, 40);
+  custom_domoticz_port.setValue(config.domoticz_port, 5);
+  custom_ntpserver.setValue(config.ntpServer, 40);
   // activamos modo AP y portal cautivo y comprobamos si se establece la conexión
-  if(!wm.autoConnect("Ardomo")){
-    Serial.println("Fallo en la conexión (timeout)");
+  if(!wm.autoConnect("Ardomo")) {
+    Serial.println(F("Fallo en la conexión (timeout)"));
     falloAP = true;
-    //WiFi.mode(WIFI_STA); 
-    //ESP.reset();
     delay(1000);
   }
   /* 
@@ -110,33 +126,25 @@ void setupRedWM(Config_parm &config)
     falloAP = false;
     tic_WifiLed.attach(0.2, parpadeoLedWifi);
     while(WiFi.status() != WL_CONNECTED) {
-      Serial.print(".");
+      Serial.print(F("."));
       delay(1000);
       j++;
       if(j == MAXCONNECTRETRY) {
         falloAP = true;
-        Serial.println("Fallo en la reconexión (timeout 10 seg.)");
+        Serial.println(F("Fallo en la reconexión (timeout 10 seg.)"));
         break;
       }
     }
   }
   //detenemos parpadeo led wifi
   tic_WifiLed.detach();
-  if(WiFi.status() == WL_CONNECTED) {
+  if (checkWifi()) {
     Serial.printf("\nWifi conectado a SSID: %s\n", WiFi.SSID().c_str());
-    Serial.print(" IP address: ");
+    Serial.print(F(" IP address: "));
     Serial.println(WiFi.localIP());
-    Serial.printf(" RSSI: %d dBm \n\n", WiFi.RSSI());
-    // Encendemos el led indicador de wifi
-    led(LEDG,ON);
-    connected = true;
+    Serial.printf(" RSSI: %d dBm  (%d%%)\n\n", WiFi.RSSI(), wm.getRSSIasQuality(WiFi.RSSI()));
   }
-  else {
-    // Apagamos el LED indicador de wifi
-    led(LEDG,OFF);
-    connected = false;
-  }
-  // ----------------------------- save the custom parameters
+    // ----------------------------- save the custom parameters
   if (saveConfig) {
     strcpy(config.domoticz_ip, custom_domoticz_server.getValue());
     strcpy(config.domoticz_port, custom_domoticz_port.getValue());
@@ -144,10 +152,30 @@ void setupRedWM(Config_parm &config)
   }
 }
 
+void starConfigPortal(Config_parm &config) 
+{
+  wm.setConfigPortalTimeout(timeout);
+  if (!wm.startConfigPortal("Ardomo")) {
+    Serial.println(F(" hit timeout"));
+  }
+  // Eliminamos el temporizador y dejamos LEDB segun estado de NONETWORK
+  tic_APLed.detach();
+  NONETWORK ? led(LEDB,ON) : led(LEDB,OFF);
+  tic_WifiLed.detach();
+  checkWifi();
+    // ----------------------------- save the custom parameters
+  if (saveConfig) {
+    strcpy(config.domoticz_ip, custom_domoticz_server.getValue());
+    strcpy(config.domoticz_port, custom_domoticz_port.getValue());
+    strcpy(config.ntpServer, custom_ntpserver.getValue());
+  }
+
+}
+
 // verificacion estado de la conexion wifi
 bool checkWifi() {
   #ifdef TRACE
-    Serial.println("TRACE: in checkWifi");
+    Serial.println(F("TRACE: in checkWifi"));
   #endif
   if(WiFi.status() == WL_CONNECTED) {
     // Encendemos el LED indicador de wifi
@@ -156,7 +184,7 @@ bool checkWifi() {
     return true;
   }
   else {
-    Serial.println("[ERROR] No estamos conectados a la wifi");
+    Serial.println(F("[ERROR] No estamos conectados a la wifi"));
     // apagamos el LED indicador de wifi
     led(LEDG,OFF);
     connected = false;

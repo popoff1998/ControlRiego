@@ -2,7 +2,6 @@ PENDIENTES
 ==========
 - boton Pause reflejado en Domoticz (en ambos sentidos)
 - Si estado REGANDO tiempo de riego restante reflejado en Domoticz
-- en modo configuración poder activar portal AP para configurar parámetros conexión (ConF + encoderSW + PAUSA)
 
 HECHOS
 ======
@@ -36,6 +35,10 @@ HECHOS
 Version 2:
 - fichero parámetros en lugar de variables del pgm y eeprom (parmConfig.json) V2.0
 - si error, parpadeo led zona que falla V2.0
+- en modo configuración salvado parametros como default ((ConF + encoderSW +
+  multi arriba + boton multirriego)) V2.1
+- en modo configuración poder activar portal AP para configurar parámetros conexión (ConF + encoderSW +
+  multi abajo + boton multirriego) V2.2
 
 
 

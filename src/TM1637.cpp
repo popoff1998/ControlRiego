@@ -180,7 +180,7 @@ void TM1637::display(double Decimal)
   DecPoint = i;
 
   #ifdef DEBUG
-    Serial.println(Decimal);
+    Serial.println(F(Decimal);
   #endif
   BlankingFlag = 0;
   display(temp);
