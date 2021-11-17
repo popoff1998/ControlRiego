@@ -390,6 +390,7 @@
   void led(uint8_t,int);
   void ledRGB(int,int,int);
   bool ledStatusId(int);
+  void leeSerial(void);
   bool loadConfigFile(const char*, Config_parm&);
   void longbip(int);
   void memoryInfo(void);

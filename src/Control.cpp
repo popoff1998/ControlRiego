@@ -24,29 +24,29 @@ void setup()
   #endif
 
   Serial.begin(115200);
-  Serial.print("\n\n");
+  Serial.print(F("\n\n"));
   Serial.println("CONTROL RIEGO V" + String(VERSION) + "    Built on " __DATE__ " at " __TIME__ );
   strncpy(version_n, VERSION, 10); //eliminamos "." y "-" para mostrar version en el display
   std::remove(std::begin(version_n),std::end(version_n),'.');
   std::remove(std::begin(version_n),std::end(version_n),'-');
-  Serial.print("Startup reason: ");Serial.println(ESP.getResetReason());
+  Serial.print(F("Startup reason: "));Serial.println(ESP.getResetReason());
   #ifdef TRACE
-    Serial.println("TRACE: in setup");
+    Serial.println(F("TRACE: in setup"));
   #endif
   //Para el display
   #ifdef DEBUG
-   Serial.println("Inicializando display");
+   Serial.println(F("Inicializando display"));
   #endif
   display = new Display(DISPCLK,DISPDIO);
   display->clearDisplay();
   //Para el encoder
   #ifdef DEBUG
-   Serial.println("Inicializando Encoder");
+   Serial.println(F("Inicializando Encoder"));
   #endif
   Encoder = new ClickEncoder(ENCCLK,ENCDT,ENCSW);
   //Para el Configure le paso encoder y display porque lo usara.
   #ifdef DEBUG
-   Serial.println("Inicializando Configure");
+   Serial.println(F("Inicializando Configure"));
   #endif
   configure = new Configure(display);
   //Para el CD4021B
@@ -97,7 +97,7 @@ void setup()
   tic_verificaciones.attach_scheduled(10, flagVerificaciones);
   standbyTime = millis();
   #ifdef TRACE
-    Serial.println("TRACE: ending setup");
+    Serial.println(F("TRACE: ending setup"));
   #endif
 
 }
@@ -108,8 +108,8 @@ void setup()
 void loop()
 {
   #ifdef EXTRATRACE
-    //Serial.println("TRACE: in loop");
-    Serial.print("L");
+    //Serial.println(F("TRACE: in loop"));
+    Serial.print(F("L"));
   #endif
 
   procesaBotones();
@@ -129,8 +129,8 @@ void loop()
 void procesaBotones()
 {
   #ifdef EXTRATRACE
-    //Serial.println("TRACE: in procesaBotones");
-    Serial.print("B");
+    //Serial.println(F("TRACE: in procesaBotones"));
+    Serial.print(F("B"));
   #endif
   // almacenamos estado pulsador del encoder (para modificar comportamiento de otros botones)
   //NOTA: el encoderSW esta en estado HIGH en reposo y en estado LOW cuando esta pulsado
@@ -145,7 +145,7 @@ void procesaBotones()
   if(boton == NULL) return;
   //Si estamos en reposo pulsar cualquier boton solo nos saca de ese estado
   if (reposo && boton->id != bSTOP) {
-    Serial.println("Salimos de reposo -1-");
+    Serial.println(F("Salimos de reposo -1-"));
     reposo = false;
     displayOFF = false;
     standbyTime = millis();
@@ -180,8 +180,8 @@ void procesaBotones()
 void procesaEstados()
 {
   #ifdef EXTRATRACE
-    //Serial.println("TRACE: in procesaEstados");
-    Serial.print("E");
+    //Serial.println(F("TRACE: in procesaEstados"));
+    Serial.print(F("E"));
   #endif
 
   switch (Estado.estado) {
@@ -216,7 +216,7 @@ void procesaEstados()
 void setupEstado() 
 {
   #ifdef TRACE
-    Serial.println("TRACE: in setupEstado");
+    Serial.println(F("TRACE: in setupEstado"));
   #endif
   //inicializamos apuntador estructura multi (posicion del selector multirriego):
   if(!setMultibyId(getMultiStatus(), config) || !config.initialized) {
@@ -256,18 +256,18 @@ void setupEstado()
  */
 void setupInit(void) {
   #ifdef TRACE
-    Serial.println("TRACE: in setupInit");
+    Serial.println(F("TRACE: in setupInit"));
   #endif
   //S_initFlags initFlags = 0;
   if (testButton(bENCODER, OFF)) {
     if (testButton(bGRUPO1,ON)) {
       initFlags.initParm = true;
-      Serial.println("encoderSW pulsado y multirriego en GRUPO1  --> flag de load default PARM true");
+      Serial.println(F("encoderSW pulsado y multirriego en GRUPO1  --> flag de load default PARM true"));
       loadDefaultSignal(6);
     }
     if (testButton(bGRUPO3,ON)) {
       initFlags.initWifi = true;
-      Serial.println("encoderSW pulsado y multirriego en GRUPO3  --> flag de init WIFI true");
+      Serial.println(F("encoderSW pulsado y multirriego en GRUPO3  --> flag de init WIFI true"));
       wifiClearSignal(6);
     }
   }
@@ -291,12 +291,13 @@ void procesaBotonPause(void)
         if(ultimoBoton) initRiego(ultimoBoton->id);
         T.ResumeTimer();
         if(Estado.estado != ERROR) Estado.estado = REGANDO; // para que no borre ERROR
+        else boton = NULL; //para que procesaEstadoError no pase directamente a NONETWORK
         break;
       case CONFIGURANDO:
         //if(!configure->configuringIdx() && !configure->configuringTime() && !configure->configuringMulti()) {
         if(!configure->configuring()) { //si no estamos ya configurando algo
           configure->configureTime();
-          Serial.println("[ConF] configurando tiempo riego por defecto");
+          Serial.println(F("[ConF] configurando tiempo riego por defecto"));
           delay(500);
           boton = NULL;
         }
@@ -307,7 +308,7 @@ void procesaBotonPause(void)
             //boton = NULL; a ver que pasa si lo quitamos
             if (NONETWORK) {
                 NONETWORK = false;
-                Serial.println("encoderSW+PAUSE pasamos a modo NORMAL y leemos factor riegos");
+                Serial.println(F("encoderSW+PAUSE pasamos a modo NORMAL y leemos factor riegos"));
                 bip(2);
                 led(LEDB,OFF);
                 display->print("----");
@@ -316,7 +317,7 @@ void procesaBotonPause(void)
             }
             else {
                 NONETWORK = true;
-                Serial.println("encoderSW+PAUSE pasamos a modo NONETWORK (DEMO)");
+                Serial.println(F("encoderSW+PAUSE pasamos a modo NONETWORK (DEMO)"));
                 bip(2);
                 led(LEDB,ON);
             }
@@ -351,7 +352,7 @@ void procesaBotonPause(void)
             savedValue = value;
           }
           else {   //si esta pulsado encoderSW hacemos un soft reset
-            Serial.println("ConF + encoderSW + PAUSA --> Reset.....");
+            Serial.println(F("ConF + encoderSW + PAUSA --> Reset....."));
             longbip(3);
             ESP.restart();  // Hard RESET: ESP.reset()
           }
@@ -388,7 +389,7 @@ void procesaBotonStop(void)
       if (Estado.estado == ERROR) return; //error en stopAllRiego
       Estado.estado = STOP;
       //pasamos directamente a reposo
-      //Serial.println("Stanby + Stop : Entramos en reposo");
+      //Serial.println(F("Stanby + Stop : Entramos en reposo"));
       reposo = true;
       displayOFF = false;
     }
@@ -427,7 +428,7 @@ bool procesaBotonMultiriego(void)
       //encoderSW pulsado: actuamos segun posicion selector multirriego
       if (n_grupo == 1) {  // copiamos fichero parametros en fichero default
         if (copyConfigFile(parmFile, defaultFile)) {
-          Serial.println("[ConF] salvado fichero de parametros actuales como DEFAULT");
+          Serial.println(F("[ConF] salvado fichero de parametros actuales como DEFAULT"));
           display->print("-dEF");
           bipOK(5);
           delay(1000);
@@ -435,7 +436,7 @@ bool procesaBotonMultiriego(void)
         }
       } 
       if (n_grupo == 3) {  // activamos AP y portal de configuracion (bloqueante)
-        Serial.println("[ConF] encoderSW + selector ABAJO: activamos AP y portal de configuracion");
+        Serial.println(F("[ConF] encoderSW + selector ABAJO: activamos AP y portal de configuracion"));
         starConfigPortal(config);
       }
       return false;    //para que procese el BREAK al volver a procesaBotones  
@@ -569,7 +570,7 @@ void procesaEstadoConfigurando()
   Boton[bId2bIndex(bPAUSE)].flags.holddisabled = true;
   if (boton != NULL) {
     if (boton->flags.action) {
-      //Serial.println( "En estado CONFIGURANDO pulsado ACTION" );
+      //Serial.println(F( "En estado CONFIGURANDO pulsado ACTION" );
       switch(boton->id) {
         case bMULTIRIEGO:
           break;
@@ -620,9 +621,9 @@ void procesaEstadoConfigurando()
         case bSTOP:
           if(!boton->estado) {
             configure->stop();
-            //Serial.println( "release de STOP en modo ConF" );
+            //Serial.println(F( "release de STOP en modo ConF" );
             if (saveConfig) {
-              Serial.println("saveConfig=true  --> salvando parametros a fichero");
+              Serial.println(F("saveConfig=true  --> salvando parametros a fichero"));
               if (saveConfigFile(parmFile, config)) bipOK(3);
               saveConfig = false;
             }
@@ -648,7 +649,7 @@ void procesaEstadoError(void)
   //Si estamos en error y pulsamos pausa, nos ponemos en estado NONETWORK para test
     Estado.estado = STANDBY;
     NONETWORK = true;
-    Serial.println("estado en ERROR y PAUSA pulsada pasamos a modo NONETWORK y reseteamos");
+    Serial.println(F("estado en ERROR y PAUSA pulsada pasamos a modo NONETWORK y reseteamos"));
     bip(2);
     led(LEDB,ON);
     //reseteos varios:
@@ -665,7 +666,7 @@ void procesaEstadoError(void)
   }
   if(boton->id == bSTOP) {
   //Si estamos en ERROR y pulsamos STOP, reseteamos
-    Serial.println("ERROR + STOP --> Reset.....");
+    Serial.println(F("ERROR + STOP --> Reset....."));
     longbip(3);
     ESP.restart();  
   }
@@ -688,7 +689,7 @@ void procesaEstadoStandby(void)
   if (reposo) standbyTime = millis();
   else {
     if (millis() > standbyTime + (1000 * STANDBYSECS)) {
-      Serial.println("Entramos en reposo");
+      Serial.println(F("Entramos en reposo"));
       reposo = true;
       display->clearDisplay();
     }
@@ -771,7 +772,7 @@ void timerIsr()
 void initFactorRiegos()
 {
   #ifdef TRACE
-    Serial.println("TRACE: in initFactorRiegos");
+    Serial.println(F("TRACE: in initFactorRiegos"));
   #endif
   //inicializamos a valor 100 por defecto para caso de error
   for(uint i=0;i<NUMZONAS;i++) {
@@ -808,8 +809,8 @@ void initFactorRiegos()
   //printParms(config);
   #ifdef VERBOSE
     //Leemos los valores para comprobar que lo hizo bien
-    Serial.print("Factores de riego ");
-    factorRiegosOK ? Serial.println("leidos: ") :  Serial.println("(simulados): ");
+    Serial.print(F("Factores de riego "));
+    factorRiegosOK ? Serial.println(F("leidos: ")) :  Serial.println(F("(simulados): "));
     for(uint i=0;i<NUMZONAS;i++) {
       Serial.printf("\tfactor ZONA%d: %d (%s) \n", i+1, factorRiegos[i], Boton[bId2bIndex(ZONAS[i])].desc);
     }
@@ -837,7 +838,7 @@ void initClock()
     Serial.printf("  local --> %d:%d:%d \n" ,hour(t),minute(t),second(t));
   }  
    else {
-     Serial.println("[ERROR] initClock: no se ha recibido time por NTP");
+     Serial.println(F("[ERROR] initClock: no se ha recibido time por NTP"));
      timeOK = false;
     }
 }
@@ -889,8 +890,8 @@ void procesaEncoder()
   #endif
   if(Estado.estado == CONFIGURANDO && configure->configuringIdx()) {
       #ifdef EXTRATRACE
-       //Serial.println("TRACE: en procesaencoder idx");
-       Serial.print("i");
+       //Serial.println(F("TRACE: en procesaencoder idx"));
+       Serial.print(F("i"));
       #endif
       value -= Encoder->getValue();
       if (value > 1000) value = 1000;
@@ -932,7 +933,7 @@ void procesaEncoder()
       minutes = 0;
     }
   }
-  //Serial.println("Salimos de reposo -4-");
+  //Serial.println(F("Salimos de reposo -4-"));
   reposo = false;
   StaticTimeUpdate();
   standbyTime = millis();
@@ -1072,11 +1073,11 @@ void refreshTime()
 String httpGetDomoticz(String message) 
 {
   #ifdef TRACE
-    Serial.println("TRACE: in httpGetDomoticz");
+    Serial.println(F("TRACE: in httpGetDomoticz"));
   #endif
   String tmpStr = "http://" + String(config.domoticz_ip) + ":" + config.domoticz_port + String(message);
   #ifdef DEBUG
-    Serial.print("TMPSTR: ");Serial.println(tmpStr);
+    Serial.print(F("TMPSTR: "));Serial.println(tmpStr);
   #endif
   httpclient.begin(client, tmpStr); // para v3.0.0 de platform esp8266
   String response = "{}";
@@ -1085,7 +1086,7 @@ String httpGetDomoticz(String message)
     if(httpCode == HTTP_CODE_OK) {
       response = httpclient.getString();
       #ifdef EXTRADEBUG
-        Serial.print("httpGetDomoticz RESPONSE: ");Serial.println(response);
+        Serial.print(F("httpGetDomoticz RESPONSE: "));Serial.println(response);
       #endif
     }
   }
@@ -1102,13 +1103,13 @@ String httpGetDomoticz(String message)
   int pos = response.indexOf("\"status\" : \"ERR");
   if(pos != -1) {
     #ifdef DEBUG
-      Serial.println("[ERROR] httpGetDomoticz: SE HA DEVUELTO ERROR"); 
+      Serial.println(F("[ERROR] httpGetDomoticz: SE HA DEVUELTO ERROR")); 
     #endif
     Estado.estado = ERROR;
     return "ErrX";
   }
   httpclient.end();
-  //Serial.println("TRACE: in httpGetDomoticz **return");
+  //Serial.println(F("TRACE: in httpGetDomoticz **return"));
   return response;
 }
 
@@ -1118,7 +1119,7 @@ String httpGetDomoticz(String message)
 int getFactor(uint16_t idx)
 {
   #ifdef TRACE
-    Serial.println("TRACE: in getFactor");
+    Serial.println(F("TRACE: in getFactor"));
   #endif
   factorRiegosOK = false;
   if(!checkWifi()) {
@@ -1201,7 +1202,7 @@ int getFactor(uint16_t idx)
 bool domoticzSwitch(int idx,char *msg)
 {
   #ifdef TRACE
-    Serial.println("TRACE: in domoticzSwitch");
+    Serial.println(F("TRACE: in domoticzSwitch"));
   #endif
   //if(NONETWORK) return true; //simulamos que ha ido OK
   if(NONETWORK || idx == 0) return true; //simulamos que ha ido OK
@@ -1217,7 +1218,7 @@ bool domoticzSwitch(int idx,char *msg)
   if (Estado.estado == ERROR && response.startsWith("Err")) {
     if (!errorOFF) { //para no repetir bips en caso de stopAllRiego
       if(response == "ErrX") {
-        if(strcmp(msg,"On") == 0 )statusError("Err4",3); //error al iniciar riego
+        if(strcmp(msg,"On") == 0 ) statusError("Err4",3); //error al iniciar riego
         else statusError("Err5",5); //error al parar riego
       }
       else statusError(response,3); //otro error
@@ -1225,7 +1226,7 @@ bool domoticzSwitch(int idx,char *msg)
     Serial.printf("DOMOTICZSWITH IDX: %d fallo en %s\n", idx, msg);
     return false;
   }
-  //if(Estado.estado != ERROR && strcmp(msg,"On") == 0) Estado.estado = REGANDO;
+  //if(Estado.estado != ERROR && strcmp(msg,"On")) == 0) Estado.estado = REGANDO;
   return true;
 }
 
@@ -1243,12 +1244,12 @@ void Verificaciones()
     leeSerial();  // para ver si simulamos algun tipo de error
   #endif
   if (!flagV) return;      //si no activada por Ticker salimos sin hacer nada
-  if (Estado.estado == STANDBY) Serial.print(".");
+  if (Estado.estado == STANDBY) Serial.print(F("."));
   if (errorOFF) bip(2);  //recordatorio error grave
   if (!NONETWORK && (Estado.estado == STANDBY || (Estado.estado == ERROR && !connected))) {
     if (checkWifi()) Estado.estado = STANDBY; //verificamos si seguimos connectados a la wifi
     if (connected && falloAP) {
-      Serial.println("Wifi conectada despues Setup, leemos factor riegos");
+      Serial.println(F("Wifi conectada despues Setup, leemos factor riegos"));
       falloAP = false;
       initFactorRiegos(); //esta funcion ya dejara el estado correspondiente
     }
@@ -1282,7 +1283,7 @@ void parpadeoLedZona()
 void setupParm()
 {
   #ifdef TRACE
-    Serial.println("TRACE: in setupParm");
+    Serial.println(F("TRACE: in setupParm"));
   #endif
   if(clean_FS) cleanFS();
   #ifdef DEBUG
@@ -1290,10 +1291,10 @@ void setupParm()
     Serial.printf( "initParm= %d \n", initFlags.initParm );
   #endif
   if( initFlags.initParm) {
-    Serial.println(">>>>>>>>>>>>>>  cargando parametros por defecto  <<<<<<<<<<<<<<");
+    Serial.println(F(">>>>>>>>>>>>>>  cargando parametros por defecto  <<<<<<<<<<<<<<"));
     bool bRC = copyConfigFile(defaultFile, parmFile); // defaultFile --> parmFile
-    if(bRC) Serial.println("carga parametros por defecto OK");
-    else    Serial.println("[ERROR] carga parametros por defecto");
+    if(bRC) Serial.println(F("carga parametros por defecto OK"));
+    else    Serial.println(F("[ERROR] carga parametros por defecto"));
     //señala la carga parametros por defecto OK
     if(bRC) bipOK(3);
   }
@@ -1304,9 +1305,9 @@ void setupParm()
     }
   }
   if (!config.initialized) zeroConfig(config);  //init config con zero-config
-  #ifdef DEBUG
-    if (config.initialized) Serial.print("Parametros cargados, ");
-    else Serial.print("Parametros zero-config, ");
+  #ifdef VERBOSE
+    if (config.initialized) Serial.print(F("Parametros cargados, "));
+    else Serial.print(F("Parametros zero-config, "));
     printParms(config);
   #endif
 }
@@ -1329,7 +1330,7 @@ bool setupConfig(const char *p_filename, Config_parm &cfg) {
     #endif
     return true;
   }  
-  Serial.println("[ERROR] parámetros de configuración no cargados");
+  Serial.println(F("[ERROR] parámetros de configuración no cargados"));
   return false;
 }
 
@@ -1338,7 +1339,7 @@ bool setupConfig(const char *p_filename, Config_parm &cfg) {
   //imprime contenido actual de la estructura multi
   void printMulti()
   {
-      Serial.println("TRACE: in printMulti");
+      Serial.println(F("TRACE: in printMulti"));
       Serial.printf("MULTI Boton_id x%x: size=%d (%s)\n", *multi.id, *multi.size, multi.desc);
       for(int j = 0; j < *multi.size; j++) {
         Serial.printf("  Zona  id: x%x \n", multi.serie[j]);
@@ -1356,22 +1357,22 @@ bool setupConfig(const char *p_filename, Config_parm &cfg) {
       String inputSerial = Serial.readString();
       int inputNumber = inputSerial.toInt();
       if ((!inputNumber || inputNumber>2) && inputNumber != 9) {
-          Serial.println("Teclee: ");
-          Serial.println("   1 - simular error NTP");
-          Serial.println("   2 - simular error apagar riego");
-          Serial.println("   9 - anular simulacion errores");
+          Serial.println(F("Teclee: "));
+          Serial.println(F("   1 - simular error NTP"));
+          Serial.println(F("   2 - simular error apagar riego"));
+          Serial.println(F("   9 - anular simulacion errores"));
       }
       switch (inputNumber) {
             case 1:
-                Serial.println("   1 - simular error NTP");
+                Serial.println(F("   1 - simular error NTP"));
                 timeOK = false;
                 break;
             case 2:
-                Serial.println("   2 - simular error apagar riego");
+                Serial.println(F("   2 - simular error apagar riego"));
                 simErrorOFF = true;
                 break;
             case 9:
-                Serial.println("   9 - anular simulacion errores");
+                Serial.println(F("   9 - anular simulacion errores"));
                 simErrorOFF = false;
                 timeOK = true;                         
       }

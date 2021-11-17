@@ -19,11 +19,6 @@ WiFiManagerParameter custom_domoticz_server("domoticz_ip", "Domoticz_ip");
 WiFiManagerParameter custom_domoticz_port("domoticz_port", "puerto");
 WiFiManagerParameter custom_ntpserver("ntpServer", "NTP_server");
 
-/* WiFiManagerParameter custom_domoticz_server("domoticz_ip", "Domoticz_ip" ,config.domoticz_ip, 40);
-WiFiManagerParameter custom_domoticz_port("domoticz_port", "puerto", config.domoticz_port, 5);
-WiFiManagerParameter custom_ntpserver("ntpServer", "NTP_server", config.ntpServer, 40);
-
- */
 void parpadeoLedWifi(){
   byte estado = ledStatusId(LEDG);
   led(LEDG,!estado);
@@ -36,7 +31,7 @@ void parpadeoLedAP(){
 
 //llamado cuando WiFiManager sale del modo configuracion
 void saveWifiCallback() {
-  Serial.println("[CALLBACK] saveWifiCallback fired");
+  Serial.println(F("[CALLBACK] saveWifiCallback fired"));
     // Eliminamos el temporizador y apagamos el led indicador de modo AP
     tic_APLed.detach();
     led(LEDB,OFF);
@@ -46,7 +41,7 @@ void saveWifiCallback() {
 
 //llamado cuando WiFiManager entra en modo configuracion
 void configModeCallback (WiFiManager *myWiFiManager) {
-  Serial.println("[CALLBACK] configModeCallback fired");
+  Serial.println(F("[CALLBACK] configModeCallback fired"));
   // apagamos el LED indicador de wifi
   tic_WifiLed.detach();
   led(LEDG,OFF);
@@ -57,11 +52,20 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 //llamado cuando WiFiManager recibe parametros adicionales
 void saveParamCallback()
 {
-  Serial.println("[CALLBACK] saveParamCallback fired");
-  Serial.println("Should save config");
+  Serial.println(F("[CALLBACK] saveParamCallback fired"));
+  Serial.println(F("Should save config"));
   saveConfig = true;
   wm.stopConfigPortal();
 }
+
+//lamado antes de empezar carga del sketch via OTA
+/* void setPreOtaUpdateCallback()
+{
+  Serial.println(F("[CALLBACK] setPreOtaUpdateCallback fired"));
+  //display->print("####");
+  longbip(3);
+}
+ */
 
 // conexion a la red por medio de WifiManager
 void setupRedWM(Config_parm &config)
@@ -72,7 +76,7 @@ void setupRedWM(Config_parm &config)
   if(initFlags.initWifi) {
     wm.resetSettings(); //borra wifi guardada
     delay(300);
-    Serial.println("encoderSW pulsado y multirriego en GRUPO3 --> borramos red WIFI");
+    Serial.println(F("encoderSW pulsado y multirriego en GRUPO3 --> borramos red WIFI"));
     //señala borrado wifi
     longbip(3);
   }
@@ -101,8 +105,8 @@ void setupRedWM(Config_parm &config)
   custom_domoticz_port.setValue(config.domoticz_port, 5);
   custom_ntpserver.setValue(config.ntpServer, 40);
   // activamos modo AP y portal cautivo y comprobamos si se establece la conexión
-  if(!wm.autoConnect("Ardomo")){
-    Serial.println("Fallo en la conexión (timeout)");
+  if(!wm.autoConnect("Ardomo")) {
+    Serial.println(F("Fallo en la conexión (timeout)"));
     falloAP = true;
     delay(1000);
   }
@@ -122,12 +126,12 @@ void setupRedWM(Config_parm &config)
     falloAP = false;
     tic_WifiLed.attach(0.2, parpadeoLedWifi);
     while(WiFi.status() != WL_CONNECTED) {
-      Serial.print(".");
+      Serial.print(F("."));
       delay(1000);
       j++;
       if(j == MAXCONNECTRETRY) {
         falloAP = true;
-        Serial.println("Fallo en la reconexión (timeout 10 seg.)");
+        Serial.println(F("Fallo en la reconexión (timeout 10 seg.)"));
         break;
       }
     }
@@ -136,7 +140,7 @@ void setupRedWM(Config_parm &config)
   tic_WifiLed.detach();
   if (checkWifi()) {
     Serial.printf("\nWifi conectado a SSID: %s\n", WiFi.SSID().c_str());
-    Serial.print(" IP address: ");
+    Serial.print(F(" IP address: "));
     Serial.println(WiFi.localIP());
     Serial.printf(" RSSI: %d dBm  (%d%%)\n\n", WiFi.RSSI(), wm.getRSSIasQuality(WiFi.RSSI()));
   }
@@ -152,7 +156,7 @@ void starConfigPortal(Config_parm &config)
 {
   wm.setConfigPortalTimeout(timeout);
   if (!wm.startConfigPortal("Ardomo")) {
-    Serial.println(" hit timeout");
+    Serial.println(F(" hit timeout"));
   }
   // Eliminamos el temporizador y dejamos LEDB segun estado de NONETWORK
   tic_APLed.detach();
@@ -171,7 +175,7 @@ void starConfigPortal(Config_parm &config)
 // verificacion estado de la conexion wifi
 bool checkWifi() {
   #ifdef TRACE
-    Serial.println("TRACE: in checkWifi");
+    Serial.println(F("TRACE: in checkWifi"));
   #endif
   if(WiFi.status() == WL_CONNECTED) {
     // Encendemos el LED indicador de wifi
@@ -180,7 +184,7 @@ bool checkWifi() {
     return true;
   }
   else {
-    Serial.println("[ERROR] No estamos conectados a la wifi");
+    Serial.println(F("[ERROR] No estamos conectados a la wifi"));
     // apagamos el LED indicador de wifi
     led(LEDG,OFF);
     connected = false;

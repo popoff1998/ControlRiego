@@ -6,21 +6,21 @@
 bool loadConfigFile(const char *p_filename, Config_parm &cfg)
 {
   #ifdef TRACE
-    Serial.println("TRACE: in loadConfigFile");
+    Serial.println(F("TRACE: in loadConfigFile"));
   #endif
 
   if(!LittleFS.begin()){
-    Serial.println("An Error has occurred while mounting LittleFS");
+    Serial.println(F("An Error has occurred while mounting LittleFS"));
     return false;
   }
   File file = LittleFS.open(p_filename, "r");
   if(!file){
-    Serial.println("Failed to open file for reading");
+    Serial.println(F("Failed to open file for reading"));
     return false;
   }
   size_t size = file.size();
   if (size > 2048) {
-    Serial.println("Config file size is too large");
+    Serial.println(F("Config file size is too large"));
     return false;
   }
   Serial.printf("\t tamaño de %s --> %d bytes \n", p_filename, size);
@@ -37,7 +37,7 @@ bool loadConfigFile(const char *p_filename, Config_parm &cfg)
   //--------------  procesa botones (IDX)  --------------------------------------------------
   int numzonas = doc["numzonas"] | 0; // carga 0 si no viene este elemento
   if (numzonas != cfg.n_Zonas) {
-    Serial.println("ERROR numero de zonas incorrecto");
+    Serial.println(F("ERROR numero de zonas incorrecto"));
     return false;
   }  
   for (JsonObject botones_item : doc["botones"].as<JsonArray>()) {
@@ -54,10 +54,10 @@ bool loadConfigFile(const char *p_filename, Config_parm &cfg)
   strlcpy(cfg.ntpServer, doc["ntpServer"] | "", sizeof(cfg.ntpServer));
   int numgroups = doc["numgroups"] | 1;
   if (numgroups != cfg.n_Grupos) {
-    Serial.println("ERROR numero de grupos incorrecto");
+    Serial.println(F("ERROR numero de grupos incorrecto"));
     return false;
   }  
-  //Serial.println("[loadConfigFile] empezamos a procesar GRUPOS"); //DEBUG
+  //Serial.println(F("[loadConfigFile] empezamos a procesar GRUPOS")); //DEBUG
   //--------------  procesa grupos  ---------------------------------------------------------
   for (JsonObject groups_item : doc["grupos"].as<JsonArray>()) {
     int i = groups_item["grupo"] | 1; // 1, 2, 3
@@ -65,14 +65,14 @@ bool loadConfigFile(const char *p_filename, Config_parm &cfg)
     cfg.groupConfig[i-1].size = groups_item["size"] | 1;
     if (cfg.groupConfig[i-1].size == 0) {
       cfg.groupConfig[i-1].size =1;
-      Serial.println("ERROR tamaño del grupo incorrecto, es 0 -> ponemos 1");
+      Serial.println(F("ERROR tamaño del grupo incorrecto, es 0 -> ponemos 1"));
     }
     //Serial.printf("[loadConfigFile] procesando GRUPO%d size=%d id=x%x \n",i,cfg.groupConfig[i-1].size,cfg.groupConfig[i-1].id); //DEBUG
     strlcpy(cfg.groupConfig[i-1].desc, groups_item["desc"] | "", sizeof(cfg.groupConfig[i-1].desc)); 
     JsonArray array = groups_item["zonas"].as<JsonArray>();
     int count = array.size();
     if (count != cfg.groupConfig[i-1].size) {
-      Serial.println("ERROR tamaño del grupo incorrecto");
+      Serial.println(F("ERROR tamaño del grupo incorrecto"));
       return false;
     }  
     int j = 0;
@@ -91,18 +91,18 @@ bool loadConfigFile(const char *p_filename, Config_parm &cfg)
 bool saveConfigFile(const char *p_filename, Config_parm &cfg)
 {
   #ifdef TRACE
-    Serial.println("TRACE: in saveConfigFile");
+    Serial.println(F("TRACE: in saveConfigFile"));
   #endif
   //memoryInfo();
   if(!LittleFS.begin()){
-    Serial.println("An Error has occurred while mounting LittleFS");
+    Serial.println(F("An Error has occurred while mounting LittleFS"));
     return false;
   }
   // Delete existing file, otherwise the configuration is appended to the file
   LittleFS.remove(p_filename);
   File file = LittleFS.open(p_filename, "w");
   if(!file){
-    Serial.println("Failed to open file for writing");
+    Serial.println(F("Failed to open file for writing"));
     return false;
   }
   DynamicJsonDocument doc(2048);
@@ -155,17 +155,17 @@ bool saveConfigFile(const char *p_filename, Config_parm &cfg)
 bool copyConfigFile(const char *fileFrom, const char *fileTo)
 {
   #ifdef TRACE
-    Serial.println("TRACE: in copyConfigFile");
+    Serial.println(F("TRACE: in copyConfigFile"));
   #endif
   if(!LittleFS.begin()) {
-  Serial.println("An Error has occurred while mounting LittleFS");
+  Serial.println(F("An Error has occurred while mounting LittleFS"));
   return false;
   }
   // Delete existing file, otherwise the configuration is appended to the file
   LittleFS.remove(fileTo);
   File origen = LittleFS.open(fileFrom, "r");
   if (!origen) {
-    Serial.print("- failed to open file "); 
+    Serial.print(F("- failed to open file ")); 
     Serial.println(fileFrom);
     return false;
   }
@@ -173,7 +173,7 @@ bool copyConfigFile(const char *fileFrom, const char *fileTo)
     Serial.printf("copiando %s en %s \n", fileFrom, fileTo);
     File destino = LittleFS.open(fileTo, "w+");
     if(!destino){
-      Serial.println("Failed to open file for writing"); Serial.println(fileTo);
+      Serial.println(F("Failed to open file for writing")); Serial.println(fileTo);
       return false;
     }
     else {
@@ -191,7 +191,7 @@ bool copyConfigFile(const char *fileFrom, const char *fileTo)
 //init minimo de config para evitar fallos en caso de no poder cargar parametros de ficheros
 void zeroConfig(Config_parm &cfg) {
   #ifdef TRACE
-    Serial.println("TRACE: in zeroConfig");
+    Serial.println(F("TRACE: in zeroConfig"));
   #endif
   for (int j=0; j<cfg.n_Grupos; j++) {
     cfg.groupConfig[j].id = GRUPOS[j];
@@ -207,10 +207,10 @@ void cleanFS() {
 }
 
 void printParms(Config_parm &cfg) {
-  Serial.println("contenido estructura parametros configuracion: ");
+  Serial.println(F("contenido estructura parametros configuracion: "));
   //--------------  imprime array botones (IDX)  --------------------------------------------------
   Serial.printf("\tnumzonas= %d \n", cfg.n_Zonas);
-  Serial.println("\tBotones: ");
+  Serial.println(F("\tBotones: "));
   for(int i=0; i<7; i++) {
     Serial.printf("\t\t Zona%d: IDX=%d (%s) l=%d \n", i+1, cfg.botonConfig[i].idx, cfg.botonConfig[i].desc, sizeof(cfg.botonConfig[i].desc));
   }
@@ -236,18 +236,18 @@ void filesInfo()
 
   float fileTotalKB = (float)fs_info.totalBytes / 1024.0; 
   float fileUsedKB = (float)fs_info.usedBytes / 1024.0; 
-  //Serial.printf("\n#####################\n");
-  Serial.printf("__________________________\n");
-  Serial.println("File system (LittleFS): ");
-  Serial.print("    Total KB: "); Serial.print(fileTotalKB); Serial.println(" KB");
-  Serial.print("    Used KB: "); Serial.print(fileUsedKB); Serial.println(" KB");
+  //Serial.printf("\n#####################\n"));
+  Serial.print("__________________________\n");
+  Serial.println(F("File system (LittleFS): "));
+  Serial.print(F("    Total KB: ")); Serial.print(fileTotalKB); Serial.println(F(" KB"));
+  Serial.print(F("    Used KB: ")); Serial.print(fileUsedKB); Serial.println(F(" KB"));
   Dir dir = LittleFS.openDir("/");
-  Serial.println("LittleFS directory {/} :");
+  Serial.println(F("LittleFS directory {/} :"));
   while (dir.next()) {
-    Serial.print("  "); Serial.println(dir.fileName());
+    Serial.print(F("  ")); Serial.println(dir.fileName());
   }
-  Serial.printf("__________________________\n");
-  //Serial.println("#####################");
+  Serial.print("__________________________\n");
+  //Serial.println(F("#####################"));
 }
 
 
@@ -260,7 +260,7 @@ void printFile(const char *p_filename) {
     Serial.printf("TRACE: in printFile (%s) \n" , p_filename);
   #endif
   if(!LittleFS.begin()){
-    Serial.println("An Error has occurred while mounting LittleFS");
+    Serial.println(F("An Error has occurred while mounting LittleFS"));
   return;
   }
   // Open file for reading
@@ -269,11 +269,11 @@ void printFile(const char *p_filename) {
     Serial.println(F("Failed to open config file"));
     return;
   }
-  Serial.println("File Content:");
+  Serial.println(F("File Content:"));
   while(file.available()){
     Serial.write(file.read());
   }
-  Serial.println("\n\n");
+  Serial.println(F("\n\n"));
   file.close();
 }
 
@@ -288,27 +288,27 @@ void memoryInfo()
   
   int freeHeadSize = (int)ESP.getFreeHeap() / 1024.0;
   
-  Serial.printf("\n#####################\n");
+  Serial.print("\n#####################\n");
   /*
   */
-  Serial.printf("__________________________\n\n");
+  Serial.print("__________________________\n\n");
   
-  Serial.println("File system (LittleFS): ");
-  Serial.print("    Total KB: "); Serial.print(fileTotalKB); Serial.println(" KB");
-  Serial.print("    Used KB: "); Serial.print(fileUsedKB); Serial.println(" KB");
+  Serial.println(F("File system (LittleFS): "));
+  Serial.print(F("    Total KB: ")); Serial.print(fileTotalKB); Serial.println(F(" KB"));
+  Serial.print(F("    Used KB: ")); Serial.print(fileUsedKB); Serial.println(F(" KB"));
   Serial.printf("    Maximum open files: %d\n", fs_info.maxOpenFiles);
   Serial.printf("    Maximum path length: %d\n\n", fs_info.maxPathLength);
 
   Dir dir = LittleFS.openDir("/");
-  Serial.println("LittleFS directory {/} :");
+  Serial.println(F("LittleFS directory {/} :"));
   while (dir.next()) {
-    Serial.print("  "); Serial.println(dir.fileName());
+    Serial.print(F("  ")); Serial.println(dir.fileName());
   }
 
-  Serial.printf("__________________________\n\n");
+  Serial.print("__________________________\n\n");
   
   Serial.printf("free RAM (max Head size): %d KB  <<<<<<<<<<<<<<<<<<<\n\n", freeHeadSize);
-  Serial.println("#####################");
+  Serial.println(F("#####################"));
 }
 
 void printCharArray(char *arr, size_t len)

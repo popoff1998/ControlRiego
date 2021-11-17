@@ -33,7 +33,7 @@ int setMultibyId(uint16_t id, Config_parm &cfg)
       return i+1;
     }
   }
-  Serial.println("[ERROR] setMultibyID devuelve -not found-");
+  Serial.println(F("[ERROR] setMultibyID devuelve -not found-"));
   return 0;
 }
 
