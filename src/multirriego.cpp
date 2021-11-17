@@ -9,7 +9,7 @@ uint16_t getMultiStatus()
   return bGRUPO2  ;
 }
 
-//asigna en multi valores o apuntadores en/a config del grupo cuyo id se recibe
+//asigna en multi valores o apuntadores de/a config del grupo cuyo id se recibe
 // y devuelve el numero del grupo (1,2,3) , 0 en caso de que no exista
 int setMultibyId(uint16_t id, Config_parm &cfg)
 {

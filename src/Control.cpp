@@ -1,31 +1,9 @@
 #define __MAIN__
 #include "Control.h"
 
-S_BOTON *boton;
-S_BOTON *ultimoBoton;
-
-#ifdef NODEMCU
-  WiFiUDP ntpUDP;
-#endif
-
+bool clean_FS = false;
 const char *parmFile = "/config_parm.json";       // fichero de parametros activos
 const char *defaultFile = "/config_default.json"; // fichero de parametros por defecto
-const char *testFile = "/config_pruebas.json"; // fichero de parametros para pruebas
-const char *testwriteFile = "/config_pruebas_w.json"; // fichero de parametros para pruebas
-bool clean_FS = false;
-
-Config_parm config; //estructura parametros configurables y runtime
-
-NTPClient timeClient(ntpUDP,config.ntpServer);
-
-TimeChangeRule CEST = {"CEST", Last, Sun, Mar, 2, 120};
-TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};
-Timezone CE(CEST, CET);
-TimeChangeRule *tcr;
-time_t utc;
-Ticker tic_parpadeoLedON;  //para parpadeo led ON (LEDR)
-Ticker tic_parpadeoLedZona;  //para parpadeo led zona de riego
-Ticker tic_verificaciones; //para verificaciones periodicas
 
 /*----------------------------------------------*
  *               Setup inicial                  *
@@ -568,7 +546,7 @@ void procesaBotonZona(void)
         multi.serie[multi.w_size] = boton->id;
         Serial.printf("[ConF] añadiendo ZONA%d (%s) \n",bId2bIndex(boton->id)+1, boton->desc);
         multi.w_size = multi.w_size + 1;
-        Serial.printf("[ConF] configurando multigrupo numero elementos (despues): %d \n",multi.w_size);
+        //Serial.printf("[ConF] configurando multigrupo numero elementos (despues): %d \n",multi.w_size);
         led(Boton[bId2bIndex(boton->id)].led,ON);
       }
     }
@@ -598,7 +576,7 @@ void procesaEstadoConfigurando()
         case bPAUSE:
           if(!boton->estado) return; //no se procesa el release del PAUSE
           if(configure->configuringTime()) {
-            Serial.printf( "Save DEFAULT TIME, minutes: %d  secons: %d \n", minutes, seconds);
+            Serial.printf( "[ConF] Save DEFAULT TIME, minutes: %d  secons: %d \n", minutes, seconds);
             config.minutes = minutes;
             config.seconds = seconds;
             saveConfig = true;
@@ -610,7 +588,7 @@ void procesaEstadoConfigurando()
             Boton[zonaN].idx = (uint16_t)value;
             config.botonConfig[zonaN].idx = (uint16_t)value;
             saveConfig = true;
-            Serial.printf( "Save Zona%d (%s) IDX value: %d \n", zonaN+1, Boton[zonaN].desc, value);
+            Serial.printf( "[ConF] Save Zona%d (%s) IDX value: %d \n", zonaN+1, Boton[zonaN].desc, value);
             #ifdef DEBUG
               if(value!=savedValue) Serial.printf("#08 savedValue: %d  value: %d \n",savedValue,value);
             #endif
@@ -1147,7 +1125,7 @@ int getFactor(uint16_t idx)
     if(NONETWORK) return 100; //si estamos en modo NONETWORK devolvemos 100 y no damos error
     else {
       statusError("Err1",3);
-      return 0;
+      return 100;
     }
   }
   // si el IDX es 0 devolvemos 0 sin procesarlo (boton no asignado)
@@ -1171,8 +1149,8 @@ int getFactor(uint16_t idx)
   }
   /* Teoricamente ya tenemos en response el JSON, lo procesamos
      Si el IDX no existe Domoticz no devuelve error, asi que hay que controlarlo
-     Ante cualquier problema (no de error), devolvemos 100% para no factorizar ese riego
-     si VERIFY=false, o Err2 si VERIFY=true
+     Ante cualquier problema (no de error) devolvemos 100% para no factorizar ese riego,
+     sin error si VERIFY=false o Err2 si VERIFY=true
   */
   // ojo el ArduinoJson Assistant recomienda usar char* en vez de String (gasta menos memoria)
   char* response_pointer = &response[0];
@@ -1251,38 +1229,6 @@ bool domoticzSwitch(int idx,char *msg)
   return true;
 }
 
-/**---------------------------------------------------------------
- * lectura del puerto serie para debug
- */
-void leeSerial() 
-{
-  if (Serial.available() > 0) {
-    // lee cadena de entrada
-    String inputSerial = Serial.readString();
-    int inputNumber = inputSerial.toInt();
-    if ((!inputNumber || inputNumber>2) && inputNumber != 9) {
-        Serial.println("Teclee: ");
-        Serial.println("   1 - simular error NTP");
-        Serial.println("   2 - simular error apagar riego");
-        Serial.println("   9 - anular simulacion errores");
-    }
-    switch (inputNumber) {
-          case 1:
-              Serial.println("   1 - simular error NTP");
-              timeOK = false;
-              break;
-          case 2:
-              Serial.println("   2 - simular error apagar riego");
-              simErrorOFF = true;
-              break;
-          case 9:
-              Serial.println("   9 - anular simulacion errores");
-              simErrorOFF = false;
-              timeOK = true;                         
-    }
-  }
-}
-
 void flagVerificaciones() 
 {
   flagV = ON; //aqui solo activamos flagV para no usar llamadas a funciones bloqueantes en Ticker
@@ -1297,7 +1243,7 @@ void Verificaciones()
     leeSerial();  // para ver si simulamos algun tipo de error
   #endif
   if (!flagV) return;      //si no activada por Ticker salimos sin hacer nada
-  Serial.print(".");
+  if (Estado.estado == STANDBY) Serial.print(".");
   if (errorOFF) bip(2);  //recordatorio error grave
   if (!NONETWORK && (Estado.estado == STANDBY || (Estado.estado == ERROR && !connected))) {
     if (checkWifi()) Estado.estado = STANDBY; //verificamos si seguimos connectados a la wifi
@@ -1399,4 +1345,37 @@ bool setupConfig(const char *p_filename, Config_parm &cfg) {
       }
     Serial.println();
   }
+
+  /**---------------------------------------------------------------
+   * lectura del puerto serie para debug
+   */
+  void leeSerial() 
+  {
+    if (Serial.available() > 0) {
+      // lee cadena de entrada
+      String inputSerial = Serial.readString();
+      int inputNumber = inputSerial.toInt();
+      if ((!inputNumber || inputNumber>2) && inputNumber != 9) {
+          Serial.println("Teclee: ");
+          Serial.println("   1 - simular error NTP");
+          Serial.println("   2 - simular error apagar riego");
+          Serial.println("   9 - anular simulacion errores");
+      }
+      switch (inputNumber) {
+            case 1:
+                Serial.println("   1 - simular error NTP");
+                timeOK = false;
+                break;
+            case 2:
+                Serial.println("   2 - simular error apagar riego");
+                simErrorOFF = true;
+                break;
+            case 9:
+                Serial.println("   9 - anular simulacion errores");
+                simErrorOFF = false;
+                timeOK = true;                         
+      }
+    }
+  }
+
 #endif  
