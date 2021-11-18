@@ -135,6 +135,16 @@
     ERROR         = 0x80,
   };
 
+  enum _fases {
+    NF            = 0,
+    E0            = 0xFF,
+    E1            = 1,
+    E2            = 2,
+    E3            = 3,
+    E4            = 4,
+    E5            = 5,
+  };
+
   enum _flags {
     ENABLED      = 0x01,
     DISABLED     = 0x02,
@@ -251,6 +261,7 @@
 
   struct S_Estado {
     uint8_t estado; 
+    uint8_t fase; 
   } ;
 
   const uint16_t ZONAS[] = {_ZONAS};
@@ -428,7 +439,7 @@
   void setupRedWM(Config_parm&);
   void starConfigPortal(Config_parm&);
   void StaticTimeUpdate(void);
-  void statusError(String, int n);
+  void statusError(uint8_t, int n);
   bool stopRiego(uint16_t);
   void stopAllRiego(bool);
   bool testButton(uint16_t, bool);

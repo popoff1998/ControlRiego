@@ -220,7 +220,7 @@ void setupEstado()
   #endif
   //inicializamos apuntador estructura multi (posicion del selector multirriego):
   if(!setMultibyId(getMultiStatus(), config) || !config.initialized) {
-    statusError("Err0", 3);  //no se ha podido cargar parámetros de ficheros -> señalamos el error
+    statusError(E0, 3);  //no se ha podido cargar parámetros de ficheros -> señalamos el error
   return;
   }
   // Si estamos en modo NONETWORK pasamos a STANDBY aunque no exista conexión wifi o estemos en ERROR
@@ -246,7 +246,7 @@ void setupEstado()
     return;
   }
   //si no estamos conectados a la red y no estamos en modo NONETWORK pasamos a estado ERROR
-  statusError("Err1", 3);
+  statusError(E1, 3);
 }
 
 /**---------------------------------------------------------------
@@ -314,6 +314,7 @@ void procesaBotonPause(void)
                 display->print("----");
                 initFactorRiegos();
                 if(VERIFY && Estado.estado != ERROR) stopAllRiego(true); //verificamos operativa OFF para los IDX's 
+                boton = NULL; //para que procesaEstadoError no pase directamente a NONETWORK
             }
             else {
                 NONETWORK = true;
@@ -784,7 +785,7 @@ void initFactorRiegos()
     int zonaN = bId2bIndex(ZONAS[i]);
     factorRiegos[i]=getFactor(Boton[zonaN].idx);
     if(Estado.estado == ERROR) {  //al primer error salimos y señalamos zona que falla
-      if(connected) { //solo señalamos zona si no es error general de conexion
+      if(Estado.fase == E3) { //solo señalamos zona si no es error general de conexion
         ledID = Boton[zonaN].led;
         tic_parpadeoLedZona.attach(0.4,parpadeoLedZona);
       }
@@ -976,7 +977,7 @@ bool stopRiego(uint16_t id)
   if (Estado.estado != ERROR && !simErrorOFF) Serial.printf( "Terminado OK riego: %s \n" , Boton[index].desc );
   else {     //avisa de que no se ha podido terminar un riego
     if (!errorOFF) { //para no repetir bips en caso de stopAllRiego
-      if (simErrorOFF) statusError("Err5",5); // simula error si simErrorOFF es true
+      if (simErrorOFF) statusError(E5,5); // simula error si simErrorOFF es true
       errorOFF = true;  // recordatorio error
       tic_parpadeoLedON.attach(0.2,parpadeoLedON);
       tic_parpadeoLedZona.attach(0.4,parpadeoLedZona);
@@ -1125,7 +1126,7 @@ int getFactor(uint16_t idx)
   if(!checkWifi()) {
     if(NONETWORK) return 100; //si estamos en modo NONETWORK devolvemos 100 y no damos error
     else {
-      statusError("Err1",3);
+      statusError(E1,3);
       return 100;
     }
   }
@@ -1141,8 +1142,8 @@ int getFactor(uint16_t idx)
       Estado.estado = STANDBY;
       return 100;
     }
-    if(response == "ErrX") statusError("Err3",3);
-    else statusError(response,3);
+    if(response == "ErrX") statusError(E3,3);
+    else statusError(E2,3);
     #ifdef DEBUG
       Serial.printf("GETFACTOR IDX: %d [HTTP] GET... failed\n", idx);
     #endif
@@ -1162,7 +1163,7 @@ int getFactor(uint16_t idx)
     Serial.println(error.f_str());
     if(!VERIFY) return 100;
     else {
-      statusError("Err2",3);
+      statusError(E2,3);
       return 100;
     }
   }
@@ -1175,7 +1176,7 @@ int getFactor(uint16_t idx)
     #endif
     if(!VERIFY) return 100;
     else {
-      statusError("Err2",3);
+      statusError(E3,3);
       return 100;
     }
   }
@@ -1207,7 +1208,7 @@ bool domoticzSwitch(int idx,char *msg)
   //if(NONETWORK) return true; //simulamos que ha ido OK
   if(NONETWORK || idx == 0) return true; //simulamos que ha ido OK
   if(!checkWifi()) {
-    statusError("Err1",3);
+    statusError(E1,3);
     return false;
   }
   char JSONMSG[200]="/json.htm?type=command&param=switchlight&idx=%d&switchcmd=%s";
@@ -1218,10 +1219,10 @@ bool domoticzSwitch(int idx,char *msg)
   if (Estado.estado == ERROR && response.startsWith("Err")) {
     if (!errorOFF) { //para no repetir bips en caso de stopAllRiego
       if(response == "ErrX") {
-        if(strcmp(msg,"On") == 0 ) statusError("Err4",3); //error al iniciar riego
-        else statusError("Err5",5); //error al parar riego
+        if(strcmp(msg,"On") == 0 ) statusError(E4,3); //error al iniciar riego
+        else statusError(E5,5); //error al parar riego
       }
-      else statusError(response,3); //otro error
+      else statusError(E2,3); //otro error al comunicar con domoticz
     }
     Serial.printf("DOMOTICZSWITH IDX: %d fallo en %s\n", idx, msg);
     return false;
@@ -1261,11 +1262,15 @@ void Verificaciones()
 /**---------------------------------------------------------------
  * pasa a estado ERROR
  */
-void statusError(String errorID, int n) 
-{    
+void statusError(uint8_t errorID, int n) 
+{
+  char errorText[7] = "Err";    
   Estado.estado = ERROR;
-  Serial.printf("[statusError]: %s \n", errorID.c_str());
-  display->print(errorID.c_str());
+  Estado.fase = errorID;
+  if (errorID == E0) strcpy(errorText, "Err0");
+  else sprintf(errorText, "Err%d", errorID);
+  Serial.printf("[statusError2]: %s \n", errorText);
+  display->print(errorText);
   longbip(n);
 }
 
