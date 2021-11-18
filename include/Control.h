@@ -58,7 +58,7 @@
   #endif
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "2.2"
+                            #define VERSION  "2.2.1"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -136,7 +136,7 @@
   };
 
   enum _fases {
-    NF            = 0,
+    CERO          = 0,
     E0            = 0xFF,
     E1            = 1,
     E2            = 2,
@@ -315,8 +315,8 @@
 
   #ifdef __MAIN__
     //Globales a este módulo
-    //Segun la arquitectura
     #ifdef NODEMCU
+      //Segun la arquitectura
       WiFiClient client;
       HTTPClient httpclient;
       WiFiUDP    ntpUDP;

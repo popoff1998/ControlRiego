@@ -1,8 +1,6 @@
 
 #include "Control.h"
 
-//Config_parm config;
-
 bool loadConfigFile(const char *p_filename, Config_parm &cfg)
 {
   #ifdef TRACE
@@ -57,7 +55,6 @@ bool loadConfigFile(const char *p_filename, Config_parm &cfg)
     Serial.println(F("ERROR numero de grupos incorrecto"));
     return false;
   }  
-  //Serial.println(F("[loadConfigFile] empezamos a procesar GRUPOS")); //DEBUG
   //--------------  procesa grupos  ---------------------------------------------------------
   for (JsonObject groups_item : doc["grupos"].as<JsonArray>()) {
     int i = groups_item["grupo"] | 1; // 1, 2, 3
@@ -146,7 +143,6 @@ bool saveConfigFile(const char *p_filename, Config_parm &cfg)
   #ifdef DEBUG
     printFile(p_filename);
   #endif
-
   //memoryInfo();
   return true;
 }
@@ -236,7 +232,6 @@ void filesInfo()
 
   float fileTotalKB = (float)fs_info.totalBytes / 1024.0; 
   float fileUsedKB = (float)fs_info.usedBytes / 1024.0; 
-  //Serial.printf("\n#####################\n"));
   Serial.print("__________________________\n");
   Serial.println(F("File system (LittleFS): "));
   Serial.print(F("    Total KB: ")); Serial.print(fileTotalKB); Serial.println(F(" KB"));
@@ -247,7 +242,6 @@ void filesInfo()
     Serial.print(F("  ")); Serial.println(dir.fileName());
   }
   Serial.print("__________________________\n");
-  //Serial.println(F("#####################"));
 }
 
 
@@ -287,7 +281,7 @@ void memoryInfo()
   float fileUsedKB = (float)fs_info.usedBytes / 1024.0; 
   
   int freeHeadSize = (int)ESP.getFreeHeap() / 1024.0;
-  
+  float freeSketchSize = (float)ESP.getFreeSketchSpace() / 1024.0;
   Serial.print("\n#####################\n");
   /*
   */
@@ -308,6 +302,7 @@ void memoryInfo()
   Serial.print("__________________________\n\n");
   
   Serial.printf("free RAM (max Head size): %d KB  <<<<<<<<<<<<<<<<<<<\n\n", freeHeadSize);
+  Serial.printf("free SketchSpace: %f KB\n\n", freeSketchSize);
   Serial.println(F("#####################"));
 }
 

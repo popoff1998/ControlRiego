@@ -70,11 +70,6 @@ void setup()
     if (saveConfigFile(parmFile, config))  bipOK(3);;
     saveConfig = false;
   }
-  #ifdef EXTRADEBUG
-    Serial.printf("estado LEDR: %d \n",ledStatusId(LEDR));
-    Serial.printf("estado LEDG: %d \n",ledStatusId(LEDG));
-    Serial.printf("estado LEDB: %d \n",ledStatusId(LEDB));
-  #endif
   delay(2500);
   //Ponemos en hora
   timeClient.begin();
@@ -108,7 +103,6 @@ void setup()
 void loop()
 {
   #ifdef EXTRATRACE
-    //Serial.println(F("TRACE: in loop"));
     Serial.print(F("L"));
   #endif
 
@@ -129,21 +123,17 @@ void loop()
 void procesaBotones()
 {
   #ifdef EXTRATRACE
-    //Serial.println(F("TRACE: in procesaBotones"));
     Serial.print(F("B"));
   #endif
   // almacenamos estado pulsador del encoder (para modificar comportamiento de otros botones)
   //NOTA: el encoderSW esta en estado HIGH en reposo y en estado LOW cuando esta pulsado
   (!Boton[bId2bIndex(bENCODER)].estado) ? encoderSW = true : encoderSW = false;
   //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multiriego
-  if (!multiSemaforo) {
-    boton = NULL;
-    boton = parseInputs(READ);
-  }
-  else multiSemaforo = false;
+  if (multiSemaforo) multiSemaforo = false;
+  else  boton = parseInputs(READ);  //vemos si algun boton ha cambiado de estado
   // si no se ha pulsado ningun boton salimos
   if(boton == NULL) return;
-  //Si estamos en reposo pulsar cualquier boton solo nos saca de ese estado
+  //Si estamos en reposo pulsar cualquier boton solo nos saca de ese estado, salvo STOP
   if (reposo && boton->id != bSTOP) {
     Serial.println(F("Salimos de reposo -1-"));
     reposo = false;
@@ -226,6 +216,7 @@ void setupEstado()
   // Si estamos en modo NONETWORK pasamos a STANDBY aunque no exista conexión wifi o estemos en ERROR
   if (NONETWORK) {
     Estado.estado = STANDBY;
+    Estado.fase = CERO;
     bip(2);
     return;
   }
@@ -242,6 +233,7 @@ void setupEstado()
       longbip(1);
     }
     else Estado.estado = STANDBY;
+    Estado.fase = CERO;
     bip(1);
     return;
   }
@@ -258,7 +250,6 @@ void setupInit(void) {
   #ifdef TRACE
     Serial.println(F("TRACE: in setupInit"));
   #endif
-  //S_initFlags initFlags = 0;
   if (testButton(bENCODER, OFF)) {
     if (testButton(bGRUPO1,ON)) {
       initFlags.initParm = true;
@@ -294,7 +285,6 @@ void procesaBotonPause(void)
         else boton = NULL; //para que procesaEstadoError no pase directamente a NONETWORK
         break;
       case CONFIGURANDO:
-        //if(!configure->configuringIdx() && !configure->configuringTime() && !configure->configuringMulti()) {
         if(!configure->configuring()) { //si no estamos ya configurando algo
           configure->configureTime();
           Serial.println(F("[ConF] configurando tiempo riego por defecto"));
@@ -303,9 +293,8 @@ void procesaBotonPause(void)
         }
         break;
       case STANDBY:
+          boton = NULL; //lo borramos para que no sea tratado más adelante en procesaEstados
           if(encoderSW) {  //si encoderSW+Pause --> conmutamos estado NONETWORK
-            // es necesario? puede dar problemas? exception(28)?
-            //boton = NULL; a ver que pasa si lo quitamos
             if (NONETWORK) {
                 NONETWORK = false;
                 Serial.println(F("encoderSW+PAUSE pasamos a modo NORMAL y leemos factor riegos"));
@@ -314,7 +303,6 @@ void procesaBotonPause(void)
                 display->print("----");
                 initFactorRiegos();
                 if(VERIFY && Estado.estado != ERROR) stopAllRiego(true); //verificamos operativa OFF para los IDX's 
-                boton = NULL; //para que procesaEstadoError no pase directamente a NONETWORK
             }
             else {
                 NONETWORK = true;
@@ -325,7 +313,6 @@ void procesaBotonPause(void)
           }
           else {    // muestra hora y ultimos riegos
             ultimosRiegos(SHOW);
-            //boton = NULL; a ver que pasa si lo quitamos 
             delay(3000);
             ultimosRiegos(HIDE);
           }
@@ -345,11 +332,8 @@ void procesaBotonPause(void)
             configure->start();
             longbip(1);
             Estado.estado = CONFIGURANDO;
-            //boton = NULL; a ver que pasa si lo quitamos
+            boton = NULL;
             holdPause = false;
-            #ifdef DEBUG
-              if(value!=savedValue) Serial.printf("#01 savedValue: %d  value: %d \n",savedValue,value);
-            #endif
             savedValue = value;
           }
           else {   //si esta pulsado encoderSW hacemos un soft reset
@@ -395,21 +379,15 @@ void procesaBotonStop(void)
       displayOFF = false;
     }
   }
-  //si hemos liberado STOP: salimos del estado stop o de configuracion
-  if (!boton->estado && (Estado.estado == STOP || Estado.estado == CONFIGURANDO)) {
-    if (savedValue>0) {
-      #ifdef DEBUG
-      if(value!=savedValue) Serial.printf("#02 savedValue: %d  value: %d \n",savedValue,value);
-      #endif
-      value = savedValue;  // para que restaure reloj aunque no salvemos con pause el valor configurado
-    }
+  //si hemos liberado STOP: salimos del estado stop
+  //(dejamos el release del STOP en modo ConF para que actue el codigo de procesaEstadoConfigurando
+  if (!boton->estado && Estado.estado == STOP) {
+    if (savedValue>0) value = savedValue;  // para que restaure reloj aunque no salvemos con pause el valor configurado
     StaticTimeUpdate();
     led(Boton[bId2bIndex(bCONFIG)].led,OFF);
     reposo = false; //por si salimos de stop antinenes
     displayOFF = false;
-    //Estado.estado = STANDBY;
-    //dejamos el procesado del release del STOP en modo ConF para que actue el codigo de procesaEstados
-    if (Estado.estado == STOP) Estado.estado = STANDBY;
+    Estado.estado = STANDBY;
   }
   standbyTime = millis();
 }
@@ -419,10 +397,7 @@ bool procesaBotonMultiriego(void)
 {
   if (Estado.estado == CONFIGURANDO) {
     if (configure->configuring()) return false; //si ya estamos configurando algo salimos
-    #ifdef DEBUG
-      if(value!=savedValue) Serial.printf("#03 savedValue: %d  value: %d \n",savedValue,value);
-    #endif
-    savedValue = value;
+    //savedValue = value;
     int n_grupo = setMultibyId(getMultiStatus(), config);
     if (encoderSW) 
     {
@@ -449,7 +424,6 @@ bool procesaBotonMultiriego(void)
       Serial.printf( "en configuracion de MULTIRRIEGO, setMultibyId devuelve: Grupo%d (%s) multi.size=%d \n" , n_grupo, multi.desc, *multi.size);
     #endif            
     displayGrupo(multi.serie, *multi.size);
-    //*multi.size = 0 ; // borramos grupo actual
     multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
     display->print("PUSH");
     return false;    //para que procese el BREAK al volver a procesaBotones  
@@ -506,7 +480,6 @@ void procesaBotonZona(void)
           Serial.printf("Minutos: %d Segundos: %d FMinutos: %d FSegundos: %d\n",minutes,seconds,fminutes,fseconds);
         #endif
         ultimoBoton = boton;
-        //if (fminutes == 0 && fseconds == 0) {
         if ((fminutes == 0 && fseconds == 0) || boton->idx == 0) {
           Estado.estado = TERMINANDO; // nos saltamos este riego
           display->print("-00-");
@@ -524,15 +497,11 @@ void procesaBotonZona(void)
         Serial.printf("Boton: %s Factor de riego: %d \n", boton->desc,factorRiegos[idarrayRiego(boton->id)]);
         Serial.printf("          boton.index: %d \n", index);
         Serial.printf("          boton(%d).led: %d \n", index, Boton[index].led);
-        if(value!=savedValue) Serial.printf("#04 savedValue: %d  value: %d \n",savedValue,value);
       #endif
       savedValue = value;
       value = factorRiegos[idarrayRiego(boton->id)];
       display->print(value);
       delay(2000);
-      #ifdef DEBUG
-        if(value!=savedValue) Serial.printf("#05 savedValue: %d  value: %d \n",savedValue,value);
-      #endif
       value = savedValue;  // para que restaure reloj
       led(Boton[index].led,OFF);
       StaticTimeUpdate();
@@ -541,22 +510,16 @@ void procesaBotonZona(void)
   if (Estado.estado == CONFIGURANDO ) {
     if (configure->configuringMulti()) {  //Configuramos el multirriego seleccionado
       if (multi.w_size < 16) {
-        #ifdef DEBUG
-          if(value!=savedValue) Serial.printf("#07 savedValue: %d  value: %d \n",savedValue,value);
-        #endif
-        savedValue = value;
+        //savedValue = value;
         multi.serie[multi.w_size] = boton->id;
         Serial.printf("[ConF] añadiendo ZONA%d (%s) \n",bId2bIndex(boton->id)+1, boton->desc);
         multi.w_size = multi.w_size + 1;
-        //Serial.printf("[ConF] configurando multigrupo numero elementos (despues): %d \n",multi.w_size);
         led(Boton[bId2bIndex(boton->id)].led,ON);
       }
+      else longbip(1);
     }
     if (!configure->configuring()) {   //si no estamos configurando nada, configuramos el idx
-      #ifdef DEBUG
-        if(value!=savedValue) Serial.printf("#06 savedValue: %d  value: %d \n",savedValue,value);
-      #endif
-      savedValue = value;
+      //savedValue = value;
       Serial.printf("[ConF] configurando IDX boton: %s \n",boton->desc);
       configure->configureIdx(bId2bIndex(boton->id));
       value = boton->idx;
@@ -571,7 +534,6 @@ void procesaEstadoConfigurando()
   Boton[bId2bIndex(bPAUSE)].flags.holddisabled = true;
   if (boton != NULL) {
     if (boton->flags.action) {
-      //Serial.println(F( "En estado CONFIGURANDO pulsado ACTION" );
       switch(boton->id) {
         case bMULTIRIEGO:
           break;
@@ -591,9 +553,6 @@ void procesaEstadoConfigurando()
             config.botonConfig[zonaN].idx = (uint16_t)value;
             saveConfig = true;
             Serial.printf( "[ConF] Save Zona%d (%s) IDX value: %d \n", zonaN+1, Boton[zonaN].desc, value);
-            #ifdef DEBUG
-              if(value!=savedValue) Serial.printf("#08 savedValue: %d  value: %d \n",savedValue,value);
-            #endif
             value = savedValue;
             bipOK(3);
             configure->stop();
@@ -611,26 +570,29 @@ void procesaEstadoConfigurando()
               saveConfig = true;
               bipOK(3);
             }
-            #ifdef DEBUG
-              if(value!=savedValue) Serial.printf("#09 savedValue: %d  value: %d \n",savedValue,value);
-            #endif
-            value = savedValue;
+            //value = savedValue;
             ultimosRiegos(HIDE);
             configure->stop();
           }
           break;
         case bSTOP:
-          if(!boton->estado) {
+          if(!boton->estado) { //release STOP salvamos si procede y salimos de ConF
+            led(Boton[bId2bIndex(bCONFIG)].led,OFF);
             configure->stop();
-            //Serial.println(F( "release de STOP en modo ConF" );
             if (saveConfig) {
               Serial.println(F("saveConfig=true  --> salvando parametros a fichero"));
-              if (saveConfigFile(parmFile, config)) bipOK(3);
+              if (saveConfigFile(parmFile, config)) {
+                display->print("SAUE");
+                bipOK(3);
+                delay(3000);
+              }  
               saveConfig = false;
             }
-            ultimosRiegos(HIDE);  
             Estado.estado = STANDBY;
             standbyTime = millis();
+            if (savedValue>0) value = savedValue;  // para que restaure reloj aunque no salvemos con pause el valor configurado
+            ultimosRiegos(HIDE);
+            StaticTimeUpdate();
           }
           break;
       }
@@ -649,6 +611,7 @@ void procesaEstadoError(void)
   if(boton->id == bPAUSE && boton->estado) {  //evita procesar el release del pause
   //Si estamos en error y pulsamos pausa, nos ponemos en estado NONETWORK para test
     Estado.estado = STANDBY;
+    Estado.fase = CERO;
     NONETWORK = true;
     Serial.println(F("estado en ERROR y PAUSA pulsada pasamos a modo NONETWORK y reseteamos"));
     bip(2);
@@ -861,7 +824,6 @@ void ultimosRiegos(int modo)
       break;
     case HIDE:
       StaticTimeUpdate();
-      //for(unsigned int i=0;i<sizeof(ZONAS)/2;i++) {
       for(unsigned int i=0;i<NUMZONAS;i++) {
         led(Boton[bId2bIndex(ZONAS[i])].led,OFF);
       }
@@ -891,12 +853,10 @@ void procesaEncoder()
   #endif
   if(Estado.estado == CONFIGURANDO && configure->configuringIdx()) {
       #ifdef EXTRATRACE
-       //Serial.println(F("TRACE: en procesaencoder idx"));
        Serial.print(F("i"));
       #endif
       value -= Encoder->getValue();
       if (value > 1000) value = 1000;
-      //if (value <  1) value = 1;
       if (value <  1) value = 0; //permitimos IDX=0 para desactivar ese boton
       display->print(value);
       return;
@@ -934,7 +894,6 @@ void procesaEncoder()
       minutes = 0;
     }
   }
-  //Serial.println(F("Salimos de reposo -4-"));
   reposo = false;
   StaticTimeUpdate();
   standbyTime = millis();
@@ -1110,7 +1069,6 @@ String httpGetDomoticz(String message)
     return "ErrX";
   }
   httpclient.end();
-  //Serial.println(F("TRACE: in httpGetDomoticz **return"));
   return response;
 }
 
@@ -1205,7 +1163,6 @@ bool domoticzSwitch(int idx,char *msg)
   #ifdef TRACE
     Serial.println(F("TRACE: in domoticzSwitch"));
   #endif
-  //if(NONETWORK) return true; //simulamos que ha ido OK
   if(NONETWORK || idx == 0) return true; //simulamos que ha ido OK
   if(!checkWifi()) {
     statusError(E1,3);
@@ -1227,7 +1184,6 @@ bool domoticzSwitch(int idx,char *msg)
     Serial.printf("DOMOTICZSWITH IDX: %d fallo en %s\n", idx, msg);
     return false;
   }
-  //if(Estado.estado != ERROR && strcmp(msg,"On")) == 0) Estado.estado = REGANDO;
   return true;
 }
 
