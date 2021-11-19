@@ -141,14 +141,6 @@ byte shiftInCD4021B(int myDataPin, int myClockPin)
   return myDataIn;
 }
 
-int bId2bIndex(uint16_t id)
-{
-  for (int i=0;i<NUM_S_BOTON;i++) {
-    if (Boton[i].id == id) return i;
-  }
-  return 999;
-}
-
 uint16_t readInputs()
 {
   byte    switchVar1;
@@ -202,3 +194,20 @@ S_BOTON *parseInputs(bool read)
   }
   return NULL;
 }
+
+int bID_bIndex(uint16_t id)
+{
+  for (int i=0;i<NUM_S_BOTON;i++) {
+    if (Boton[i].id == id) return i;
+  }
+  return 999;
+}
+
+int bID_zIndex(uint16_t id)
+{
+  for (uint i=0;i<NUMZONAS;i++) {
+    if(ZONAS[i] == id) return i;
+  }
+  return 999;
+}
+

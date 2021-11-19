@@ -181,6 +181,7 @@
 
   //----------------  dependientes del HW (número, orden)  ----------------------------
     // lista de todos los botones de zonas de riego disponibles:
+    // OJO! el número y orden debe coincidir con las especificadas en Boton[]
   #define _ZONAS  bZONA1 , bZONA2 , bZONA3 , bZONA4 , bZONA5 , bZONA6 , bZONA7
     // lista de todos los botones (selector) de grupos disponibles:
   #define _GRUPOS bGRUPO1 , bGRUPO2 , bGRUPO3
@@ -286,9 +287,9 @@
       {bSPARE16,    0,  0,  0,           DISABLED,                         "spare16",     0},
       {bENCODER,    0,  0,  0,           ENABLED | ONLYSTATUS | DUAL,      "ENCODER",     0},
       {bMULTIRIEGO, 0,  0,  0,           ENABLED | ACTION,                 "MULTIRIEGO",  0},
-      {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ONLYSTATUS | DUAL,      "CESPED",      0},
-      {bGRUPO2  ,   0,  0,  lGRUPO2  ,   DISABLED,                         "COMPLETO",    0},
-      {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ONLYSTATUS | DUAL,      "GOTEOS",      0},
+      {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO1",      0},
+      {bGRUPO2  ,   0,  0,  lGRUPO2  ,   DISABLED,                         "GRUPO2",      0},
+      {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO3",      0},
       {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE",       0},
       {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",        0},
       {bCONFIG,     0,  0,  0,           DISABLED,                         "CONFIG",      0}
@@ -371,12 +372,12 @@
   void apagaLeds(void);
   void bip(int);
   void bipOK(int);
-  int  bId2bIndex(uint16_t);
+  int  bID_bIndex(uint16_t);
+  int  bID_zIndex(uint16_t);
   void blinkPause(void);
   void check(void);
   bool checkWifi(void);
   void cleanFS(void);
-  void configModeCallback (WiFiManager *);
   bool copyConfigFile(const char*, const char*);
   void dimmerLeds(void);
   void displayGrupo(uint16_t *, int);
@@ -389,7 +390,6 @@
   int setMultibyId(uint16_t , Config_parm&);
   uint16_t getMultiStatus(void);
   String *httpGetDomoticz(String *);
-  uint idarrayRiego(uint16_t);
   void initCD4021B(void);
   void initClock(void);
   void initFactorRiegos(void);
@@ -404,7 +404,6 @@
   bool loadConfigFile(const char*, Config_parm&);
   void longbip(int);
   void memoryInfo(void);
-  int  nGrupos();
   void parpadeoLedON(void);
   void parpadeoLedZona(void);
   S_BOTON *parseInputs(bool);
@@ -430,7 +429,6 @@
   void refreshTime(void);
   void refreshDisplay(void);
   bool saveConfigFile(const char*, Config_parm&);
-  void saveWifiCallback(void);
   bool setupConfig(const char*, Config_parm&);
   void setupEstado(void);
   void setupInit(void);
