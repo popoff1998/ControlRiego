@@ -26,9 +26,6 @@ void setup()
   Serial.begin(115200);
   Serial.print(F("\n\n"));
   Serial.println("CONTROL RIEGO V" + String(VERSION) + "    Built on " __DATE__ " at " __TIME__ );
-  strncpy(version_n, VERSION, 10); //eliminamos "." y "-" para mostrar version en el display
-  std::remove(std::begin(version_n),std::end(version_n),'.');
-  std::remove(std::begin(version_n),std::end(version_n),'-');
   Serial.print(F("Startup reason: "));Serial.println(ESP.getResetReason());
   #ifdef TRACE
     Serial.println(F("TRACE: in setup"));
@@ -55,13 +52,13 @@ void setup()
   initHC595();
   //preparo indicadores de inicializaciones opcionales
   setupInit();
+  //led encendido
+  led(LEDR,ON);
   //setup parametros configuracion
   #ifdef EXTRADEBUG
     printFile(parmFile);
   #endif
   setupParm();
-  //led encendido
-  led(LEDR,ON);
   //Chequeo de perifericos de salida (leds, display, buzzer)
   check();
   //Para la red
@@ -441,6 +438,10 @@ bool procesaBotonMultiriego(void)
     // si esta pulsado el boton del encoder --> solo hacemos encendido de los leds del grupo
     // y mostramos en el display la version del programa.
     if (encoderSW) {
+      char version_n[10];
+      strncpy(version_n, VERSION, 10); //eliminamos "." y "-" para mostrar version en el display
+      std::remove(std::begin(version_n),std::end(version_n),'.');
+      std::remove(std::begin(version_n),std::end(version_n),'-');
       display->print(version_n);
       displayGrupo(multi.serie, *multi.size);
       multiriego = false;
@@ -754,17 +755,17 @@ void initFactorRiegos()
       }
       break;
     }
-    if (sizeof(descFR)) {
+    if (sizeof(descDomoticz)) {
       //actualizamos en Boton la DESCRIPCION con la recibida del Domoticz (campo Name)
       if (xNAME) {
-        strlcpy(Boton[zonaN].desc, descFR, sizeof(Boton[zonaN].desc));
+        strlcpy(Boton[zonaN].desc, descDomoticz, sizeof(Boton[zonaN].desc));
         Serial.printf("\tdescripcion ZONA%d actualizada en boton \n", i+1);
       }
       //printCharArray(config.botonConfig[zonaN].desc, sizeof(config.botonConfig[zonaN].desc));
       //si el parm desc estaba vacio actualizamos en todo caso (en config y Boton)
       if (config.botonConfig[zonaN].desc[0] == 0) {
-        strlcpy(config.botonConfig[zonaN].desc, descFR, sizeof(config.botonConfig[zonaN].desc));
-        strlcpy(Boton[zonaN].desc, descFR, sizeof(Boton[zonaN].desc));
+        strlcpy(config.botonConfig[zonaN].desc, descDomoticz, sizeof(config.botonConfig[zonaN].desc));
+        strlcpy(Boton[zonaN].desc, descDomoticz, sizeof(Boton[zonaN].desc));
         Serial.printf("\tdescripcion ZONA%d incluida en config \n", i+1);
         // saveConfig = true;   TODO ¿deberiamos salvarlo?
       }  
@@ -1140,7 +1141,7 @@ int getFactor(uint16_t idx)
   }
   #ifdef xNAME
     //extraemos la DESCRIPCION para ese boton en Domoticz del json (campo Name)
-    strlcpy(descFR, jsondoc["result"][0]["Name"] | "", sizeof(descFR));
+    strlcpy(descDomoticz, jsondoc["result"][0]["Name"] | "", sizeof(descDomoticz));
   #endif  
   //si hemos leido correctamente (numero, campo vacio o solo con comentarios)
   //consideramos leido OK el factor riego. En los dos ultimos casos se

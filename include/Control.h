@@ -198,7 +198,7 @@
 
   //estructura para salvar parametros de un boton
   struct Boton_parm {
-    char  desc[30];
+    char  desc[20];
     uint16_t   idx;
   } ;
 
@@ -255,7 +255,7 @@
     int   ultimo_estado;
     int   led;
     S_bFLAGS  flags;
-    char  desc[30];
+    char  desc[20];
     uint16_t   idx;
   } ;
 
@@ -340,10 +340,9 @@
     time_t utc;
     time_t lastRiegos[NUMZONAS];
     uint factorRiegos[NUMZONAS];
-    char version_n[10];
     uint8_t minutes;
     uint8_t seconds;
-    char  descFR[30];
+    char  descDomoticz[20];
     int value;
     int savedValue;
     int ledID = 0;
