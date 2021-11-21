@@ -58,7 +58,7 @@
   #endif
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "2.2"
+                            #define VERSION  "2.2.1"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -135,6 +135,16 @@
     ERROR         = 0x80,
   };
 
+  enum _fases {
+    CERO          = 0,
+    E0            = 0xFF,
+    E1            = 1,
+    E2            = 2,
+    E3            = 3,
+    E4            = 4,
+    E5            = 5,
+  };
+
   enum _flags {
     ENABLED      = 0x01,
     DISABLED     = 0x02,
@@ -171,6 +181,7 @@
 
   //----------------  dependientes del HW (número, orden)  ----------------------------
     // lista de todos los botones de zonas de riego disponibles:
+    // OJO! el número y orden debe coincidir con las especificadas en Boton[]
   #define _ZONAS  bZONA1 , bZONA2 , bZONA3 , bZONA4 , bZONA5 , bZONA6 , bZONA7
     // lista de todos los botones (selector) de grupos disponibles:
   #define _GRUPOS bGRUPO1 , bGRUPO2 , bGRUPO3
@@ -188,7 +199,7 @@
 
   //estructura para salvar parametros de un boton
   struct Boton_parm {
-    char  desc[30];
+    char  desc[20];
     uint16_t   idx;
   } ;
 
@@ -245,12 +256,13 @@
     int   ultimo_estado;
     int   led;
     S_bFLAGS  flags;
-    char  desc[30];
+    char  desc[20];
     uint16_t   idx;
   } ;
 
   struct S_Estado {
     uint8_t estado; 
+    uint8_t fase; 
   } ;
 
   const uint16_t ZONAS[] = {_ZONAS};
@@ -275,9 +287,9 @@
       {bSPARE16,    0,  0,  0,           DISABLED,                         "spare16",     0},
       {bENCODER,    0,  0,  0,           ENABLED | ONLYSTATUS | DUAL,      "ENCODER",     0},
       {bMULTIRIEGO, 0,  0,  0,           ENABLED | ACTION,                 "MULTIRIEGO",  0},
-      {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ONLYSTATUS | DUAL,      "CESPED",      0},
-      {bGRUPO2  ,   0,  0,  lGRUPO2  ,   DISABLED,                         "COMPLETO",    0},
-      {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ONLYSTATUS | DUAL,      "GOTEOS",      0},
+      {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO1",      0},
+      {bGRUPO2  ,   0,  0,  lGRUPO2  ,   DISABLED,                         "GRUPO2",      0},
+      {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO3",      0},
       {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE",       0},
       {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",        0},
       {bCONFIG,     0,  0,  0,           DISABLED,                         "CONFIG",      0}
@@ -304,8 +316,8 @@
 
   #ifdef __MAIN__
     //Globales a este módulo
-    //Segun la arquitectura
     #ifdef NODEMCU
+      //Segun la arquitectura
       WiFiClient client;
       HTTPClient httpclient;
       WiFiUDP    ntpUDP;
@@ -329,10 +341,9 @@
     time_t utc;
     time_t lastRiegos[NUMZONAS];
     uint factorRiegos[NUMZONAS];
-    char version_n[10];
     uint8_t minutes;
     uint8_t seconds;
-    char  descFR[30];
+    char  descDomoticz[20];
     int value;
     int savedValue;
     int ledID = 0;
@@ -361,12 +372,12 @@
   void apagaLeds(void);
   void bip(int);
   void bipOK(int);
-  int  bId2bIndex(uint16_t);
+  int  bID_bIndex(uint16_t);
+  int  bID_zIndex(uint16_t);
   void blinkPause(void);
   void check(void);
   bool checkWifi(void);
   void cleanFS(void);
-  void configModeCallback (WiFiManager *);
   bool copyConfigFile(const char*, const char*);
   void dimmerLeds(void);
   void displayGrupo(uint16_t *, int);
@@ -379,7 +390,6 @@
   int setMultibyId(uint16_t , Config_parm&);
   uint16_t getMultiStatus(void);
   String *httpGetDomoticz(String *);
-  uint idarrayRiego(uint16_t);
   void initCD4021B(void);
   void initClock(void);
   void initFactorRiegos(void);
@@ -394,7 +404,6 @@
   bool loadConfigFile(const char*, Config_parm&);
   void longbip(int);
   void memoryInfo(void);
-  int  nGrupos();
   void parpadeoLedON(void);
   void parpadeoLedZona(void);
   S_BOTON *parseInputs(bool);
@@ -420,7 +429,6 @@
   void refreshTime(void);
   void refreshDisplay(void);
   bool saveConfigFile(const char*, Config_parm&);
-  void saveWifiCallback(void);
   bool setupConfig(const char*, Config_parm&);
   void setupEstado(void);
   void setupInit(void);
@@ -428,7 +436,7 @@
   void setupRedWM(Config_parm&);
   void starConfigPortal(Config_parm&);
   void StaticTimeUpdate(void);
-  void statusError(String, int n);
+  void statusError(uint8_t, int n);
   bool stopRiego(uint16_t);
   void stopAllRiego(bool);
   bool testButton(uint16_t, bool);

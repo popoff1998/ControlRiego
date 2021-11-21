@@ -4,8 +4,8 @@
 //devuelve posicion del selector de multirriego
 uint16_t getMultiStatus()
 {
-  if (Boton[bId2bIndex(bGRUPO1)].estado) return bGRUPO1;
-  if (Boton[bId2bIndex(bGRUPO3)].estado) return bGRUPO3;
+  if (Boton[bID_bIndex(bGRUPO1)].estado) return bGRUPO1;
+  if (Boton[bID_bIndex(bGRUPO3)].estado) return bGRUPO3;
   return bGRUPO2  ;
 }
 
@@ -41,11 +41,11 @@ void displayGrupo(uint16_t *serie, int serieSize)
 {
   int i;
   for(i=0;i<serieSize;i++) {
-    //Serial.printf("[displayGrupo]  encendiendo led %d \n", bId2bIndex(serie[i])+1);
-    led(Boton[bId2bIndex(serie[i])].led,ON);
+    //Serial.printf("[displayGrupo]  encendiendo led %d \n", bID_bIndex(serie[i])+1);
+    led(Boton[bID_bIndex(serie[i])].led,ON);
     delay(300);
     bip(i+1);
-    led(Boton[bId2bIndex(serie[i])].led,OFF);
+    led(Boton[bID_bIndex(serie[i])].led,OFF);
     delay(100);
   }
 }
