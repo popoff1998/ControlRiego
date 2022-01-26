@@ -66,9 +66,10 @@ void setup()
     if (saveConfigFile(parmFile, config))  bipOK(3);;
     saveConfig = false;
   }
-  delay(2500);
+  delay(2000);
   //Ponemos en hora
   timeClient.begin();
+  delay(500);
   initClock();
   //Inicializamos lastRiegos (registro fecha y riego realizado)
   initLastRiegos();
@@ -78,7 +79,7 @@ void setup()
   Boton[bID_bIndex(bPAUSE)].flags.holddisabled = true;
   //Llamo a parseInputs CLEAR para eliminar prepulsaciones antes del bucle loop
   parseInputs(CLEAR);
-  // estado final en funcion de la conexion
+  //Estado final en funcion de la conexion
   setupEstado();
   #ifdef EXTRADEBUG
     printMulti();
@@ -1251,7 +1252,7 @@ void statusError(uint8_t errorID, int n)
   Estado.fase = errorID;
   if (errorID == E0) strcpy(errorText, "Err0");
   else sprintf(errorText, "Err%d", errorID);
-  Serial.printf("[statusError2]: %s \n", errorText);
+  Serial.printf("[statusError]: %s \n", errorText);
   display->print(errorText);
   longbip(n);
 }
