@@ -759,7 +759,7 @@ void initFactorRiegos()
       }
       break;
     }
-    if (sizeof(descDomoticz)) {
+    if (strlen(descDomoticz)) {
       //actualizamos en Boton la DESCRIPCION con la recibida del Domoticz (campo Name)
       if (xNAME) {
         strlcpy(Boton[bIndex].desc, descDomoticz, sizeof(Boton[bIndex].desc));
