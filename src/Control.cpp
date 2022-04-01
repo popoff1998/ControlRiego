@@ -333,13 +333,14 @@ void procesaBotonPause(void)
           if(!encoderSW) { //pasamos a modo Configuracion
             configure->start();
             longbip(1);
+            ledConf(ON);
             Estado.estado = CONFIGURANDO;
             boton = NULL;
             holdPause = false;
             savedValue = value;
           }
           else {   //si esta pulsado encoderSW hacemos un soft reset
-            Serial.println(F("ConF + encoderSW + PAUSA --> Reset....."));
+            Serial.println(F("Stop + encoderSW + PAUSA --> Reset....."));
             longbip(3);
             ESP.restart();  // Hard RESET: ESP.reset()
           }
@@ -386,7 +387,6 @@ void procesaBotonStop(void)
   if (!boton->estado && Estado.estado == STOP) {
     if (savedValue>0) value = savedValue;  // para que restaure reloj aunque no salvemos con pause el valor configurado
     StaticTimeUpdate();
-    led(Boton[bID_bIndex(bCONFIG)].led,OFF);
     reposo = false; //por si salimos de stop antinenes
     displayOFF = false;
     Estado.estado = STANDBY;
@@ -586,7 +586,6 @@ void procesaEstadoConfigurando()
           break;
         case bSTOP:
           if(!boton->estado) { //release STOP salvamos si procede y salimos de ConF
-            led(Boton[bID_bIndex(bCONFIG)].led,OFF);
             configure->stop();
             if (saveConfig) {
               Serial.println(F("saveConfig=true  --> salvando parametros a fichero"));
@@ -597,6 +596,7 @@ void procesaEstadoConfigurando()
               }  
               saveConfig = false;
             }
+            ledConf(OFF);
             Estado.estado = STANDBY;
             standbyTime = millis();
             if (savedValue>0) value = savedValue;  // para que restaure reloj aunque no salvemos con pause el valor configurado
@@ -1269,6 +1269,34 @@ void parpadeoLedZona()
   led(ledID,!estado);
 }
 
+void parpadeoLedConf()
+{
+  byte estado = ledStatusId(LEDR);
+  led(LEDR,!estado);
+  estado = ledStatusId(LEDG);
+  led(LEDG,!estado);
+}
+
+//activa o desactiva el(los) led(s) indicadores de que estamos en modo configuracion
+void ledConf(int estado)
+{
+  if(estado == ON) 
+  {
+    //parpadeo alterno leds ON/RED
+    led(LEDB,OFF);
+    led(LEDG,OFF);
+    tic_parpadeoLedConf.attach(0.7,parpadeoLedConf);
+    //led(Boton[bID_bIndex(bCONFIG)].led,ON); 
+  }
+  else 
+  {
+    tic_parpadeoLedConf.detach();   //detiene parpadeo alterno leds ON/RED
+    led(LEDR,ON);                   // y los deja segun estado
+    NONETWORK ? led(LEDB,ON) : led(LEDB,OFF);
+    checkWifi();
+    //led(Boton[bID_bIndex(bCONFIG)].led,OFF);
+  }
+}
 
 void setupParm()
 {

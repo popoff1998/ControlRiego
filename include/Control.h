@@ -58,7 +58,7 @@
   #endif
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "2.2.1"
+                            #define VERSION  "2.2.2"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -331,9 +331,10 @@
     Display      *display;
     Configure    *configure;
     NTPClient timeClient(ntpUDP,config.ntpServer);
-    Ticker tic_parpadeoLedON;  //para parpadeo led ON (LEDR)
+    Ticker tic_parpadeoLedON;    //para parpadeo led ON (LEDR)
     Ticker tic_parpadeoLedZona;  //para parpadeo led zona de riego
-    Ticker tic_verificaciones; //para verificaciones periodicas
+    Ticker tic_parpadeoLedConf;  //para parpadeo led(s) indicadores de modo configuracion
+    Ticker tic_verificaciones;   //para verificaciones periodicas
     TimeChangeRule CEST = {"CEST", Last, Sun, Mar, 2, 120};
     TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};
     Timezone CE(CEST, CET);
@@ -382,12 +383,10 @@
   void dimmerLeds(void);
   void displayGrupo(uint16_t *, int);
   bool domoticzSwitch(int,char *);
-  void filesInfo(void);
-  void loadDefaultSignal(uint);
   void enciendeLeds(void);
+  void filesInfo(void);
   void flagVerificaciones(void);
   int  getFactor(uint16_t);
-  int setMultibyId(uint16_t , Config_parm&);
   uint16_t getMultiStatus(void);
   String *httpGetDomoticz(String *);
   void initCD4021B(void);
@@ -398,10 +397,12 @@
   void initLeds(void);
   bool initRiego(uint16_t);
   void led(uint8_t,int);
+  void ledConf(int);
   void ledRGB(int,int,int);
   bool ledStatusId(int);
   void leeSerial(void);
   bool loadConfigFile(const char*, Config_parm&);
+  void loadDefaultSignal(uint);
   void longbip(int);
   void memoryInfo(void);
   void parpadeoLedON(void);
@@ -429,6 +430,7 @@
   void refreshTime(void);
   void refreshDisplay(void);
   bool saveConfigFile(const char*, Config_parm&);
+  int  setMultibyId(uint16_t , Config_parm&);
   bool setupConfig(const char*, Config_parm&);
   void setupEstado(void);
   void setupInit(void);
