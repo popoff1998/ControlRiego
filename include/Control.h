@@ -128,10 +128,10 @@
     STANDBY       = 0x01,
     REGANDO       = 0x02,
     CONFIGURANDO  = 0x04,
-    TERMINANDO    = 0x08,
+    TERMINANDO    = 0x08,  //no se usa
     PAUSE         = 0x10,
     STOP          = 0x20,
-    MULTIREGANDO  = 0x40,
+    MULTIREGANDO  = 0x40,  //no se usa
     ERROR         = 0x80,
   };
 

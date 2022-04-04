@@ -39,6 +39,7 @@ int setMultibyId(uint16_t id, Config_parm &cfg)
 
 void displayGrupo(uint16_t *serie, int serieSize)
 {
+  led(Boton[bID_bIndex(*multi.id)].led,ON);
   int i;
   for(i=0;i<serieSize;i++) {
     //Serial.printf("[displayGrupo]  encendiendo led %d \n", bID_bIndex(serie[i])+1);
@@ -48,6 +49,7 @@ void displayGrupo(uint16_t *serie, int serieSize)
     led(Boton[bID_bIndex(serie[i])].led,OFF);
     delay(100);
   }
+  led(Boton[bID_bIndex(*multi.id)].led,OFF);
 }
 
 //imprime contenido actual de la estructura multiGroup

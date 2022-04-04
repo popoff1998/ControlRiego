@@ -15,7 +15,7 @@ void setup()
                 VERIFY=true; 
   #endif
   #ifdef DEVELOP
-                NONETWORK=false;
+                NONETWORK=true;
                 VERIFY=true; 
   #endif
   #ifdef DEMO
@@ -188,8 +188,8 @@ void procesaEstados()
     case STANDBY:
       procesaEstadoStandby();
       break;
-    case TERMINANDO:
-      procesaEstadoTerminando();
+    //case TERMINANDO:
+    //  procesaEstadoTerminando();
       break;
     case STOP:
       procesaEstadoStop();
@@ -214,9 +214,15 @@ void setupEstado()
     statusError(E0, 3);  //no se ha podido cargar parámetros de ficheros -> señalamos el error
   return;
   }
-  // Si estamos en modo NONETWORK pasamos a STANDBY aunque no exista conexión wifi o estemos en ERROR
+  // Si estamos en modo NONETWORK pasamos a STANDBY (o STOP si esta pulsado) aunque no exista conexión wifi o estemos en ERROR
   if (NONETWORK) {
-    Estado.estado = STANDBY;
+    if (Boton[bID_bIndex(bSTOP)].estado) {
+      Estado.estado = STOP;
+      display->print("StoP");
+      bip(1);
+      longbip(1);
+    }
+    else Estado.estado = STANDBY;
     Estado.fase = CERO;
     bip(2);
     return;
@@ -283,8 +289,9 @@ void procesaBotonPause(void)
         bip(2);
         if(ultimoBoton) initRiego(ultimoBoton->id);
         T.ResumeTimer();
-        if(Estado.estado != ERROR) Estado.estado = REGANDO; // para que no borre ERROR
-        else boton = NULL; //para que procesaEstadoError no pase directamente a NONETWORK
+        Estado.estado = REGANDO;
+        //if(Estado.estado != ERROR) Estado.estado = REGANDO; // para que no borre ERROR
+        //else boton = NULL; //para que procesaEstadoError no pase directamente a NONETWORK
         break;
       case CONFIGURANDO:
         if(!configure->configuring()) { //si no estamos ya configurando algo
@@ -415,7 +422,9 @@ bool procesaBotonMultiriego(void)
       } 
       if (n_grupo == 3) {  // activamos AP y portal de configuracion (bloqueante)
         Serial.println(F("[ConF] encoderSW + selector ABAJO: activamos AP y portal de configuracion"));
+        ledConf(OFF);
         starConfigPortal(config);
+        ledConf(ON);
       }
       return false;    //para que procese el BREAK al volver a procesaBotones  
     } 
@@ -431,9 +440,6 @@ bool procesaBotonMultiriego(void)
     return false;    //para que procese el BREAK al volver a procesaBotones  
   }
   if (Estado.estado == STANDBY && !multiriego) {
-    bip(4);
-    multiriego = true;
-    multi.actual = 0;
     #ifdef DEBUG
       int n_grupo = setMultibyId(getMultiStatus(), config);
       Serial.printf( "en MULTIRRIEGO, setMultibyId devuelve: Grupo%d (%s) multi.size=%d \n" , n_grupo, multi.desc, *multi.size);
@@ -449,7 +455,6 @@ bool procesaBotonMultiriego(void)
       std::remove(std::begin(version_n),std::end(version_n),'-');
       display->print(version_n);
       displayGrupo(multi.serie, *multi.size);
-      multiriego = false;
       #ifdef DEBUG
         Serial.printf( "en MULTIRRIEGO + encoderSW, display de grupo: %s tamaño: %d \n", multi.desc , *multi.size );
       #endif
@@ -459,6 +464,9 @@ bool procesaBotonMultiriego(void)
     else {
       //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
       //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
+      bip(4);
+      multiriego = true;
+      multi.actual = 0;
       Serial.printf("MULTIRRIEGO iniciado: %s \n", multi.desc);
       led(Boton[bID_bIndex(*multi.id)].led,ON);
       boton = &Boton[bID_bIndex(multi.serie[multi.actual])];
@@ -489,8 +497,9 @@ void procesaBotonZona(void)
           Serial.printf("Minutos: %d Segundos: %d FMinutos: %d FSegundos: %d\n",minutes,seconds,fminutes,fseconds);
         #endif
         ultimoBoton = boton;
+        // si tiempo factorizado de riego es 0 o IDX=0, nos saltamos este riego
         if ((fminutes == 0 && fseconds == 0) || boton->idx == 0) {
-          Estado.estado = TERMINANDO; // nos saltamos este riego
+          Estado.estado = TERMINANDO; 
           display->print("-00-");
           return;
         }
@@ -531,6 +540,7 @@ void procesaBotonZona(void)
       Serial.printf("[ConF] configurando IDX boton: %s \n",boton->desc);
       configure->configureIdx(bIndex);
       value = boton->idx;
+      led(Boton[bIndex].led,ON);
     }
   }
 }
@@ -564,6 +574,7 @@ void procesaEstadoConfigurando()
             Serial.printf( "[ConF] Save Zona%d (%s) IDX value: %d \n", zIndex+1, Boton[bIndex].desc, value);
             value = savedValue;
             bipOK(3);
+            led(Boton[bIndex].led,OFF);
             configure->stop();
           }
           if(configure->configuringMulti()) {
@@ -651,7 +662,8 @@ void procesaEstadoRegando(void)
   tiempoTerminado = T.Timer();
   if (T.TimeHasChanged()) refreshTime();
   if (tiempoTerminado == 0) {
-    Estado.estado = TERMINANDO;
+    //Estado.estado = TERMINANDO;
+    procesaEstadoTerminando();
   }
 };
 
