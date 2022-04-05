@@ -134,7 +134,7 @@ void procesaBotones()
   if(boton == NULL) return;
   //Si estamos en reposo pulsar cualquier boton solo nos saca de ese estado, salvo STOP
   if (reposo && boton->id != bSTOP) {
-    Serial.println(F("Salimos de reposo -1-"));
+    Serial.println(F("Salimos de reposo"));
     reposo = false;
     displayOFF = false;
     standbyTime = millis();
@@ -187,9 +187,6 @@ void procesaEstados()
       break;
     case STANDBY:
       procesaEstadoStandby();
-      break;
-    //case TERMINANDO:
-    //  procesaEstadoTerminando();
       break;
     case STOP:
       procesaEstadoStop();
@@ -290,16 +287,6 @@ void procesaBotonPause(void)
         if(ultimoBoton) initRiego(ultimoBoton->id);
         T.ResumeTimer();
         Estado.estado = REGANDO;
-        //if(Estado.estado != ERROR) Estado.estado = REGANDO; // para que no borre ERROR
-        //else boton = NULL; //para que procesaEstadoError no pase directamente a NONETWORK
-        break;
-      case CONFIGURANDO:
-        if(!configure->configuring()) { //si no estamos ya configurando algo
-          configure->configureTime();
-          Serial.println(F("[ConF] configurando tiempo riego por defecto"));
-          delay(500);
-          boton = NULL;
-        }
         break;
       case STANDBY:
           boton = NULL; //lo borramos para que no sea tratado más adelante en procesaEstados
@@ -342,6 +329,7 @@ void procesaBotonPause(void)
             longbip(1);
             ledConf(ON);
             Estado.estado = CONFIGURANDO;
+            Serial.println(F("Stop + hold PAUSA --> modo ConF()"));
             boton = NULL;
             holdPause = false;
             savedValue = value;
@@ -363,8 +351,8 @@ void procesaBotonPause(void)
 void procesaBotonStop(void)
 {
   if (boton->estado) {  //si hemos PULSADO STOP
-    //De alguna manera esta regando y hay que parar
     if (Estado.estado == REGANDO || Estado.estado == MULTIREGANDO || Estado.estado == PAUSE) {
+      //De alguna manera esta regando y hay que parar
       display->print("StoP");
       stopAllRiego(true);
       T.StopTimer();
@@ -372,6 +360,10 @@ void procesaBotonStop(void)
       display->blink(DEFAULTBLINK);
       multiriego = false;
       multiSemaforo = false;
+      if (Estado.estado == ERROR) {   //error en stopAllRiego
+        boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
+        return; 
+      }
       Estado.estado = STOP;
     }
     else {
@@ -379,12 +371,14 @@ void procesaBotonStop(void)
       display->print("StoP");
       bip(1);
       longbip(1);
-      stopAllRiego(true);  // apagar leds y parar riegos ¿?
+      stopAllRiego(true);  // apagar leds y parar riegos (por si riego activado esternamente)
       standbyTime = millis();
-      if (Estado.estado == ERROR) return; //error en stopAllRiego
+      if (Estado.estado == ERROR) {   //error en stopAllRiego
+        boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
+        return; 
+      }
       Estado.estado = STOP;
       //pasamos directamente a reposo
-      //Serial.println(F("Stanby + Stop : Entramos en reposo"));
       reposo = true;
       displayOFF = false;
     }
@@ -404,41 +398,6 @@ void procesaBotonStop(void)
 
 bool procesaBotonMultiriego(void)
 {
-  if (Estado.estado == CONFIGURANDO) {
-    if (configure->configuring()) return false; //si ya estamos configurando algo salimos
-    //savedValue = value;
-    int n_grupo = setMultibyId(getMultiStatus(), config);
-    if (encoderSW) 
-    {
-      //encoderSW pulsado: actuamos segun posicion selector multirriego
-      if (n_grupo == 1) {  // copiamos fichero parametros en fichero default
-        if (copyConfigFile(parmFile, defaultFile)) {
-          Serial.println(F("[ConF] salvado fichero de parametros actuales como DEFAULT"));
-          display->print("-dEF");
-          bipOK(5);
-          delay(1000);
-          display->print("ConF"); 
-        }
-      } 
-      if (n_grupo == 3) {  // activamos AP y portal de configuracion (bloqueante)
-        Serial.println(F("[ConF] encoderSW + selector ABAJO: activamos AP y portal de configuracion"));
-        ledConf(OFF);
-        starConfigPortal(config);
-        ledConf(ON);
-      }
-      return false;    //para que procese el BREAK al volver a procesaBotones  
-    } 
-    //Configuramos el grupo de multirriego activo
-    configure->configureMulti(n_grupo);
-    Serial.printf( "[ConF] configurando: GRUPO%d (%s) \n" , n_grupo, multi.desc);
-    #ifdef DEBUG
-      Serial.printf( "en configuracion de MULTIRRIEGO, setMultibyId devuelve: Grupo%d (%s) multi.size=%d \n" , n_grupo, multi.desc, *multi.size);
-    #endif            
-    displayGrupo(multi.serie, *multi.size);
-    multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
-    display->print("PUSH");
-    return false;    //para que procese el BREAK al volver a procesaBotones  
-  }
   if (Estado.estado == STANDBY && !multiriego) {
     #ifdef DEBUG
       int n_grupo = setMultibyId(getMultiStatus(), config);
@@ -524,25 +483,6 @@ void procesaBotonZona(void)
       StaticTimeUpdate();
     }
   }
-  if (Estado.estado == CONFIGURANDO ) {
-    if (configure->configuringMulti()) {  //Configuramos el multirriego seleccionado
-      if (multi.w_size < 16) {
-        //savedValue = value;
-        multi.serie[multi.w_size] = boton->id;
-        Serial.printf("[ConF] añadiendo ZONA%d (%s) \n",zIndex+1, boton->desc);
-        multi.w_size = multi.w_size + 1;
-        led(Boton[bIndex].led,ON);
-      }
-      else longbip(1);
-    }
-    if (!configure->configuring()) {   //si no estamos configurando nada, configuramos el idx
-      //savedValue = value;
-      Serial.printf("[ConF] configurando IDX boton: %s \n",boton->desc);
-      configure->configureIdx(bIndex);
-      value = boton->idx;
-      led(Boton[bIndex].led,ON);
-    }
-  }
 }
 
 
@@ -552,11 +492,51 @@ void procesaEstadoConfigurando()
   Boton[bID_bIndex(bPAUSE)].flags.holddisabled = true;
   if (boton != NULL) {
     if (boton->flags.action) {
+      int n_grupo;
+      int bIndex = bID_bIndex(boton->id);
+      int zIndex = bID_zIndex(boton->id);
       switch(boton->id) {
         case bMULTIRIEGO:
+          if (configure->configuring()) return; //si ya estamos configurando algo salimos
+          n_grupo = setMultibyId(getMultiStatus(), config);
+          if (encoderSW) {  //encoderSW pulsado: actuamos segun posicion selector multirriego
+            if (n_grupo == 1) {  // copiamos fichero parametros en fichero default
+              if (copyConfigFile(parmFile, defaultFile)) {
+                Serial.println(F("[ConF] salvado fichero de parametros actuales como DEFAULT"));
+                display->print("-dEF");
+                bipOK(5);
+                delay(1000);
+                display->print("ConF"); 
+              }
+            } 
+            if (n_grupo == 3) {  // activamos AP y portal de configuracion (bloqueante)
+              Serial.println(F("[ConF] encoderSW + selector ABAJO: activamos AP y portal de configuracion"));
+              ledConf(OFF);
+              starConfigPortal(config);
+              ledConf(ON);
+            }
+          }
+          else {
+            //Configuramos el grupo de multirriego activo
+            configure->configureMulti(n_grupo);
+            Serial.printf( "[ConF] configurando: GRUPO%d (%s) \n" , n_grupo, multi.desc);
+            #ifdef DEBUG
+              Serial.printf( "en configuracion de MULTIRRIEGO, setMultibyId devuelve: Grupo%d (%s) multi.size=%d \n" , n_grupo, multi.desc, *multi.size);
+            #endif            
+            displayGrupo(multi.serie, *multi.size);
+            multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
+            display->print("PUSH");
+            led(Boton[bID_bIndex(*multi.id)].led,ON);
+          } 
           break;
         case bPAUSE:
           if(!boton->estado) return; //no se procesa el release del PAUSE
+          if(!configure->configuring()) { //si no estamos ya configurando algo
+            configure->configureTime();   //configuramos tiempo por defecto
+            Serial.println(F("[ConF] configurando tiempo riego por defecto"));
+            delay(500);
+            break;
+          }
           if(configure->configuringTime()) {
             Serial.printf( "[ConF] Save DEFAULT TIME, minutes: %d  secons: %d \n", minutes, seconds);
             config.minutes = minutes;
@@ -564,6 +544,7 @@ void procesaEstadoConfigurando()
             saveConfig = true;
             bipOK(3);
             configure->stop();
+            break;
           }
           if(configure->configuringIdx()) {
             int bIndex = configure->getActualIdxIndex();
@@ -576,6 +557,7 @@ void procesaEstadoConfigurando()
             bipOK(3);
             led(Boton[bIndex].led,OFF);
             configure->stop();
+            break;
           }
           if(configure->configuringMulti()) {
             // actualizamos config con las zonas introducidas
@@ -585,13 +567,14 @@ void procesaEstadoConfigurando()
               for (int i=0; i<multi.w_size; ++i) {
                 config.groupConfig[g-1].serie[i] = bID_zIndex(multi.serie[i])+1;
               }
-              Serial.printf( "[ConF] SAVE PARM Multi : GRUPO%d  tamaño: %d (%s)\n", g+1 , *multi.size , multi.desc );
+              Serial.printf( "[ConF] SAVE PARM Multi : GRUPO%d  tamaño: %d (%s)\n", g , *multi.size , multi.desc );
               printMultiGroup(config, g-1);
               saveConfig = true;
               bipOK(3);
             }
             //value = savedValue;
             ultimosRiegos(HIDE);
+            led(Boton[bID_bIndex(*multi.id)].led,OFF);
             configure->stop();
           }
           break;
@@ -612,9 +595,28 @@ void procesaEstadoConfigurando()
             standbyTime = millis();
             if (savedValue>0) value = savedValue;  // para que restaure reloj aunque no salvemos con pause el valor configurado
             ultimosRiegos(HIDE);
+            led(Boton[bID_bIndex(*multi.id)].led,OFF);
             StaticTimeUpdate();
           }
           break;
+        default:  //procesamos boton de ZONAx
+          if (configure->configuringMulti()) {  //Configuramos el multirriego seleccionado
+            if (multi.w_size < 16) {
+              //savedValue = value;
+              multi.serie[multi.w_size] = boton->id;
+              Serial.printf("[ConF] añadiendo ZONA%d (%s) \n",zIndex+1, boton->desc);
+              multi.w_size = multi.w_size + 1;
+              led(Boton[bIndex].led,ON);
+            }
+            else longbip(1);
+          }
+          if (!configure->configuring()) {   //si no estamos configurando nada, configuramos el idx
+            //savedValue = value;
+            Serial.printf("[ConF] configurando IDX boton: %s \n",boton->desc);
+            configure->configureIdx(bIndex);
+            value = boton->idx;
+            led(Boton[bIndex].led,ON);
+          }
       }
     }
   }
