@@ -185,6 +185,9 @@ void procesaEstados()
     case REGANDO:
       procesaEstadoRegando();
       break;
+    case TERMINANDO:
+      procesaEstadoTerminando();
+      break;
     case STANDBY:
       procesaEstadoStandby();
       break;
@@ -371,7 +374,7 @@ void procesaBotonStop(void)
       display->print("StoP");
       bip(1);
       longbip(1);
-      stopAllRiego(true);  // apagar leds y parar riegos (por si riego activado esternamente)
+      stopAllRiego(true);  // apagar leds y parar riegos (por si riego activado externamente)
       standbyTime = millis();
       if (Estado.estado == ERROR) {   //error en stopAllRiego
         boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
@@ -458,7 +461,8 @@ void procesaBotonZona(void)
         ultimoBoton = boton;
         // si tiempo factorizado de riego es 0 o IDX=0, nos saltamos este riego
         if ((fminutes == 0 && fseconds == 0) || boton->idx == 0) {
-          Estado.estado = TERMINANDO; 
+          Estado.estado = TERMINANDO;
+          led(Boton[bIndex].led,ON); //para que se vea que zona es 
           display->print("-00-");
           return;
         }
@@ -664,25 +668,8 @@ void procesaEstadoRegando(void)
   tiempoTerminado = T.Timer();
   if (T.TimeHasChanged()) refreshTime();
   if (tiempoTerminado == 0) {
-    //Estado.estado = TERMINANDO;
-    procesaEstadoTerminando();
+    Estado.estado = TERMINANDO;
   }
-};
-
-
-void procesaEstadoStandby(void)
-{
-  Boton[bID_bIndex(bPAUSE)].flags.holddisabled = true;
-  //Apagamos el display si ha pasado el lapso
-  if (reposo) standbyTime = millis();
-  else {
-    if (millis() > standbyTime + (1000 * STANDBYSECS)) {
-      Serial.println(F("Entramos en reposo"));
-      reposo = true;
-      display->clearDisplay();
-    }
-  }
-  procesaEncoder();
 };
 
 
@@ -712,6 +699,22 @@ void procesaEstadoTerminando(void)
       led(Boton[bID_bIndex(*multi.id)].led,OFF);
     }
   }
+};
+
+
+void procesaEstadoStandby(void)
+{
+  Boton[bID_bIndex(bPAUSE)].flags.holddisabled = true;
+  //Apagamos el display si ha pasado el lapso
+  if (reposo) standbyTime = millis();
+  else {
+    if (millis() > standbyTime + (1000 * STANDBYSECS)) {
+      Serial.println(F("Entramos en reposo"));
+      reposo = true;
+      display->clearDisplay();
+    }
+  }
+  procesaEncoder();
 };
 
 
