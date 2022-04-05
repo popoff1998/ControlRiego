@@ -15,7 +15,7 @@ void setup()
                 VERIFY=true; 
   #endif
   #ifdef DEVELOP
-                NONETWORK=false;
+                NONETWORK=true;
                 VERIFY=true; 
   #endif
   #ifdef DEMO
@@ -66,9 +66,10 @@ void setup()
     if (saveConfigFile(parmFile, config))  bipOK(3);;
     saveConfig = false;
   }
-  delay(2500);
+  delay(2000);
   //Ponemos en hora
   timeClient.begin();
+  delay(500);
   initClock();
   //Inicializamos lastRiegos (registro fecha y riego realizado)
   initLastRiegos();
@@ -78,7 +79,7 @@ void setup()
   Boton[bID_bIndex(bPAUSE)].flags.holddisabled = true;
   //Llamo a parseInputs CLEAR para eliminar prepulsaciones antes del bucle loop
   parseInputs(CLEAR);
-  // estado final en funcion de la conexion
+  //Estado final en funcion de la conexion
   setupEstado();
   #ifdef EXTRADEBUG
     printMulti();
@@ -187,8 +188,8 @@ void procesaEstados()
     case STANDBY:
       procesaEstadoStandby();
       break;
-    case TERMINANDO:
-      procesaEstadoTerminando();
+    //case TERMINANDO:
+    //  procesaEstadoTerminando();
       break;
     case STOP:
       procesaEstadoStop();
@@ -213,9 +214,15 @@ void setupEstado()
     statusError(E0, 3);  //no se ha podido cargar parámetros de ficheros -> señalamos el error
   return;
   }
-  // Si estamos en modo NONETWORK pasamos a STANDBY aunque no exista conexión wifi o estemos en ERROR
+  // Si estamos en modo NONETWORK pasamos a STANDBY (o STOP si esta pulsado) aunque no exista conexión wifi o estemos en ERROR
   if (NONETWORK) {
-    Estado.estado = STANDBY;
+    if (Boton[bID_bIndex(bSTOP)].estado) {
+      Estado.estado = STOP;
+      display->print("StoP");
+      bip(1);
+      longbip(1);
+    }
+    else Estado.estado = STANDBY;
     Estado.fase = CERO;
     bip(2);
     return;
@@ -282,8 +289,9 @@ void procesaBotonPause(void)
         bip(2);
         if(ultimoBoton) initRiego(ultimoBoton->id);
         T.ResumeTimer();
-        if(Estado.estado != ERROR) Estado.estado = REGANDO; // para que no borre ERROR
-        else boton = NULL; //para que procesaEstadoError no pase directamente a NONETWORK
+        Estado.estado = REGANDO;
+        //if(Estado.estado != ERROR) Estado.estado = REGANDO; // para que no borre ERROR
+        //else boton = NULL; //para que procesaEstadoError no pase directamente a NONETWORK
         break;
       case CONFIGURANDO:
         if(!configure->configuring()) { //si no estamos ya configurando algo
@@ -332,13 +340,14 @@ void procesaBotonPause(void)
           if(!encoderSW) { //pasamos a modo Configuracion
             configure->start();
             longbip(1);
+            ledConf(ON);
             Estado.estado = CONFIGURANDO;
             boton = NULL;
             holdPause = false;
             savedValue = value;
           }
           else {   //si esta pulsado encoderSW hacemos un soft reset
-            Serial.println(F("ConF + encoderSW + PAUSA --> Reset....."));
+            Serial.println(F("Stop + encoderSW + PAUSA --> Reset....."));
             longbip(3);
             ESP.restart();  // Hard RESET: ESP.reset()
           }
@@ -385,7 +394,6 @@ void procesaBotonStop(void)
   if (!boton->estado && Estado.estado == STOP) {
     if (savedValue>0) value = savedValue;  // para que restaure reloj aunque no salvemos con pause el valor configurado
     StaticTimeUpdate();
-    led(Boton[bID_bIndex(bCONFIG)].led,OFF);
     reposo = false; //por si salimos de stop antinenes
     displayOFF = false;
     Estado.estado = STANDBY;
@@ -414,7 +422,9 @@ bool procesaBotonMultiriego(void)
       } 
       if (n_grupo == 3) {  // activamos AP y portal de configuracion (bloqueante)
         Serial.println(F("[ConF] encoderSW + selector ABAJO: activamos AP y portal de configuracion"));
+        ledConf(OFF);
         starConfigPortal(config);
+        ledConf(ON);
       }
       return false;    //para que procese el BREAK al volver a procesaBotones  
     } 
@@ -430,9 +440,6 @@ bool procesaBotonMultiriego(void)
     return false;    //para que procese el BREAK al volver a procesaBotones  
   }
   if (Estado.estado == STANDBY && !multiriego) {
-    bip(4);
-    multiriego = true;
-    multi.actual = 0;
     #ifdef DEBUG
       int n_grupo = setMultibyId(getMultiStatus(), config);
       Serial.printf( "en MULTIRRIEGO, setMultibyId devuelve: Grupo%d (%s) multi.size=%d \n" , n_grupo, multi.desc, *multi.size);
@@ -448,7 +455,6 @@ bool procesaBotonMultiriego(void)
       std::remove(std::begin(version_n),std::end(version_n),'-');
       display->print(version_n);
       displayGrupo(multi.serie, *multi.size);
-      multiriego = false;
       #ifdef DEBUG
         Serial.printf( "en MULTIRRIEGO + encoderSW, display de grupo: %s tamaño: %d \n", multi.desc , *multi.size );
       #endif
@@ -458,6 +464,9 @@ bool procesaBotonMultiriego(void)
     else {
       //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
       //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
+      bip(4);
+      multiriego = true;
+      multi.actual = 0;
       Serial.printf("MULTIRRIEGO iniciado: %s \n", multi.desc);
       led(Boton[bID_bIndex(*multi.id)].led,ON);
       boton = &Boton[bID_bIndex(multi.serie[multi.actual])];
@@ -488,8 +497,9 @@ void procesaBotonZona(void)
           Serial.printf("Minutos: %d Segundos: %d FMinutos: %d FSegundos: %d\n",minutes,seconds,fminutes,fseconds);
         #endif
         ultimoBoton = boton;
+        // si tiempo factorizado de riego es 0 o IDX=0, nos saltamos este riego
         if ((fminutes == 0 && fseconds == 0) || boton->idx == 0) {
-          Estado.estado = TERMINANDO; // nos saltamos este riego
+          Estado.estado = TERMINANDO; 
           display->print("-00-");
           return;
         }
@@ -530,6 +540,7 @@ void procesaBotonZona(void)
       Serial.printf("[ConF] configurando IDX boton: %s \n",boton->desc);
       configure->configureIdx(bIndex);
       value = boton->idx;
+      led(Boton[bIndex].led,ON);
     }
   }
 }
@@ -563,6 +574,7 @@ void procesaEstadoConfigurando()
             Serial.printf( "[ConF] Save Zona%d (%s) IDX value: %d \n", zIndex+1, Boton[bIndex].desc, value);
             value = savedValue;
             bipOK(3);
+            led(Boton[bIndex].led,OFF);
             configure->stop();
           }
           if(configure->configuringMulti()) {
@@ -585,7 +597,6 @@ void procesaEstadoConfigurando()
           break;
         case bSTOP:
           if(!boton->estado) { //release STOP salvamos si procede y salimos de ConF
-            led(Boton[bID_bIndex(bCONFIG)].led,OFF);
             configure->stop();
             if (saveConfig) {
               Serial.println(F("saveConfig=true  --> salvando parametros a fichero"));
@@ -596,6 +607,7 @@ void procesaEstadoConfigurando()
               }  
               saveConfig = false;
             }
+            ledConf(OFF);
             Estado.estado = STANDBY;
             standbyTime = millis();
             if (savedValue>0) value = savedValue;  // para que restaure reloj aunque no salvemos con pause el valor configurado
@@ -650,7 +662,8 @@ void procesaEstadoRegando(void)
   tiempoTerminado = T.Timer();
   if (T.TimeHasChanged()) refreshTime();
   if (tiempoTerminado == 0) {
-    Estado.estado = TERMINANDO;
+    //Estado.estado = TERMINANDO;
+    procesaEstadoTerminando();
   }
 };
 
@@ -758,7 +771,7 @@ void initFactorRiegos()
       }
       break;
     }
-    if (sizeof(descDomoticz)) {
+    if (strlen(descDomoticz)) {
       //actualizamos en Boton la DESCRIPCION con la recibida del Domoticz (campo Name)
       if (xNAME) {
         strlcpy(Boton[bIndex].desc, descDomoticz, sizeof(Boton[bIndex].desc));
@@ -1251,7 +1264,7 @@ void statusError(uint8_t errorID, int n)
   Estado.fase = errorID;
   if (errorID == E0) strcpy(errorText, "Err0");
   else sprintf(errorText, "Err%d", errorID);
-  Serial.printf("[statusError2]: %s \n", errorText);
+  Serial.printf("[statusError]: %s \n", errorText);
   display->print(errorText);
   longbip(n);
 }
@@ -1268,6 +1281,34 @@ void parpadeoLedZona()
   led(ledID,!estado);
 }
 
+void parpadeoLedConf()
+{
+  byte estado = ledStatusId(LEDR);
+  led(LEDR,!estado);
+  estado = ledStatusId(LEDG);
+  led(LEDG,!estado);
+}
+
+//activa o desactiva el(los) led(s) indicadores de que estamos en modo configuracion
+void ledConf(int estado)
+{
+  if(estado == ON) 
+  {
+    //parpadeo alterno leds ON/RED
+    led(LEDB,OFF);
+    led(LEDG,OFF);
+    tic_parpadeoLedConf.attach(0.7,parpadeoLedConf);
+    //led(Boton[bID_bIndex(bCONFIG)].led,ON); 
+  }
+  else 
+  {
+    tic_parpadeoLedConf.detach();   //detiene parpadeo alterno leds ON/RED
+    led(LEDR,ON);                   // y los deja segun estado
+    NONETWORK ? led(LEDB,ON) : led(LEDB,OFF);
+    checkWifi();
+    //led(Boton[bID_bIndex(bCONFIG)].led,OFF);
+  }
+}
 
 void setupParm()
 {
