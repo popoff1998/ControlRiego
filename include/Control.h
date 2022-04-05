@@ -58,7 +58,7 @@
   #endif
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "2.2.2"
+                            #define VERSION  "2.3"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
