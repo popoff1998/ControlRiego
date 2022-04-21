@@ -767,13 +767,15 @@ void initFactorRiegos()
   for(uint i=0;i<NUMZONAS;i++) 
   {
     int bIndex = bID_bIndex(ZONAS[i]);
-    factorRiegos[i]=getFactor(Boton[bIndex].idx);
-    if(Estado.estado == ERROR) {  //al primer error salimos y señalamos zona que falla
-      if(Estado.fase == E3) { //solo señalamos zona si no es error general de conexion
+    uint factorR = getFactor(Boton[bIndex].idx);
+    if(factorR == 999) break; //en modo NONETWORK no continuamos iterando si no hay conexion
+    if(Estado.estado == ERROR) {  //al primer error salimos
+      if(Estado.fase == E3) {     // y señalamos zona que falla si no es error general de conexion
         ledID = Boton[bIndex].led;
         tic_parpadeoLedZona.attach(0.4,parpadeoLedZona);
       }
       break;
+    factorRiegos[i] = factorR;
     }
     if (strlen(descDomoticz)) {
       //actualizamos en Boton la DESCRIPCION con la recibida del Domoticz (campo Name)
@@ -1122,7 +1124,7 @@ int getFactor(uint16_t idx)
   #endif
   factorRiegosOK = false;
   if(!checkWifi()) {
-    if(NONETWORK) return 100; //si estamos en modo NONETWORK devolvemos 100 y no damos error
+    if(NONETWORK) return 999; //si estamos en modo NONETWORK devolvemos 999 y no damos error
     else {
       statusError(E1,3);
       return 100;
@@ -1136,9 +1138,9 @@ int getFactor(uint16_t idx)
   String response = httpGetDomoticz(message);
   //procesamos la respuesta para ver si se ha producido error:
   if (Estado.estado == ERROR && response.startsWith("Err")) {
-    if (NONETWORK) {  //si estamos en modo NONETWORK devolvemos 100 y no damos error
+    if (NONETWORK) {  //si estamos en modo NONETWORK devolvemos 999 y no damos error
       Estado.estado = STANDBY;
-      return 100;
+      return 999;
     }
     if(response == "ErrX") statusError(E3,3);
     else statusError(E2,3);
