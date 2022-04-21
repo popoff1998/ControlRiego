@@ -363,7 +363,7 @@
     bool factorRiegosOK = false;
     bool errorOFF = false;
     bool simErrorOFF = false;
-    bool displayOFF = false;
+    //bool displayOFF = false;
     bool VERIFY;
     bool encoderSW = false;
 

@@ -136,7 +136,7 @@ void procesaBotones()
   if (reposo && boton->id != bSTOP) {
     Serial.println(F("Salimos de reposo"));
     reposo = false;
-    displayOFF = false;
+    displayOff = false;
     standbyTime = millis();
     if(Estado.estado == STOP) display->print("StoP");
     else StaticTimeUpdate();
@@ -170,7 +170,6 @@ void procesaBotones()
 void procesaEstados()
 {
   #ifdef EXTRATRACE
-    //Serial.println(F("TRACE: in procesaEstados"));
     Serial.print(F("E"));
   #endif
 
@@ -383,7 +382,7 @@ void procesaBotonStop(void)
       Estado.estado = STOP;
       //pasamos directamente a reposo
       reposo = true;
-      displayOFF = false;
+      displayOff = false;
     }
   }
   //si hemos liberado STOP: salimos del estado stop
@@ -392,7 +391,7 @@ void procesaBotonStop(void)
     if (savedValue>0) value = savedValue;  // para que restaure reloj aunque no salvemos con pause el valor configurado
     StaticTimeUpdate();
     reposo = false; //por si salimos de stop antinenes
-    displayOFF = false;
+    displayOff = false;
     Estado.estado = STANDBY;
   }
   standbyTime = millis();
@@ -650,7 +649,7 @@ void procesaEstadoError(void)
     multiriego = false;
     multiSemaforo = false;
     errorOFF = false;
-    displayOFF = false;
+    displayOff = false;
     standbyTime = millis();
     StaticTimeUpdate();
   }
@@ -723,10 +722,10 @@ void procesaEstadoStop(void)
   //En stop activamos el comportamiento hold de pausa
   Boton[bID_bIndex(bPAUSE)].flags.holddisabled = false;
   //si estamos en Stop antinenes, apagamos el display pasado 4 x STANDBYSECS
-  if(reposo && !displayOFF) {
+  if(reposo && !displayOff) {
     if (millis() > standbyTime + (4 * 1000 * STANDBYSECS) && reposo) {
       display->clearDisplay();
-      displayOFF = true;
+      displayOff = true;
     }
   }
 };
@@ -1407,15 +1406,15 @@ bool setupConfig(const char *p_filename, Config_parm &cfg)
       }
       switch (inputNumber) {
             case 1:
-                Serial.println(F("   1 - simular error NTP"));
+                Serial.println(F("recibido:   1 - simular error NTP"));
                 timeOK = false;
                 break;
             case 2:
-                Serial.println(F("   2 - simular error apagar riego"));
+                Serial.println(F("recibido:   2 - simular error apagar riego"));
                 simErrorOFF = true;
                 break;
             case 9:
-                Serial.println(F("   9 - anular simulacion errores"));
+                Serial.println(F("recibido:   9 - anular simulacion errores"));
                 simErrorOFF = false;
                 timeOK = true;                         
       }
