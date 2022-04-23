@@ -59,13 +59,12 @@ void saveParamCallback()
 }
 
 //lamado antes de empezar carga del sketch via OTA
-/* void setPreOtaUpdateCallback()
+void preOtaUpdateCallback()
 {
   Serial.println(F("[CALLBACK] setPreOtaUpdateCallback fired"));
   //display->print("####");
-  longbip(3);
+  showOtaDisplay();
 }
- */
 
 // conexion a la red por medio de WifiManager
 void setupRedWM(Config_parm &config)
@@ -92,6 +91,7 @@ void setupRedWM(Config_parm &config)
   wm.setAPCallback(configModeCallback);
   wm.setSaveConfigCallback(saveWifiCallback);
   wm.setSaveParamsCallback(saveParamCallback);
+  wm.setPreOtaUpdateCallback(preOtaUpdateCallback);
   //if this is set, it will exit after config, even if connection is unsuccessful
   wm.setBreakAfterConfig(true);
   //muestra version en el titulo de la pagina web inicial
@@ -152,11 +152,16 @@ void setupRedWM(Config_parm &config)
   }
 }
 
+/**
+ * @brief activa portal para configuracion red wifi y/o parámetros de conexion
+ * 
+ * @param config 
+ */
 void starConfigPortal(Config_parm &config) 
 {
   wm.setConfigPortalTimeout(timeout);
   if (!wm.startConfigPortal("Ardomo")) {
-    Serial.println(F(" hit timeout"));
+    Serial.println(F(" exit or hit timeout"));
   }
   // Eliminamos el temporizador y dejamos LEDB segun estado de NONETWORK
   tic_APLed.detach();

@@ -1067,6 +1067,11 @@ void refreshTime()
   display->printTime(T.ShowMinutes(),T.ShowSeconds());
 }
 
+void showOtaDisplay() {
+  display->print("####");
+  longbip(3);
+  display->blink(DEFAULTBLINK);
+}
 
 /**---------------------------------------------------------------
  * Comunicacion con Domoticz usando httpGet

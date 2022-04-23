@@ -20,7 +20,7 @@
   #include <Timezone.h>
   #include <ClickEncoder.h>
   #include <CountUpDownTimer.h>
-  #include <Streaming.h>
+  //#include <Streaming.h>
   #include <ArduinoJson.h>
   #include <Ticker.h>
   #include <LittleFS.h>
@@ -447,5 +447,6 @@
   void Verificaciones(void);
   void wifiClearSignal(uint);
   void zeroConfig(Config_parm&);
+  void showOtaDisplay(void);
 
 #endif
