@@ -122,6 +122,10 @@
   #define HIDE 0
   #define READ 1
   #define CLEAR 0
+  #define LONGBIP 1
+  #define BIP 2
+  #define BIPOK 3
+  #define NOBLINK 0
 
   //Enums
   enum _estados {
@@ -389,6 +393,7 @@
   int  getFactor(uint16_t);
   uint16_t getMultiStatus(void);
   String *httpGetDomoticz(String *);
+  void infoDisplay(const char *, int, int, int);
   void initCD4021B(void);
   void initClock(void);
   void initFactorRiegos(void);
@@ -440,13 +445,12 @@
   void StaticTimeUpdate(void);
   void statusError(uint8_t, int n);
   bool stopRiego(uint16_t);
-  void stopAllRiego(bool);
+  bool stopAllRiego(bool);
   bool testButton(uint16_t, bool);
   void timeByFactor(int,uint8_t *,uint8_t *);
   void ultimosRiegos(int);
   void Verificaciones(void);
   void wifiClearSignal(uint);
   void zeroConfig(Config_parm&);
-  void showOtaDisplay(void);
 
 #endif
