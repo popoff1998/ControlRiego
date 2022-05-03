@@ -64,7 +64,6 @@ void Configure::configureTime(void)
 
 void Configure::configureMulti(int grupo)
 {
-  //Serial.println(F( "configureMulti" );
   _configuringTime = false;
   _configuringIdx = false;
   _configuringMulti = true;

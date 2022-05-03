@@ -20,7 +20,7 @@
   #include <Timezone.h>
   #include <ClickEncoder.h>
   #include <CountUpDownTimer.h>
-  #include <Streaming.h>
+  //#include <Streaming.h>
   #include <ArduinoJson.h>
   #include <Ticker.h>
   #include <LittleFS.h>
@@ -58,7 +58,7 @@
   #endif
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "2.2.2"
+                            #define VERSION  "2.3"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -122,6 +122,10 @@
   #define HIDE 0
   #define READ 1
   #define CLEAR 0
+  #define LONGBIP 1
+  #define BIP 2
+  #define BIPOK 3
+  #define NOBLINK 0
 
   //Enums
   enum _estados {
@@ -363,7 +367,7 @@
     bool factorRiegosOK = false;
     bool errorOFF = false;
     bool simErrorOFF = false;
-    bool displayOFF = false;
+    //bool displayOFF = false;
     bool VERIFY;
     bool encoderSW = false;
 
@@ -389,6 +393,7 @@
   int  getFactor(uint16_t);
   uint16_t getMultiStatus(void);
   String *httpGetDomoticz(String *);
+  void infoDisplay(const char *, int, int, int);
   void initCD4021B(void);
   void initClock(void);
   void initFactorRiegos(void);
@@ -440,7 +445,7 @@
   void StaticTimeUpdate(void);
   void statusError(uint8_t, int n);
   bool stopRiego(uint16_t);
-  void stopAllRiego(bool);
+  bool stopAllRiego(bool);
   bool testButton(uint16_t, bool);
   void timeByFactor(int,uint8_t *,uint8_t *);
   void ultimosRiegos(int);
