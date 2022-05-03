@@ -13,6 +13,12 @@
     #include <ESP8266WebServer.h >
     #include <WiFiManager.h> 
   #endif
+
+  #ifdef WEBSERVER
+    #include <ESP8266mDNS.h>
+    #include <ESP8266HTTPUpdateServer.h>
+  #endif
+
   
   #include <SPI.h>
   #include <NTPClient.h>
@@ -58,7 +64,7 @@
   #endif
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "2.3"
+                            #define VERSION  "2.3.1"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -326,6 +332,15 @@
       HTTPClient httpclient;
       WiFiUDP    ntpUDP;
     #endif
+    #ifdef WEBSERVER
+      //servidor web para actualizaciones OTA del FW o del filesystem
+      const char* host = "ardomo";
+      const char* update_path = "/update";
+      const char* update_username = "admin";
+      const char* update_password = "admin";
+      ESP8266WebServer server(80);
+      ESP8266HTTPUpdateServer httpUpdater;
+    #endif
     CountUpDownTimer T(DOWN);
     S_Estado Estado;
     S_BOTON  *boton;
@@ -367,7 +382,7 @@
     bool factorRiegosOK = false;
     bool errorOFF = false;
     bool simErrorOFF = false;
-    //bool displayOFF = false;
+    bool webServerAct = false;
     bool VERIFY;
     bool encoderSW = false;
 
@@ -441,6 +456,7 @@
   void setupInit(void);
   void setupParm(void);
   void setupRedWM(Config_parm&);
+  void setupWS(void);
   void starConfigPortal(Config_parm&);
   void StaticTimeUpdate(void);
   void statusError(uint8_t, int n);

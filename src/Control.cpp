@@ -66,6 +66,9 @@ void setup()
     if (saveConfigFile(parmFile, config))  bipOK(3);;
     saveConfig = false;
   }
+  #ifdef WEBSERVER
+    setupWS();
+  #endif
   delay(2000);
   //Ponemos en hora
   timeClient.begin();
@@ -500,7 +503,15 @@ void procesaEstadoConfigurando()
                 infoDisplay("-dEF", DEFAULTBLINK, BIPOK, 5);
                 display->print("ConF"); 
               }
-            } 
+            }
+            #ifdef WEBSERVER
+              if (n_grupo == 2) {  // activamos procesado webserver
+                Serial.println(F("[ConF][WS] activado webserver para actualizaciones OTA de SW o filesystem"));
+                webServerAct = true;
+                infoDisplay("otA", DEFAULTBLINK, BIPOK, 5);
+                //display->print("ConF"); 
+              }
+            #endif 
             if (n_grupo == 3) {  // activamos AP y portal de configuracion (bloqueante)
               Serial.println(F("[ConF] encoderSW + selector ABAJO: activamos AP y portal de configuracion"));
               ledConf(OFF);
@@ -581,6 +592,8 @@ void procesaEstadoConfigurando()
             }
             ledConf(OFF);
             Estado.estado = STANDBY;
+            if (webServerAct) Serial.println(F("[ConF][WS] desactivado webserver"));
+            webServerAct = false; //al salir de modo ConF no procesaremos peticiones al webserver
             standbyTime = millis();
             if (savedValue>0) value = savedValue;  // para que restaure reloj aunque no salvemos con pause el valor configurado
             ultimosRiegos(HIDE);
@@ -1239,6 +1252,12 @@ void Verificaciones()
   #ifdef DEBUG
     leeSerial();  // para ver si simulamos algun tipo de error
   #endif
+  #ifdef WEBSERVER
+  if (Estado.estado == CONFIGURANDO && webServerAct) {
+    server.handleClient();
+    MDNS.update();
+  }  
+  #endif
   if (!flagV) return;      //si no activada por Ticker salimos sin hacer nada
   if (Estado.estado == STANDBY) Serial.print(F("."));
   if (errorOFF) bip(2);  //recordatorio error grave
@@ -1373,6 +1392,17 @@ bool setupConfig(const char *p_filename, Config_parm &cfg)
   return false;
 }
 
+#ifdef WEBSERVER
+void setupWS()
+{
+  MDNS.begin(host);
+  httpUpdater.setup(&server, update_path, update_username, update_password);
+  server.begin();
+  MDNS.addService("http", "tcp", 80);
+  Serial.println(F("[WS] HTTPUpdateServer ready!"));
+  Serial.printf("[WS]    --> Open http://%s.local%s in your browser and login with username '%s' and password '%s'\n\n", host, update_path, update_username, update_password);
+}
+#endif
 
 // funciones solo usadas en DEVELOP
 // (es igual, el compilador no las incluye si no son llamadas)
