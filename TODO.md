@@ -39,6 +39,7 @@ Version 2:
   multi arriba + boton multirriego)) V2.1
 - en modo configuración poder activar portal AP para configurar parámetros conexión (ConF + encoderSW +
   multi abajo + boton multirriego) V2.2
-
+- si falloAP y existe red wifi almacenada reintenta conexion max 20 seg. V2.3
+- mejoras display de informacion V2.3
 
 

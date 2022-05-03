@@ -590,8 +590,7 @@ void procesaEstadoConfigurando()
           break;
         default:  //procesamos boton de ZONAx
           if (configure->configuringMulti()) {  //Configuramos el multirriego seleccionado
-            if (multi.w_size < 16) {
-              //savedValue = value;
+            if (multi.w_size < 16) {  //max. 16 zonas por grupo
               multi.serie[multi.w_size] = boton->id;
               Serial.printf("[ConF] añadiendo ZONA%d (%s) \n",zIndex+1, boton->desc);
               multi.w_size = multi.w_size + 1;
@@ -731,12 +730,6 @@ void check(void)
 }
 
 
-void timerIsr()
-{
-  Encoder->service();
-}
-
-
 /**---------------------------------------------------------------
  * Lee factores de riego del domoticz
  */
@@ -786,7 +779,6 @@ void initFactorRiegos()
     factorRiegosOK ? Serial.println(F("leidos: ")) :  Serial.println(F("(simulados): "));
     for(uint i=0;i<NUMZONAS;i++) {
       Serial.printf("\tfactor ZONA%d: %d (%s) \n", i+1, factorRiegos[i], Boton[bID_bIndex(ZONAS[i])].desc);
-      //Serial.printf("\tfactor ZONA%d: %d (%s) \n", i+1, factorRiegos[i], Boton[i].desc);
     }
   #endif
 }
@@ -1125,6 +1117,8 @@ int getFactor(uint16_t idx)
   #ifdef TRACE
     Serial.println(F("TRACE: in getFactor"));
   #endif
+  // si el IDX es 0 devolvemos 0 sin procesarlo (boton no asignado)
+  if(idx == 0) return 0;
   factorRiegosOK = false;
   if(!checkWifi()) {
     if(NONETWORK) return 999; //si estamos en modo NONETWORK devolvemos 999 y no damos error
@@ -1133,8 +1127,6 @@ int getFactor(uint16_t idx)
       return 100;
     }
   }
-  // si el IDX es 0 devolvemos 0 sin procesarlo (boton no asignado)
-  if(idx == 0) return 0;
   char JSONMSG[200]="/json.htm?type=devices&rid=%d";
   char message[250];
   sprintf(message,JSONMSG,idx);
@@ -1166,7 +1158,7 @@ int getFactor(uint16_t idx)
     Serial.println(error.f_str());
     if(!VERIFY) return 100;
     else {
-      statusError(E2,3);
+      statusError(E2,3);  //TODO ¿deberiamos devolver E3?
       return 100;
     }
   }
