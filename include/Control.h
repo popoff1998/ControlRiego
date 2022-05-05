@@ -338,7 +338,7 @@
       const char* update_path = "/update";
       const char* update_username = "admin";
       const char* update_password = "admin";
-      ESP8266WebServer server(80);
+      ESP8266WebServer server(8080);
       ESP8266HTTPUpdateServer httpUpdater;
     #endif
     CountUpDownTimer T(DOWN);

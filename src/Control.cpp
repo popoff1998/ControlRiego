@@ -1398,7 +1398,7 @@ void setupWS()
   MDNS.begin(host);
   httpUpdater.setup(&server, update_path, update_username, update_password);
   server.begin();
-  MDNS.addService("http", "tcp", 80);
+  MDNS.addService("http", "tcp", 8080);
   Serial.println(F("[WS] HTTPUpdateServer ready!"));
   Serial.printf("[WS]    --> Open http://%s.local%s in your browser and login with username '%s' and password '%s'\n\n", host, update_path, update_username, update_password);
 }
