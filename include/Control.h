@@ -332,15 +332,18 @@
       HTTPClient httpclient;
       WiFiUDP    ntpUDP;
     #endif
+    /*
     #ifdef WEBSERVER
       //servidor web para actualizaciones OTA del FW o del filesystem
       const char* host = "ardomo";
       const char* update_path = "/update";
       const char* update_username = "admin";
       const char* update_password = "admin";
-      ESP8266WebServer server(8080);
+      int wsport = 8080;
+      ESP8266WebServer wserver(8080);
       ESP8266HTTPUpdateServer httpUpdater;
     #endif
+    */
     CountUpDownTimer T(DOWN);
     S_Estado Estado;
     S_BOTON  *boton;
@@ -447,6 +450,7 @@
   void procesaEstadoTerminando(void);
   void procesaEstadoStop(void);
   void procesaEstadoPause(void);
+  void procesaWebServer(void);
   void refreshTime(void);
   void refreshDisplay(void);
   bool saveConfigFile(const char*, Config_parm&);

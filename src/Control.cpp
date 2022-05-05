@@ -1253,10 +1253,7 @@ void Verificaciones()
     leeSerial();  // para ver si simulamos algun tipo de error
   #endif
   #ifdef WEBSERVER
-  if (Estado.estado == CONFIGURANDO && webServerAct) {
-    server.handleClient();
-    MDNS.update();
-  }  
+  if (Estado.estado == CONFIGURANDO && webServerAct) procesaWebServer();
   #endif
   if (!flagV) return;      //si no activada por Ticker salimos sin hacer nada
   if (Estado.estado == STANDBY) Serial.print(F("."));
@@ -1392,17 +1389,6 @@ bool setupConfig(const char *p_filename, Config_parm &cfg)
   return false;
 }
 
-#ifdef WEBSERVER
-void setupWS()
-{
-  MDNS.begin(host);
-  httpUpdater.setup(&server, update_path, update_username, update_password);
-  server.begin();
-  MDNS.addService("http", "tcp", 8080);
-  Serial.println(F("[WS] HTTPUpdateServer ready!"));
-  Serial.printf("[WS]    --> Open http://%s.local%s in your browser and login with username '%s' and password '%s'\n\n", host, update_path, update_username, update_password);
-}
-#endif
 
 // funciones solo usadas en DEVELOP
 // (es igual, el compilador no las incluye si no son llamadas)
