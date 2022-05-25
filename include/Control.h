@@ -1,36 +1,32 @@
 #ifndef control_h
   #define control_h
-
-  #ifndef _GNU_SOURCE  // LOCAL WORK-AROUND
-   #define _GNU_SOURCE // evitar error uint no definido tras update a espressif8266 3.2.0
-  #endif               // ver: https://community.platformio.org/t/error-acessing-eeprom-of-esp8266-after-plattform-update/22747/2
-
-  #ifdef NODEMCU
-    #include <WifiUdp.h>
-    #include <ESP8266HTTPClient.h>
-    #include <ESP8266WiFi.h>
-    #include <DNSServer.h>
-    #include <ESP8266WebServer.h >
-    #include <WiFiManager.h> 
-  #endif
-
-  #ifdef WEBSERVER
-    #include <ESP8266mDNS.h>
-    #include <ESP8266HTTPUpdateServer.h>
-  #endif
-
   
+  #ifndef _GNU_SOURCE  // LOCAL WORK-AROUND
+   #define _GNU_SOURCE // evitar error uint no definido en platformio (no en compilacion) tras update a espressif8266 3.2.0
+  #endif               // ver: https://community.platformio.org/t/error-acessing-eeprom-of-esp8266-after-plattform-update/22747/2
+  
+  #include <DNSServer.h>
+  #include <WifiUdp.h>
+  #include <WiFiManager.h> 
   #include <SPI.h>
   #include <NTPClient.h>
   #include <Time.h>
   #include <Timezone.h>
   #include <ClickEncoder.h>
   #include <CountUpDownTimer.h>
-  //#include <Streaming.h>
   #include <ArduinoJson.h>
   #include <Ticker.h>
   #include <LittleFS.h>
 
+  #ifdef NODEMCU
+    #include <ESP8266HTTPClient.h>
+    #include <ESP8266WiFi.h>
+    #include <ESP8266WebServer.h >
+    #ifdef WEBSERVER
+      #include <ESP8266mDNS.h>
+      #include <ESP8266HTTPUpdateServer.h>
+    #endif
+  #endif
 
   //Para mis clases
   #include "Display.h"

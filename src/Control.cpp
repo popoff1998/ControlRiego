@@ -129,7 +129,8 @@ void procesaBotones()
   #endif
   // almacenamos estado pulsador del encoder (para modificar comportamiento de otros botones)
   //NOTA: el encoderSW esta en estado HIGH en reposo y en estado LOW cuando esta pulsado
-  (!Boton[bID_bIndex(bENCODER)].estado) ? encoderSW = true : encoderSW = false;
+  (testButton(bENCODER, OFF)) ? encoderSW = true : encoderSW = false;
+  //(!Boton[bID_bIndex(bENCODER)].estado) ? encoderSW = true : encoderSW = false;
   //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multiriego
   if (multiSemaforo) multiSemaforo = false;
   else  boton = parseInputs(READ);  //vemos si algun boton ha cambiado de estado
@@ -280,10 +281,17 @@ void procesaBotonPause(void)
     if(!boton->estado) return;
     switch (Estado.estado) {
       case REGANDO:
-        bip(1);
-        Estado.estado = PAUSE;
-        if(ultimoBoton) stopRiego(ultimoBoton->id);
-        T.PauseTimer();
+        if(encoderSW) {  //si pulsamos junto con encoderSW terminamos el riego (pasaria al siguiente en caso de multirriego)
+          Estado.estado = TERMINANDO;
+          Serial.println(F("encoderSW+PAUSE terminamos riego de zona en curso"));
+          //Boton[bID_bIndex(bENCODER)].estado = 1;
+        }
+        else {
+          bip(1);
+          Estado.estado = PAUSE;
+          if(ultimoBoton) stopRiego(ultimoBoton->id);
+          T.PauseTimer();
+        }
         break;
       case PAUSE:
         bip(2);
@@ -437,7 +445,7 @@ void procesaBotonZona(void)
   if (zIndex == 999) return; //el boton no es de ZONA ¿es necesaria esta comprobacion?
   int bIndex = bID_bIndex(boton->id); 
   if (Estado.estado == STANDBY) {
-    if (!encoderSW) {  //iniciamos el riego correspondiente al boton seleccionado
+    if (!encoderSW || multiriego) {  //iniciamos el riego correspondiente al boton seleccionado
         bip(2);
         //cambia minutes y seconds en funcion del factor de cada sector de riego
         uint8_t fminutes=0,fseconds=0;
