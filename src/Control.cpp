@@ -131,7 +131,7 @@ void procesaBotones()
   //NOTA: el encoderSW esta en estado HIGH en reposo y en estado LOW cuando esta pulsado
   (testButton(bENCODER, OFF)) ? encoderSW = true : encoderSW = false;
   //(!Boton[bID_bIndex(bENCODER)].estado) ? encoderSW = true : encoderSW = false;
-  //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multiriego
+  //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multirriego
   if (multiSemaforo) multiSemaforo = false;
   else  boton = parseInputs(READ);  //vemos si algun boton ha cambiado de estado
   // si no se ha pulsado ningun boton salimos
@@ -372,7 +372,7 @@ void procesaBotonStop(void)
       }
       infoDisplay("StoP", DEFAULTBLINK, BIP, 6);;
       Estado.estado = STOP;
-      multiriego = false;
+      multirriego = false;
       multiSemaforo = false;
     }
     else {
@@ -402,7 +402,7 @@ void procesaBotonStop(void)
 
 bool procesaBotonMultiriego(void)
 {
-  if (Estado.estado == STANDBY && !multiriego) {
+  if (Estado.estado == STANDBY && !multirriego) {
     #ifdef DEBUG
       int n_grupo = setMultibyId(getMultiStatus(), config);
       Serial.printf( "en MULTIRRIEGO, setMultibyId devuelve: Grupo%d (%s) multi.size=%d \n" , n_grupo, multi.desc, *multi.size);
@@ -428,7 +428,7 @@ bool procesaBotonMultiriego(void)
       //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
       //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
       bip(4);
-      multiriego = true;
+      multirriego = true;
       multi.actual = 0;
       Serial.printf("MULTIRRIEGO iniciado: %s \n", multi.desc);
       led(Boton[bID_bIndex(*multi.id)].led,ON);
@@ -445,11 +445,11 @@ void procesaBotonZona(void)
   if (zIndex == 999) return; //el boton no es de ZONA ¿es necesaria esta comprobacion?
   int bIndex = bID_bIndex(boton->id); 
   if (Estado.estado == STANDBY) {
-    if (!encoderSW || multiriego) {  //iniciamos el riego correspondiente al boton seleccionado
+    if (!encoderSW || multirriego) {  //iniciamos el riego correspondiente al boton seleccionado
         bip(2);
         //cambia minutes y seconds en funcion del factor de cada sector de riego
         uint8_t fminutes=0,fseconds=0;
-        if(multiriego) {
+        if(multirriego) {
           timeByFactor(factorRiegos[zIndex],&fminutes,&fseconds);
         }
         else {
@@ -652,7 +652,7 @@ void procesaEstadoError(void)
     stopAllRiego(false);          //apaga leds activos
     tic_parpadeoLedON.detach();   //detiene parpadeo led ON por si estuviera activado
     led(LEDR,ON);                 // y lo deja fijo
-    multiriego = false;
+    multirriego = false;
     multiSemaforo = false;
     errorOFF = false;
     displayOff = false;
@@ -688,17 +688,17 @@ void procesaEstadoTerminando(void)
   StaticTimeUpdate();
   standbyTime = millis();
   Estado.estado = STANDBY;
-  //Comprobamos si estamos en un multiriego
-  if (multiriego) {
+  //Comprobamos si estamos en un multirriego
+  if (multirriego) {
     multi.actual++;
     if (multi.actual < *multi.size) {
-      //Simular la pulsacion del siguiente boton de la serie de multiriego
+      //Simular la pulsacion del siguiente boton de la serie de multirriego
       boton = &Boton[bID_bIndex(multi.serie[multi.actual])];
       multiSemaforo = true;
     }
     else {
       bipOK(5);
-      multiriego = false;
+      multirriego = false;
       multiSemaforo = false;
         Serial.printf("MULTIRRIEGO %s terminado \n", multi.desc);
       led(Boton[bID_bIndex(*multi.id)].led,OFF);
@@ -981,7 +981,7 @@ bool stopRiego(uint16_t id)
 //Pone a off todos los leds de riegos y detiene riegos (solo si la llamamos con true)
 bool stopAllRiego(bool stop)
 {
-  //Apago los leds de multiriego
+  //Apago los leds de multirriego
   led(Boton[bID_bIndex(*multi.id)].led,OFF);
   //Apago los leds de riego
   for(unsigned int i=0;i<NUMZONAS;i++) {

@@ -371,7 +371,7 @@
     unsigned long standbyTime;
     bool displayOff = false;
     unsigned long lastBlinkPause;
-    bool multiriego = false;
+    bool multirriego = false;
     bool multiSemaforo = false;
     bool holdPause = false;
     unsigned long countHoldPause;
