@@ -644,8 +644,18 @@ void procesaEstadoError(void)
   //   - PAUSE y pasamos a modo NONETWORK
   //   - STOP y en este caso reseteamos 
   if(boton->id == bPAUSE && boton->estado) {  //evita procesar el release del pause
-  //Si estamos en error y pulsamos pausa, nos ponemos en estado NONETWORK para test
-    Estado.estado = STANDBY;
+  //Si estamos en error y pulsamos pausa, nos ponemos en modo NONETWORK para test    
+    if (Boton[bID_bIndex(bSTOP)].estado) {
+      Estado.estado = STOP;
+      infoDisplay("StoP", NOBLINK, LONGBIP, 1);
+      displayOff = true;
+    }
+    else {
+      Estado.estado = STANDBY;
+      displayOff = false;
+      standbyTime = millis();
+      StaticTimeUpdate();
+    } 
     Estado.fase = CERO;
     NONETWORK = true;
     Serial.println(F("estado en ERROR y PAUSA pulsada pasamos a modo NONETWORK y reseteamos"));
@@ -653,15 +663,12 @@ void procesaEstadoError(void)
     led(LEDB,ON);
     //reseteos varios:
     tic_parpadeoLedZona.detach(); //detiene parpadeo led zona con error
-    stopAllRiego(false);          //apaga leds activos
     tic_parpadeoLedON.detach();   //detiene parpadeo led ON por si estuviera activado
     led(LEDR,ON);                 // y lo deja fijo
+    stopAllRiego(false);          //apaga leds activos
     multirriego = false;
     multiSemaforo = false;
     errorOFF = false;
-    displayOff = false;
-    standbyTime = millis();
-    StaticTimeUpdate();
   }
   if(boton->id == bSTOP) {
   //Si estamos en ERROR y pulsamos o liberamos STOP, reseteamos

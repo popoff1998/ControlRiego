@@ -41,5 +41,7 @@ Version 2:
   multi abajo + boton multirriego) V2.2
 - si falloAP y existe red wifi almacenada reintenta conexion max 20 seg. V2.3
 - mejoras display de informacion V2.3
+- HTTPUpdateServer para actualizacion via OTA de FW y/o Filesystem V2.4
+- encoderSw + PAUSE cancela riego zona en curso y pasa a la siguiente si multirriego V2.4
 
 
