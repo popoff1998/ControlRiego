@@ -403,8 +403,12 @@ void procesaBotonStop(void)
 bool procesaBotonMultiriego(void)
 {
   if (Estado.estado == STANDBY && !multirriego) {
+    int n_grupo = setMultibyId(getMultiStatus(), config);
+    if (n_grupo == 0) {  //error en setup de apuntadores 
+      statusError(E0, 3); 
+      return false;
+    }  
     #ifdef DEBUG
-      int n_grupo = setMultibyId(getMultiStatus(), config);
       Serial.printf( "en MULTIRRIEGO, setMultibyId devuelve: Grupo%d (%s) multi.size=%d \n" , n_grupo, multi.desc, *multi.size);
       for (int k=0; k < *multi.size; k++) Serial.printf( "       multi.serie: x%x \n" , multi.serie[k]);
       Serial.printf( "en MULTIRRIEGO, encoderSW status  : %d \n", encoderSW );
