@@ -23,6 +23,47 @@
       wserver.send(404, "text/plain", "ERROR 404 - Not found");
    }
 
+   void handleListFiles() {
+      Dir dir = LittleFS.openDir("/");
+      String result;
+
+      result += "[\n";
+      while (dir.next()) {
+         if (result.length() > 4) { result += ","; }
+         result += "  {";
+         result += " \"name\": \"" + dir.fileName() + "\", ";
+         result += " \"size\": " + String(dir.fileSize()) + ", ";
+         result += " \"time\": " + String(dir.fileTime());
+         result += " }\n";
+         // jc.addProperty("size", dir.fileSize());
+      }  // while
+      result += "]";
+      wserver.sendHeader("Cache-Control", "no-cache");
+      wserver.send(200, "text/javascript; charset=utf-8", result);
+   }  // handleListFiles()
+
+
+   // This function is called when the sysInfo service was requested.
+   void handleSysInfo() {
+      String result;
+
+      FSInfo fs_info;
+      LittleFS.info(fs_info);
+
+      result += "{\n";
+      result += "  \"flashSize\": " + String(ESP.getFlashChipSize()) + ",\n";
+      result += "  \"freeHeap\": " + String(ESP.getFreeHeap()) + ",\n";
+      result += "  \"freeSketchSpace\": " + String(ESP.getFreeSketchSpace()) + ",\n";
+      result += "  \"HeapFragmentation\": " + String(ESP.getHeapFragmentation()) + ",\n";
+      result += "  \"MaxFreeBlockSize\": " + String(ESP.getMaxFreeBlockSize()) + ",\n";
+      result += "  \"fsTotalBytes\": " + String(fs_info.totalBytes) + ",\n";
+      result += "  \"fsUsedBytes\": " + String(fs_info.usedBytes) + ",\n";
+      result += "}";
+
+      wserver.sendHeader("Cache-Control", "no-cache");
+      wserver.send(200, "text/javascript; charset=utf-8", result);
+   }  // handleSysInfo()
+
    void defWebpages()
    {
       /*
@@ -33,6 +74,8 @@
          wserver.send(200, "text/plain", "Esto tambien funciona");
       });
       */
+      wserver.on("/$sysinfo", handleSysInfo);
+      wserver.on("/$list", handleListFiles);
       // Ruteo para URI desconocida
       wserver.onNotFound(handleNotFound);
    }
@@ -45,6 +88,7 @@
    defWebpages();
    wserver.begin();
    MDNS.addService("http", "tcp", wsport);
+   MDNS.announce();
    Serial.println(F("[WS] HTTPUpdateServer ready!"));
    Serial.printf("[WS]    --> Open http://%s.local:%d%s in your browser and login with username '%s' and password '%s'\n\n", host, wsport, update_path, update_username, update_password);
    }

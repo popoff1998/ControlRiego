@@ -520,8 +520,8 @@ void procesaEstadoConfigurando()
               if (n_grupo == 2) {  // activamos procesado webserver
                 Serial.println(F("[ConF][WS] activado webserver para actualizaciones OTA de SW o filesystem"));
                 webServerAct = true;
+                ledConf(OFF);
                 infoDisplay("otA", DEFAULTBLINK, BIPOK, 5);
-                //display->print("ConF"); 
               }
             #endif 
             if (n_grupo == 3) {  // activamos AP y portal de configuracion (bloqueante)
@@ -1272,7 +1272,10 @@ void Verificaciones()
     leeSerial();  // para ver si simulamos algun tipo de error
   #endif
   #ifdef WEBSERVER
-  if (Estado.estado == CONFIGURANDO && webServerAct) procesaWebServer();
+  if (Estado.estado == CONFIGURANDO && webServerAct) {
+    procesaWebServer();
+    return;
+  }
   #endif
   if (!flagV) return;      //si no activada por Ticker salimos sin hacer nada
   if (Estado.estado == STANDBY) Serial.print(F("."));

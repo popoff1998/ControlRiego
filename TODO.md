@@ -43,5 +43,6 @@ Version 2:
 - mejoras display de informacion V2.3
 - HTTPUpdateServer para actualizacion via OTA de FW y/o Filesystem V2.4
 - encoderSw + PAUSE cancela riego zona en curso y pasa a la siguiente si multirriego V2.4
+- menú de servicio: páginas $sysinfo y $list V2.4 (experimental)
 
 
