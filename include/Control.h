@@ -308,6 +308,11 @@
     bool NONETWORK;
     bool falloAP;
     bool saveConfig = false;
+    
+    const char *parmFile = "/config_parm.json";       // fichero de parametros activos
+    const char *defaultFile = "/config_default.json"; // fichero de parametros por defecto
+
+
   #else
     extern S_BOTON Boton [];
     extern S_MULTI multi;
@@ -317,6 +322,9 @@
     extern bool falloAP;
     extern bool saveConfig;
     extern int NUM_S_BOTON;
+    extern const char *parmFile;       // fichero de parametros activos
+    extern const char *defaultFile; // fichero de parametros por defecto
+
 
   #endif
 

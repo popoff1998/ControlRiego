@@ -2,8 +2,6 @@
 #include "Control.h"
 
 bool clean_FS = false;
-const char *parmFile = "/config_parm.json";       // fichero de parametros activos
-const char *defaultFile = "/config_default.json"; // fichero de parametros por defecto
 
 /*----------------------------------------------*
  *               Setup inicial                  *

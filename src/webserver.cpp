@@ -35,13 +35,11 @@
          result += " \"size\": " + String(dir.fileSize()) + ", ";
          result += " \"time\": " + String(dir.fileTime());
          result += " }\n";
-         // jc.addProperty("size", dir.fileSize());
-      }  // while
-      result += "]";
-      wserver.sendHeader("Cache-Control", "no-cache");
-      wserver.send(200, "text/javascript; charset=utf-8", result);
-   }  // handleListFiles()
-
+         result += "]";
+         wserver.sendHeader("Cache-Control", "no-cache");
+         wserver.send(200, "text/javascript; charset=utf-8", result);
+      }   
+   }
 
    // This function is called when the sysInfo service was requested.
    void handleSysInfo() {
@@ -59,10 +57,50 @@
       result += "  \"fsTotalBytes\": " + String(fs_info.totalBytes) + ",\n";
       result += "  \"fsUsedBytes\": " + String(fs_info.usedBytes) + ",\n";
       result += "}";
-
       wserver.sendHeader("Cache-Control", "no-cache");
       wserver.send(200, "text/javascript; charset=utf-8", result);
-   }  // handleSysInfo()
+   }
+
+   // This function is called when the parm service was requested.
+   // Prints the content of a file to a string 
+   String displayFile(const char *p_filename) {
+      #ifdef TRACE
+      Serial.printf("TRACE: in displayFile (%s) \n" , p_filename);
+      #endif
+         String result;
+      if(!LittleFS.begin()){
+         result += "{\n An Error has occurred while mounting LittleFS \n}";
+         return result;
+      }
+      // Open file for reading
+      File file = LittleFS.open(p_filename, "r");
+      if (!file) {
+         result += "{\n Failed to open config file \n}";
+         return result;
+      }
+      //result += "{\n File Content: \n";
+      while(file.available()){
+            result += char(file.read());
+      }
+      //result += "\n }";
+      file.close();
+      return result;
+   }
+
+   void handleListParm() {
+      //const char *parmFile = "/config_parm.json";       // fichero de parametros activos
+      String result = displayFile(parmFile);
+      wserver.sendHeader("Cache-Control", "no-cache");
+      wserver.send(200, "text/javascript; charset=utf-8", result);
+   }
+
+   // This function is called when the default service was requested.
+   void handleListDefault() {
+      //const char *parmFile = "/config_parm.json";       // fichero de parametros activos
+      String result = displayFile(defaultFile);
+      wserver.sendHeader("Cache-Control", "no-cache");
+      wserver.send(200, "text/javascript; charset=utf-8", result);
+   }
 
    void defWebpages()
    {
@@ -76,6 +114,8 @@
       */
       wserver.on("/$sysinfo", handleSysInfo);
       wserver.on("/$list", handleListFiles);
+      wserver.on("/$parm", handleListParm);
+      wserver.on("/$def", handleListDefault);
       // Ruteo para URI desconocida
       wserver.onNotFound(handleNotFound);
    }
@@ -98,5 +138,6 @@
       wserver.handleClient();
       MDNS.update();
    }  
+
 
 #endif
