@@ -784,8 +784,8 @@ void initFactorRiegos()
         tic_parpadeoLedZona.attach(0.4,parpadeoLedZona);
       }
       break;
-    factorRiegos[i] = factorR;
     }
+    factorRiegos[i] = factorR;
     if (strlen(descDomoticz)) {
       //actualizamos en Boton la DESCRIPCION con la recibida del Domoticz (campo Name)
       if (xNAME) {
