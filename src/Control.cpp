@@ -282,7 +282,6 @@ void procesaBotonPause(void)
         if(encoderSW) {  //si pulsamos junto con encoderSW terminamos el riego (pasaria al siguiente en caso de multirriego)
           Estado.estado = TERMINANDO;
           Serial.println(F("encoderSW+PAUSE terminamos riego de zona en curso"));
-          //Boton[bID_bIndex(bENCODER)].estado = 1;
         }
         else {
           bip(1);
@@ -294,6 +293,7 @@ void procesaBotonPause(void)
       case PAUSE:
         bip(2);
         if(ultimoBoton) initRiego(ultimoBoton->id);
+        if(Estado.estado == ERROR) break; // para que no borre ERROR
         T.ResumeTimer();
         Estado.estado = REGANDO;
         break;
