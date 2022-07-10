@@ -293,7 +293,12 @@ void procesaBotonPause(void)
       case PAUSE:
         bip(2);
         if(ultimoBoton) initRiego(ultimoBoton->id);
-        if(Estado.estado == ERROR) break; // para que no borre ERROR
+        if(Estado.estado == ERROR) { // caso de error al reanudar el riego
+          ledID = ultimoBoton->id;
+          tic_parpadeoLedZona.attach(0.3,parpadeoLedZona);
+          Estado.estado = PAUSE;
+          break;
+        }
         T.ResumeTimer();
         Estado.estado = REGANDO;
         break;
