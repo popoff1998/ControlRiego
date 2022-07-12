@@ -1,30 +1,32 @@
 #ifndef control_h
   #define control_h
-
-  #ifndef _GNU_SOURCE  // LOCAL WORK-AROUND
-   #define _GNU_SOURCE // evitar error uint no definido tras update a espressif8266 3.2.0
-  #endif               // ver: https://community.platformio.org/t/error-acessing-eeprom-of-esp8266-after-plattform-update/22747/2
-
-  #ifdef NODEMCU
-    #include <WifiUdp.h>
-    #include <ESP8266HTTPClient.h>
-    #include <ESP8266WiFi.h>
-    #include <DNSServer.h>
-    #include <ESP8266WebServer.h >
-    #include <WiFiManager.h> 
-  #endif
   
+  #ifndef _GNU_SOURCE  // LOCAL WORK-AROUND
+   #define _GNU_SOURCE // evitar error uint no definido en platformio (no en compilacion) tras update a espressif8266 3.2.0
+  #endif               // ver: https://community.platformio.org/t/error-acessing-eeprom-of-esp8266-after-plattform-update/22747/2
+  
+  #include <DNSServer.h>
+  #include <WifiUdp.h>
+  #include <WiFiManager.h> 
   #include <SPI.h>
   #include <NTPClient.h>
   #include <Time.h>
   #include <Timezone.h>
   #include <ClickEncoder.h>
   #include <CountUpDownTimer.h>
-  //#include <Streaming.h>
   #include <ArduinoJson.h>
   #include <Ticker.h>
   #include <LittleFS.h>
 
+  #ifdef NODEMCU
+    #include <ESP8266HTTPClient.h>
+    #include <ESP8266WiFi.h>
+    #include <ESP8266WebServer.h >
+    #ifdef WEBSERVER
+      #include <ESP8266mDNS.h>
+      #include <ESP8266HTTPUpdateServer.h>
+    #endif
+  #endif
 
   //Para mis clases
   #include "Display.h"
@@ -58,7 +60,7 @@
   #endif
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "2.3"
+                            #define VERSION  "2.4"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -306,6 +308,11 @@
     bool NONETWORK;
     bool falloAP;
     bool saveConfig = false;
+    
+    const char *parmFile = "/config_parm.json";       // fichero de parametros activos
+    const char *defaultFile = "/config_default.json"; // fichero de parametros por defecto
+
+
   #else
     extern S_BOTON Boton [];
     extern S_MULTI multi;
@@ -315,6 +322,9 @@
     extern bool falloAP;
     extern bool saveConfig;
     extern int NUM_S_BOTON;
+    extern const char *parmFile;       // fichero de parametros activos
+    extern const char *defaultFile; // fichero de parametros por defecto
+
 
   #endif
 
@@ -326,6 +336,18 @@
       HTTPClient httpclient;
       WiFiUDP    ntpUDP;
     #endif
+    /*
+    #ifdef WEBSERVER
+      //servidor web para actualizaciones OTA del FW o del filesystem
+      const char* host = "ardomo";
+      const char* update_path = "/update";
+      const char* update_username = "admin";
+      const char* update_password = "admin";
+      int wsport = 8080;
+      ESP8266WebServer wserver(8080);
+      ESP8266HTTPUpdateServer httpUpdater;
+    #endif
+    */
     CountUpDownTimer T(DOWN);
     S_Estado Estado;
     S_BOTON  *boton;
@@ -357,7 +379,7 @@
     unsigned long standbyTime;
     bool displayOff = false;
     unsigned long lastBlinkPause;
-    bool multiriego = false;
+    bool multirriego = false;
     bool multiSemaforo = false;
     bool holdPause = false;
     unsigned long countHoldPause;
@@ -367,7 +389,7 @@
     bool factorRiegosOK = false;
     bool errorOFF = false;
     bool simErrorOFF = false;
-    //bool displayOFF = false;
+    bool webServerAct = false;
     bool VERIFY;
     bool encoderSW = false;
 
@@ -432,6 +454,7 @@
   void procesaEstadoTerminando(void);
   void procesaEstadoStop(void);
   void procesaEstadoPause(void);
+  void procesaWebServer(void);
   void refreshTime(void);
   void refreshDisplay(void);
   bool saveConfigFile(const char*, Config_parm&);
@@ -441,6 +464,7 @@
   void setupInit(void);
   void setupParm(void);
   void setupRedWM(Config_parm&);
+  void setupWS(void);
   void starConfigPortal(Config_parm&);
   void StaticTimeUpdate(void);
   void statusError(uint8_t, int n);
