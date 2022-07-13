@@ -1123,20 +1123,16 @@ String httpGetDomoticz(String message)
   }
   else {
     if(Estado.estado != ERROR) {
-      Estado.estado = ERROR;
-      #ifdef DEBUG
-        Serial.printf("[ERROR] httpGetDomoticz: ERROR comunicando con Domoticz error: %s\n", httpclient.errorToString(httpCode).c_str()); 
-      #endif
+      //Estado.estado = ERROR;
+      Serial.printf("[ERROR] httpGetDomoticz: ERROR comunicando con Domoticz error: %s\n", httpclient.errorToString(httpCode).c_str()); 
     }
     return "Err2";
   }
   //vemos si la respuesta indica status error
   int pos = response.indexOf("\"status\" : \"ERR");
   if(pos != -1) {
-    #ifdef DEBUG
-      Serial.println(F("[ERROR] httpGetDomoticz: SE HA DEVUELTO ERROR")); 
-    #endif
-    Estado.estado = ERROR;
+    Serial.println(F("[ERROR] httpGetDomoticz: SE HA DEVUELTO ERROR")); 
+    //Estado.estado = ERROR;
     return "ErrX";
   }
   httpclient.end();
@@ -1167,7 +1163,8 @@ int getFactor(uint16_t idx)
   sprintf(message,JSONMSG,idx);
   String response = httpGetDomoticz(message);
   //procesamos la respuesta para ver si se ha producido error:
-  if (Estado.estado == ERROR && response.startsWith("Err")) {
+  //if (Estado.estado == ERROR && response.startsWith("Err")) {
+  if (response.startsWith("Err")) {
     if (NONETWORK) {  //si estamos en modo NONETWORK devolvemos 999 y no damos error
       Estado.estado = STANDBY;
       return 999;
