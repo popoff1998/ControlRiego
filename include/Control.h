@@ -60,7 +60,7 @@
   #endif
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "2.4"
+                            #define VERSION  "2.4-1"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -455,6 +455,7 @@
   void procesaEstadoStop(void);
   void procesaEstadoPause(void);
   void procesaWebServer(void);
+  bool queryStatus(uint16_t, char *);
   void refreshTime(void);
   void refreshDisplay(void);
   bool saveConfigFile(const char*, Config_parm&);
