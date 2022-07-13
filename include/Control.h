@@ -86,6 +86,7 @@
   #define MINSECONDS          5
   #define HOLDTIME            3000
   #define MAXCONNECTRETRY     10
+  #define VERIFY_INTERVAL     15
 
  //----------------  dependientes del HW   ----------------------------------------
 
@@ -336,18 +337,6 @@
       HTTPClient httpclient;
       WiFiUDP    ntpUDP;
     #endif
-    /*
-    #ifdef WEBSERVER
-      //servidor web para actualizaciones OTA del FW o del filesystem
-      const char* host = "ardomo";
-      const char* update_path = "/update";
-      const char* update_username = "admin";
-      const char* update_password = "admin";
-      int wsport = 8080;
-      ESP8266WebServer wserver(8080);
-      ESP8266HTTPUpdateServer httpUpdater;
-    #endif
-    */
     CountUpDownTimer T(DOWN);
     S_Estado Estado;
     S_BOTON  *boton;
@@ -392,6 +381,7 @@
     bool webServerAct = false;
     bool VERIFY;
     bool encoderSW = false;
+    char errorText[7];
 
   #endif
 
@@ -402,6 +392,7 @@
   int  bID_bIndex(uint16_t);
   int  bID_zIndex(uint16_t);
   void blinkPause(void);
+  void blinkPauseError(void);
   void check(void);
   bool checkWifi(void);
   void cleanFS(void);
