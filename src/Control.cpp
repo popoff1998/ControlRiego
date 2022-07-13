@@ -287,13 +287,15 @@ void procesaBotonPause(void)
         else {
           bip(1);
           Estado.estado = PAUSE;
-          if(ultimoBoton) stopRiego(ultimoBoton->id);
+          //if(ultimoBoton) stopRiego(ultimoBoton->id);
+          stopRiego(ultimoBoton->id);
           T.PauseTimer();
         }
         break;
       case PAUSE:
-        if(ultimoBoton) initRiego(ultimoBoton->id);
-        if(Estado.estado == ERROR) { // caso de error al reanudar el riego seguimos en PAUSE y señalamos con blink zona
+        //if(ultimoBoton) initRiego(ultimoBoton->id);
+        initRiego(ultimoBoton->id);
+        if(Estado.estado == ERROR) { // caso de error al reanudar el riego seguimos en PAUSE y señalamos con blink rapido zona
           ledID = ultimoBoton->id;
           tic_parpadeoLedZona.attach(0.3,parpadeoLedZona);
           Estado.estado = PAUSE;
@@ -754,10 +756,8 @@ void procesaEstadoStop(void)
 };
 
 void procesaEstadoPause(void) {
-  if(flagV) {  // verificamos zona sigue OFF en Domoticz
-    if(ultimoBoton) {
-      if(queryStatus(ultimoBoton->idx, (char *)"Off")) return;
-    }
+  if(flagV) {  // verificamos zona sigue OFF en Domoticz periodicamente
+    if(queryStatus(ultimoBoton->idx, (char *)"Off")) return;
     else {
       if(Estado.fase == CERO) { //riego zona activo: salimos del PAUSE y blink lento zona activada remotamente 
         bip(2);
