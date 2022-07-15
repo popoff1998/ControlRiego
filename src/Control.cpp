@@ -86,8 +86,8 @@ void setup()
     printMulti();
     printFile(parmFile);
   #endif
-  //lanzamos supervision periodica estado cada 10 seg.
-  tic_verificaciones.attach_scheduled(10, flagVerificaciones);
+  //lanzamos supervision periodica estado cada VERIFY_INTERVAL seg.
+  tic_verificaciones.attach_scheduled(VERIFY_INTERVAL, flagVerificaciones);
   standbyTime = millis();
   #ifdef TRACE
     Serial.println(F("TRACE: ending setup"));
@@ -198,7 +198,8 @@ void procesaEstados()
       procesaEstadoStop();
       break;
     case PAUSE:
-      blinkPause();
+      procesaEstadoPause();
+      strcmp(errorText, "") == 0 ? blinkPause() : blinkPauseError();
       break;
   }
 }
@@ -225,6 +226,7 @@ void setupEstado()
     }
     else Estado.estado = STANDBY;
     Estado.fase = CERO;
+    strcpy(errorText, "");
     bip(2);
     return;
   }
@@ -240,6 +242,7 @@ void setupEstado()
     }
     else Estado.estado = STANDBY;
     Estado.fase = CERO;
+    strcpy(errorText, "");
     bip(1);
     return;
   }
@@ -286,16 +289,29 @@ void procesaBotonPause(void)
         else {
           bip(1);
           Estado.estado = PAUSE;
-          if(ultimoBoton) stopRiego(ultimoBoton->id);
+          tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
+          led(ultimoBoton->led,ON);// y lo deja fijo
+          stopRiego(ultimoBoton->id);
           T.PauseTimer();
         }
         break;
       case PAUSE:
+        initRiego(ultimoBoton->id);
+        if(Estado.estado == ERROR) { // caso de error al reanudar el riego seguimos en PAUSE y señalamos con blink rapido zona
+          ledID = ultimoBoton->led;
+          tic_parpadeoLedZona.attach(0.2,parpadeoLedZona);
+          Serial.printf( "error al salir de PAUSE errorText : %s Estado.fase : %d\n", errorText, Estado.fase );
+          refreshTime();
+          Estado.estado = PAUSE;
+          break;
+        }
         bip(2);
-        if(ultimoBoton) initRiego(ultimoBoton->id);
-        if(Estado.estado == ERROR) break; // para que no borre ERROR
         T.ResumeTimer();
+        tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
+        led(ultimoBoton->led,ON);// y lo deja fijo
         Estado.estado = REGANDO;
+        Estado.fase = CERO;
+        strcpy(errorText, "");
         break;
       case STANDBY:
           boton = NULL; //lo borramos para que no sea tratado más adelante en procesaEstados
@@ -655,6 +671,7 @@ void procesaEstadoError(void)
       StaticTimeUpdate();
     } 
     Estado.fase = CERO;
+    strcpy(errorText, "");
     NONETWORK = true;
     Serial.println(F("estado en ERROR y PAUSA pulsada pasamos a modo NONETWORK y reseteamos"));
     bip(2);
@@ -681,8 +698,26 @@ void procesaEstadoRegando(void)
 {
   tiempoTerminado = T.Timer();
   if (T.TimeHasChanged()) refreshTime();
-  if (tiempoTerminado == 0) {
-    Estado.estado = TERMINANDO;
+  if (tiempoTerminado == 0) Estado.estado = TERMINANDO;
+  else if(flagV && VERIFY) { // verificamos periodicamente que el riego sigue activo en Domoticz
+    if(queryStatus(ultimoBoton->idx, (char *)"On")) return;
+    else {
+      ledID = ultimoBoton->led;
+      if(Estado.fase == CERO) { //riego zona parado: entramos en PAUSE y blink lento zona pausada remotamente 
+        bip(1);
+        T.PauseTimer();
+        tic_parpadeoLedZona.attach(0.8,parpadeoLedZona);
+        Serial.printf(">>>>>>>>>> procesaEstadoRegando zona: %s en PAUSA remota <<<<<<<<\n", ultimoBoton->desc);
+        Estado.estado = PAUSE;
+      }
+      else {
+        statusError(Estado.fase, 3); // si no hemos podido verificar estado, señalamos el error
+        tic_parpadeoLedON.attach(0.2,parpadeoLedON);
+        tic_parpadeoLedZona.attach(0.4,parpadeoLedZona);
+        errorOFF = true;  // recordatorio error
+        Serial.println(F("[ERROR] procesaEstadoRegando: SE HA DEVUELTO ERROR"));
+      }  
+    }
   }
 };
 
@@ -690,6 +725,7 @@ void procesaEstadoRegando(void)
 void procesaEstadoTerminando(void)
 {
   bip(5);
+  tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
   stopRiego(ultimoBoton->id);
   if (Estado.estado == ERROR) return; //no continuamos si se ha producido error al parar el riego
   display->blink(DEFAULTBLINK);
@@ -697,6 +733,8 @@ void procesaEstadoTerminando(void)
   StaticTimeUpdate();
   standbyTime = millis();
   Estado.estado = STANDBY;
+  Estado.fase = CERO;
+  strcpy(errorText, "");
   //Comprobamos si estamos en un multirriego
   if (multirriego) {
     multi.actual++;
@@ -745,6 +783,24 @@ void procesaEstadoStop(void)
   }
 };
 
+void procesaEstadoPause(void) {
+  if(flagV && VERIFY) {  // verificamos zona sigue OFF en Domoticz periodicamente
+    if(queryStatus(ultimoBoton->idx, (char *)"Off")) return;
+    else {
+      if(Estado.fase == CERO) { //riego zona activo: salimos del PAUSE y blink lento zona activada remotamente 
+        bip(2);
+        ledID = ultimoBoton->led;
+        Serial.printf("\tactivado blink %s (boton id= %d) \n", ultimoBoton->desc, ultimoBoton->id);
+        tic_parpadeoLedZona.attach(0.8,parpadeoLedZona);
+        Serial.printf(">>>>>>>>>> procesaEstadoPause zona: %s activada REMOTAMENTE <<<<<<<\n", ultimoBoton->desc);
+        T.ResumeTimer();
+        Estado.estado = REGANDO;
+        strcpy(errorText, "");
+      }
+      else Estado.fase = CERO; // si no hemos podido verificar estado, ignoramos el error
+    }
+  }
+}
 
 
 /**---------------------------------------------------------------
@@ -992,7 +1048,8 @@ bool stopAllRiego(bool stop)
 {
   //Apago los leds de multirriego
   led(Boton[bID_bIndex(*multi.id)].led,OFF);
-  //Apago los leds de riego
+  //Apago los leds de riego y posible parpadeo
+  tic_parpadeoLedZona.detach();
   for(unsigned int i=0;i<NUMZONAS;i++) {
     led(Boton[bID_bIndex(ZONAS[i])].led,OFF);
     if (stop) {  //paramos todas las zonas de riego
@@ -1049,6 +1106,25 @@ void blinkPause()
   else {
     if (millis() > lastBlinkPause + DEFAULTBLINKMILLIS) {
       refreshDisplay();
+      displayOff = false;
+      lastBlinkPause = millis();
+    }
+  }
+}
+
+//void blinkPauseError(char *errorText)
+void blinkPauseError()
+{
+  if (!displayOff) {
+    if (millis() > lastBlinkPause + DEFAULTBLINKMILLIS) {
+      display->print(errorText);
+      displayOff = true;
+      lastBlinkPause = millis();
+    }
+  }
+  else {
+    if (millis() > lastBlinkPause + DEFAULTBLINKMILLIS) {
+      refreshTime();
       displayOff = false;
       lastBlinkPause = millis();
     }
@@ -1118,20 +1194,16 @@ String httpGetDomoticz(String message)
   }
   else {
     if(Estado.estado != ERROR) {
-      Estado.estado = ERROR;
-      #ifdef DEBUG
-        Serial.printf("[ERROR] httpGetDomoticz: ERROR comunicando con Domoticz error: %s\n", httpclient.errorToString(httpCode).c_str()); 
-      #endif
+      //Estado.estado = ERROR;
+      Serial.printf("[ERROR] httpGetDomoticz: ERROR comunicando con Domoticz error: %s\n", httpclient.errorToString(httpCode).c_str()); 
     }
     return "Err2";
   }
   //vemos si la respuesta indica status error
   int pos = response.indexOf("\"status\" : \"ERR");
   if(pos != -1) {
-    #ifdef DEBUG
-      Serial.println(F("[ERROR] httpGetDomoticz: SE HA DEVUELTO ERROR")); 
-    #endif
-    Estado.estado = ERROR;
+    Serial.println(F("[ERROR] httpGetDomoticz: SE HA DEVUELTO ERROR")); 
+    //Estado.estado = ERROR;
     return "ErrX";
   }
   httpclient.end();
@@ -1162,7 +1234,8 @@ int getFactor(uint16_t idx)
   sprintf(message,JSONMSG,idx);
   String response = httpGetDomoticz(message);
   //procesamos la respuesta para ver si se ha producido error:
-  if (Estado.estado == ERROR && response.startsWith("Err")) {
+  //if (Estado.estado == ERROR && response.startsWith("Err")) {
+  if (response.startsWith("Err")) {
     if (NONETWORK) {  //si estamos en modo NONETWORK devolvemos 999 y no damos error
       Estado.estado = STANDBY;
       return 999;
@@ -1223,6 +1296,64 @@ int getFactor(uint16_t idx)
 }
 
 /**---------------------------------------------------------------
+ * verifica status de la zona coincide con el pasado, devolviendo true en ese caso
+ */
+bool queryStatus(uint16_t idx, char *status)
+{
+  #ifdef TRACE
+    Serial.println(F("TRACE: in queryStatus"));
+  #endif
+  if(!checkWifi()) {
+    if(NONETWORK) return true; //si estamos en modo NONETWORK devolvemos true y no damos error
+    else {
+      Estado.fase=E1;
+      return false;
+    }
+  }
+  char JSONMSG[200]="/json.htm?type=devices&rid=%d";
+  char message[250];
+  sprintf(message,JSONMSG,idx);
+  String response = httpGetDomoticz(message);
+  //procesamos la respuesta para ver si se ha producido error:
+  if (response.startsWith("Err")) {
+    if (NONETWORK) return true;  //si estamos en modo NONETWORK devolvemos true y no damos error
+    if(response == "ErrX") Estado.fase=E3;
+    else Estado.fase=E2;
+    Serial.printf("[ERROR] queryStatus IDX: %d [HTTP] GET... failed\n", idx);
+    return false;
+  }
+  // ya tenemos en response el JSON, lo procesamos
+  char* response_pointer = &response[0];
+  DynamicJsonDocument jsondoc(2048);
+  DeserializationError error = deserializeJson(jsondoc, response_pointer);
+  if (error) {
+    Serial.print(F("[ERROR] queryStatus: deserializeJson() failed: "));
+    Serial.println(error.f_str());
+    Estado.fase=E2;  
+    return false;
+  }
+  //Tenemos que controlar para que no resetee en caso de no haber leido por un rid malo
+  const char *actual_status = jsondoc["result"][0]["Status"]; //TODO ----> verificar <---
+  if(actual_status == NULL) {
+    Serial.print(F("[ERROR] queryStatus: deserializeJson() failed: Status not found"));
+    Estado.fase=E2;  
+    return false;
+  }
+  #ifdef EXTRADEBUG
+    Serial.printf( "queryStatus verificando, status=%s / actual=%s \n" , status, actual_status);
+    Serial.printf( "                status_size=%d / actual_size=%d \n" , strlen(status), strlen(actual_status));
+  #endif
+  if(strcmp(actual_status,status) == 0) return true;
+  else{
+    if(NONETWORK) return true; //siempre devolvemos ok en modo simulacion
+    #ifdef DEBUG
+      Serial.print(F("queryStatus devuelve FALSE, status / actual = "));Serial.print(status);Serial.println(actual_status);
+    #endif
+    return false;
+  }  
+}
+
+/**---------------------------------------------------------------
  * Envia a domoticz orden de on/off del idx correspondiente
  */
 bool domoticzSwitch(int idx,char *msg)
@@ -1240,7 +1371,7 @@ bool domoticzSwitch(int idx,char *msg)
   sprintf(message,JSONMSG,idx,msg);
   String response = httpGetDomoticz(message);
   //procesamos la respuesta para ver si se ha producido error:
-  if (Estado.estado == ERROR && response.startsWith("Err")) {
+  if (response.startsWith("Err")) {
     if (!errorOFF) { //para no repetir bips en caso de stopAllRiego
       if(response == "ErrX") {
         if(strcmp(msg,"On") == 0 ) statusError(E4,3); //error al iniciar riego
@@ -1270,7 +1401,7 @@ void Verificaciones()
     leeSerial();  // para ver si simulamos algun tipo de error
   #endif
   #ifdef WEBSERVER
-  if (Estado.estado == CONFIGURANDO && webServerAct) {
+  if (webServerAct) {
     procesaWebServer();
     return;
   }
@@ -1296,7 +1427,7 @@ void Verificaciones()
  */
 void statusError(uint8_t errorID, int n) 
 {
-  char errorText[7] = "Err";    
+  strcpy(errorText, "Err");    
   Estado.estado = ERROR;
   Estado.fase = errorID;
   if (errorID == E0) strcpy(errorText, "Err0");
