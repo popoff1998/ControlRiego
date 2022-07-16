@@ -60,7 +60,7 @@
   #endif
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "2.4-1"
+                            #define VERSION  "2.4-2"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -87,6 +87,8 @@
   #define HOLDTIME            3000
   #define MAXCONNECTRETRY     10
   #define VERIFY_INTERVAL     15
+  #define DEFAULT_SWITCH_RETRIES 5
+  #define DELAYRETRY          2000
 
  //----------------  dependientes del HW   ----------------------------------------
 
@@ -128,6 +130,7 @@
   #define LONGBIP 1
   #define BIP 2
   #define BIPOK 3
+  #define BIPEND 4
   #define NOBLINK 0
 
   //Enums
@@ -135,7 +138,7 @@
     STANDBY       = 0x01,
     REGANDO       = 0x02,
     CONFIGURANDO  = 0x04,
-    TERMINANDO    = 0x08,  //no se usa
+    TERMINANDO    = 0x08,
     PAUSE         = 0x10,
     STOP          = 0x20,
     MULTIREGANDO  = 0x40,  //no se usa
@@ -377,7 +380,11 @@
     bool timeOK = false;
     bool factorRiegosOK = false;
     bool errorOFF = false;
+    bool simErrorON = false;
     bool simErrorOFF = false;
+    bool simErrorVerifyON = false;
+    bool simErrorVerifyOFF = false;
+    bool simErrorPause = false;
     bool webServerAct = false;
     bool VERIFY;
     bool encoderSW = false;
@@ -389,6 +396,7 @@
   void apagaLeds(void);
   void bip(int);
   void bipOK(int);
+  void bipEND(int);
   int  bID_bIndex(uint16_t);
   int  bID_zIndex(uint16_t);
   void blinkPause(void);
@@ -399,7 +407,7 @@
   bool copyConfigFile(const char*, const char*);
   void dimmerLeds(void);
   void displayGrupo(uint16_t *, int);
-  bool domoticzSwitch(int,char *);
+  bool domoticzSwitch(int,char *, int);
   void enciendeLeds(void);
   void filesInfo(void);
   void flagVerificaciones(void);

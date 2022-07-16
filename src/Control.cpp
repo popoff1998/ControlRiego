@@ -13,7 +13,7 @@ void setup()
                 VERIFY=true; 
   #endif
   #ifdef DEVELOP
-                NONETWORK=true;
+                NONETWORK=false;
                 VERIFY=true; 
   #endif
   #ifdef DEMO
@@ -128,7 +128,6 @@ void procesaBotones()
   // almacenamos estado pulsador del encoder (para modificar comportamiento de otros botones)
   //NOTA: el encoderSW esta en estado HIGH en reposo y en estado LOW cuando esta pulsado
   (testButton(bENCODER, OFF)) ? encoderSW = true : encoderSW = false;
-  //(!Boton[bID_bIndex(bENCODER)].estado) ? encoderSW = true : encoderSW = false;
   //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multirriego
   if (multiSemaforo) multiSemaforo = false;
   else  boton = parseInputs(READ);  //vemos si algun boton ha cambiado de estado
@@ -296,7 +295,8 @@ void procesaBotonPause(void)
         }
         break;
       case PAUSE:
-        initRiego(ultimoBoton->id);
+        if(simErrorPause) statusError(E2,3); //simulamos error al salir del PAUSE
+        else initRiego(ultimoBoton->id);
         if(Estado.estado == ERROR) { // caso de error al reanudar el riego seguimos en PAUSE y señalamos con blink rapido zona
           ledID = ultimoBoton->led;
           tic_parpadeoLedZona.attach(0.2,parpadeoLedZona);
@@ -744,7 +744,7 @@ void procesaEstadoTerminando(void)
       multiSemaforo = true;
     }
     else {
-      bipOK(5);
+      bipEND(5);
       multirriego = false;
       multiSemaforo = false;
         Serial.printf("MULTIRRIEGO %s terminado \n", multi.desc);
@@ -1016,7 +1016,7 @@ bool initRiego(uint16_t id)
   utc = timeClient.getEpochTime();
   t = CE.toLocal(utc,&tcr);
   lastRiegos[zIndex] = t;
-  return domoticzSwitch(Boton[bIndex].idx,(char *)"On");
+  return domoticzSwitch(Boton[bIndex].idx, (char *)"On", DEFAULT_SWITCH_RETRIES);
 }
 
 
@@ -1028,7 +1028,7 @@ bool stopRiego(uint16_t id)
   #ifdef DEBUG
   Serial.printf( "Terminando riego: %s \n", Boton[bIndex].desc);
   #endif
-  domoticzSwitch(Boton[bIndex].idx,(char *)"Off");
+  domoticzSwitch(Boton[bIndex].idx, (char *)"Off", DEFAULT_SWITCH_RETRIES);
   if (Estado.estado != ERROR && !simErrorOFF) Serial.printf( "Terminado OK riego: %s \n" , Boton[bIndex].desc );
   else {     //avisa de que no se ha podido terminar un riego
     if (!errorOFF) { //para no repetir bips en caso de stopAllRiego
@@ -1091,6 +1091,20 @@ void bipOK(int veces)
     led(BUZZER,OFF);
     delay(100);
     bip(veces);
+}
+
+
+void bipEND(int veces)
+{
+    led(BUZZER,ON);
+    delay(500);
+    led(BUZZER,OFF);
+    delay(100);
+    bip(veces);
+    delay(100);
+    led(BUZZER,ON);
+    delay(500);
+    led(BUZZER,OFF);
 }
 
 
@@ -1333,7 +1347,7 @@ bool queryStatus(uint16_t idx, char *status)
     return false;
   }
   //Tenemos que controlar para que no resetee en caso de no haber leido por un rid malo
-  const char *actual_status = jsondoc["result"][0]["Status"]; //TODO ----> verificar <---
+  const char *actual_status = jsondoc["result"][0]["Status"];
   if(actual_status == NULL) {
     Serial.print(F("[ERROR] queryStatus: deserializeJson() failed: Status not found"));
     Estado.fase=E2;  
@@ -1343,6 +1357,12 @@ bool queryStatus(uint16_t idx, char *status)
     Serial.printf( "queryStatus verificando, status=%s / actual=%s \n" , status, actual_status);
     Serial.printf( "                status_size=%d / actual_size=%d \n" , strlen(status), strlen(actual_status));
   #endif
+  if(simErrorVerifyON) {   // simulamos EV no esta ON en Domoticz
+    if(strcmp(status, "On")==0) return false; else return true; 
+  } 
+  if(simErrorVerifyOFF) {   // simulamos EV no esta OFF en Domoticz
+    if(strcmp(status, "Off")==0) return false; else return true; 
+  } 
   if(strcmp(actual_status,status) == 0) return true;
   else{
     if(NONETWORK) return true; //siempre devolvemos ok en modo simulacion
@@ -1356,7 +1376,7 @@ bool queryStatus(uint16_t idx, char *status)
 /**---------------------------------------------------------------
  * Envia a domoticz orden de on/off del idx correspondiente
  */
-bool domoticzSwitch(int idx,char *msg)
+bool domoticzSwitch(int idx, char *msg, int retries)
 {
   #ifdef TRACE
     Serial.println(F("TRACE: in domoticzSwitch"));
@@ -1369,7 +1389,17 @@ bool domoticzSwitch(int idx,char *msg)
   char JSONMSG[200]="/json.htm?type=command&param=switchlight&idx=%d&switchcmd=%s";
   char message[250];
   sprintf(message,JSONMSG,idx,msg);
-  String response = httpGetDomoticz(message);
+  String response;
+  for(int i=0; i<retries; i++) {
+     if ((simErrorON && strcmp(msg,"On")==0) || (simErrorOFF && strcmp(msg,"Off")==0)) response = "ErrX"; // simulamos el error
+     else response = httpGetDomoticz(message); // enviamos orden al Domoticz
+     if(response == "ErrX") { // solo reintentamos si Domoticz informa del estado de la zona
+       bip(1);
+       Serial.printf("DOMOTICZSWITH IDX: %d fallo en %s (intento %d de %d)\n", idx, msg, i+1, retries);
+       delay(DELAYRETRY);
+     }
+     else break;
+  }   
   //procesamos la respuesta para ver si se ha producido error:
   if (response.startsWith("Err")) {
     if (!errorOFF) { //para no repetir bips en caso de stopAllRiego
@@ -1568,6 +1598,10 @@ bool setupConfig(const char *p_filename, Config_parm &cfg)
           Serial.println(F("Teclee: "));
           Serial.println(F("   1 - simular error NTP"));
           Serial.println(F("   2 - simular error apagar riego"));
+          Serial.println(F("   3 - simular error encender riego"));
+          Serial.println(F("   4 - simular EV no esta ON en Domoticz"));
+          Serial.println(F("   5 - simular EV no esta OFF en Domoticz"));
+          Serial.println(F("   6 - simular error al salir del PAUSE"));
           Serial.println(F("   9 - anular simulacion errores"));
       }
       switch (inputNumber) {
@@ -1579,9 +1613,29 @@ bool setupConfig(const char *p_filename, Config_parm &cfg)
                 Serial.println(F("recibido:   2 - simular error apagar riego"));
                 simErrorOFF = true;
                 break;
+            case 3:
+                Serial.println(F("recibido:   3 - simular error encender riego"));
+                simErrorON = true;
+                break;
+            case 4:
+                Serial.println(F("recibido:   4 - simular EV no esta ON en DomoticON"));
+                simErrorVerifyON = true;
+                break;
+            case 5:
+                Serial.println(F("recibido:   5 - simular EV no esta OFF en Domoticz"));
+                simErrorVerifyOFF = true;
+                break;
+            case 6:
+                Serial.println(F("recibido:   6 - simular error al salir del PAUSE"));
+                simErrorPause = true;
+                break;
             case 9:
                 Serial.println(F("recibido:   9 - anular simulacion errores"));
                 simErrorOFF = false;
+                simErrorON = false;
+                simErrorVerifyON = false;
+                simErrorVerifyOFF = false;
+                simErrorPause = false;
                 timeOK = true;                         
       }
     }
