@@ -60,7 +60,7 @@
   #endif
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "2.4-2"
+                            #define VERSION  "2.4-3"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -254,10 +254,24 @@
               spare0        : 1;
     };
   };
+
   struct S_initFlags     {
     uint8_t initParm    : 1,
             initWifi      : 1,
             spare1        : 1;
+  };
+
+  union S_simFlags
+  {
+    uint8_t all_simFlags;
+    struct
+    {
+    uint8_t ErrorOFF       : 1,
+            ErrorON        : 1,
+            ErrorVerifyON  : 1,
+            ErrorVerifyOFF : 1,
+            ErrorPause     : 1;
+    };
   };
 
   struct S_BOTON {
@@ -344,6 +358,7 @@
     S_Estado Estado;
     S_BOTON  *boton;
     S_BOTON  *ultimoBoton;
+    S_simFlags simular; // estructura flags para simular errores
     Config_parm config; //estructura parametros configurables y runtime
     ClickEncoder *Encoder;
     Display      *display;
@@ -380,15 +395,13 @@
     bool timeOK = false;
     bool factorRiegosOK = false;
     bool errorOFF = false;
-    bool simErrorON = false;
-    bool simErrorOFF = false;
-    bool simErrorVerifyON = false;
-    bool simErrorVerifyOFF = false;
-    bool simErrorPause = false;
     bool webServerAct = false;
     bool VERIFY;
     bool encoderSW = false;
     char errorText[7];
+    bool clean_FS = false;
+
+
 
   #endif
 
