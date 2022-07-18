@@ -321,7 +321,7 @@ void procesaBotonPause(void)
                 led(LEDB,OFF);
                 display->print("----");
                 initFactorRiegos();
-                if(VERIFY && Estado.estado != ERROR) stopAllRiego(true); //verificamos operativa OFF para los IDX's 
+                if(VERIFY && Estado.estado != ERROR) stopAllRiego(); //verificamos operativa OFF para los IDX's 
             }
             else {
                 NONETWORK = true;
@@ -378,7 +378,7 @@ void procesaBotonStop(void)
       //De alguna manera esta regando y hay que parar
       display->print("StoP");
       T.StopTimer();
-      if (!stopAllRiego(true)) {   //error en stopAllRiego
+      if (!stopAllRiego()) {   //error en stopAllRiego
         boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
         return; 
       }
@@ -391,7 +391,7 @@ void procesaBotonStop(void)
       //Lo hemos pulsado en standby - seguro antinenes
       infoDisplay("StoP", NOBLINK, BIP, 3);
       // apagar leds y parar riegos (por si riego activado externamente)
-      if (!stopAllRiego(true)) {   //error en stopAllRiego
+      if (!stopAllRiego()) {   //error en stopAllRiego
         boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
         return; 
       }
@@ -675,13 +675,8 @@ void procesaEstadoError(void)
     bip(2);
     led(LEDB,ON);
     //reseteos varios:
-    tic_parpadeoLedZona.detach(); //detiene parpadeo led zona con error
-    tic_parpadeoLedON.detach();   //detiene parpadeo led ON por si estuviera activado
-    led(LEDR,ON);                 // y lo deja fijo
-    stopAllRiego(false);          //apaga leds activos
-    multirriego = false;
-    multiSemaforo = false;
-    errorOFF = false;
+    resetLeds();    //apaga leds activos y restablece leds ON y RED
+    resetFlags();   //reset flags de status
   }
   if(boton->id == bSTOP) {
   //Si estamos en ERROR y pulsamos o liberamos STOP, reseteamos
@@ -1041,20 +1036,48 @@ bool stopRiego(uint16_t id)
 }
 
 
+//Pone a off todos los leds de riegos y restablece leds ON y RED
+void resetLeds()
+{
+  //Apago los leds de multirriego
+  for(unsigned int j=0;j<NUMGRUPOS;j++) {
+    led(Boton[bID_bIndex(GRUPOS[j])].led,OFF);
+  }
+  //Apago los leds de riego y posible parpadeo
+  tic_parpadeoLedZona.detach();
+  for(unsigned int i=0;i<NUMZONAS;i++) {
+    led(Boton[bID_bIndex(ZONAS[i])].led,OFF);
+  }
+  //restablece leds ON y RED
+  tic_parpadeoLedON.detach();
+  //tic_APLed.detach();
+  //tic_WifiLed.detach();
+  ledConf(OFF);
+}
+
+
+//Pone a false diversos flags de estado
+void resetFlags()
+{
+  multirriego = false;
+  multiSemaforo = false;
+  errorOFF = false;
+  falloAP = false;
+  webServerAct = false;
+  simular.all_simFlags = false;
+}
+
+
 //Pone a off todos los leds de riegos y detiene riegos (solo si la llamamos con true)
-bool stopAllRiego(bool stop)
+bool stopAllRiego()
 {
   //Apago los leds de multirriego
   led(Boton[bID_bIndex(*multi.id)].led,OFF);
   //Apago los leds de riego y posible parpadeo
   tic_parpadeoLedZona.detach();
-  for(unsigned int i=0;i<NUMZONAS;i++) {
+  for(unsigned int i=0;i<NUMZONAS;i++) { //paramos todas las zonas de riego
     led(Boton[bID_bIndex(ZONAS[i])].led,OFF);
-    if (stop) {  //paramos todas las zonas de riego
-      if(!stopRiego(ZONAS[i])) { 
-        return false; //al primer error salimos
-      }  
-    }
+    if(!stopRiego(ZONAS[i])) return false; //al primer error salimos
   }
   return true;
 }
