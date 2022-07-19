@@ -135,15 +135,15 @@
 
   //Enums
   enum _estados {
-    STANDBY       = 0x01,
-    REGANDO       = 0x02,
-    CONFIGURANDO  = 0x04,
-    TERMINANDO    = 0x08,
-    PAUSE         = 0x10,
-    STOP          = 0x20,
-    MULTIREGANDO  = 0x40,  //no se usa
-    ERROR         = 0x80,
+    STANDBY       ,
+    REGANDO       ,
+    CONFIGURANDO  ,
+    TERMINANDO    ,
+    PAUSE         ,
+    STOP          ,
+    ERROR         ,
   };
+  #define _ESTADOS "STANDBY" , "REGANDO" , "CONFIGURANDO" , "TERMINANDO" , "PAUSE" , "STOP" , "ERROR"
 
   enum _fases {
     CERO          = 0,
@@ -293,6 +293,7 @@
   const uint16_t GRUPOS[]  = {_GRUPOS};
   const int NUMZONAS = sizeof(ZONAS)/sizeof(ZONAS[0]); // (7) numero de zonas (botones riego individual)
   const int NUMGRUPOS = sizeof(GRUPOS)/sizeof(GRUPOS[0]); // (3) numero de grupos multirriego
+  const char nEstado[][15] = {_ESTADOS};
 
    //Globales a todos los módulos
   #ifdef __MAIN__
@@ -470,7 +471,10 @@
   bool queryStatus(uint16_t, char *);
   void refreshTime(void);
   void refreshDisplay(void);
+  void resetFlags(void);
+  void resetLeds(void);
   bool saveConfigFile(const char*, Config_parm&);
+  void setEstado(uint8_t);
   int  setMultibyId(uint16_t , Config_parm&);
   bool setupConfig(const char*, Config_parm&);
   void setupEstado(void);
@@ -482,7 +486,7 @@
   void StaticTimeUpdate(void);
   void statusError(uint8_t, int n);
   bool stopRiego(uint16_t);
-  bool stopAllRiego(bool);
+  bool stopAllRiego(void);
   bool testButton(uint16_t, bool);
   void timeByFactor(int,uint8_t *,uint8_t *);
   void ultimosRiegos(int);
