@@ -36,6 +36,7 @@
     //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
     #define DEBUG
     //#define EXTRADEBUG
+    //#define EXTRADEBUG1
     #define TRACE
     //#define EXTRATRACE
     #define VERBOSE
@@ -60,7 +61,7 @@
   #endif
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "2.4-3"
+                            #define VERSION  "2.4-4"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz

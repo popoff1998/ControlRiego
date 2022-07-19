@@ -667,7 +667,9 @@ void procesaEstadoError(void)
     resetFlags();   //reset flags de status
   }
   if(boton->id == bSTOP) {
-  //Si estamos en ERROR y pulsamos o liberamos STOP, reseteamos
+  //Si estamos en ERROR y pulsamos o liberamos STOP, reseteamos, pero antes intentamos parar riegos
+    setEstado(STANDBY);
+    if(checkWifi()) stopAllRiego();
     Serial.println(F("ERROR + STOP --> Reset....."));
     longbip(3);
     ESP.restart();  
@@ -1219,7 +1221,7 @@ String httpGetDomoticz(String message)
   if(httpCode > 0) {
     if(httpCode == HTTP_CODE_OK) {
       response = httpclient.getString();
-      #ifdef EXTRADEBUG
+      #ifdef EXTRADEBUG1
         Serial.print(F("httpGetDomoticz RESPONSE: "));Serial.println(response);
       #endif
     }
@@ -1456,7 +1458,7 @@ void Verificaciones()
   if (Estado.estado == STANDBY) Serial.print(F("."));
   if (errorOFF) bip(2);  //recordatorio error grave
   if (!NONETWORK && (Estado.estado == STANDBY || (Estado.estado == ERROR && !connected))) {
-    if (checkWifi()) setEstado(STANDBY); //verificamos si seguimos connectados a la wifi
+    if (checkWifi() && Estado.estado!=STANDBY) setEstado(STANDBY); //verificamos si seguimos connectados a la wifi
     if (connected && falloAP) {
       Serial.println(F("Wifi conectada despues Setup, leemos factor riegos"));
       falloAP = false;
