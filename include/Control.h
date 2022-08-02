@@ -61,7 +61,7 @@
   #endif
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "2.4-4"
+                            #define VERSION  "2.4-5"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -424,6 +424,7 @@
   void displayGrupo(uint16_t *, int);
   bool domoticzSwitch(int,char *, int);
   void enciendeLeds(void);
+  void endWS(void);
   void filesInfo(void);
   void flagVerificaciones(void);
   int  getFactor(uint16_t);
