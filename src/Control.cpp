@@ -62,9 +62,11 @@ void setup()
     if (saveConfigFile(parmFile, config))  bipOK(3);;
     saveConfig = false;
   }
+  /*
   #ifdef WEBSERVER
     setupWS();
   #endif
+  */
   delay(2000);
   //Ponemos en hora
   timeClient.begin();
@@ -522,7 +524,8 @@ void procesaEstadoConfigurando()
               }
             }
             #ifdef WEBSERVER
-              if (n_grupo == 2) {  // activamos procesado webserver
+              if (n_grupo == 2) {  // activamos webserver
+                setupWS();
                 Serial.println(F("[ConF][WS] activado webserver para actualizaciones OTA de SW o filesystem"));
                 webServerAct = true;
                 ledConf(OFF);
@@ -593,7 +596,6 @@ void procesaEstadoConfigurando()
               saveConfig = true;
               bipOK(3);
             }
-            //value = savedValue;
             ultimosRiegos(HIDE);
             led(Boton[bID_bIndex(*multi.id)].led,OFF);
             configure->stop();
@@ -607,8 +609,13 @@ void procesaEstadoConfigurando()
               if (saveConfigFile(parmFile, config)) infoDisplay("SAUE", DEFAULTBLINK, BIPOK, 5);
               saveConfig = false;
             }
-            if (webServerAct) Serial.println(F("[ConF][WS] desactivado webserver"));
-            webServerAct = false; //al salir de modo ConF no procesaremos peticiones al webserver
+            #ifdef WEBSERVER
+              if (webServerAct) {
+                endWS();
+                Serial.println(F("[ConF][WS] desactivado webserver"));
+                webServerAct = false; //al salir de modo ConF no procesaremos peticiones al webserver
+              }
+            #endif
             setEstado(STANDBY);
             resetLeds();
             standbyTime = millis();
