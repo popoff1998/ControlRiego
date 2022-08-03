@@ -80,7 +80,8 @@ void setupRedWM(Config_parm &config)
     infoDisplay("CLEA", DEFAULTBLINK, LONGBIP, 1); //señala borrado wifi
   }
   // explicitly set mode, esp defaults to STA+AP   
-  WiFi.mode(WIFI_STA); 
+  WiFi.mode(WIFI_STA);
+  wm.setHostname(HOSTNAME); 
   // Descomentar para resetear configuración
   //wm.resetSettings();
   // Empezamos el temporizador que hará parpadear el LED indicador de wifi

@@ -12,7 +12,7 @@
    #define TRACE2(...) Serial.printf(__VA_ARGS__)
 
 
-   const char* host = "ardomo";
+   //const char* host = "ardomo";
    int wsport = 8080;
    const char* update_path = "/$update";
    const char* update_username = "admin";
@@ -241,15 +241,15 @@
    void setupWS()
    {
       if (!LittleFS.begin()) TRACE2("could not mount the filesystem...\n");
-      if (!MDNS.begin(host)) Serial.println("Error iniciando mDNS");
+      if (!MDNS.begin(HOSTNAME)) Serial.println("Error iniciando mDNS");
       else Serial.println("mDNS iniciado");
       httpUpdater.setup(&wserver, update_path, update_username, update_password);
       defWebpages();
-      wserver.begin();
       MDNS.addService("http", "tcp", wsport);
       MDNS.announce();
+      wserver.begin();
       Serial.println(F("[WS] HTTPUpdateServer ready!"));
-      Serial.printf("[WS]    --> Open http://%s.local:%d%s in your browser and login with username '%s' and password '%s'\n\n", host, wsport, update_path, update_username, update_password);
+      Serial.printf("[WS]    --> Open http://%s.local:%d%s in your browser and login with username '%s' and password '%s'\n\n", WiFi.getHostname(), wsport, update_path, update_username, update_password);
       TRACE2("hostname=%s\n", WiFi.getHostname());
    }
 

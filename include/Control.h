@@ -60,6 +60,12 @@
     #define VERBOSE
   #endif
 
+  #ifdef DEVELOP
+    #define HOSTNAME "ardomot"
+  #else
+    #define HOSTNAME "ardomo"
+  #endif  
+
   //-------------------------------------------------------------------------------------
                             #define VERSION  "2.4-5"
   //-------------------------------------------------------------------------------------
@@ -331,7 +337,6 @@
     
     const char *parmFile = "/config_parm.json";       // fichero de parametros activos
     const char *defaultFile = "/config_default.json"; // fichero de parametros por defecto
-
 
   #else
     extern S_BOTON Boton [];
