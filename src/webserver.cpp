@@ -111,14 +111,16 @@
    float fileTotalKB = (float)fs_info.totalBytes / 1024.0; 
    float fileUsedKB = (float)fs_info.usedBytes / 1024.0; 
 
-   result += "__________________________\n";
+   result += "\n\n CONTROL RIEGO V" + String(VERSION) + "    Built on " __DATE__ " at " __TIME__ " \n";
+   result += "__________________________\n\n";
    result += "SysInfo :\n";
    result += "\t flashSize : \t\t" + String(ESP.getFlashChipSize()) + "\n";
+   result += "\t usedSketchSpace : \t" + String(ESP.getSketchSize()) + "\n";
    result += "\t freeSketchSpace : \t" + String(ESP.getFreeSketchSpace()) + "\n";
    result += "\t freeHeap : \t\t" + String(ESP.getFreeHeap()) + "\n";
    result += "\t HeapFragmentation : \t" + String(ESP.getHeapFragmentation()) + "\n";
    result += "\t MaxFreeBlockSize : \t" + String(ESP.getMaxFreeBlockSize()) + "\n";
-   result += "__________________________\n";
+   result += "__________________________\n\n";
    result += "File system (LittleFS): \n";
    result += "\t    Total KB: " + String(fileTotalKB) + " KB \n";
    result += "\t    Used  KB: " + String(fileUsedKB) + " KB \n";
