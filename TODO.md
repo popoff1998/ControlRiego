@@ -43,6 +43,7 @@ HECHOS
 - menú de servicio: páginas $sysinfo, $list, $parm y $def V2.4 (experimental)
 - si error al salir del Pause, permanece en esta y señala zona que falla V2.5
 - verifica periódicamente si el riego en curso esta activo o en pause en Domoticz y lo refleja V2.5
-- si al lanzar o detener un riego Domoticz informa de error, se reintenta varias veces antes de dar error V2.5 
+- si al lanzar o detener un riego Domoticz informa de error, se reintenta varias veces antes de dar error V2.5
+- mejoras en menu de servicio (webserver): posibilida de ver, borrar y actualizar ficheros individuales del file system V2.5
 
 
