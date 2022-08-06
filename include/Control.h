@@ -1,30 +1,32 @@
 #ifndef control_h
   #define control_h
-
-  #ifndef _GNU_SOURCE  // LOCAL WORK-AROUND
-   #define _GNU_SOURCE // evitar error uint no definido tras update a espressif8266 3.2.0
-  #endif               // ver: https://community.platformio.org/t/error-acessing-eeprom-of-esp8266-after-plattform-update/22747/2
-
-  #ifdef NODEMCU
-    #include <WifiUdp.h>
-    #include <ESP8266HTTPClient.h>
-    #include <ESP8266WiFi.h>
-    #include <DNSServer.h>
-    #include <ESP8266WebServer.h >
-    #include <WiFiManager.h> 
-  #endif
   
+  #ifndef _GNU_SOURCE  // LOCAL WORK-AROUND
+   #define _GNU_SOURCE // evitar error uint no definido en platformio (no en compilacion) tras update a espressif8266 3.2.0
+  #endif               // ver: https://community.platformio.org/t/error-acessing-eeprom-of-esp8266-after-plattform-update/22747/2
+  
+  #include <DNSServer.h>
+  #include <WifiUdp.h>
+  #include <WiFiManager.h> 
   #include <SPI.h>
   #include <NTPClient.h>
   #include <Time.h>
   #include <Timezone.h>
   #include <ClickEncoder.h>
   #include <CountUpDownTimer.h>
-  #include <Streaming.h>
   #include <ArduinoJson.h>
   #include <Ticker.h>
   #include <LittleFS.h>
 
+  #ifdef NODEMCU
+    #include <ESP8266HTTPClient.h>
+    #include <ESP8266WiFi.h>
+    #include <ESP8266WebServer.h >
+    #ifdef WEBSERVER
+      #include <ESP8266mDNS.h>
+      #include <ESP8266HTTPUpdateServer.h>
+    #endif
+  #endif
 
   //Para mis clases
   #include "Display.h"
@@ -34,6 +36,7 @@
     //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
     #define DEBUG
     //#define EXTRADEBUG
+    //#define EXTRADEBUG1
     #define TRACE
     //#define EXTRATRACE
     #define VERBOSE
@@ -57,8 +60,14 @@
     #define VERBOSE
   #endif
 
+  #ifdef DEVELOP
+    #define HOSTNAME "ardomot"
+  #else
+    #define HOSTNAME "ardomo"
+  #endif  
+
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "2.2.1"
+                            #define VERSION  "2.5"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -84,6 +93,9 @@
   #define MINSECONDS          5
   #define HOLDTIME            3000
   #define MAXCONNECTRETRY     10
+  #define VERIFY_INTERVAL     15
+  #define DEFAULT_SWITCH_RETRIES 5
+  #define DELAYRETRY          2000
 
  //----------------  dependientes del HW   ----------------------------------------
 
@@ -122,18 +134,23 @@
   #define HIDE 0
   #define READ 1
   #define CLEAR 0
+  #define LONGBIP 1
+  #define BIP 2
+  #define BIPOK 3
+  #define BIPEND 4
+  #define NOBLINK 0
 
   //Enums
   enum _estados {
-    STANDBY       = 0x01,
-    REGANDO       = 0x02,
-    CONFIGURANDO  = 0x04,
-    TERMINANDO    = 0x08,
-    PAUSE         = 0x10,
-    STOP          = 0x20,
-    MULTIREGANDO  = 0x40,
-    ERROR         = 0x80,
+    STANDBY       ,
+    REGANDO       ,
+    CONFIGURANDO  ,
+    TERMINANDO    ,
+    PAUSE         ,
+    STOP          ,
+    ERROR         ,
   };
+  #define _ESTADOS "STANDBY" , "REGANDO" , "CONFIGURANDO" , "TERMINANDO" , "PAUSE" , "STOP" , "ERROR"
 
   enum _fases {
     CERO          = 0,
@@ -244,10 +261,24 @@
               spare0        : 1;
     };
   };
+
   struct S_initFlags     {
     uint8_t initParm    : 1,
             initWifi      : 1,
             spare1        : 1;
+  };
+
+  union S_simFlags
+  {
+    uint8_t all_simFlags;
+    struct
+    {
+    uint8_t ErrorOFF       : 1,
+            ErrorON        : 1,
+            ErrorVerifyON  : 1,
+            ErrorVerifyOFF : 1,
+            ErrorPause     : 1;
+    };
   };
 
   struct S_BOTON {
@@ -269,6 +300,7 @@
   const uint16_t GRUPOS[]  = {_GRUPOS};
   const int NUMZONAS = sizeof(ZONAS)/sizeof(ZONAS[0]); // (7) numero de zonas (botones riego individual)
   const int NUMGRUPOS = sizeof(GRUPOS)/sizeof(GRUPOS[0]); // (3) numero de grupos multirriego
+  const char nEstado[][15] = {_ESTADOS};
 
    //Globales a todos los módulos
   #ifdef __MAIN__
@@ -302,6 +334,10 @@
     bool NONETWORK;
     bool falloAP;
     bool saveConfig = false;
+    
+    const char *parmFile = "/config_parm.json";       // fichero de parametros activos
+    const char *defaultFile = "/config_default.json"; // fichero de parametros por defecto
+
   #else
     extern S_BOTON Boton [];
     extern S_MULTI multi;
@@ -311,6 +347,9 @@
     extern bool falloAP;
     extern bool saveConfig;
     extern int NUM_S_BOTON;
+    extern const char *parmFile;       // fichero de parametros activos
+    extern const char *defaultFile; // fichero de parametros por defecto
+
 
   #endif
 
@@ -326,14 +365,16 @@
     S_Estado Estado;
     S_BOTON  *boton;
     S_BOTON  *ultimoBoton;
+    S_simFlags simular; // estructura flags para simular errores
     Config_parm config; //estructura parametros configurables y runtime
     ClickEncoder *Encoder;
     Display      *display;
     Configure    *configure;
     NTPClient timeClient(ntpUDP,config.ntpServer);
-    Ticker tic_parpadeoLedON;  //para parpadeo led ON (LEDR)
+    Ticker tic_parpadeoLedON;    //para parpadeo led ON (LEDR)
     Ticker tic_parpadeoLedZona;  //para parpadeo led zona de riego
-    Ticker tic_verificaciones; //para verificaciones periodicas
+    Ticker tic_parpadeoLedConf;  //para parpadeo led(s) indicadores de modo configuracion
+    Ticker tic_verificaciones;   //para verificaciones periodicas
     TimeChangeRule CEST = {"CEST", Last, Sun, Mar, 2, 120};
     TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};
     Timezone CE(CEST, CET);
@@ -352,7 +393,7 @@
     unsigned long standbyTime;
     bool displayOff = false;
     unsigned long lastBlinkPause;
-    bool multiriego = false;
+    bool multirriego = false;
     bool multiSemaforo = false;
     bool holdPause = false;
     unsigned long countHoldPause;
@@ -361,10 +402,13 @@
     bool timeOK = false;
     bool factorRiegosOK = false;
     bool errorOFF = false;
-    bool simErrorOFF = false;
-    bool displayOFF = false;
+    bool webServerAct = false;
     bool VERIFY;
     bool encoderSW = false;
+    char errorText[7];
+    bool clean_FS = false;
+
+
 
   #endif
 
@@ -372,24 +416,26 @@
   void apagaLeds(void);
   void bip(int);
   void bipOK(int);
+  void bipEND(int);
   int  bID_bIndex(uint16_t);
   int  bID_zIndex(uint16_t);
   void blinkPause(void);
+  void blinkPauseError(void);
   void check(void);
   bool checkWifi(void);
   void cleanFS(void);
   bool copyConfigFile(const char*, const char*);
   void dimmerLeds(void);
   void displayGrupo(uint16_t *, int);
-  bool domoticzSwitch(int,char *);
-  void filesInfo(void);
-  void loadDefaultSignal(uint);
+  bool domoticzSwitch(int,char *, int);
   void enciendeLeds(void);
+  void endWS(void);
+  void filesInfo(void);
   void flagVerificaciones(void);
   int  getFactor(uint16_t);
-  int setMultibyId(uint16_t , Config_parm&);
   uint16_t getMultiStatus(void);
   String *httpGetDomoticz(String *);
+  void infoDisplay(const char *, int, int, int);
   void initCD4021B(void);
   void initClock(void);
   void initFactorRiegos(void);
@@ -398,10 +444,12 @@
   void initLeds(void);
   bool initRiego(uint16_t);
   void led(uint8_t,int);
+  void ledConf(int);
   void ledRGB(int,int,int);
   bool ledStatusId(int);
   void leeSerial(void);
   bool loadConfigFile(const char*, Config_parm&);
+  void loadDefaultSignal(uint);
   void longbip(int);
   void memoryInfo(void);
   void parpadeoLedON(void);
@@ -426,19 +474,26 @@
   void procesaEstadoTerminando(void);
   void procesaEstadoStop(void);
   void procesaEstadoPause(void);
+  void procesaWebServer(void);
+  bool queryStatus(uint16_t, char *);
   void refreshTime(void);
   void refreshDisplay(void);
+  void resetFlags(void);
+  void resetLeds(void);
   bool saveConfigFile(const char*, Config_parm&);
+  void setEstado(uint8_t);
+  int  setMultibyId(uint16_t , Config_parm&);
   bool setupConfig(const char*, Config_parm&);
   void setupEstado(void);
   void setupInit(void);
   void setupParm(void);
   void setupRedWM(Config_parm&);
+  void setupWS(void);
   void starConfigPortal(Config_parm&);
   void StaticTimeUpdate(void);
   void statusError(uint8_t, int n);
   bool stopRiego(uint16_t);
-  void stopAllRiego(bool);
+  bool stopAllRiego(void);
   bool testButton(uint16_t, bool);
   void timeByFactor(int,uint8_t *,uint8_t *);
   void ultimosRiegos(int);

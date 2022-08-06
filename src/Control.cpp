@@ -1,10 +1,6 @@
 #define __MAIN__
 #include "Control.h"
 
-bool clean_FS = false;
-const char *parmFile = "/config_parm.json";       // fichero de parametros activos
-const char *defaultFile = "/config_default.json"; // fichero de parametros por defecto
-
 /*----------------------------------------------*
  *               Setup inicial                  *
  *----------------------------------------------*/
@@ -66,9 +62,15 @@ void setup()
     if (saveConfigFile(parmFile, config))  bipOK(3);;
     saveConfig = false;
   }
-  delay(2500);
+  /*
+  #ifdef WEBSERVER
+    setupWS();
+  #endif
+  */
+  delay(2000);
   //Ponemos en hora
   timeClient.begin();
+  delay(500);
   initClock();
   //Inicializamos lastRiegos (registro fecha y riego realizado)
   initLastRiegos();
@@ -78,14 +80,14 @@ void setup()
   Boton[bID_bIndex(bPAUSE)].flags.holddisabled = true;
   //Llamo a parseInputs CLEAR para eliminar prepulsaciones antes del bucle loop
   parseInputs(CLEAR);
-  // estado final en funcion de la conexion
+  //Estado final en funcion de la conexion
   setupEstado();
   #ifdef EXTRADEBUG
     printMulti();
     printFile(parmFile);
   #endif
-  //lanzamos supervision periodica estado cada 10 seg.
-  tic_verificaciones.attach_scheduled(10, flagVerificaciones);
+  //lanzamos supervision periodica estado cada VERIFY_INTERVAL seg.
+  tic_verificaciones.attach_scheduled(VERIFY_INTERVAL, flagVerificaciones);
   standbyTime = millis();
   #ifdef TRACE
     Serial.println(F("TRACE: ending setup"));
@@ -125,23 +127,25 @@ void procesaBotones()
   #endif
   // almacenamos estado pulsador del encoder (para modificar comportamiento de otros botones)
   //NOTA: el encoderSW esta en estado HIGH en reposo y en estado LOW cuando esta pulsado
-  (!Boton[bID_bIndex(bENCODER)].estado) ? encoderSW = true : encoderSW = false;
-  //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multiriego
+  (testButton(bENCODER, OFF)) ? encoderSW = true : encoderSW = false;
+  //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multirriego
   if (multiSemaforo) multiSemaforo = false;
   else  boton = parseInputs(READ);  //vemos si algun boton ha cambiado de estado
   // si no se ha pulsado ningun boton salimos
   if(boton == NULL) return;
-  //Si estamos en reposo pulsar cualquier boton solo nos saca de ese estado, salvo STOP
+  //Si estamos en reposo pulsar cualquier boton solo nos saca de ese estado
+  // (salvo STOP que si actua y se procesa mas adelante)
   if (reposo && boton->id != bSTOP) {
-    Serial.println(F("Salimos de reposo -1-"));
+    Serial.println(F("Salimos de reposo"));
     reposo = false;
-    displayOFF = false;
+    displayOff = false;
     standbyTime = millis();
     if(Estado.estado == STOP) display->print("StoP");
     else StaticTimeUpdate();
     return;
   }
-  //En estado error procesaremos el boton pulsado (si procede) en procesaEstados
+  //En estado error no actuan los botones
+  // (salvo PAUSE y STOP que se procesan en procesaEstadoError)
   if(Estado.estado == ERROR) return;
   //a partir de aqui procesamos solo los botones con flag ACTION
   if (!boton->flags.action) return;
@@ -169,7 +173,6 @@ void procesaBotones()
 void procesaEstados()
 {
   #ifdef EXTRATRACE
-    //Serial.println(F("TRACE: in procesaEstados"));
     Serial.print(F("E"));
   #endif
 
@@ -184,17 +187,18 @@ void procesaEstados()
     case REGANDO:
       procesaEstadoRegando();
       break;
-    case STANDBY:
-      procesaEstadoStandby();
-      break;
     case TERMINANDO:
       procesaEstadoTerminando();
+      break;
+    case STANDBY:
+      procesaEstadoStandby();
       break;
     case STOP:
       procesaEstadoStop();
       break;
     case PAUSE:
-      blinkPause();
+      procesaEstadoPause();
+      strcmp(errorText, "") == 0 ? blinkPause() : blinkPauseError();
       break;
   }
 }
@@ -213,10 +217,13 @@ void setupEstado()
     statusError(E0, 3);  //no se ha podido cargar parámetros de ficheros -> señalamos el error
   return;
   }
-  // Si estamos en modo NONETWORK pasamos a STANDBY aunque no exista conexión wifi o estemos en ERROR
+  // Si estamos en modo NONETWORK pasamos a STANDBY (o STOP si esta pulsado) aunque no exista conexión wifi o estemos en ERROR
   if (NONETWORK) {
-    Estado.estado = STANDBY;
-    Estado.fase = CERO;
+    if (Boton[bID_bIndex(bSTOP)].estado) {
+      setEstado(STOP);
+      infoDisplay("StoP", NOBLINK, LONGBIP, 1);
+    }
+    else setEstado(STANDBY);
     bip(2);
     return;
   }
@@ -227,13 +234,10 @@ void setupEstado()
   // Si estamos conectados pasamos a STANDBY o STOP (caso de estar pulsado este al inicio)
   if (checkWifi()) {
     if (Boton[bID_bIndex(bSTOP)].estado) {
-      Estado.estado = STOP;
-      display->print("StoP");
-      bip(1);
-      longbip(1);
+      setEstado(STOP);
+      infoDisplay("StoP", NOBLINK, LONGBIP, 1);
     }
-    else Estado.estado = STANDBY;
-    Estado.fase = CERO;
+    else setEstado(STANDBY);
     bip(1);
     return;
   }
@@ -273,25 +277,35 @@ void procesaBotonPause(void)
     if(!boton->estado) return;
     switch (Estado.estado) {
       case REGANDO:
-        bip(1);
-        Estado.estado = PAUSE;
-        if(ultimoBoton) stopRiego(ultimoBoton->id);
-        T.PauseTimer();
+        if(encoderSW) {  //si pulsamos junto con encoderSW terminamos el riego (pasaria al siguiente en caso de multirriego)
+          setEstado(TERMINANDO);
+          Serial.println(F("encoderSW+PAUSE terminamos riego de zona en curso"));
+        }
+        else {
+          bip(1);
+          setEstado(PAUSE);
+          tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
+          led(ultimoBoton->led,ON);// y lo deja fijo
+          stopRiego(ultimoBoton->id);
+          T.PauseTimer();
+        }
         break;
       case PAUSE:
-        bip(2);
-        if(ultimoBoton) initRiego(ultimoBoton->id);
-        T.ResumeTimer();
-        if(Estado.estado != ERROR) Estado.estado = REGANDO; // para que no borre ERROR
-        else boton = NULL; //para que procesaEstadoError no pase directamente a NONETWORK
-        break;
-      case CONFIGURANDO:
-        if(!configure->configuring()) { //si no estamos ya configurando algo
-          configure->configureTime();
-          Serial.println(F("[ConF] configurando tiempo riego por defecto"));
-          delay(500);
-          boton = NULL;
+        if(simular.ErrorPause) statusError(E2,3); //simulamos error al salir del PAUSE
+        else initRiego(ultimoBoton->id);
+        if(Estado.estado == ERROR) { // caso de error al reanudar el riego seguimos en PAUSE y señalamos con blink rapido zona
+          ledID = ultimoBoton->led;
+          tic_parpadeoLedZona.attach(0.2,parpadeoLedZona);
+          Serial.printf( "error al salir de PAUSE errorText : %s Estado.fase : %d\n", errorText, Estado.fase );
+          refreshTime();
+          setEstado(PAUSE);
+          break;
         }
+        bip(2);
+        T.ResumeTimer();
+        tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
+        led(ultimoBoton->led,ON);// y lo deja fijo
+        setEstado(REGANDO);
         break;
       case STANDBY:
           boton = NULL; //lo borramos para que no sea tratado más adelante en procesaEstados
@@ -303,7 +317,7 @@ void procesaBotonPause(void)
                 led(LEDB,OFF);
                 display->print("----");
                 initFactorRiegos();
-                if(VERIFY && Estado.estado != ERROR) stopAllRiego(true); //verificamos operativa OFF para los IDX's 
+                if(VERIFY && Estado.estado != ERROR) stopAllRiego(); //verificamos operativa OFF para los IDX's 
             }
             else {
                 NONETWORK = true;
@@ -332,13 +346,15 @@ void procesaBotonPause(void)
           if(!encoderSW) { //pasamos a modo Configuracion
             configure->start();
             longbip(1);
-            Estado.estado = CONFIGURANDO;
+            ledConf(ON);
+            setEstado(CONFIGURANDO);
+            Serial.println(F("Stop + hold PAUSA --> modo ConF()"));
             boton = NULL;
             holdPause = false;
             savedValue = value;
           }
           else {   //si esta pulsado encoderSW hacemos un soft reset
-            Serial.println(F("ConF + encoderSW + PAUSA --> Reset....."));
+            Serial.println(F("Stop + encoderSW + PAUSA --> Reset....."));
             longbip(3);
             ESP.restart();  // Hard RESET: ESP.reset()
           }
@@ -354,41 +370,38 @@ void procesaBotonPause(void)
 void procesaBotonStop(void)
 {
   if (boton->estado) {  //si hemos PULSADO STOP
-    //De alguna manera esta regando y hay que parar
-    if (Estado.estado == REGANDO || Estado.estado == MULTIREGANDO || Estado.estado == PAUSE) {
+    if (Estado.estado == REGANDO || Estado.estado == PAUSE) {
+      //De alguna manera esta regando y hay que parar
       display->print("StoP");
-      stopAllRiego(true);
       T.StopTimer();
-      bip(3);
-      display->blink(DEFAULTBLINK);
-      multiriego = false;
-      multiSemaforo = false;
-      Estado.estado = STOP;
+      if (!stopAllRiego()) {   //error en stopAllRiego
+        boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
+        return; 
+      }
+      infoDisplay("StoP", DEFAULTBLINK, BIP, 6);;
+      setEstado(STOP);
+      resetFlags();
     }
     else {
       //Lo hemos pulsado en standby - seguro antinenes
-      display->print("StoP");
-      bip(1);
-      longbip(1);
-      stopAllRiego(true);  // apagar leds y parar riegos ¿?
-      standbyTime = millis();
-      if (Estado.estado == ERROR) return; //error en stopAllRiego
-      Estado.estado = STOP;
-      //pasamos directamente a reposo
-      //Serial.println(F("Stanby + Stop : Entramos en reposo"));
-      reposo = true;
-      displayOFF = false;
+      infoDisplay("StoP", NOBLINK, BIP, 3);
+      // apagar leds y parar riegos (por si riego activado externamente)
+      if (!stopAllRiego()) {   //error en stopAllRiego
+        boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
+        return; 
+      }
+      setEstado(STOP);
+      reposo = true; //pasamos directamente a reposo
+      displayOff = false;
     }
   }
   //si hemos liberado STOP: salimos del estado stop
   //(dejamos el release del STOP en modo ConF para que actue el codigo de procesaEstadoConfigurando
   if (!boton->estado && Estado.estado == STOP) {
-    if (savedValue>0) value = savedValue;  // para que restaure reloj aunque no salvemos con pause el valor configurado
     StaticTimeUpdate();
-    led(Boton[bID_bIndex(bCONFIG)].led,OFF);
     reposo = false; //por si salimos de stop antinenes
-    displayOFF = false;
-    Estado.estado = STANDBY;
+    displayOff = false;
+    setEstado(STANDBY);
   }
   standbyTime = millis();
 }
@@ -396,45 +409,13 @@ void procesaBotonStop(void)
 
 bool procesaBotonMultiriego(void)
 {
-  if (Estado.estado == CONFIGURANDO) {
-    if (configure->configuring()) return false; //si ya estamos configurando algo salimos
-    //savedValue = value;
+  if (Estado.estado == STANDBY && !multirriego) {
     int n_grupo = setMultibyId(getMultiStatus(), config);
-    if (encoderSW) 
-    {
-      //encoderSW pulsado: actuamos segun posicion selector multirriego
-      if (n_grupo == 1) {  // copiamos fichero parametros en fichero default
-        if (copyConfigFile(parmFile, defaultFile)) {
-          Serial.println(F("[ConF] salvado fichero de parametros actuales como DEFAULT"));
-          display->print("-dEF");
-          bipOK(5);
-          delay(1000);
-          display->print("ConF"); 
-        }
-      } 
-      if (n_grupo == 3) {  // activamos AP y portal de configuracion (bloqueante)
-        Serial.println(F("[ConF] encoderSW + selector ABAJO: activamos AP y portal de configuracion"));
-        starConfigPortal(config);
-      }
-      return false;    //para que procese el BREAK al volver a procesaBotones  
-    } 
-    //Configuramos el grupo de multirriego activo
-    configure->configureMulti(n_grupo);
-    Serial.printf( "[ConF] configurando: GRUPO%d (%s) \n" , n_grupo, multi.desc);
+    if (n_grupo == 0) {  //error en setup de apuntadores 
+      statusError(E0, 3); 
+      return false;
+    }  
     #ifdef DEBUG
-      Serial.printf( "en configuracion de MULTIRRIEGO, setMultibyId devuelve: Grupo%d (%s) multi.size=%d \n" , n_grupo, multi.desc, *multi.size);
-    #endif            
-    displayGrupo(multi.serie, *multi.size);
-    multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
-    display->print("PUSH");
-    return false;    //para que procese el BREAK al volver a procesaBotones  
-  }
-  if (Estado.estado == STANDBY && !multiriego) {
-    bip(4);
-    multiriego = true;
-    multi.actual = 0;
-    #ifdef DEBUG
-      int n_grupo = setMultibyId(getMultiStatus(), config);
       Serial.printf( "en MULTIRRIEGO, setMultibyId devuelve: Grupo%d (%s) multi.size=%d \n" , n_grupo, multi.desc, *multi.size);
       for (int k=0; k < *multi.size; k++) Serial.printf( "       multi.serie: x%x \n" , multi.serie[k]);
       Serial.printf( "en MULTIRRIEGO, encoderSW status  : %d \n", encoderSW );
@@ -448,7 +429,6 @@ bool procesaBotonMultiriego(void)
       std::remove(std::begin(version_n),std::end(version_n),'-');
       display->print(version_n);
       displayGrupo(multi.serie, *multi.size);
-      multiriego = false;
       #ifdef DEBUG
         Serial.printf( "en MULTIRRIEGO + encoderSW, display de grupo: %s tamaño: %d \n", multi.desc , *multi.size );
       #endif
@@ -458,6 +438,9 @@ bool procesaBotonMultiriego(void)
     else {
       //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
       //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
+      bip(4);
+      multirriego = true;
+      multi.actual = 0;
       Serial.printf("MULTIRRIEGO iniciado: %s \n", multi.desc);
       led(Boton[bID_bIndex(*multi.id)].led,ON);
       boton = &Boton[bID_bIndex(multi.serie[multi.actual])];
@@ -473,11 +456,11 @@ void procesaBotonZona(void)
   if (zIndex == 999) return; //el boton no es de ZONA ¿es necesaria esta comprobacion?
   int bIndex = bID_bIndex(boton->id); 
   if (Estado.estado == STANDBY) {
-    if (!encoderSW) {  //iniciamos el riego correspondiente al boton seleccionado
+    if (!encoderSW || multirriego) {  //iniciamos el riego correspondiente al boton seleccionado
         bip(2);
         //cambia minutes y seconds en funcion del factor de cada sector de riego
         uint8_t fminutes=0,fseconds=0;
-        if(multiriego) {
+        if(multirriego) {
           timeByFactor(factorRiegos[zIndex],&fminutes,&fseconds);
         }
         else {
@@ -488,15 +471,17 @@ void procesaBotonZona(void)
           Serial.printf("Minutos: %d Segundos: %d FMinutos: %d FSegundos: %d\n",minutes,seconds,fminutes,fseconds);
         #endif
         ultimoBoton = boton;
+        // si tiempo factorizado de riego es 0 o IDX=0, nos saltamos este riego
         if ((fminutes == 0 && fseconds == 0) || boton->idx == 0) {
-          Estado.estado = TERMINANDO; // nos saltamos este riego
+          setEstado(TERMINANDO);
+          led(Boton[bIndex].led,ON); //para que se vea que zona es 
           display->print("-00-");
           return;
         }
         T.SetTimer(0,fminutes,fseconds);
         T.StartTimer();
         initRiego(boton->id);
-        if(Estado.estado != ERROR) Estado.estado = REGANDO; // para que no borre ERROR
+        if(Estado.estado != ERROR) setEstado(REGANDO); // para que no borre ERROR
     }
     else {  // mostramos en el display el factor de riego del boton pulsado
       led(Boton[bIndex].led,ON);
@@ -514,24 +499,6 @@ void procesaBotonZona(void)
       StaticTimeUpdate();
     }
   }
-  if (Estado.estado == CONFIGURANDO ) {
-    if (configure->configuringMulti()) {  //Configuramos el multirriego seleccionado
-      if (multi.w_size < 16) {
-        //savedValue = value;
-        multi.serie[multi.w_size] = boton->id;
-        Serial.printf("[ConF] añadiendo ZONA%d (%s) \n",zIndex+1, boton->desc);
-        multi.w_size = multi.w_size + 1;
-        led(Boton[bIndex].led,ON);
-      }
-      else longbip(1);
-    }
-    if (!configure->configuring()) {   //si no estamos configurando nada, configuramos el idx
-      //savedValue = value;
-      Serial.printf("[ConF] configurando IDX boton: %s \n",boton->desc);
-      configure->configureIdx(bIndex);
-      value = boton->idx;
-    }
-  }
 }
 
 
@@ -541,11 +508,59 @@ void procesaEstadoConfigurando()
   Boton[bID_bIndex(bPAUSE)].flags.holddisabled = true;
   if (boton != NULL) {
     if (boton->flags.action) {
+      int n_grupo;
+      int bIndex = bID_bIndex(boton->id);
+      int zIndex = bID_zIndex(boton->id);
       switch(boton->id) {
         case bMULTIRIEGO:
+          if (configure->configuring()) return; //si ya estamos configurando algo salimos
+          n_grupo = setMultibyId(getMultiStatus(), config);
+          if (encoderSW) {  //encoderSW pulsado: actuamos segun posicion selector multirriego
+            if (n_grupo == 1) {  // copiamos fichero parametros en fichero default
+              if (copyConfigFile(parmFile, defaultFile)) {
+                Serial.println(F("[ConF] salvado fichero de parametros actuales como DEFAULT"));
+                infoDisplay("-dEF", DEFAULTBLINK, BIPOK, 5);
+                display->print("ConF"); 
+              }
+            }
+            #ifdef WEBSERVER
+              if (n_grupo == 2) {  // activamos webserver
+                setupWS();
+                Serial.println(F("[ConF][WS] activado webserver para actualizaciones OTA de SW o filesystem"));
+                webServerAct = true;
+                ledConf(OFF);
+                infoDisplay("otA", DEFAULTBLINK, BIPOK, 5);
+              }
+            #endif 
+            if (n_grupo == 3) {  // activamos AP y portal de configuracion (bloqueante)
+              Serial.println(F("[ConF] encoderSW + selector ABAJO: activamos AP y portal de configuracion"));
+              ledConf(OFF);
+              starConfigPortal(config);
+              ledConf(ON);
+              display->print("ConF");
+            }
+          }
+          else {
+            //Configuramos el grupo de multirriego activo
+            configure->configureMulti(n_grupo);
+            Serial.printf( "[ConF] configurando: GRUPO%d (%s) \n" , n_grupo, multi.desc);
+            #ifdef DEBUG
+              Serial.printf( "en configuracion de MULTIRRIEGO, setMultibyId devuelve: Grupo%d (%s) multi.size=%d \n" , n_grupo, multi.desc, *multi.size);
+            #endif            
+            displayGrupo(multi.serie, *multi.size);
+            multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
+            display->print("PUSH");
+            led(Boton[bID_bIndex(*multi.id)].led,ON);
+          } 
           break;
         case bPAUSE:
           if(!boton->estado) return; //no se procesa el release del PAUSE
+          if(!configure->configuring()) { //si no estamos ya configurando algo
+            configure->configureTime();   //configuramos tiempo por defecto
+            Serial.println(F("[ConF] configurando tiempo riego por defecto"));
+            delay(500);
+            break;
+          }
           if(configure->configuringTime()) {
             Serial.printf( "[ConF] Save DEFAULT TIME, minutes: %d  secons: %d \n", minutes, seconds);
             config.minutes = minutes;
@@ -553,6 +568,7 @@ void procesaEstadoConfigurando()
             saveConfig = true;
             bipOK(3);
             configure->stop();
+            break;
           }
           if(configure->configuringIdx()) {
             int bIndex = configure->getActualIdxIndex();
@@ -563,7 +579,9 @@ void procesaEstadoConfigurando()
             Serial.printf( "[ConF] Save Zona%d (%s) IDX value: %d \n", zIndex+1, Boton[bIndex].desc, value);
             value = savedValue;
             bipOK(3);
+            led(Boton[bIndex].led,OFF);
             configure->stop();
+            break;
           }
           if(configure->configuringMulti()) {
             // actualizamos config con las zonas introducidas
@@ -573,36 +591,55 @@ void procesaEstadoConfigurando()
               for (int i=0; i<multi.w_size; ++i) {
                 config.groupConfig[g-1].serie[i] = bID_zIndex(multi.serie[i])+1;
               }
-              Serial.printf( "[ConF] SAVE PARM Multi : GRUPO%d  tamaño: %d (%s)\n", g+1 , *multi.size , multi.desc );
+              Serial.printf( "[ConF] SAVE PARM Multi : GRUPO%d  tamaño: %d (%s)\n", g , *multi.size , multi.desc );
               printMultiGroup(config, g-1);
               saveConfig = true;
               bipOK(3);
             }
-            //value = savedValue;
             ultimosRiegos(HIDE);
+            led(Boton[bID_bIndex(*multi.id)].led,OFF);
             configure->stop();
           }
           break;
         case bSTOP:
           if(!boton->estado) { //release STOP salvamos si procede y salimos de ConF
-            led(Boton[bID_bIndex(bCONFIG)].led,OFF);
             configure->stop();
             if (saveConfig) {
               Serial.println(F("saveConfig=true  --> salvando parametros a fichero"));
-              if (saveConfigFile(parmFile, config)) {
-                display->print("SAUE");
-                bipOK(3);
-                delay(3000);
-              }  
+              if (saveConfigFile(parmFile, config)) infoDisplay("SAUE", DEFAULTBLINK, BIPOK, 5);
               saveConfig = false;
             }
-            Estado.estado = STANDBY;
+            #ifdef WEBSERVER
+              if (webServerAct) {
+                endWS();
+                Serial.println(F("[ConF][WS] desactivado webserver"));
+                webServerAct = false; //al salir de modo ConF no procesaremos peticiones al webserver
+              }
+            #endif
+            setEstado(STANDBY);
+            resetLeds();
             standbyTime = millis();
             if (savedValue>0) value = savedValue;  // para que restaure reloj aunque no salvemos con pause el valor configurado
-            ultimosRiegos(HIDE);
             StaticTimeUpdate();
           }
           break;
+        default:  //procesamos boton de ZONAx
+          if (configure->configuringMulti()) {  //Configuramos el multirriego seleccionado
+            if (multi.w_size < 16) {  //max. 16 zonas por grupo
+              multi.serie[multi.w_size] = boton->id;
+              Serial.printf("[ConF] añadiendo ZONA%d (%s) \n",zIndex+1, boton->desc);
+              multi.w_size = multi.w_size + 1;
+              led(Boton[bIndex].led,ON);
+            }
+            else longbip(1);
+          }
+          if (!configure->configuring()) {   //si no estamos configurando nada, configuramos el idx
+            //savedValue = value;
+            Serial.printf("[ConF] configurando IDX boton: %s \n",boton->desc);
+            configure->configureIdx(bIndex);
+            value = boton->idx;
+            led(Boton[bIndex].led,ON);
+          }
       }
     }
   }
@@ -613,31 +650,33 @@ void procesaEstadoConfigurando()
 void procesaEstadoError(void)
 {
   if(boton == NULL) return;  // si no se ha pulsado ningun boton salimos
-  //En estado error salimos sin procesar el boton que se haya pulsado, a menos que este sea:
+  //En estado error no se responde a botones, a menos que este sea:
   //   - PAUSE y pasamos a modo NONETWORK
   //   - STOP y en este caso reseteamos 
   if(boton->id == bPAUSE && boton->estado) {  //evita procesar el release del pause
-  //Si estamos en error y pulsamos pausa, nos ponemos en estado NONETWORK para test
-    Estado.estado = STANDBY;
-    Estado.fase = CERO;
+  //Si estamos en error y pulsamos pausa, nos ponemos en modo NONETWORK para test    
+    if (Boton[bID_bIndex(bSTOP)].estado) {
+      setEstado(STOP);
+      infoDisplay("StoP", NOBLINK, LONGBIP, 1);
+      displayOff = true;
+    }
+    else {
+      setEstado(STANDBY);
+      displayOff = false;
+      standbyTime = millis();
+      StaticTimeUpdate();
+    } 
     NONETWORK = true;
     Serial.println(F("estado en ERROR y PAUSA pulsada pasamos a modo NONETWORK y reseteamos"));
     bip(2);
-    led(LEDB,ON);
     //reseteos varios:
-    tic_parpadeoLedZona.detach(); //detiene parpadeo led zona con error
-    stopAllRiego(false);          //apaga leds activos
-    tic_parpadeoLedON.detach();   //detiene parpadeo led ON por si estuviera activado
-    led(LEDR,ON);                 // y lo deja fijo
-    multiriego = false;
-    multiSemaforo = false;
-    errorOFF = false;
-    displayOFF = false;
-    standbyTime = millis();
-    StaticTimeUpdate();
+    resetLeds();    //apaga leds activos y restablece leds ON y RED
+    resetFlags();   //reset flags de status
   }
   if(boton->id == bSTOP) {
-  //Si estamos en ERROR y pulsamos STOP, reseteamos
+  //Si estamos en ERROR y pulsamos o liberamos STOP, reseteamos, pero antes intentamos parar riegos
+    setEstado(STANDBY);
+    if(checkWifi()) stopAllRiego();
     Serial.println(F("ERROR + STOP --> Reset....."));
     longbip(3);
     ESP.restart();  
@@ -649,8 +688,55 @@ void procesaEstadoRegando(void)
 {
   tiempoTerminado = T.Timer();
   if (T.TimeHasChanged()) refreshTime();
-  if (tiempoTerminado == 0) {
-    Estado.estado = TERMINANDO;
+  if (tiempoTerminado == 0) setEstado(TERMINANDO);
+  else if(flagV && VERIFY) { // verificamos periodicamente que el riego sigue activo en Domoticz
+    if(queryStatus(ultimoBoton->idx, (char *)"On")) return;
+    else {
+      ledID = ultimoBoton->led;
+      if(Estado.fase == CERO) { //riego zona parado: entramos en PAUSE y blink lento zona pausada remotamente 
+        bip(1);
+        T.PauseTimer();
+        tic_parpadeoLedZona.attach(0.8,parpadeoLedZona);
+        Serial.printf(">>>>>>>>>> procesaEstadoRegando zona: %s en PAUSA remota <<<<<<<<\n", ultimoBoton->desc);
+        setEstado(PAUSE);
+      }
+      else {
+        statusError(Estado.fase, 3); // si no hemos podido verificar estado, señalamos el error
+        tic_parpadeoLedON.attach(0.2,parpadeoLedON);
+        tic_parpadeoLedZona.attach(0.4,parpadeoLedZona);
+        errorOFF = true;  // recordatorio error
+        Serial.println(F("[ERROR] procesaEstadoRegando: SE HA DEVUELTO ERROR"));
+      }  
+    }
+  }
+};
+
+
+void procesaEstadoTerminando(void)
+{
+  bip(5);
+  tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
+  stopRiego(ultimoBoton->id);
+  if (Estado.estado == ERROR) return; //no continuamos si se ha producido error al parar el riego
+  display->blink(DEFAULTBLINK);
+  led(Boton[bID_bIndex(ultimoBoton->id)].led,OFF);
+  StaticTimeUpdate();
+  standbyTime = millis();
+  setEstado(STANDBY);
+  //Comprobamos si estamos en un multirriego
+  if (multirriego) {
+    multi.actual++;
+    if (multi.actual < *multi.size) {
+      //Simular la pulsacion del siguiente boton de la serie de multirriego
+      boton = &Boton[bID_bIndex(multi.serie[multi.actual])];
+      multiSemaforo = true;
+    }
+    else {
+      bipEND(5);
+      resetFlags();
+      Serial.printf("MULTIRRIEGO %s terminado \n", multi.desc);
+      led(Boton[bID_bIndex(*multi.id)].led,OFF);
+    }
   }
 };
 
@@ -671,48 +757,50 @@ void procesaEstadoStandby(void)
 };
 
 
-void procesaEstadoTerminando(void)
-{
-  bip(5);
-  stopRiego(ultimoBoton->id);
-  if (Estado.estado == ERROR) return; //no continuamos si se ha producido error al parar el riego
-  display->blink(DEFAULTBLINK);
-  led(Boton[bID_bIndex(ultimoBoton->id)].led,OFF);
-  StaticTimeUpdate();
-  standbyTime = millis();
-  Estado.estado = STANDBY;
-  //Comprobamos si estamos en un multiriego
-  if (multiriego) {
-    multi.actual++;
-    if (multi.actual < *multi.size) {
-      //Simular la pulsacion del siguiente boton de la serie de multiriego
-      boton = &Boton[bID_bIndex(multi.serie[multi.actual])];
-      multiSemaforo = true;
-    }
-    else {
-      bipOK(5);
-      multiriego = false;
-      multiSemaforo = false;
-        Serial.printf("MULTIRRIEGO %s terminado \n", multi.desc);
-      led(Boton[bID_bIndex(*multi.id)].led,OFF);
-    }
-  }
-};
-
-
 void procesaEstadoStop(void)
 {
   //En stop activamos el comportamiento hold de pausa
   Boton[bID_bIndex(bPAUSE)].flags.holddisabled = false;
   //si estamos en Stop antinenes, apagamos el display pasado 4 x STANDBYSECS
-  if(reposo && !displayOFF) {
+  if(reposo && !displayOff) {
     if (millis() > standbyTime + (4 * 1000 * STANDBYSECS) && reposo) {
       display->clearDisplay();
-      displayOFF = true;
+      displayOff = true;
     }
   }
 };
 
+void procesaEstadoPause(void) {
+  if(flagV && VERIFY) {  // verificamos zona sigue OFF en Domoticz periodicamente
+    if(queryStatus(ultimoBoton->idx, (char *)"Off")) return;
+    else {
+      if(Estado.fase == CERO) { //riego zona activo: salimos del PAUSE y blink lento zona activada remotamente 
+        bip(2);
+        ledID = ultimoBoton->led;
+        Serial.printf("\tactivado blink %s (boton id= %d) \n", ultimoBoton->desc, ultimoBoton->id);
+        tic_parpadeoLedZona.attach(0.8,parpadeoLedZona);
+        Serial.printf(">>>>>>>>>> procesaEstadoPause zona: %s activada REMOTAMENTE <<<<<<<\n", ultimoBoton->desc);
+        T.ResumeTimer();
+        setEstado(REGANDO);
+      }
+      else Estado.fase = CERO; // si no hemos podido verificar estado, ignoramos el error
+    }
+  }
+}
+
+
+/**---------------------------------------------------------------
+ * Pone estado pasado y sus indicadores opcionales
+ */
+void setEstado(uint8_t estado)
+{
+  Estado.estado = estado;
+  Estado.fase = CERO;
+  strcpy(errorText, "");
+  #ifdef DEBUG
+    Serial.printf("setEstado Cambiado estado a: %s \n", nEstado[estado]);
+  #endif
+}
 
 
 /**---------------------------------------------------------------
@@ -725,12 +813,6 @@ void check(void)
   initLeds();
   display->check(1);
   #endif
-}
-
-
-void timerIsr()
-{
-  Encoder->service();
 }
 
 
@@ -750,15 +832,17 @@ void initFactorRiegos()
   for(uint i=0;i<NUMZONAS;i++) 
   {
     int bIndex = bID_bIndex(ZONAS[i]);
-    factorRiegos[i]=getFactor(Boton[bIndex].idx);
-    if(Estado.estado == ERROR) {  //al primer error salimos y señalamos zona que falla
-      if(Estado.fase == E3) { //solo señalamos zona si no es error general de conexion
+    uint factorR = getFactor(Boton[bIndex].idx);
+    if(factorR == 999) break; //en modo NONETWORK no continuamos iterando si no hay conexion
+    if(Estado.estado == ERROR) {  //al primer error salimos
+      if(Estado.fase == E3) {     // y señalamos zona que falla si no es error general de conexion
         ledID = Boton[bIndex].led;
         tic_parpadeoLedZona.attach(0.4,parpadeoLedZona);
       }
       break;
     }
-    if (sizeof(descDomoticz)) {
+    factorRiegos[i] = factorR;
+    if (strlen(descDomoticz)) {
       //actualizamos en Boton la DESCRIPCION con la recibida del Domoticz (campo Name)
       if (xNAME) {
         strlcpy(Boton[bIndex].desc, descDomoticz, sizeof(Boton[bIndex].desc));
@@ -781,7 +865,6 @@ void initFactorRiegos()
     factorRiegosOK ? Serial.println(F("leidos: ")) :  Serial.println(F("(simulados): "));
     for(uint i=0;i<NUMZONAS;i++) {
       Serial.printf("\tfactor ZONA%d: %d (%s) \n", i+1, factorRiegos[i], Boton[bID_bIndex(ZONAS[i])].desc);
-      //Serial.printf("\tfactor ZONA%d: %d (%s) \n", i+1, factorRiegos[i], Boton[i].desc);
     }
   #endif
 }
@@ -933,7 +1016,7 @@ bool initRiego(uint16_t id)
   utc = timeClient.getEpochTime();
   t = CE.toLocal(utc,&tcr);
   lastRiegos[zIndex] = t;
-  return domoticzSwitch(Boton[bIndex].idx,(char *)"On");
+  return domoticzSwitch(Boton[bIndex].idx, (char *)"On", DEFAULT_SWITCH_RETRIES);
 }
 
 
@@ -945,11 +1028,10 @@ bool stopRiego(uint16_t id)
   #ifdef DEBUG
   Serial.printf( "Terminando riego: %s \n", Boton[bIndex].desc);
   #endif
-  domoticzSwitch(Boton[bIndex].idx,(char *)"Off");
-  if (Estado.estado != ERROR && !simErrorOFF) Serial.printf( "Terminado OK riego: %s \n" , Boton[bIndex].desc );
+  domoticzSwitch(Boton[bIndex].idx, (char *)"Off", DEFAULT_SWITCH_RETRIES);
+  if (Estado.estado != ERROR) Serial.printf( "Terminado OK riego: %s \n" , Boton[bIndex].desc );
   else {     //avisa de que no se ha podido terminar un riego
     if (!errorOFF) { //para no repetir bips en caso de stopAllRiego
-      if (simErrorOFF) statusError(E5,5); // simula error si simErrorOFF es true
       errorOFF = true;  // recordatorio error
       tic_parpadeoLedON.attach(0.2,parpadeoLedON);
       tic_parpadeoLedZona.attach(0.4,parpadeoLedZona);
@@ -960,20 +1042,50 @@ bool stopRiego(uint16_t id)
 }
 
 
-//Pone a off todos los leds de riegos y detiene riegos (solo si la llamamos con true)
-void stopAllRiego(bool stop)
+//Pone a off todos los leds de riegos y restablece leds ON y RED
+void resetLeds()
 {
-  //Apago los leds de multiriego
-  led(Boton[bID_bIndex(*multi.id)].led,OFF);
-  //Apago los leds de riego
+  //Apago los leds de multirriego
+  for(unsigned int j=0;j<NUMGRUPOS;j++) {
+    led(Boton[bID_bIndex(GRUPOS[j])].led,OFF);
+  }
+  //Apago los leds de riego y posible parpadeo
+  tic_parpadeoLedZona.detach();
   for(unsigned int i=0;i<NUMZONAS;i++) {
     led(Boton[bID_bIndex(ZONAS[i])].led,OFF);
-    if (stop) {  //paramos todas las zonas de riego
-      if(!stopRiego(ZONAS[i])) { 
-        break; //al primer error salimos
-      }  
-    }
   }
+  //restablece leds ON y RED
+  tic_parpadeoLedON.detach();
+  //tic_APLed.detach();
+  //tic_WifiLed.detach();
+  ledConf(OFF);
+}
+
+
+//Pone a false diversos flags de estado
+void resetFlags()
+{
+  multirriego = false;
+  multiSemaforo = false;
+  errorOFF = false;
+  falloAP = false;
+  webServerAct = false;
+  simular.all_simFlags = false;
+}
+
+
+//Pone a off todos los leds de riegos y detiene riegos (solo si la llamamos con true)
+bool stopAllRiego()
+{
+  //Apago los leds de multirriego
+  led(Boton[bID_bIndex(*multi.id)].led,OFF);
+  //Apago los leds de riego y posible parpadeo
+  tic_parpadeoLedZona.detach();
+  for(unsigned int i=0;i<NUMZONAS;i++) { //paramos todas las zonas de riego
+    led(Boton[bID_bIndex(ZONAS[i])].led,OFF);
+    if(!stopRiego(ZONAS[i])) return false; //al primer error salimos
+  }
+  return true;
 }
 
 
@@ -1009,6 +1121,20 @@ void bipOK(int veces)
 }
 
 
+void bipEND(int veces)
+{
+    led(BUZZER,ON);
+    delay(500);
+    led(BUZZER,OFF);
+    delay(100);
+    bip(veces);
+    delay(100);
+    led(BUZZER,ON);
+    delay(500);
+    led(BUZZER,OFF);
+}
+
+
 void blinkPause()
 {
   if (!displayOff) {
@@ -1021,6 +1147,25 @@ void blinkPause()
   else {
     if (millis() > lastBlinkPause + DEFAULTBLINKMILLIS) {
       refreshDisplay();
+      displayOff = false;
+      lastBlinkPause = millis();
+    }
+  }
+}
+
+//void blinkPauseError(char *errorText)
+void blinkPauseError()
+{
+  if (!displayOff) {
+    if (millis() > lastBlinkPause + DEFAULTBLINKMILLIS) {
+      display->print(errorText);
+      displayOff = true;
+      lastBlinkPause = millis();
+    }
+  }
+  else {
+    if (millis() > lastBlinkPause + DEFAULTBLINKMILLIS) {
+      refreshTime();
       displayOff = false;
       lastBlinkPause = millis();
     }
@@ -1049,6 +1194,22 @@ void refreshTime()
 }
 
 
+/**
+ * @brief muestra en el display texto informativo y suenan bips de aviso
+ * 
+ * @param textDisplay = texto a mostrar en el display
+ * @param dnum = veces que parpadea el texto en el display
+ * @param btype = tipo de bip emitido
+ * @param bnum = numero de bips emitidos
+ */
+void infoDisplay(const char *textDisplay, int dnum, int btype, int bnum) {
+  display->print(textDisplay);
+  if (btype == LONGBIP) longbip(bnum);
+  if (btype == BIP) bip(bnum);
+  if (btype == BIPOK) bipOK(bnum);
+  display->blink(dnum);
+}
+
 /**---------------------------------------------------------------
  * Comunicacion con Domoticz usando httpGet
  */
@@ -1067,27 +1228,21 @@ String httpGetDomoticz(String message)
   if(httpCode > 0) {
     if(httpCode == HTTP_CODE_OK) {
       response = httpclient.getString();
-      #ifdef EXTRADEBUG
+      #ifdef EXTRADEBUG1
         Serial.print(F("httpGetDomoticz RESPONSE: "));Serial.println(response);
       #endif
     }
   }
   else {
     if(Estado.estado != ERROR) {
-      Estado.estado = ERROR;
-      #ifdef DEBUG
-        Serial.printf("[ERROR] httpGetDomoticz: ERROR comunicando con Domoticz error: %s\n", httpclient.errorToString(httpCode).c_str()); 
-      #endif
+      Serial.printf("[ERROR] httpGetDomoticz: ERROR comunicando con Domoticz error: %s\n", httpclient.errorToString(httpCode).c_str()); 
     }
     return "Err2";
   }
   //vemos si la respuesta indica status error
   int pos = response.indexOf("\"status\" : \"ERR");
   if(pos != -1) {
-    #ifdef DEBUG
-      Serial.println(F("[ERROR] httpGetDomoticz: SE HA DEVUELTO ERROR")); 
-    #endif
-    Estado.estado = ERROR;
+    Serial.println(F("[ERROR] httpGetDomoticz: SE HA DEVUELTO ERROR")); 
     return "ErrX";
   }
   httpclient.end();
@@ -1103,25 +1258,26 @@ int getFactor(uint16_t idx)
   #ifdef TRACE
     Serial.println(F("TRACE: in getFactor"));
   #endif
+  // si el IDX es 0 devolvemos 0 sin procesarlo (boton no asignado)
+  if(idx == 0) return 0;
   factorRiegosOK = false;
   if(!checkWifi()) {
-    if(NONETWORK) return 100; //si estamos en modo NONETWORK devolvemos 100 y no damos error
+    if(NONETWORK) return 999; //si estamos en modo NONETWORK devolvemos 999 y no damos error
     else {
       statusError(E1,3);
       return 100;
     }
   }
-  // si el IDX es 0 devolvemos 0 sin procesarlo (boton no asignado)
-  if(idx == 0) return 0;
   char JSONMSG[200]="/json.htm?type=devices&rid=%d";
   char message[250];
   sprintf(message,JSONMSG,idx);
   String response = httpGetDomoticz(message);
   //procesamos la respuesta para ver si se ha producido error:
-  if (Estado.estado == ERROR && response.startsWith("Err")) {
-    if (NONETWORK) {  //si estamos en modo NONETWORK devolvemos 100 y no damos error
-      Estado.estado = STANDBY;
-      return 100;
+  //if (Estado.estado == ERROR && response.startsWith("Err")) {
+  if (response.startsWith("Err")) {
+    if (NONETWORK) {  //si estamos en modo NONETWORK devolvemos 999 y no damos error
+      setEstado(STANDBY);
+      return 999;
     }
     if(response == "ErrX") statusError(E3,3);
     else statusError(E2,3);
@@ -1144,7 +1300,7 @@ int getFactor(uint16_t idx)
     Serial.println(error.f_str());
     if(!VERIFY) return 100;
     else {
-      statusError(E2,3);
+      statusError(E2,3);  //TODO ¿deberiamos devolver E3?
       return 100;
     }
   }
@@ -1179,24 +1335,98 @@ int getFactor(uint16_t idx)
 }
 
 /**---------------------------------------------------------------
+ * verifica status de la zona coincide con el pasado, devolviendo true en ese caso
+ */
+bool queryStatus(uint16_t idx, char *status)
+{
+  #ifdef TRACE
+    Serial.println(F("TRACE: in queryStatus"));
+  #endif
+  if(!checkWifi()) {
+    if(NONETWORK) return true; //si estamos en modo NONETWORK devolvemos true y no damos error
+    else {
+      Estado.fase=E1;
+      return false;
+    }
+  }
+  char JSONMSG[200]="/json.htm?type=devices&rid=%d";
+  char message[250];
+  sprintf(message,JSONMSG,idx);
+  String response = httpGetDomoticz(message);
+  //procesamos la respuesta para ver si se ha producido error:
+  if (response.startsWith("Err")) {
+    if (NONETWORK) return true;  //si estamos en modo NONETWORK devolvemos true y no damos error
+    if(response == "ErrX") Estado.fase=E3;
+    else Estado.fase=E2;
+    Serial.printf("[ERROR] queryStatus IDX: %d [HTTP] GET... failed\n", idx);
+    return false;
+  }
+  // ya tenemos en response el JSON, lo procesamos
+  char* response_pointer = &response[0];
+  DynamicJsonDocument jsondoc(2048);
+  DeserializationError error = deserializeJson(jsondoc, response_pointer);
+  if (error) {
+    Serial.print(F("[ERROR] queryStatus: deserializeJson() failed: "));
+    Serial.println(error.f_str());
+    Estado.fase=E2;  
+    return false;
+  }
+  //Tenemos que controlar para que no resetee en caso de no haber leido por un rid malo
+  const char *actual_status = jsondoc["result"][0]["Status"];
+  if(actual_status == NULL) {
+    Serial.print(F("[ERROR] queryStatus: deserializeJson() failed: Status not found"));
+    Estado.fase=E2;  
+    return false;
+  }
+  #ifdef EXTRADEBUG
+    Serial.printf( "queryStatus verificando, status=%s / actual=%s \n" , status, actual_status);
+    Serial.printf( "                status_size=%d / actual_size=%d \n" , strlen(status), strlen(actual_status));
+  #endif
+  if(simular.ErrorVerifyON) {   // simulamos EV no esta ON en Domoticz
+    if(strcmp(status, "On")==0) return false; else return true; 
+  } 
+  if(simular.ErrorVerifyOFF) {   // simulamos EV no esta OFF en Domoticz
+    if(strcmp(status, "Off")==0) return false; else return true; 
+  } 
+  if(strcmp(actual_status,status) == 0) return true;
+  else{
+    if(NONETWORK) return true; //siempre devolvemos ok en modo simulacion
+    #ifdef DEBUG
+      Serial.print(F("queryStatus devuelve FALSE, status / actual = "));Serial.print(status);Serial.println(actual_status);
+    #endif
+    return false;
+  }  
+}
+
+/**---------------------------------------------------------------
  * Envia a domoticz orden de on/off del idx correspondiente
  */
-bool domoticzSwitch(int idx,char *msg)
+bool domoticzSwitch(int idx, char *msg, int retries)
 {
   #ifdef TRACE
     Serial.println(F("TRACE: in domoticzSwitch"));
   #endif
-  if(NONETWORK || idx == 0) return true; //simulamos que ha ido OK
-  if(!checkWifi()) {
+  if(idx == 0) return true; //simulamos que ha ido OK
+  if(!checkWifi() && !NONETWORK) {
     statusError(E1,3);
     return false;
   }
   char JSONMSG[200]="/json.htm?type=command&param=switchlight&idx=%d&switchcmd=%s";
   char message[250];
   sprintf(message,JSONMSG,idx,msg);
-  String response = httpGetDomoticz(message);
+  String response;
+  for(int i=0; i<retries; i++) {
+     if ((simular.ErrorON && strcmp(msg,"On")==0) || (simular.ErrorOFF && strcmp(msg,"Off")==0)) response = "ErrX"; // simulamos el error
+     else if(!NONETWORK) response = httpGetDomoticz(message); // enviamos orden al Domoticz
+     if(response == "ErrX") { // solo reintentamos si Domoticz informa del estado de la zona
+       bip(1);
+       Serial.printf("DOMOTICZSWITH IDX: %d fallo en %s (intento %d de %d)\n", idx, msg, i+1, retries);
+       delay(DELAYRETRY);
+     }
+     else break;
+  }   
   //procesamos la respuesta para ver si se ha producido error:
-  if (Estado.estado == ERROR && response.startsWith("Err")) {
+  if (response.startsWith("Err")) {
     if (!errorOFF) { //para no repetir bips en caso de stopAllRiego
       if(response == "ErrX") {
         if(strcmp(msg,"On") == 0 ) statusError(E4,3); //error al iniciar riego
@@ -1225,11 +1455,17 @@ void Verificaciones()
   #ifdef DEBUG
     leeSerial();  // para ver si simulamos algun tipo de error
   #endif
+  #ifdef WEBSERVER
+  if (webServerAct) {
+    procesaWebServer();
+    return;
+  }
+  #endif
   if (!flagV) return;      //si no activada por Ticker salimos sin hacer nada
   if (Estado.estado == STANDBY) Serial.print(F("."));
   if (errorOFF) bip(2);  //recordatorio error grave
   if (!NONETWORK && (Estado.estado == STANDBY || (Estado.estado == ERROR && !connected))) {
-    if (checkWifi()) Estado.estado = STANDBY; //verificamos si seguimos connectados a la wifi
+    if (checkWifi() && Estado.estado!=STANDBY) setEstado(STANDBY); //verificamos si seguimos connectados a la wifi
     if (connected && falloAP) {
       Serial.println(F("Wifi conectada despues Setup, leemos factor riegos"));
       falloAP = false;
@@ -1246,12 +1482,12 @@ void Verificaciones()
  */
 void statusError(uint8_t errorID, int n) 
 {
-  char errorText[7] = "Err";    
+  strcpy(errorText, "Err");    
   Estado.estado = ERROR;
   Estado.fase = errorID;
   if (errorID == E0) strcpy(errorText, "Err0");
   else sprintf(errorText, "Err%d", errorID);
-  Serial.printf("[statusError2]: %s \n", errorText);
+  Serial.printf("[statusError]: %s \n", errorText);
   display->print(errorText);
   longbip(n);
 }
@@ -1268,6 +1504,34 @@ void parpadeoLedZona()
   led(ledID,!estado);
 }
 
+void parpadeoLedConf()
+{
+  byte estado = ledStatusId(LEDR);
+  led(LEDR,!estado);
+  estado = ledStatusId(LEDG);
+  led(LEDG,!estado);
+}
+
+//activa o desactiva el(los) led(s) indicadores de que estamos en modo configuracion
+void ledConf(int estado)
+{
+  if(estado == ON) 
+  {
+    //parpadeo alterno leds ON/RED
+    led(LEDB,OFF);
+    led(LEDG,OFF);
+    tic_parpadeoLedConf.attach(0.7,parpadeoLedConf);
+    //led(Boton[bID_bIndex(bCONFIG)].led,ON); 
+  }
+  else 
+  {
+    tic_parpadeoLedConf.detach();   //detiene parpadeo alterno leds ON/RED
+    led(LEDR,ON);                   // y los deja segun estado
+    NONETWORK ? led(LEDB,ON) : led(LEDB,OFF);
+    checkWifi();
+    //led(Boton[bID_bIndex(bCONFIG)].led,OFF);
+  }
+}
 
 void setupParm()
 {
@@ -1282,10 +1546,12 @@ void setupParm()
   if( initFlags.initParm) {
     Serial.println(F(">>>>>>>>>>>>>>  cargando parametros por defecto  <<<<<<<<<<<<<<"));
     bool bRC = copyConfigFile(defaultFile, parmFile); // defaultFile --> parmFile
-    if(bRC) Serial.println(F("carga parametros por defecto OK"));
+    if(bRC) {
+      Serial.println(F("carga parametros por defecto OK"));
+      //señala la carga parametros por defecto OK
+      infoDisplay("dEF-", DEFAULTBLINK, BIPOK, 3);
+    }  
     else    Serial.println(F("[ERROR] carga parametros por defecto"));
-    //señala la carga parametros por defecto OK
-    if(bRC) bipOK(3);
   }
   if (!setupConfig(parmFile, config)) {
     Serial.printf("[ERROR] Leyendo fichero parametros %s \n", parmFile);
@@ -1353,25 +1619,45 @@ bool setupConfig(const char *p_filename, Config_parm &cfg)
       // lee cadena de entrada
       String inputSerial = Serial.readString();
       int inputNumber = inputSerial.toInt();
-      if ((!inputNumber || inputNumber>2) && inputNumber != 9) {
+      if ((!inputNumber || inputNumber>6) && inputNumber != 9) {
           Serial.println(F("Teclee: "));
           Serial.println(F("   1 - simular error NTP"));
           Serial.println(F("   2 - simular error apagar riego"));
+          Serial.println(F("   3 - simular error encender riego"));
+          Serial.println(F("   4 - simular EV no esta ON en Domoticz"));
+          Serial.println(F("   5 - simular EV no esta OFF en Domoticz"));
+          Serial.println(F("   6 - simular error al salir del PAUSE"));
           Serial.println(F("   9 - anular simulacion errores"));
       }
       switch (inputNumber) {
             case 1:
-                Serial.println(F("   1 - simular error NTP"));
+                Serial.println(F("recibido:   1 - simular error NTP"));
                 timeOK = false;
                 break;
             case 2:
-                Serial.println(F("   2 - simular error apagar riego"));
-                simErrorOFF = true;
+                Serial.println(F("recibido:   2 - simular error apagar riego"));
+                simular.ErrorOFF = true;
+                break;
+            case 3:
+                Serial.println(F("recibido:   3 - simular error encender riego"));
+                simular.ErrorON = true;
+                break;
+            case 4:
+                Serial.println(F("recibido:   4 - simular EV no esta ON en Domoticz"));
+                simular.ErrorVerifyON = true;
+                break;
+            case 5:
+                Serial.println(F("recibido:   5 - simular EV no esta OFF en Domoticz"));
+                simular.ErrorVerifyOFF = true;
+                break;
+            case 6:
+                Serial.println(F("recibido:   6 - simular error al salir del PAUSE"));
+                simular.ErrorPause = true;
                 break;
             case 9:
-                Serial.println(F("   9 - anular simulacion errores"));
-                simErrorOFF = false;
+                Serial.println(F("recibido:   9 - anular simulacion errores"));
                 timeOK = true;                         
+                simular.all_simFlags = false;
       }
     }
   }

@@ -81,6 +81,7 @@ bool loadConfigFile(const char *p_filename, Config_parm &cfg)
   cfg.initialized = 1; //solo marcamos como init config si pasa por este bucle
   }
   file.close();
+  LittleFS.end();
   if (cfg.initialized) return true;
   else return false;
 }
@@ -242,6 +243,7 @@ void filesInfo()
     Serial.print(F("  ")); Serial.println(dir.fileName());
   }
   Serial.print("__________________________\n");
+  LittleFS.end();
 }
 
 
@@ -269,6 +271,7 @@ void printFile(const char *p_filename) {
   }
   Serial.println(F("\n\n"));
   file.close();
+  LittleFS.end();
 }
 
 void memoryInfo() 
@@ -304,6 +307,7 @@ void memoryInfo()
   Serial.printf("free RAM (max Head size): %d KB  <<<<<<<<<<<<<<<<<<<\n\n", freeHeadSize);
   Serial.printf("free SketchSpace: %f KB\n\n", freeSketchSize);
   Serial.println(F("#####################"));
+  LittleFS.end();
 }
 
 void printCharArray(char *arr, size_t len)

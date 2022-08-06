@@ -8,12 +8,10 @@ HECHOS
 - el modo CONFIGURACION debe permitir definir los botones que pertenecen a un grupo de riegos, incluido su orden (en modo ConF pulsar multirriego). V1.2
 - Paso de modo NORMAL a modo NONETWORK y viceversa para pruebas o demo (encoderSW + PAUSA). V1.2
 - encoderSW + boton de riego -> muestra factor de riego asociado a ese boton. V1.2
-- SW restart (STOP + encoderSW + mantener PAUSA). Si se mantiene pulsado encoderSW en
-  inicializacion:
+- SW restart (STOP + encoderSW + mantener PAUSA). Si se mantiene pulsado encoderSW en inicializacion:
     selector multi arriba -> escritura de la eeprom con valores por defecto.
     selector multi abajo  -> borrado red wifi almacenada. V1.3 
-- Si no se ha podido conectar a la wifi entra en modo AP para permitir configuracion por
-  portalweb.  
+- Si no se ha podido conectar a la wifi entra en modo AP para permitir configuracion por portalweb.  
 - Monitorizacion periodica conexion wifi. V1.3
 - la puesta en hora por NTP si no se ha hecho correctamente se reintenta periodicamente sin
   bloqueo del sistema. V1.3
@@ -30,15 +28,22 @@ HECHOS
 - permite configurar boton con IDX=0 para desactivarlo V1.4
 - debug trace si Exception en modo DEVELOP (platformio.ini) V1.4
 - no modifica parámetros de conexión (ip domoticz) el restaurar valores por defecto V1.4
-- VERIFY completo al salir de modo DEMO (NONETWORK): conexion wifi y con Domoticz, parada todos 
-  los riegos) V1.4
-Version 2:
+- VERIFY completo al salir de modo DEMO (NONETWORK): conexion wifi y con Domoticz, parada todos los riegos) V1.4
+**Version 2:**
 - fichero parámetros en lugar de variables del pgm y eeprom (parmConfig.json) V2.0
 - si error, parpadeo led zona que falla V2.0
 - en modo configuración salvado parametros como default ((ConF + encoderSW +
   multi arriba + boton multirriego)) V2.1
 - en modo configuración poder activar portal AP para configurar parámetros conexión (ConF + encoderSW +
   multi abajo + boton multirriego) V2.2
-
+- si falloAP y existe red wifi almacenada reintenta conexion max 20 seg. V2.3
+- mejoras display de informacion V2.3
+- HTTPUpdateServer para actualizacion via OTA de FW y/o Filesystem V2.4
+- encoderSw + PAUSE cancela riego zona en curso y pasa a la siguiente si multirriego V2.4
+- menú de servicio: páginas $sysinfo, $list, $parm y $def V2.4 (experimental)
+- si error al salir del Pause, permanece en esta y señala zona que falla V2.5
+- verifica periódicamente si el riego en curso esta activo o en pause en Domoticz y lo refleja V2.5
+- si al lanzar o detener un riego Domoticz informa de error, se reintenta varias veces antes de dar error V2.5
+- mejoras en menu de servicio (webserver): posibilida de ver, borrar y actualizar ficheros individuales del file system V2.5
 
 

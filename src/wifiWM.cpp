@@ -35,6 +35,7 @@ void saveWifiCallback() {
     // Eliminamos el temporizador y apagamos el led indicador de modo AP
     tic_APLed.detach();
     led(LEDB,OFF);
+    infoDisplay("----", NOBLINK, BIP, 0);
     // Empezamos el temporizador que hará parpadear el LED indicador de wifi
     tic_WifiLed.attach(0.2, parpadeoLedWifi);
 }
@@ -47,6 +48,7 @@ void configModeCallback (WiFiManager *myWiFiManager) {
   led(LEDG,OFF);
   // Empezamos el temporizador que hará parpadear el LED indicador de AP
   tic_APLed.attach(0.5, parpadeoLedAP);
+  infoDisplay("-AP-", DEFAULTBLINK, LONGBIP, 1); //lo señalamos en display
 }
 
 //llamado cuando WiFiManager recibe parametros adicionales
@@ -59,13 +61,11 @@ void saveParamCallback()
 }
 
 //lamado antes de empezar carga del sketch via OTA
-/* void setPreOtaUpdateCallback()
+void preOtaUpdateCallback()
 {
   Serial.println(F("[CALLBACK] setPreOtaUpdateCallback fired"));
-  //display->print("####");
-  longbip(3);
+  infoDisplay("####", DEFAULTBLINK, LONGBIP, 1);
 }
- */
 
 // conexion a la red por medio de WifiManager
 void setupRedWM(Config_parm &config)
@@ -75,13 +75,13 @@ void setupRedWM(Config_parm &config)
   saveConfig = false;
   if(initFlags.initWifi) {
     wm.resetSettings(); //borra wifi guardada
-    delay(300);
+    //delay(300);
     Serial.println(F("encoderSW pulsado y multirriego en GRUPO3 --> borramos red WIFI"));
-    //señala borrado wifi
-    longbip(3);
+    infoDisplay("CLEA", DEFAULTBLINK, LONGBIP, 1); //señala borrado wifi
   }
   // explicitly set mode, esp defaults to STA+AP   
-  WiFi.mode(WIFI_STA); 
+  WiFi.mode(WIFI_STA);
+  wm.setHostname(HOSTNAME); 
   // Descomentar para resetear configuración
   //wm.resetSettings();
   // Empezamos el temporizador que hará parpadear el LED indicador de wifi
@@ -92,6 +92,7 @@ void setupRedWM(Config_parm &config)
   wm.setAPCallback(configModeCallback);
   wm.setSaveConfigCallback(saveWifiCallback);
   wm.setSaveParamsCallback(saveParamCallback);
+  wm.setPreOtaUpdateCallback(preOtaUpdateCallback);
   //if this is set, it will exit after config, even if connection is unsuccessful
   wm.setBreakAfterConfig(true);
   //muestra version en el titulo de la pagina web inicial
@@ -117,25 +118,29 @@ void setupRedWM(Config_parm &config)
     *   - no nos hemos podido conectar a la red wifi almacenada o no habia y el modo configuracion ha 
     *     dado timeout (falloAP=true)
     */
-  // Eliminamos el temporizador y dejamos LEDB segun estado de NONETWORK
+  // detenemos parpadeo led AP y borramos -AP- del display (caso de que se hubiera activado antes AP)
   tic_APLed.detach();
-  NONETWORK ? led(LEDB,ON) : led(LEDB,OFF);
-  //si no hemos podido conectar reintentamos hasta 10 seg. (para caso corte de corriente)
-  if (falloAP) {
+  infoDisplay("----", NOBLINK, BIP, 0);
+  //si no hemos podido conectar y existe una red wifi salvada,reintentamos hasta 20 seg.
+  // (para caso corte de corriente)
+  if (falloAP && wm.getWiFiIsSaved()) {
+    Serial.println(F("Hay wifi salvada -> reintentamos la conexion"));
     int j=0;
     falloAP = false;
     tic_WifiLed.attach(0.2, parpadeoLedWifi);
     while(WiFi.status() != WL_CONNECTED) {
       Serial.print(F("."));
-      delay(1000);
+      delay(2000);
       j++;
       if(j == MAXCONNECTRETRY) {
         falloAP = true;
-        Serial.println(F("Fallo en la reconexión (timeout 10 seg.)"));
+        Serial.println(F("Fallo en la reconexión"));
         break;
       }
     }
   }
+  // dejamos LEDB segun estado de NONETWORK
+  NONETWORK ? led(LEDB,ON) : led(LEDB,OFF);
   //detenemos parpadeo led wifi
   tic_WifiLed.detach();
   if (checkWifi()) {
@@ -152,24 +157,29 @@ void setupRedWM(Config_parm &config)
   }
 }
 
+/**
+ * @brief activa portal para configuracion red wifi y/o parámetros de conexion
+ * 
+ * @param config 
+ */
 void starConfigPortal(Config_parm &config) 
 {
   wm.setConfigPortalTimeout(timeout);
   if (!wm.startConfigPortal("Ardomo")) {
-    Serial.println(F(" hit timeout"));
+    Serial.println(F(" exit or hit timeout"));
   }
-  // Eliminamos el temporizador y dejamos LEDB segun estado de NONETWORK
-  tic_APLed.detach();
-  NONETWORK ? led(LEDB,ON) : led(LEDB,OFF);
-  tic_WifiLed.detach();
-  checkWifi();
     // ----------------------------- save the custom parameters
   if (saveConfig) {
     strcpy(config.domoticz_ip, custom_domoticz_server.getValue());
     strcpy(config.domoticz_port, custom_domoticz_port.getValue());
     strcpy(config.ntpServer, custom_ntpserver.getValue());
   }
-
+  // Eliminamos el temporizador y dejamos LEDB segun estado de NONETWORK
+  tic_APLed.detach();
+  NONETWORK ? led(LEDB,ON) : led(LEDB,OFF);
+  infoDisplay("----", NOBLINK, BIP, 0);
+  tic_WifiLed.detach();
+  checkWifi();
 }
 
 // verificacion estado de la conexion wifi
