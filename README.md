@@ -1,1 +1,1 @@
-TESTDISPLAY2560
+Branch para pruebas con nuevo HW (ESP32)
