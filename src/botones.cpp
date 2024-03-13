@@ -174,7 +174,7 @@ S_BOTON *parseInputs(bool read)
   else lastMillis = currentMillis;
   uint16_t inputs = readInputs();
   for (i=0;i<NUM_S_BOTON;i++) {
-    //Nos saltamos los DISABLED
+    //Nos saltamos los disabled
     if (!Boton[i].flags.enabled) continue;
     Boton[i].estado = inputs & Boton[i].id;
     //Solo si el estado del boton ha cambiado devuelve cual ha sido 

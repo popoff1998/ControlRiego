@@ -11,7 +11,7 @@ void setup()
                 VERIFY=true; 
   #endif
   #ifdef DEVELOP
-                NONETWORK=false;
+                NONETWORK=true;
                 VERIFY=true; 
   #endif
   #ifdef DEMO
@@ -21,7 +21,9 @@ void setup()
 
   Serial.begin(115200);
   Serial.println("\n\n CONTROL RIEGO V" + String(VERSION) + "    Built on " __DATE__ " at " __TIME__ );
-  Serial.print(F("Startup reason: "));Serial.println(ESP.getResetReason());
+  #ifdef NodeMCU
+    Serial.print(F("Startup reason: "));Serial.println(ESP.getResetReason());
+  #endif  
   #ifdef TRACE
     Serial.println(F("TRACE: in setup"));
   #endif
@@ -87,7 +89,8 @@ void setup()
     printFile(parmFile);
   #endif
   //lanzamos supervision periodica estado cada VERIFY_INTERVAL seg.
-  tic_verificaciones.attach_scheduled(VERIFY_INTERVAL, flagVerificaciones);
+  tic_verificaciones.attach(VERIFY_INTERVAL, flagVerificaciones);  //TODO ¿es correcto?
+  //tic_verificaciones.attach_scheduled(VERIFY_INTERVAL, flagVerificaciones);
   standbyTime = millis();
   #ifdef TRACE
     Serial.println(F("TRACE: ending setup"));
@@ -941,9 +944,8 @@ void dimmerLeds()
 //lee encoder para actualizar el display
 void procesaEncoder()
 {
-  #ifdef NODEMCU
-    Encoder->service();
-  #endif
+  Encoder->service();
+  
   if(Estado.estado == CONFIGURANDO && configure->configuringIdx()) {
       #ifdef EXTRATRACE
        Serial.print(F("i"));

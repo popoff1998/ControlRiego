@@ -7,7 +7,7 @@ bool loadConfigFile(const char *p_filename, Config_parm &cfg)
     Serial.println(F("TRACE: in loadConfigFile"));
   #endif
 
-  if(!LittleFS.begin()){
+  if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
     Serial.println(F("An Error has occurred while mounting LittleFS"));
     return false;
   }
@@ -92,7 +92,7 @@ bool saveConfigFile(const char *p_filename, Config_parm &cfg)
     Serial.println(F("TRACE: in saveConfigFile"));
   #endif
   //memoryInfo();
-  if(!LittleFS.begin()){
+  if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
     Serial.println(F("An Error has occurred while mounting LittleFS"));
     return false;
   }
@@ -154,7 +154,7 @@ bool copyConfigFile(const char *fileFrom, const char *fileTo)
   #ifdef TRACE
     Serial.println(F("TRACE: in copyConfigFile"));
   #endif
-  if(!LittleFS.begin()) {
+  if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)) {
   Serial.println(F("An Error has occurred while mounting LittleFS"));
   return false;
   }
@@ -227,8 +227,8 @@ void printParms(Config_parm &cfg) {
 
 void filesInfo() 
 {
-  LittleFS.begin();
-  FSInfo fs_info;
+  LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED);
+/*   FSInfo fs_info;
   LittleFS.info(fs_info);
 
   float fileTotalKB = (float)fs_info.totalBytes / 1024.0; 
@@ -243,7 +243,48 @@ void filesInfo()
     Serial.print(F("  ")); Serial.println(dir.fileName());
   }
   Serial.print("__________________________\n");
+ */  
+  listDir(LittleFS, "/", 1); // List the directories up to one level beginning at the root directory
   LittleFS.end();
+}
+
+void listDir(fs::FS &fs, const char * dirname, uint8_t levels){
+    Serial.printf("Listing directory: %s\r\n", dirname);
+
+    File root = fs.open(dirname);
+    if(!root){
+        Serial.println("- failed to open directory");
+        return;
+    }
+    if(!root.isDirectory()){
+        Serial.println(" - not a directory");
+        return;
+    }
+
+    File file = root.openNextFile();
+    while(file){
+        if(file.isDirectory()){
+            Serial.print("  DIR : ");
+
+            Serial.print(file.name());
+            time_t t= file.getLastWrite();
+            struct tm * tmstruct = localtime(&t);
+            Serial.printf("  LAST WRITE: %d-%02d-%02d %02d:%02d:%02d\n",(tmstruct->tm_year)+1900,( tmstruct->tm_mon)+1, tmstruct->tm_mday,tmstruct->tm_hour , tmstruct->tm_min, tmstruct->tm_sec);
+
+            if(levels){
+                listDir(fs, file.name(), levels -1);
+            }
+        } else {
+            Serial.print("  FILE: ");
+            Serial.print(file.name());
+            Serial.print("\t  SIZE: ");
+            Serial.print(file.size());
+            time_t t= file.getLastWrite();
+            struct tm * tmstruct = localtime(&t);
+            Serial.printf("\t  LAST WRITE: %d-%02d-%02d %02d:%02d:%02d\n",(tmstruct->tm_year)+1900,( tmstruct->tm_mon)+1, tmstruct->tm_mday,tmstruct->tm_hour , tmstruct->tm_min, tmstruct->tm_sec);
+        }
+        file = root.openNextFile();
+    }
 }
 
 
@@ -255,7 +296,7 @@ void printFile(const char *p_filename) {
    #ifdef TRACE
     Serial.printf("TRACE: in printFile (%s) \n" , p_filename);
   #endif
-  if(!LittleFS.begin()){
+  if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
     Serial.println(F("An Error has occurred while mounting LittleFS"));
   return;
   }
@@ -276,13 +317,12 @@ void printFile(const char *p_filename) {
 
 void memoryInfo() 
 {
-  LittleFS.begin();
-  FSInfo fs_info;
+/*   LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED);//FSInfo fs_info;
   LittleFS.info(fs_info);
 
   float fileTotalKB = (float)fs_info.totalBytes / 1024.0; 
   float fileUsedKB = (float)fs_info.usedBytes / 1024.0; 
-  
+ */  
   int freeHeadSize = (int)ESP.getFreeHeap() / 1024.0;
   float freeSketchSize = (float)ESP.getFreeSketchSpace() / 1024.0;
   Serial.print("\n#####################\n");
@@ -291,16 +331,18 @@ void memoryInfo()
   Serial.print("__________________________\n\n");
   
   Serial.println(F("File system (LittleFS): "));
-  Serial.print(F("    Total KB: ")); Serial.print(fileTotalKB); Serial.println(F(" KB"));
+/*   Serial.print(F("    Total KB: ")); Serial.print(fileTotalKB); Serial.println(F(" KB"));
   Serial.print(F("    Used KB: ")); Serial.print(fileUsedKB); Serial.println(F(" KB"));
   Serial.printf("    Maximum open files: %d\n", fs_info.maxOpenFiles);
   Serial.printf("    Maximum path length: %d\n\n", fs_info.maxPathLength);
-
-  Dir dir = LittleFS.openDir("/");
+ */
+/*   Dir dir = LittleFS.openDir("/");
   Serial.println(F("LittleFS directory {/} :"));
   while (dir.next()) {
     Serial.print(F("  ")); Serial.println(dir.fileName());
   }
+ */
+  listDir(LittleFS, "/", 1); // List the directories up to one level beginning at the root directory
 
   Serial.print("__________________________\n\n");
   

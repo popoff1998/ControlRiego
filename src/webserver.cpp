@@ -18,8 +18,15 @@
    const char* update_username = "admin";
    const char* update_password = "admin";
 
-   ESP8266WebServer wserver(wsport);
-   ESP8266HTTPUpdateServer httpUpdater;
+   #ifdef NodeMCU
+     ESP8266WebServer wserver(wsport);
+     ESP8266HTTPUpdateServer httpUpdater;
+   #endif
+
+   #ifdef ESP32
+     WebServer wserver(wsport);
+     HTTPUpdateServer httpUpdater;
+   #endif
 
    // convierte timestamp a fecha hora
    String TS2Date(time_t t)
@@ -68,7 +75,7 @@
 
    // This function is called when the WebServer was requested to list all existing files in the filesystem.
    void handleListFiles2() {
-   //LittleFS.begin();
+   //LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED);
    FSInfo fs_info;
    LittleFS.info(fs_info);
    Dir dir = LittleFS.openDir("/");
@@ -103,7 +110,7 @@
 
    // This function is called when the sysInfo service was requested.
    void handleSysInfo() {
-   //LittleFS.begin();
+   //LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED);
    FSInfo fs_info;
    LittleFS.info(fs_info);
    String result;
@@ -118,8 +125,7 @@
    result += "\t usedSketchSpace : \t" + String(ESP.getSketchSize()) + "\n";
    result += "\t freeSketchSpace : \t" + String(ESP.getFreeSketchSpace()) + "\n";
    result += "\t freeHeap : \t\t" + String(ESP.getFreeHeap()) + "\n";
-   result += "\t HeapFragmentation : \t" + String(ESP.getHeapFragmentation()) + "\n";
-   result += "\t MaxFreeBlockSize : \t" + String(ESP.getMaxFreeBlockSize()) + "\n";
+   result += "\t MaxAllocHeap : \t" + String(ESP.getMaxAllocHeap()) + "\n";
    result += "__________________________\n\n";
    result += "File system (LittleFS): \n";
    result += "\t    Total KB: " + String(fileTotalKB) + " KB \n";
@@ -162,7 +168,7 @@
    }  // canUpload()
 
 
-   bool handle(ESP8266WebServer &server, HTTPMethod requestMethod, const String &requestUri) override {
+   bool handle(WebServer &server, HTTPMethod requestMethod, const String &requestUri) override {
       // ensure that filename starts with '/'
       String fName = requestUri;
       if (!fName.startsWith("/")) { fName = "/" + fName; }
@@ -180,7 +186,7 @@
 
 
    // uploading process
-   void upload(ESP8266WebServer UNUSED &server, const String UNUSED &_requestUri, HTTPUpload &upload) override {
+   void upload(WebServer UNUSED &server, const String UNUSED &_requestUri, HTTPUpload &upload) override {
       // ensure that filename starts with '/'
       String fName = upload.filename;
       if (!fName.startsWith("/")) { fName = "/" + fName; }
@@ -242,7 +248,7 @@
 
    void setupWS()
    {
-      if (!LittleFS.begin()) TRACE2("could not mount the filesystem...\n");
+      if (!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)) TRACE2("could not mount the filesystem...\n");
       if (!MDNS.begin(HOSTNAME)) Serial.println("Error iniciando mDNS");
       else Serial.println("mDNS iniciado");
       httpUpdater.setup(&wserver, update_path, update_username, update_password);

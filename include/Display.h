@@ -4,6 +4,11 @@
   #include <Control.h>
 
   //Para el display
+  #ifdef ESP32
+    #define DISPCLK             GPIO_NUM_18
+    #define DISPDIO             GPIO_NUM_19
+  #endif
+
   #ifdef NODEMCU
     #define DISPCLK             D3
     #define DISPDIO             D2

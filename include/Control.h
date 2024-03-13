@@ -27,6 +27,17 @@
       #include <ESP8266HTTPUpdateServer.h>
     #endif
   #endif
+  
+  #ifdef ESP32
+      #include <HTTPClient.h>
+      #include <WiFi.h>
+      #include <WebServer.h>
+    #ifdef WEBSERVER
+      #include <ESPmDNS.h>
+      #include <HTTPUpdateServer.h>
+    #endif
+  #endif
+
 
   //Para mis clases
   #include "Display.h"
@@ -35,8 +46,8 @@
   #ifdef DEVELOP
     //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
     #define DEBUG
-    //#define EXTRADEBUG
-    //#define EXTRADEBUG1
+    #define EXTRADEBUG
+    #define EXTRADEBUG1
     #define TRACE
     //#define EXTRATRACE
     #define VERBOSE
@@ -66,8 +77,20 @@
     #define HOSTNAME "ardomo"
   #endif  
 
+  //#define CONFIG_LITTLEFS_SPIFFS_COMPAT 1  // modo compatibilidad con SPIFFS
+
+  /* You only need to format LittleFS the first time you run a
+   test or else use the LITTLEFS plugin to create a partition
+   https://github.com/lorol/arduino-esp32littlefs-plugin */
+   
+  #define FORMAT_LITTLEFS_IF_FAILED true
+  #ifndef clean_FS
+    #define clean_FS false
+  #endif
+       
+
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "2.5"
+                            #define VERSION  "3.0b.0"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -98,6 +121,32 @@
   #define DELAYRETRY          2000
 
  //----------------  dependientes del HW   ----------------------------------------
+
+  #ifdef ESP32
+    #define ENCCLK                GPIO_NUM_2
+    #define ENCDT                 GPIO_NUM_4
+    #define ENCSW                 100
+    #define BUZZER                2
+    #define HC595_DATA            GPIO_NUM_5
+    #define HC595_LATCH           GPIO_NUM_13
+    #define HC595_CLOCK           GPIO_NUM_18
+    #define CD4021B_CLOCK         GPIO_NUM_18
+    #define CD4021B_LATCH         GPIO_NUM_16
+    #define CD4021B_DATA          GPIO_NUM_17
+    #define LEDR                  4
+    #define LEDG                  5
+    #define LEDB                  3 
+    #define lGRUPO1               6
+    #define lGRUPO2               7
+    #define lGRUPO3               8
+    #define lZONA1                10
+    #define lZONA2                11
+    #define lZONA3                12
+    #define lZONA4                13
+    #define lZONA5                14
+    #define lZONA6                15
+    #define lZONA7                16
+  #endif
 
   #ifdef NODEMCU
     #define ENCCLK                D0
@@ -164,7 +213,7 @@
 
   enum _flags {
     ENABLED      = 0x01,
-    DISABLED     = 0x02,
+    disabled     = 0x02,  // DISABLED en mayusculas daba error al compilar por ya definido en una libreria
     ONLYSTATUS   = 0x04,
     ACTION       = 0x08,
     DUAL         = 0x10,
@@ -314,17 +363,17 @@
       {bZONA5    ,  0,  0,  lZONA5    ,  ENABLED | ACTION,                 "ZONA5",       0},
       {bZONA6 ,     0,  0,  lZONA6 ,     ENABLED | ACTION,                 "ZONA6",       0},
       {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ZONA7",       0},
-      {bSPARE13,    0,  0,  0,           DISABLED,                         "spare13",     0},
-      {bSPARE15,    0,  0,  0,           DISABLED,                         "spare15",     0},
-      {bSPARE16,    0,  0,  0,           DISABLED,                         "spare16",     0},
+      {bSPARE13,    0,  0,  0,           disabled,                         "spare13",     0},
+      {bSPARE15,    0,  0,  0,           disabled,                         "spare15",     0},
+      {bSPARE16,    0,  0,  0,           disabled,                         "spare16",     0},
       {bENCODER,    0,  0,  0,           ENABLED | ONLYSTATUS | DUAL,      "ENCODER",     0},
       {bMULTIRIEGO, 0,  0,  0,           ENABLED | ACTION,                 "MULTIRIEGO",  0},
       {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO1",      0},
-      {bGRUPO2  ,   0,  0,  lGRUPO2  ,   DISABLED,                         "GRUPO2",      0},
+      {bGRUPO2  ,   0,  0,  lGRUPO2  ,   disabled,                         "GRUPO2",      0},
       {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO3",      0},
       {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE",       0},
       {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",        0},
-      {bCONFIG,     0,  0,  0,           DISABLED,                         "CONFIG",      0}
+      {bCONFIG,     0,  0,  0,           disabled,                         "CONFIG",      0}
     };
     int NUM_S_BOTON = sizeof(Boton)/sizeof(Boton[0]);
 
@@ -355,12 +404,9 @@
 
   #ifdef __MAIN__
     //Globales a este módulo
-    #ifdef NODEMCU
-      //Segun la arquitectura
-      WiFiClient client;
-      HTTPClient httpclient;
-      WiFiUDP    ntpUDP;
-    #endif
+    WiFiClient client;
+    HTTPClient httpclient;
+    WiFiUDP    ntpUDP;
     CountUpDownTimer T(DOWN);
     S_Estado Estado;
     S_BOTON  *boton;
@@ -406,7 +452,7 @@
     bool VERIFY;
     bool encoderSW = false;
     char errorText[7];
-    bool clean_FS = false;
+    //bool clean_FS = false;
 
 
 
@@ -448,6 +494,7 @@
   void ledRGB(int,int,int);
   bool ledStatusId(int);
   void leeSerial(void);
+  void listDir(fs::FS &fs, const char * , uint8_t);
   bool loadConfigFile(const char*, Config_parm&);
   void loadDefaultSignal(uint);
   void longbip(int);
