@@ -119,10 +119,14 @@
   #define VERIFY_INTERVAL     15
   #define DEFAULT_SWITCH_RETRIES 5
   #define DELAYRETRY          2000
+  #define DIMMLEVEL           70 // nivel atenuacion leds on y wifi (0 a 255)
 
  //----------------  dependientes del HW   ----------------------------------------
 
   #ifdef ESP32
+    // GPIOs  I/O usables: 2 4 5 16 17 18 19 21 22 23 25 26 27 32 33  (15/15)
+    // GPIOs  I/O los reservo para JTAG: 12 13 14 15
+    // GPIOs    I usables: 34 35 36 39 (4/4)
     #define ENCCLK                GPIO_NUM_2
     #define ENCDT                 GPIO_NUM_4
     #define ENCSW                 100
@@ -133,9 +137,11 @@
     #define CD4021B_CLOCK         GPIO_NUM_18
     #define CD4021B_LATCH         GPIO_NUM_16
     #define CD4021B_DATA          GPIO_NUM_17
-    #define LEDR                  4
-    #define LEDG                  5
-    #define LEDB                  3 
+    #define LEDR                  GPIO_NUM_27
+    #define LEDG                  GPIO_NUM_26
+    #define LEDB                  GPIO_NUM_25 
+    #define DISPCLK               GPIO_NUM_18
+    #define DISPDIO               GPIO_NUM_19
     #define lGRUPO1               6
     #define lGRUPO2               7
     #define lGRUPO3               8
@@ -159,6 +165,9 @@
     #define CD4021B_CLOCK         D5
     #define CD4021B_LATCH         D6
     #define CD4021B_DATA          D7
+    #define DISPCLK               D3
+    #define DISPDIO               D2
+
     #define LEDR                  4
     #define LEDG                  5
     #define LEDB                  3 
@@ -471,7 +480,7 @@
   bool checkWifi(void);
   void cleanFS(void);
   bool copyConfigFile(const char*, const char*);
-  void dimmerLeds(void);
+  void dimmerLeds(bool);
   void displayGrupo(uint16_t *, int);
   bool domoticzSwitch(int,char *, int);
   void enciendeLeds(void);
@@ -485,12 +494,14 @@
   void initCD4021B(void);
   void initClock(void);
   void initFactorRiegos(void);
+  void initGPIOs(void);
   void initHC595(void);
   void initLastRiegos(void);
   void initLeds(void);
   bool initRiego(uint16_t);
   void led(uint8_t,int);
   void ledConf(int);
+  void ledGPIO(uint8_t, int);
   void ledRGB(int,int,int);
   bool ledStatusId(int);
   void leeSerial(void);

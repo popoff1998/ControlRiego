@@ -32,11 +32,11 @@ void loadDefaultSignal(uint veces)
   #endif
   uint i;
   for(i=0;i<veces;i++) {
-    led(LEDR,ON);
-    led(LEDG,ON);
+    ledGPIO(LEDR,ON);
+    ledGPIO(LEDG,ON);
     delay(300);
-    led(LEDR,OFF);
-    led(LEDG,OFF);
+    ledGPIO(LEDR,OFF);
+    ledGPIO(LEDG,OFF);
     delay(300);
   }
 }
@@ -48,11 +48,11 @@ void wifiClearSignal(uint veces)
   #endif
   uint i;
   for(i=0;i<veces;i++) {
-    led(LEDR,ON);
-    led(LEDB,ON);
+    ledGPIO(LEDR,ON);
+    ledGPIO(LEDB,ON);
     delay(300);
-    led(LEDR,OFF);
-    led(LEDB,OFF);
+    ledGPIO(LEDR,OFF);
+    ledGPIO(LEDB,OFF);
     delay(300);
   }
 }
@@ -75,7 +75,7 @@ void initLeds()
   delay(200);
   apagaLeds();
   delay(200);
-  led(LEDR,ON);
+  ledGPIO(LEDR,ON);
 }
 
 void initHC595()
@@ -86,11 +86,17 @@ void initHC595()
   apagaLeds();
 }
 
-void ledRGB(int  R, int G, int B)
+void initGPIOs()
 {
-  led(LEDR,R);
-  led(LEDG,G);
-  led(LEDB,B);
+  pinMode(LEDR, OUTPUT);
+  pinMode(LEDG, OUTPUT);
+  pinMode(LEDB, OUTPUT);
+}
+
+void ledGPIO(uint8_t id,int estado)
+{
+  digitalWrite(id, estado);
+  //estado ? digitalWrite(id, HIGH) : digitalWrite(id, LOW);
 }
 
 void led(uint8_t id,int estado)

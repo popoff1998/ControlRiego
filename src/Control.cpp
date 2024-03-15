@@ -27,6 +27,8 @@ void setup()
   #ifdef TRACE
     Serial.println(F("TRACE: in setup"));
   #endif
+  // init de los GPIOs
+  initGPIOs();
   //Para el display
   #ifdef DEBUG
    Serial.println(F("Inicializando display"));
@@ -50,7 +52,7 @@ void setup()
   //preparo indicadores de inicializaciones opcionales
   setupInit();
   //led encendido
-  led(LEDR,ON);
+  ledGPIO(LEDR,ON);
   //setup parametros configuracion
   #ifdef EXTRADEBUG
     printFile(parmFile);
@@ -109,9 +111,9 @@ void loop()
   #endif
 
   procesaBotones();
-  dimmerLeds();
+  //dimmerLeds();
   procesaEstados();
-  dimmerLeds();
+  //dimmerLeds();
   Verificaciones();
 }
 
@@ -141,6 +143,7 @@ void procesaBotones()
   if (reposo && boton->id != bSTOP) {
     Serial.println(F("Salimos de reposo"));
     reposo = false;
+    dimmerLeds(OFF);
     displayOff = false;
     standbyTime = millis();
     if(Estado.estado == STOP) display->print("StoP");
@@ -317,7 +320,7 @@ void procesaBotonPause(void)
                 NONETWORK = false;
                 Serial.println(F("encoderSW+PAUSE pasamos a modo NORMAL y leemos factor riegos"));
                 bip(2);
-                led(LEDB,OFF);
+                ledGPIO(LEDB,OFF);
                 display->print("----");
                 initFactorRiegos();
                 if(VERIFY && Estado.estado != ERROR) stopAllRiego(); //verificamos operativa OFF para los IDX's 
@@ -326,7 +329,7 @@ void procesaBotonPause(void)
                 NONETWORK = true;
                 Serial.println(F("encoderSW+PAUSE pasamos a modo NONETWORK (DEMO)"));
                 bip(2);
-                led(LEDB,ON);
+                ledGPIO(LEDB,ON);
             }
           }
           else {    // muestra hora y ultimos riegos
@@ -395,6 +398,7 @@ void procesaBotonStop(void)
       }
       setEstado(STOP);
       reposo = true; //pasamos directamente a reposo
+      dimmerLeds(ON);
       displayOff = false;
     }
   }
@@ -403,6 +407,7 @@ void procesaBotonStop(void)
   if (!boton->estado && Estado.estado == STOP) {
     StaticTimeUpdate();
     reposo = false; //por si salimos de stop antinenes
+    dimmerLeds(OFF);
     displayOff = false;
     setEstado(STANDBY);
   }
@@ -753,6 +758,7 @@ void procesaEstadoStandby(void)
     if (millis() > standbyTime + (1000 * STANDBYSECS)) {
       Serial.println(F("Entramos en reposo"));
       reposo = true;
+      dimmerLeds(ON);
       display->clearDisplay();
     }
   }
@@ -926,19 +932,30 @@ void ultimosRiegos(int modo)
 }
 
 
-//conmuta estado LEDR, LEDG y LEDB para atenuarlos
-void dimmerLeds()
+//atenua LEDR, LEDG y LEDB
+void dimmerLeds(bool status)
 {
-  if (reposo) { 
-    led(LEDR,OFF);
-    led(LEDG,OFF);
-    led(LEDB,OFF);
+  if(status) {
+    analogWrite(LEDR, DIMMLEVEL);
+    if(connected) analogWrite(LEDG, DIMMLEVEL);
+    if(NONETWORK) analogWrite(LEDB, DIMMLEVEL);
+  }
+  else {
+    ledGPIO(LEDR,ON);
+    if(connected) ledGPIO(LEDG,ON);
+    if(NONETWORK) ledGPIO(LEDB,ON);
+  }  
+
+/*   if (reposo) { 
+    ledGPIO(LEDR,OFF);
+    ledGPIO(LEDG,OFF);
+    ledGPIO(LEDB,OFF);
     delay(1);
-    led(LEDR,ON);
-    if(connected) led(LEDG,ON);
-    if(NONETWORK) led(LEDB,ON);
-  }   
-}
+    ledGPIO(LEDR,ON);
+    if(connected) ledGPIO(LEDG,ON);
+    if(NONETWORK) ledGPIO(LEDB,ON);
+  }  */
+  }
 
 
 //lee encoder para actualizar el display
@@ -990,6 +1007,7 @@ void procesaEncoder()
     }
   }
   reposo = false;
+  dimmerLeds(OFF);
   StaticTimeUpdate();
   standbyTime = millis();
 }
@@ -1520,16 +1538,16 @@ void ledConf(int estado)
   if(estado == ON) 
   {
     //parpadeo alterno leds ON/RED
-    led(LEDB,OFF);
-    led(LEDG,OFF);
+    ledGPIO(LEDB,OFF);
+    ledGPIO(LEDG,OFF);
     tic_parpadeoLedConf.attach(0.7,parpadeoLedConf);
     //led(Boton[bID_bIndex(bCONFIG)].led,ON); 
   }
   else 
   {
     tic_parpadeoLedConf.detach();   //detiene parpadeo alterno leds ON/RED
-    led(LEDR,ON);                   // y los deja segun estado
-    NONETWORK ? led(LEDB,ON) : led(LEDB,OFF);
+    ledGPIO(LEDR,ON);                   // y los deja segun estado
+    NONETWORK ? ledGPIO(LEDB,ON) : ledGPIO(LEDB,OFF);
     checkWifi();
     //led(Boton[bID_bIndex(bCONFIG)].led,OFF);
   }
