@@ -818,10 +818,13 @@ void setEstado(uint8_t estado)
 void check(void)
 {
   display->print("----");
-  #ifndef DEBUG
-  initLeds();
-  display->check(1);
-  #endif
+  //#ifndef DEBUG
+    #ifdef TRACE
+    Serial.println(F("TRACE: in initLeds + display check"));
+    #endif
+    initLeds();
+    display->check(1);
+  //#endif
 }
 
 

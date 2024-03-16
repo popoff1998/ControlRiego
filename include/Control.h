@@ -127,9 +127,9 @@
     // GPIOs  I/O usables: 2 4 5 16 17 18 19 21 22 23 25 26 27 32 33  (15/15)
     // GPIOs  I/O los reservo para JTAG: 12 13 14 15
     // GPIOs    I usables: 34 35 36 39 (4/4)
-    #define ENCCLK                GPIO_NUM_2
-    #define ENCDT                 GPIO_NUM_4
-    #define ENCSW                 100
+    #define ENCCLK                GPIO_NUM_32
+    #define ENCDT                 GPIO_NUM_33
+    #define ENCSW                 100           // ficticio, no tratamos el boton del encoder con ClicEncoder, se hace como boton
     #define BUZZER                2
     #define HC595_DATA            GPIO_NUM_5
     #define HC595_LATCH           GPIO_NUM_13
