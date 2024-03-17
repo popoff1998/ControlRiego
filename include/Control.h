@@ -38,7 +38,7 @@
     #endif
   #endif
 
-
+  #include "MCP23017.h"  // expansor E/S MCP23017
   //Para mis clases
   #include "Display.h"
   #include "Configure.h"
@@ -46,7 +46,7 @@
   #ifdef DEVELOP
     //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
     #define DEBUG
-    #define EXTRADEBUG
+    //#define EXTRADEBUG
     #define EXTRADEBUG1
     #define TRACE
     //#define EXTRATRACE
@@ -119,8 +119,8 @@
   #define VERIFY_INTERVAL     15
   #define DEFAULT_SWITCH_RETRIES 5
   #define DELAYRETRY          2000
-  #define DIMMLEVEL           70 // nivel atenuacion leds on y wifi (0 a 255)
-
+  #define MAXledLEVEL         255 // nivel maximo leds on y wifi (0 a 255)
+  #define DIMMLEVEL           50 // nivel atenuacion leds on y wifi (0 a 255)
  //----------------  dependientes del HW   ----------------------------------------
 
   #ifdef ESP32
@@ -130,28 +130,34 @@
     #define ENCCLK                GPIO_NUM_32
     #define ENCDT                 GPIO_NUM_33
     #define ENCSW                 100           // ficticio, no tratamos el boton del encoder con ClicEncoder, se hace como boton
-    #define BUZZER                2
-    #define HC595_DATA            GPIO_NUM_5
-    #define HC595_LATCH           GPIO_NUM_13
-    #define HC595_CLOCK           GPIO_NUM_18
-    #define CD4021B_CLOCK         GPIO_NUM_18
-    #define CD4021B_LATCH         GPIO_NUM_16
-    #define CD4021B_DATA          GPIO_NUM_17
-    #define LEDR                  GPIO_NUM_27
-    #define LEDG                  GPIO_NUM_26
+    #define BUZZER                GPIO_NUM_4
+    #define CD4021B_CLOCK         GPIO_NUM_13
+    #define CD4021B_LATCH         GPIO_NUM_14
+    #define CD4021B_DATA          GPIO_NUM_15
+    #define LEDR                  GPIO_NUM_27  
+    #define LEDG                  GPIO_NUM_26 
     #define LEDB                  GPIO_NUM_25 
     #define DISPCLK               GPIO_NUM_18
     #define DISPDIO               GPIO_NUM_19
-    #define lGRUPO1               6
-    #define lGRUPO2               7
-    #define lGRUPO3               8
-    #define lZONA1                10
-    #define lZONA2                11
-    #define lZONA3                12
-    #define lZONA4                13
-    #define lZONA5                14
-    #define lZONA6                15
-    #define lZONA7                16
+    #define I2C_SDA               GPIO_NUM_21
+    #define I2C_SCL               GPIO_NUM_22
+    #define lZONA1                1
+    #define lZONA2                2
+    #define lZONA3                3
+    #define lZONA4                4
+    #define lZONA5                5
+    #define lZONA6                6
+    #define lZONA7                7
+    #define lZONA8                8
+    #define lZONA9                9
+    #define lGRUPO1               10
+    #define lGRUPO2               11
+    #define lGRUPO3               12
+    #define lGRUPO4               13
+    #define mcpOUT                0x20  //direccion del MCP23017 para salidas (leds)
+    #define mcpIN                 0x21  //direccion del MCP23017 para entradas (botones)
+
+
   #endif
 
   #ifdef NODEMCU
@@ -231,6 +237,28 @@
 
   //----------------  dependientes del HW   ----------------------------------------
   // ojo esta es la posición del bit de cada boton en el stream serie - no modificar -
+  #ifdef ESP32
+  enum _botones {
+    bZONA1      = 0x0001,
+    bZONA2      = 0x0002,
+    bZONA3      = 0x0004,
+    bZONA4      = 0x0008,
+    bZONA5      = 0x0010,
+    bZONA6      = 0x0020,
+    bZONA7      = 0x0040,
+    bZONA8      = 0x0080,
+    bZONA9      = 0x0100,
+    bGRUPO1     = 0x0200,
+    bGRUPO2     = 0x0400,
+    bGRUPO3     = 0x0800,
+    bGRUPO4     = 0x1000,
+    bENCODER    = 0x2000,
+    bSTOP       = 0x4000,
+    bPAUSE      = 0x8000,
+  };
+  #endif
+
+  #ifdef NODEMCU
   enum _botones {
     bZONA1      = 0x0001,
     bZONA2      = 0x0002,
@@ -249,18 +277,20 @@
     bSPARE16    = 0x4000,
     bPAUSE      = 0x8000,
   };
+  #endif
 
   //Pseudobotones
-  #define bGRUPO2   0xFF01
-  #define bCONFIG   0xFF02
+  #define bMULTIRIEGO   0xFF03
+  //#define bGRUPO2   0xFF01
+  //#define bCONFIG   0xFF02
 
   //----------------  dependientes del HW (número, orden)  ----------------------------
     // lista de todos los botones de zonas de riego disponibles:
     // OJO! el número y orden debe coincidir con las especificadas en Boton[]
-  #define _ZONAS  bZONA1 , bZONA2 , bZONA3 , bZONA4 , bZONA5 , bZONA6 , bZONA7
+  #define _ZONAS  bZONA1 , bZONA2 , bZONA3 , bZONA4 , bZONA5 , bZONA6 , bZONA7 , bZONA8
     // lista de todos los botones (selector) de grupos disponibles:
   #define _GRUPOS bGRUPO1 , bGRUPO2 , bGRUPO3
-  #define _NUMZONAS            7  // numero de zonas (botones riego individual)
+  #define _NUMZONAS            8  // numero de zonas (botones riego individual)
   #define _NUMGRUPOS           3  // numero de grupos multirriego
  //----------------  fin dependientes del HW   ----------------------------------------
 
@@ -372,17 +402,15 @@
       {bZONA5    ,  0,  0,  lZONA5    ,  ENABLED | ACTION,                 "ZONA5",       0},
       {bZONA6 ,     0,  0,  lZONA6 ,     ENABLED | ACTION,                 "ZONA6",       0},
       {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ZONA7",       0},
-      {bSPARE13,    0,  0,  0,           disabled,                         "spare13",     0},
-      {bSPARE15,    0,  0,  0,           disabled,                         "spare15",     0},
-      {bSPARE16,    0,  0,  0,           disabled,                         "spare16",     0},
-      {bENCODER,    0,  0,  0,           ENABLED | ONLYSTATUS | DUAL,      "ENCODER",     0},
-      {bMULTIRIEGO, 0,  0,  0,           ENABLED | ACTION,                 "MULTIRIEGO",  0},
+      {bZONA8  ,    0,  0,  lZONA8  ,    ENABLED | ACTION,                 "ZONA8",       0},
+      {bZONA9,      0,  0,  0,           disabled,                         "spare9",      0},
       {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO1",      0},
-      {bGRUPO2  ,   0,  0,  lGRUPO2  ,   disabled,                         "GRUPO2",      0},
+      {bGRUPO2,     0,  0,  lGRUPO2,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO2",      0},
       {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO3",      0},
-      {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE",       0},
+      {bGRUPO4  ,   0,  0,  lGRUPO4  ,   disabled,                         "GRUPO4",      0},
+      {bENCODER,    0,  0,  0,           ENABLED | ONLYSTATUS | DUAL,      "ENCODER",     0},
       {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",        0},
-      {bCONFIG,     0,  0,  0,           disabled,                         "CONFIG",      0}
+      {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE",       0}
     };
     int NUM_S_BOTON = sizeof(Boton)/sizeof(Boton[0]);
 
@@ -392,6 +420,9 @@
     bool NONETWORK;
     bool falloAP;
     bool saveConfig = false;
+    bool sLEDR = LOW;
+    bool sLEDG = LOW;
+    bool sLEDB = LOW;
     
     const char *parmFile = "/config_parm.json";       // fichero de parametros activos
     const char *defaultFile = "/config_default.json"; // fichero de parametros por defecto
@@ -404,6 +435,9 @@
     extern bool NONETWORK;
     extern bool falloAP;
     extern bool saveConfig;
+    extern bool sLEDR;
+    extern bool sLEDG;
+    extern bool sLEDB;
     extern int NUM_S_BOTON;
     extern const char *parmFile;       // fichero de parametros activos
     extern const char *defaultFile; // fichero de parametros por defecto
@@ -453,7 +487,7 @@
     bool holdPause = false;
     unsigned long countHoldPause;
     bool flagV = OFF;
-    int ledState = LOW;
+    //int ledState = LOW;
     bool timeOK = false;
     bool factorRiegosOK = false;
     bool errorOFF = false;
@@ -498,10 +532,11 @@
   void initHC595(void);
   void initLastRiegos(void);
   void initLeds(void);
+  void initMCP23017 (void);
   bool initRiego(uint16_t);
   void led(uint8_t,int);
   void ledConf(int);
-  void ledGPIO(uint8_t, int);
+  void ledPWM(uint8_t, int);
   void ledRGB(int,int,int);
   bool ledStatusId(int);
   void leeSerial(void);
@@ -511,6 +546,7 @@
   void longbip(int);
   void memoryInfo(void);
   void parpadeoLedON(void);
+  void parpadeoLedWifi(void);
   void parpadeoLedZona(void);
   S_BOTON *parseInputs(bool);
   void printCharArray(char*, size_t);

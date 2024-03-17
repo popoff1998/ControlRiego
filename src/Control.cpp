@@ -45,14 +45,16 @@ void setup()
    Serial.println(F("Inicializando Configure"));
   #endif
   configure = new Configure(display);
+  //Para los MCPs
+  initMCP23017();
   //Para el CD4021B
   initCD4021B();
   //Para el 74HC595
-  initHC595();
+  //initHC595();
   //preparo indicadores de inicializaciones opcionales
   setupInit();
   //led encendido
-  ledGPIO(LEDR,ON);
+  ledPWM(LEDR,ON);
   //setup parametros configuracion
   #ifdef EXTRADEBUG
     printFile(parmFile);
@@ -320,7 +322,7 @@ void procesaBotonPause(void)
                 NONETWORK = false;
                 Serial.println(F("encoderSW+PAUSE pasamos a modo NORMAL y leemos factor riegos"));
                 bip(2);
-                ledGPIO(LEDB,OFF);
+                ledPWM(LEDB,OFF);
                 display->print("----");
                 initFactorRiegos();
                 if(VERIFY && Estado.estado != ERROR) stopAllRiego(); //verificamos operativa OFF para los IDX's 
@@ -329,7 +331,7 @@ void procesaBotonPause(void)
                 NONETWORK = true;
                 Serial.println(F("encoderSW+PAUSE pasamos a modo NONETWORK (DEMO)"));
                 bip(2);
-                ledGPIO(LEDB,ON);
+                ledPWM(LEDB,ON);
             }
           }
           else {    // muestra hora y ultimos riegos
@@ -406,6 +408,7 @@ void procesaBotonStop(void)
   //(dejamos el release del STOP en modo ConF para que actue el codigo de procesaEstadoConfigurando
   if (!boton->estado && Estado.estado == STOP) {
     StaticTimeUpdate();
+    Serial.println(F("Salimos de reposo"));
     reposo = false; //por si salimos de stop antinenes
     dimmerLeds(OFF);
     displayOff = false;
@@ -939,24 +942,30 @@ void ultimosRiegos(int modo)
 void dimmerLeds(bool status)
 {
   if(status) {
+    #ifdef TRACE
+    Serial.println(F("TRACE dimmerLeds: leds atenuados "));
+    #endif
     analogWrite(LEDR, DIMMLEVEL);
     if(connected) analogWrite(LEDG, DIMMLEVEL);
     if(NONETWORK) analogWrite(LEDB, DIMMLEVEL);
   }
   else {
-    ledGPIO(LEDR,ON);
-    if(connected) ledGPIO(LEDG,ON);
-    if(NONETWORK) ledGPIO(LEDB,ON);
+    #ifdef TRACE
+    Serial.println(F("TRACE dimmerLeds: leds brillo normal "));
+    #endif
+    analogWrite(LEDR, MAXledLEVEL);
+    if(connected) analogWrite(LEDG, MAXledLEVEL);
+    if(NONETWORK) analogWrite(LEDB, MAXledLEVEL);
   }  
 
 /*   if (reposo) { 
-    ledGPIO(LEDR,OFF);
-    ledGPIO(LEDG,OFF);
-    ledGPIO(LEDB,OFF);
+    ledPWM(LEDR,OFF);
+    ledPWM(LEDG,OFF);
+    ledPWM(LEDB,OFF);
     delay(1);
-    ledGPIO(LEDR,ON);
-    if(connected) ledGPIO(LEDG,ON);
-    if(NONETWORK) ledGPIO(LEDB,ON);
+    ledPWM(LEDR,ON);
+    if(connected) ledPWM(LEDG,ON);
+    if(NONETWORK) ledPWM(LEDB,ON);
   }  */
   }
 
@@ -1009,8 +1018,11 @@ void procesaEncoder()
       minutes = 0;
     }
   }
-  reposo = false;
-  dimmerLeds(OFF);
+  if(reposo) {
+    Serial.println(F("Salimos de reposo"));
+    reposo = false;
+    dimmerLeds(OFF);
+  }
   StaticTimeUpdate();
   standbyTime = millis();
 }
@@ -1115,9 +1127,9 @@ bool stopAllRiego()
 void bip(int veces)
 {
   for (int i=0; i<veces;i++) {
-    led(BUZZER,ON);
+    ledPWM(BUZZER,ON);
     delay(50);
-    led(BUZZER,OFF);
+    ledPWM(BUZZER,OFF);
     delay(50);
   }
 }
@@ -1126,9 +1138,9 @@ void bip(int veces)
 void longbip(int veces)
 {
   for (int i=0; i<veces;i++) {
-    led(BUZZER,ON);
+    ledPWM(BUZZER,ON);
     delay(750);
-    led(BUZZER,OFF);
+    ledPWM(BUZZER,OFF);
     delay(100);
   }
 }
@@ -1136,9 +1148,9 @@ void longbip(int veces)
 
 void bipOK(int veces)
 {
-    led(BUZZER,ON);
+    ledPWM(BUZZER,ON);
     delay(500);
-    led(BUZZER,OFF);
+    ledPWM(BUZZER,OFF);
     delay(100);
     bip(veces);
 }
@@ -1146,15 +1158,15 @@ void bipOK(int veces)
 
 void bipEND(int veces)
 {
-    led(BUZZER,ON);
+    ledPWM(BUZZER,ON);
     delay(500);
-    led(BUZZER,OFF);
+    ledPWM(BUZZER,OFF);
     delay(100);
     bip(veces);
     delay(100);
-    led(BUZZER,ON);
+    ledPWM(BUZZER,ON);
     delay(500);
-    led(BUZZER,OFF);
+    ledPWM(BUZZER,OFF);
 }
 
 
@@ -1518,9 +1530,10 @@ void statusError(uint8_t errorID, int n)
 
 void parpadeoLedON()
 {
-  byte estado = ledStatusId(LEDR);
-  led(LEDR,!estado);
+  sLEDR = !sLEDR;
+  ledPWM(LEDR,sLEDR);
 }
+
 void parpadeoLedZona()
 {
   byte estado = ledStatusId(ledID);
@@ -1529,10 +1542,8 @@ void parpadeoLedZona()
 
 void parpadeoLedConf()
 {
-  byte estado = ledStatusId(LEDR);
-  led(LEDR,!estado);
-  estado = ledStatusId(LEDG);
-  led(LEDG,!estado);
+  parpadeoLedON();
+  parpadeoLedWifi();
 }
 
 //activa o desactiva el(los) led(s) indicadores de que estamos en modo configuracion
@@ -1541,16 +1552,16 @@ void ledConf(int estado)
   if(estado == ON) 
   {
     //parpadeo alterno leds ON/RED
-    ledGPIO(LEDB,OFF);
-    ledGPIO(LEDG,OFF);
+    ledPWM(LEDB,OFF);
+    ledPWM(LEDG,OFF);
     tic_parpadeoLedConf.attach(0.7,parpadeoLedConf);
     //led(Boton[bID_bIndex(bCONFIG)].led,ON); 
   }
   else 
   {
     tic_parpadeoLedConf.detach();   //detiene parpadeo alterno leds ON/RED
-    ledGPIO(LEDR,ON);                   // y los deja segun estado
-    NONETWORK ? ledGPIO(LEDB,ON) : ledGPIO(LEDB,OFF);
+    ledPWM(LEDR,ON);                   // y los deja segun estado
+    NONETWORK ? ledPWM(LEDB,ON) : ledPWM(LEDB,OFF);
     checkWifi();
     //led(Boton[bID_bIndex(bCONFIG)].led,OFF);
   }

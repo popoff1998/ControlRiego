@@ -5,22 +5,43 @@ unsigned long lastMillis;
 #define DEBOUNCEMILLIS 20
 volatile uint16_t ledStatus = 0;
 
+MCP23017 mcp(I2C_SDA,I2C_SCL);    //create mcp instance
+
+
 void apagaLeds()
 {
-  digitalWrite(HC595_LATCH, LOW);
-  shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, 0);
-  shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, 0);
-  digitalWrite(HC595_LATCH, HIGH);
+  #ifdef ESP32
+    analogWrite(LEDR, 0);
+    analogWrite(LEDG, 0);
+    analogWrite(LEDB, 0);
+    mcp.write_gpio(MCP23017_PORTA,  0x00 , mcpOUT);
+    mcp.write_gpio(MCP23017_PORTB,  0x00 , mcpOUT);
+  #endif
+  #ifdef NODEMCU
+    digitalWrite(HC595_LATCH, LOW);
+    shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, 0);
+    shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, 0);
+    digitalWrite(HC595_LATCH, HIGH);
+  #endif
   ledStatus = 0;
   delay(200);
 }
 
 void enciendeLeds()
 {
-  digitalWrite(HC595_LATCH, LOW);
-  shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, 0xFF);
-  shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, 0xFF);
-  digitalWrite(HC595_LATCH, HIGH);
+  #ifdef ESP32
+    analogWrite(LEDR, MAXledLEVEL);
+    analogWrite(LEDG, MAXledLEVEL);
+    analogWrite(LEDB, MAXledLEVEL);
+    mcp.write_gpio(MCP23017_PORTA,  0xFF , mcpOUT);
+    mcp.write_gpio(MCP23017_PORTB,  0xFF , mcpOUT);
+  #endif
+  #ifdef NODEMCU
+    digitalWrite(HC595_LATCH, LOW);
+    shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, 0xFF);
+    shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, 0xFF);
+    digitalWrite(HC595_LATCH, HIGH);
+  #endif
   ledStatus = 0xFFFF;
   delay(200);
 }
@@ -32,11 +53,11 @@ void loadDefaultSignal(uint veces)
   #endif
   uint i;
   for(i=0;i<veces;i++) {
-    ledGPIO(LEDR,ON);
-    ledGPIO(LEDG,ON);
+    ledPWM(LEDR,ON);
+    ledPWM(LEDG,ON);
     delay(300);
-    ledGPIO(LEDR,OFF);
-    ledGPIO(LEDG,OFF);
+    ledPWM(LEDR,OFF);
+    ledPWM(LEDG,OFF);
     delay(300);
   }
 }
@@ -48,11 +69,11 @@ void wifiClearSignal(uint veces)
   #endif
   uint i;
   for(i=0;i<veces;i++) {
-    ledGPIO(LEDR,ON);
-    ledGPIO(LEDB,ON);
+    ledPWM(LEDR,ON);
+    ledPWM(LEDB,ON);
     delay(300);
-    ledGPIO(LEDR,OFF);
-    ledGPIO(LEDB,OFF);
+    ledPWM(LEDR,OFF);
+    ledPWM(LEDB,OFF);
     delay(300);
   }
 }
@@ -60,8 +81,8 @@ void wifiClearSignal(uint veces)
 void initLeds()
 {
   int i;
-  uint ledOrder[] = { lZONA1 , lZONA2 , lZONA3 , lZONA4 , lZONA5 , lZONA6 , lZONA7 ,
-                      LEDR , LEDG , lGRUPO1 , lGRUPO2 , lGRUPO3 };
+  uint ledOrder[] = { lZONA1 , lZONA2 , lZONA3 , lZONA4 , lZONA5 , lZONA6 , lZONA7 , lZONA8 ,
+                      lGRUPO1 , lGRUPO2 , lGRUPO3 };
   size_t numLeds = sizeof(ledOrder)/sizeof(ledOrder[0]);
   apagaLeds();
   delay(200);
@@ -75,9 +96,10 @@ void initLeds()
   delay(200);
   apagaLeds();
   delay(200);
-  ledGPIO(LEDR,ON);
+  ledPWM(LEDR,ON);
 }
 
+#ifdef NODEMCU
 void initHC595()
 {
   pinMode(HC595_CLOCK, OUTPUT);
@@ -85,6 +107,7 @@ void initHC595()
   pinMode(HC595_LATCH, OUTPUT);
   apagaLeds();
 }
+#endif
 
 void initGPIOs()
 {
@@ -93,26 +116,61 @@ void initGPIOs()
   pinMode(LEDB, OUTPUT);
 }
 
-void ledGPIO(uint8_t id,int estado)
+void initMCP23017 ()
 {
-  digitalWrite(id, estado);
-  //estado ? digitalWrite(id, HIGH) : digitalWrite(id, LOW);
+  /*set i/o pin direction as output for both ports A and B en MCP de salidas (leds)*/
+  mcp.iodir(MCP23017_PORTA, MCP23017_IODIR_ALL_OUTPUT , mcpOUT);
+  mcp.iodir(MCP23017_PORTB, MCP23017_IODIR_ALL_OUTPUT , mcpOUT);
+  /*set i/o pin direction as input for both ports A and B en MCP de entradas (botones)*/
+  mcp.iodir(MCP23017_PORTA, MCP23017_IODIR_ALL_INPUT , mcpIN);
+  mcp.iodir(MCP23017_PORTB, MCP23017_IODIR_ALL_INPUT , mcpIN);
+  #ifdef EXTRADEBUG
+    mcp.write_gpio(MCP23017_PORTA,  0xFF , mcpOUT);
+    mcp.write_gpio(MCP23017_PORTB,  0xFF , mcpOUT);
+    delay(2000);
+    mcp.write_gpio(MCP23017_PORTA,  0x00 , mcpOUT);
+    mcp.write_gpio(MCP23017_PORTB,  0x00 , mcpOUT);
+  #endif
+}
+
+void ledPWM(uint8_t id,int estado)
+{
+  estado ? analogWrite(id, MAXledLEVEL) : analogWrite(id, 0);
+  switch (id) {
+    case LEDR: sLEDR = estado;
+    case LEDG: sLEDG = estado;
+    case LEDB: sLEDB = estado;
+  }  
+
 }
 
 void led(uint8_t id,int estado)
 {
     //Por seguridad no hacemos nada si id=0
+    #ifdef EXTRADEBUG
+    Serial.print(F("[TRACE: en funcion led]"));
+    Serial.print(F("ledStatus : "));Serial.println(ledStatus,BIN);
+    Serial.print(F("ledID : "));Serial.println(id,DEC);
+    #endif
+
     if(id==0) return;
     if(estado == ON) ledStatus |= (1 << (id-1));
     else ledStatus &= ~(1 << (id-1));
     //convertimos a la parte baja y alta
     uint8_t bajo = (uint8_t)((ledStatus & 0x00FF));
     uint8_t alto = (uint8_t)((ledStatus & 0xFF00) >> 8);
-    digitalWrite(HC595_LATCH, LOW);
-    shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, alto); //repetimos para que funcione encendido led 16
-    shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, alto);
-    shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, bajo);
-    digitalWrite(HC595_LATCH, HIGH);
+    #ifdef ESP32
+      mcp.write_gpio(MCP23017_PORTA,  bajo , mcpOUT);
+      mcp.write_gpio(MCP23017_PORTB,  alto , mcpOUT);
+    #endif
+    #ifdef NODEMCU
+      digitalWrite(HC595_LATCH, LOW);
+      shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, alto); //repetimos para que funcione encendido led 16
+      shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, alto);
+      shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, bajo);
+      digitalWrite(HC595_LATCH, HIGH);
+    #endif
+
 }
 
 bool ledStatusId(int ledID)
@@ -128,7 +186,7 @@ void initCD4021B()
 {
   pinMode(CD4021B_LATCH, OUTPUT);
   pinMode(CD4021B_CLOCK, OUTPUT);
-  pinMode(CD4021B_DATA, INPUT);
+  pinMode(CD4021B_DATA, INPUT_PULLDOWN);
 }
 
 byte shiftInCD4021B(int myDataPin, int myClockPin)

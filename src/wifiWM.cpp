@@ -19,18 +19,14 @@ WiFiManagerParameter custom_domoticz_server("domoticz_ip", "Domoticz_ip");
 WiFiManagerParameter custom_domoticz_port("domoticz_port", "puerto");
 WiFiManagerParameter custom_ntpserver("ntpServer", "NTP_server");
 
-void parpadeoLedWifi(){
-  digitalWrite(LEDG,  !digitalRead(LEDG)); //cambia el estado del led
-  /*   byte estado = ledStatusId(LEDG);
-    led(LEDG,!estado);
-  */
+void parpadeoLedWifi() {
+  sLEDG = !sLEDG;
+  ledPWM(LEDG,sLEDG);
 }
 
-void parpadeoLedAP(){
-   digitalWrite(LEDB,  !digitalRead(LEDB)); //cambia el estado del led
-  /*   byte estado = ledStatusId(LEDB);
-    led(LEDB,!estado);
-  */  
+void parpadeoLedAP() {
+  sLEDB = !sLEDB;
+  ledPWM(LEDB,sLEDB);
 }
 
 //llamado cuando WiFiManager sale del modo configuracion
@@ -38,7 +34,7 @@ void saveWifiCallback() {
   Serial.println(F("[CALLBACK] saveWifiCallback fired"));
     // Eliminamos el temporizador y apagamos el led indicador de modo AP
     tic_APLed.detach();
-    ledGPIO(LEDB,OFF);
+    ledPWM(LEDB,OFF);
     infoDisplay("----", NOBLINK, BIP, 0);
     // Empezamos el temporizador que hará parpadear el LED indicador de wifi
     tic_WifiLed.attach(0.2, parpadeoLedWifi);
@@ -49,7 +45,7 @@ void configModeCallback (WiFiManager *myWiFiManager) {
   Serial.println(F("[CALLBACK] configModeCallback fired"));
   // apagamos el LED indicador de wifi
   tic_WifiLed.detach();
-  ledGPIO(LEDG,OFF);
+  ledPWM(LEDG,OFF);
   // Empezamos el temporizador que hará parpadear el LED indicador de AP
   tic_APLed.attach(0.5, parpadeoLedAP);
   infoDisplay("-AP-", DEFAULTBLINK, LONGBIP, 1); //lo señalamos en display
@@ -144,7 +140,7 @@ void setupRedWM(Config_parm &config)
     }
   }
   // dejamos LEDB segun estado de NONETWORK
-  NONETWORK ? ledGPIO(LEDB,ON) : ledGPIO(LEDB,OFF);
+  NONETWORK ? ledPWM(LEDB,ON) : ledPWM(LEDB,OFF);
   //detenemos parpadeo led wifi
   tic_WifiLed.detach();
   if (checkWifi()) {
@@ -180,7 +176,7 @@ void starConfigPortal(Config_parm &config)
   }
   // Eliminamos el temporizador y dejamos LEDB segun estado de NONETWORK
   tic_APLed.detach();
-  NONETWORK ? ledGPIO(LEDB,ON) : ledGPIO(LEDB,OFF);
+  NONETWORK ? ledPWM(LEDB,ON) : ledPWM(LEDB,OFF);
   infoDisplay("----", NOBLINK, BIP, 0);
   tic_WifiLed.detach();
   checkWifi();
@@ -193,14 +189,14 @@ bool checkWifi() {
   #endif
   if(WiFi.status() == WL_CONNECTED) {
     // Encendemos el LED indicador de wifi
-    ledGPIO(LEDG,ON);
+    ledPWM(LEDG,ON);
     connected = true;
     return true;
   }
   else {
     Serial.println(F("[ERROR] No estamos conectados a la wifi"));
     // apagamos el LED indicador de wifi
-    ledGPIO(LEDG,OFF);
+    ledPWM(LEDG,OFF);
     connected = false;
     return false;
   }
