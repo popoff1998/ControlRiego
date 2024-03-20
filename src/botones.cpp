@@ -81,8 +81,8 @@ void wifiClearSignal(uint veces)
 void initLeds()
 {
   int i;
-  uint ledOrder[] = { lZONA1 , lZONA2 , lZONA3 , lZONA4 , lZONA5 , lZONA6 , lZONA7 , lZONA8 ,
-                      lGRUPO1 , lGRUPO2 , lGRUPO3 };
+  uint ledOrder[] = { lGRUPO1 , lGRUPO2 , lGRUPO3 ,
+                      lZONA1 , lZONA2 , lZONA3 , lZONA4 , lZONA5 , lZONA6 , lZONA7 , lZONA8 };
   size_t numLeds = sizeof(ledOrder)/sizeof(ledOrder[0]);
   apagaLeds();
   delay(200);
@@ -114,6 +114,7 @@ void initGPIOs()
   pinMode(LEDR, OUTPUT);
   pinMode(LEDG, OUTPUT);
   pinMode(LEDB, OUTPUT);
+  pinMode(bENCODER, INPUT);
 }
 
 void initMCP23017 ()

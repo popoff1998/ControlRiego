@@ -39,6 +39,7 @@
   #endif
 
   #include "MCP23017.h"  // expansor E/S MCP23017
+  #include "pitches.h"   // notas musicales
   //Para mis clases
   #include "Display.h"
   #include "Configure.h"
@@ -129,8 +130,9 @@
     // GPIOs    I usables: 34 35 36 39 (4/4)
     #define ENCCLK                GPIO_NUM_32
     #define ENCDT                 GPIO_NUM_33
-    #define ENCSW                 100           // ficticio, no tratamos el boton del encoder con ClicEncoder, se hace como boton
-    #define BUZZER                GPIO_NUM_4
+    #define ENCSW                 100           // ficticio, no tratamos el boton del encoder con ClicEncoder, se hace por programa
+    #define bENCODER              GPIO_NUM_34   // este es el real conectado a GPIO solo INPUT
+    #define BUZZER                GPIO_NUM_2
     #define CD4021B_CLOCK         GPIO_NUM_13
     #define CD4021B_LATCH         GPIO_NUM_14
     #define CD4021B_DATA          GPIO_NUM_15
@@ -150,10 +152,10 @@
     #define lZONA7                7
     #define lZONA8                8
     #define lZONA9                9
-    #define lGRUPO1               10
-    #define lGRUPO2               11
-    #define lGRUPO3               12
-    #define lGRUPO4               13
+    #define lGRUPO1               13
+    #define lGRUPO2               14
+    #define lGRUPO3               15
+    #define lGRUPO4               16
     #define mcpOUT                0x20  //direccion del MCP23017 para salidas (leds)
     #define mcpIN                 0x21  //direccion del MCP23017 para entradas (botones)
 
@@ -201,7 +203,7 @@
   #define LONGBIP 1
   #define BIP 2
   #define BIPOK 3
-  #define BIPEND 4
+  #define BIPKO 4
   #define NOBLINK 0
 
   //Enums
@@ -252,7 +254,6 @@
     bGRUPO2     = 0x0400,
     bGRUPO3     = 0x0800,
     bGRUPO4     = 0x1000,
-    bENCODER    = 0x2000,
     bSTOP       = 0x4000,
     bPAUSE      = 0x8000,
   };
@@ -386,7 +387,7 @@
 
   const uint16_t ZONAS[] = {_ZONAS};
   const uint16_t GRUPOS[]  = {_GRUPOS};
-  const int NUMZONAS = sizeof(ZONAS)/sizeof(ZONAS[0]); // (7) numero de zonas (botones riego individual)
+  const int NUMZONAS = sizeof(ZONAS)/sizeof(ZONAS[0]); // (8) numero de zonas (botones riego individual)
   const int NUMGRUPOS = sizeof(GRUPOS)/sizeof(GRUPOS[0]); // (3) numero de grupos multirriego
   const char nEstado[][15] = {_ESTADOS};
 
@@ -408,7 +409,7 @@
       {bGRUPO2,     0,  0,  lGRUPO2,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO2",      0},
       {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO3",      0},
       {bGRUPO4  ,   0,  0,  lGRUPO4  ,   disabled,                         "GRUPO4",      0},
-      {bENCODER,    0,  0,  0,           ENABLED | ONLYSTATUS | DUAL,      "ENCODER",     0},
+    //{bENCODER,    0,  0,  0,           ENABLED | ONLYSTATUS | DUAL,      "ENCODER",     0},
       {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",        0},
       {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE",       0}
     };
@@ -496,6 +497,17 @@
     bool encoderSW = false;
     char errorText[7];
     //bool clean_FS = false;
+    // definiciones bips y tonos:
+    // bipOK notes in the melody:
+    int bipOK_melody[] = { NOTE_C6, NOTE_D6, NOTE_E6, NOTE_F6, NOTE_G6, NOTE_A6, NOTE_B6 };
+    const int bipOK_num = sizeof(bipOK_melody)/sizeof(bipOK_melody[0]); // numero de notas en la melodia
+    int bipOK_duration = 50;  // duracion de cada tono en mseg.
+
+    // bipKO notes in the melody:
+    int bipKO_melody[] = { NOTE_B5, NOTE_A5, NOTE_G5, NOTE_F5, NOTE_E5, NOTE_D5, NOTE_C5, NOTE_B4, NOTE_A3 };
+    const int bipKO_num = sizeof(bipKO_melody)/sizeof(bipKO_melody[0]); // numero de notas en la melodia
+    int bipKO_duration = 120;  // duracion de cada tono en mseg.
+
 
 
 
@@ -504,8 +516,8 @@
   //Funciones (prototipos)
   void apagaLeds(void);
   void bip(int);
-  void bipOK(int);
-  void bipEND(int);
+  void bipOK(void);
+  void bipKO(void);
   int  bID_bIndex(uint16_t);
   int  bID_zIndex(uint16_t);
   void blinkPause(void);
@@ -572,6 +584,7 @@
   bool queryStatus(uint16_t, char *);
   void refreshTime(void);
   void refreshDisplay(void);
+  void reposoOFF(void);
   void resetFlags(void);
   void resetLeds(void);
   bool saveConfigFile(const char*, Config_parm&);
@@ -585,7 +598,7 @@
   void setupWS(void);
   void starConfigPortal(Config_parm&);
   void StaticTimeUpdate(void);
-  void statusError(uint8_t, int n);
+  void statusError(uint8_t);
   bool stopRiego(uint16_t);
   bool stopAllRiego(void);
   bool testButton(uint16_t, bool);
