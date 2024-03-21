@@ -27,11 +27,18 @@ void setup()
   #ifdef TRACE
     Serial.println(F("TRACE: in setup"));
   #endif
-  // init de los GPIOs
+  // init de los GPIOs y bus I2C
   initGPIOs();
+  initWire();
+  //Para los MCPs
+  #ifdef DEBUG
+   Serial.println(F("Inicializando MCPs"));
+  #endif
+  mcpOinit();
+  mcpIinit();
   //Para el display
   #ifdef DEBUG
-   Serial.println(F("Inicializando display"));
+   Serial.println(F("Inicializando displays"));
   #endif
   display = new Display(DISPCLK,DISPDIO);
   display->clearDisplay();
@@ -45,10 +52,8 @@ void setup()
    Serial.println(F("Inicializando Configure"));
   #endif
   configure = new Configure(display);
-  //Para los MCPs
-  initMCP23017();
   //Para el CD4021B
-  initCD4021B();
+  //initCD4021B();
   //Para el 74HC595
   //initHC595();
   //preparo indicadores de inicializaciones opcionales
@@ -68,11 +73,6 @@ void setup()
     if (saveConfigFile(parmFile, config))  bipOK();;
     saveConfig = false;
   }
-  /*
-  #ifdef WEBSERVER
-    setupWS();
-  #endif
-  */
   delay(2000);
   //Ponemos en hora
   timeClient.begin();
@@ -817,13 +817,13 @@ void setEstado(uint8_t estado)
 void check(void)
 {
   display->print("----");
-  //#ifndef DEBUG
+  #ifndef noCHECK
     #ifdef TRACE
     Serial.println(F("TRACE: in initLeds + display check"));
     #endif
     initLeds();
     display->check(1);
-  //#endif
+  #endif
 }
 
 
@@ -1222,12 +1222,15 @@ void refreshTime()
  * @param bnum = numero de bips emitidos
  */
 void infoDisplay(const char *textDisplay, int dnum, int btype, int bnum) {
-  display->print(textDisplay);
-  if (btype == LONGBIP) longbip(bnum);
-  if (btype == BIP) bip(bnum);
-  if (btype == BIPOK) bipOK();
-  if (btype == BIPKO) bipKO();
-  display->blink(dnum);
+  #ifdef displayLED
+    display->print(textDisplay);
+    if (btype == LONGBIP) longbip(bnum);
+    if (btype == BIP) bip(bnum);
+    if (btype == BIPOK) bipOK();
+    if (btype == BIPKO) bipKO();
+    display->blink(dnum);
+  #endif
+  #ifdef displayLCD
 }
 
 /**---------------------------------------------------------------
@@ -1502,7 +1505,6 @@ void Verificaciones()
  */
 void statusError(uint8_t errorID) 
 {
-  Serial.println(F("entramos en statusError"));
   strcpy(errorText, "Err");    
   Estado.estado = ERROR;
   Estado.fase = errorID;
@@ -1512,7 +1514,6 @@ void statusError(uint8_t errorID)
   display->print(errorText);
   bipKO();
   if (errorID == E5) longbip(5); // resaltamos error al parar riego
-  Serial.println(F("salimos de statusError"));
 }
 
 

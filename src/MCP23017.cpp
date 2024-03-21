@@ -1,169 +1,232 @@
+// https://github.com/blemasle/arduino-mcp23017/tree/master
+
 #include "MCP23017.h"
 
-/*@brief initialize i2c 
-  @param sda and scl pin number
-*/
-MCP23017::MCP23017(uint8_t sda,uint8_t scl){
-  Wire.begin(sda, scl);     
+MCP23017::MCP23017(uint8_t address, TwoWire& bus) {
+	_deviceAddr = address;
+	_bus = &bus;
 }
 
-/*@brief  read the register value 
-  @param  register address to read,and i2c address of the device
-  @retval current register data
-*/
-uint8_t MCP23017::read(uint16_t reg, uint8_t address)
+MCP23017::MCP23017(TwoWire& bus) {
+	_deviceAddr = MCP23017_I2C_ADDRESS;
+	_bus = &bus;
+}
+
+MCP23017::~MCP23017() {}
+
+void MCP23017::init()
 {
-  uint8_t c;
-  Wire.beginTransmission(address);    //send start bit
-  Wire.write(reg);                    //send write bit with i2c slave address
-  Wire.endTransmission();             //send stop bit 
+	//BANK = 	0 : sequential register addresses
+	//MIRROR = 	0 : use configureInterrupt 
+	//SEQOP = 	1 : sequential operation disabled, address pointer does not increment
+	//DISSLW = 	0 : slew rate enabled
+	//HAEN = 	0 : hardware address pin is always enabled on 23017
+	//ODR = 	0 : active driver output (INTPOL bit sets the polarity.)
 
-  Wire.requestFrom(address, 1);       
+	//INTPOL = 	0 : interrupt active low
+	//UNIMPLMENTED 	0 : unimplemented: Read as ‘0’
 
-  while (Wire.available()) { // slave may send less than requested
-    c = Wire.read();         // receive a byte as character
-    Serial.print(c);         // print the character
-  }
-
-  return c;
-
+	writeRegister(MCP23017Register::IOCON, 0b00100000);
 }
 
-/*@brief  write data to register 
-  @param  register address to write to,data to be written
-          and i2c address of the device
-  @retval None
-*/
-void MCP23017::write(uint16_t reg, uint8_t data, uint8_t address)
+void MCP23017::begin()
 {
-  Wire.beginTransmission(address);
-  Wire.write(reg);
-  Wire.write(data);
-  Wire.endTransmission();
+	init();
 }
 
-/*@brief  set direction of I/O pins 
-  @param  port number, i/o direction data and i2c address of the device
-  @retval None
-*/
-void MCP23017::iodir(uint8_t port, uint8_t iodir, uint8_t address)
+void MCP23017::begin(uint8_t address)
 {
-  Wire.beginTransmission(address);
-  Wire.write(REGISTER_IODIRA | port);  //selects i/o direction register to write based on port chosen
-  Wire.write(iodir);                   //writes direction data
-  Wire.endTransmission();
+	_deviceAddr = address;
+	begin();
 }
 
-/*@brief  configure the polarity of I/O pins
-  @param  port number, i/o polarity data and i2c address of the device
-  @retval None
-  @note 1 = GPIO register bit reflects the opposite logic state of the input pin.
-        0 = GPIO register bit reflects the same logic state of the input pin.
-*/
-void MCP23017::ipol(uint8_t port, uint8_t ipol, uint8_t address)
+void MCP23017::portMode(MCP23017Port port, uint8_t directions, uint8_t pullups, uint8_t inverted)
 {
-  Wire.beginTransmission(address);
-  Wire.write(REGISTER_IPOLA | port);
-  Wire.write(ipol);
-  Wire.endTransmission();
+	writeRegister(MCP23017Register::IODIR_A + port, directions);
+	writeRegister(MCP23017Register::GPPU_A + port, pullups);
+	writeRegister(MCP23017Register::IPOL_A + port, inverted);
 }
 
-/*@brief  set input pullup 
-  @param  port number, pullup data and i2c address of the device
-  @retval None
-*/
-void MCP23017::gppu(uint8_t port, uint8_t pu, uint8_t address)
+void MCP23017::pinMode(uint8_t pin, uint8_t mode, bool inverted)
 {
-  Wire.beginTransmission(address);
-  Wire.write(REGISTER_GPPUA | port);
-  Wire.write(pu);
-  Wire.endTransmission();
+	MCP23017Register iodirreg = MCP23017Register::IODIR_A;
+	MCP23017Register pullupreg = MCP23017Register::GPPU_A;
+	MCP23017Register polreg = MCP23017Register::IPOL_A;
+	uint8_t iodir, pol, pull;
+
+	if(pin > 7)
+	{
+		iodirreg = MCP23017Register::IODIR_B;
+		pullupreg = MCP23017Register::GPPU_B;
+		polreg = MCP23017Register::IPOL_B;
+		pin -= 8;
+	}
+
+	iodir = readRegister(iodirreg);
+	if(mode == INPUT || mode == INPUT_PULLUP) bitSet(iodir, pin);
+	else bitClear(iodir, pin);
+
+	pull = readRegister(pullupreg);
+	if(mode == INPUT_PULLUP) bitSet(pull, pin);
+	else bitClear(pull, pin);
+
+	pol = readRegister(polreg);
+	if(inverted) bitSet(pol, pin);
+	else bitClear(pol, pin);
+
+	writeRegister(iodirreg, iodir);
+	writeRegister(pullupreg, pull);
+	writeRegister(polreg, pol);
 }
 
-/*@brief  read selected gpio port
-  @param  port number, and i2c address of the device
-  @retval current gpio port state
-*/
-uint8_t  MCP23017::read_gpio(uint8_t port, uint8_t address)
+void MCP23017::digitalWrite(uint8_t pin, uint8_t state)
 {
-  uint8_t c;
-  Wire.beginTransmission(address);
-  Wire.write(REGISTER_GPIOA | port);
-  Wire.endTransmission();
+	MCP23017Register gpioreg = MCP23017Register::GPIO_A;
+	uint8_t gpio;
+	if(pin > 7)
+	{
+		gpioreg = MCP23017Register::GPIO_B;
+		pin -= 8;
+	}
 
-  Wire.requestFrom(address, 1);    
+	gpio = readRegister(gpioreg);
+	if(state == HIGH) bitSet(gpio, pin);
+	else bitClear(gpio, pin);
 
-  while (Wire.available()) { // slave may send less than requested
-    c = Wire.read();         // receive a byte as character
-    Serial.print(c);         // print the character
-  }
-
-  return c;
+	writeRegister(gpioreg, gpio);
 }
 
-/*@brief  write selected gpio port
-  @param  port number, data to be written and i2c address of the device
-  @retval None
-*/
-void MCP23017::write_gpio(uint8_t port, uint32_t data, uint8_t address)
+uint8_t MCP23017::digitalRead(uint8_t pin)
 {
-  Wire.beginTransmission(address);
-  Wire.write(REGISTER_GPIOA | port);
-  Wire.write(data);
-  Wire.endTransmission();
+	MCP23017Register gpioreg = MCP23017Register::GPIO_A;
+	uint8_t gpio;
+	if(pin > 7)
+	{
+		gpioreg = MCP23017Register::GPIO_B;
+		pin -=8;
+	}
+
+	gpio = readRegister(gpioreg);
+	if(bitRead(gpio, pin)) return HIGH;
+	return LOW;
 }
 
-/*@brief  read selected gpio port bit
-  @param  port number, i/o pin to be read and i2c address of the device
-  @retval current gpio pin state
-*/
-uint8_t  MCP23017::read_gpio_bit(uint8_t port, uint8_t pin, uint8_t address)
+void MCP23017::writePort(MCP23017Port port, uint8_t value)
 {
-  uint8_t c;
-  Wire.beginTransmission(address);
-  Wire.write(REGISTER_GPIOA | port);
-  Wire.endTransmission();
-
-  Wire.requestFrom(address, 1);    
-
-  while (Wire.available()) { // slave may send less than requested
-    c = Wire.read();         // receive a byte as character
-    Serial.print(c);         // print the character
-  }
-
-  c = c & (1<<pin);
-  return c;
+	writeRegister(MCP23017Register::GPIO_A + port, value);
 }
 
-/*@brief  set selected gpio port bit
-  @param  port number, i/o pin to set and i2c address of the device
-  @retval None
-*/
-void MCP23017::set_gpio_bit(uint8_t port, uint8_t pin, uint8_t address)
+void MCP23017::write(uint16_t value)
 {
-  /*read existing port data*/
-  uint8_t reg_data = read_gpio(port,address);
-
-  Wire.beginTransmission(address);
-  Wire.write(REGISTER_GPIOA | port);
-  Wire.write(reg_data | (1<<pin));
-  Wire.endTransmission();
+	writeRegister(MCP23017Register::GPIO_A, lowByte(value), highByte(value));
 }
 
-/*@brief  clear selected gpio port bit
-  @param  port number, i/o pin to clear and i2c address of the device
-  @retval None
-*/
-void MCP23017::clear_gpio_bit(uint8_t port, uint8_t pin, uint8_t address)
+uint8_t MCP23017::readPort(MCP23017Port port)
 {
-  /*read existing port data*/
-  uint8_t reg_data = read_gpio(port,address);
-  
-  pin = (1<<pin);
-  pin ^= 0xFF;
-
-  Wire.beginTransmission(address);
-  Wire.write(REGISTER_GPIOA | port);
-  Wire.write(reg_data & pin);
-  Wire.endTransmission();
+	return readRegister(MCP23017Register::GPIO_A + port);
 }
+
+uint16_t MCP23017::read()
+{
+	uint8_t a = readPort(MCP23017Port::A);
+	uint8_t b = readPort(MCP23017Port::B);
+
+	return a | b << 8;
+}
+
+void MCP23017::writeRegister(MCP23017Register reg, uint8_t value)
+{
+	_bus->beginTransmission(_deviceAddr);
+	_bus->write(static_cast<uint8_t>(reg));
+	_bus->write(value);
+	_bus->endTransmission();
+}
+
+void MCP23017::writeRegister(MCP23017Register reg, uint8_t portA, uint8_t portB)
+{
+	_bus->beginTransmission(_deviceAddr);
+	_bus->write(static_cast<uint8_t>(reg));
+	_bus->write(portA);
+	_bus->write(portB);
+	_bus->endTransmission();
+}
+
+
+uint8_t MCP23017::readRegister(MCP23017Register reg)
+{
+	_bus->beginTransmission(_deviceAddr);
+	_bus->write(static_cast<uint8_t>(reg));
+	_bus->endTransmission();
+	_bus->requestFrom(_deviceAddr, (uint8_t)1);
+	return _bus->read();
+}
+
+void MCP23017::readRegister(MCP23017Register reg, uint8_t& portA, uint8_t& portB)
+{
+	_bus->beginTransmission(_deviceAddr);
+	_bus->write(static_cast<uint8_t>(reg));
+	_bus->endTransmission();
+	_bus->requestFrom(_deviceAddr, (uint8_t)2);
+	portA = _bus->read();
+	portB = _bus->read();
+}
+
+#ifdef _MCP23017_INTERRUPT_SUPPORT_
+
+void MCP23017::interruptMode(MCP23017InterruptMode intMode)
+{
+	uint8_t iocon = readRegister(MCP23017Register::IOCON);
+	if(intMode == MCP23017InterruptMode::Or) iocon |= static_cast<uint8_t>(MCP23017InterruptMode::Or);
+	else iocon &= ~(static_cast<uint8_t>(MCP23017InterruptMode::Or));
+
+	writeRegister(MCP23017Register::IOCON, iocon);
+}
+
+void MCP23017::interrupt(MCP23017Port port, uint8_t mode)
+{
+	MCP23017Register defvalreg = MCP23017Register::DEFVAL_A + port;
+	MCP23017Register intconreg = MCP23017Register::INTCON_A + port;
+
+	//enable interrupt for port
+	writeRegister(MCP23017Register::GPINTEN_A + port, 0xFF);
+	switch(mode)
+	{
+	case CHANGE:
+		//interrupt on change
+		writeRegister(intconreg, 0);
+		break;
+	case FALLING:
+		//interrupt falling : compared against defval, 0xff
+		writeRegister(intconreg, 0xFF);
+		writeRegister(defvalreg, 0xFF);
+		break;
+	case RISING:
+		//interrupt rising : compared against defval, 0x00
+		writeRegister(intconreg, 0xFF);
+		writeRegister(defvalreg, 0x00);
+		break;
+	}
+}
+
+void MCP23017::interruptedBy(uint8_t& portA, uint8_t& portB)
+{
+	readRegister(MCP23017Register::INTF_A, portA, portB);
+}
+
+void MCP23017::disableInterrupt(MCP23017Port port)
+{
+	writeRegister(MCP23017Register::GPINTEN_A + port, 0x00);
+}
+
+void MCP23017::clearInterrupts()
+{
+	uint8_t a, b;
+	clearInterrupts(a, b);
+}
+
+void MCP23017::clearInterrupts(uint8_t& portA, uint8_t& portB)
+{
+	readRegister(MCP23017Register::INTCAP_A, portA, portB);
+}
+
+#endif

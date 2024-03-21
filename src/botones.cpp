@@ -1,11 +1,49 @@
-#include <Control.h>
+#include "Control.h"
+#include "MCP23017.h"
 
 //Globales a este modulo
 unsigned long lastMillis;
 #define DEBOUNCEMILLIS 20
 volatile uint16_t ledStatus = 0;
 
-MCP23017 mcp(I2C_SDA,I2C_SCL);    //create mcp instance
+//MCP23017 mcp(I2C_SDA,I2C_SCL);    //create mcp instance
+
+#define mcpO_ADDR 0x20    // MCP de salidas (LEDs)
+#define mcpI_ADDR 0x21    // MCP de entradas (BOTONES)
+
+
+MCP23017 mcpI = MCP23017(mcpI_ADDR);
+MCP23017 mcpO = MCP23017(mcpO_ADDR);
+
+void initWire() {
+
+  Wire.setPins(I2C_SDA, I2C_SCL);
+  Wire.begin();
+}
+
+void mcpOinit() {
+
+    mcpO.init();
+    
+	/*set i/o pin direction as OUTPUT for both ports A and B en MCP de salidas (leds))*/
+	/* void portMode(port, directions, pullups, inverted); */
+
+    mcpO.portMode(MCP23017Port::A, 0x00);  // output
+    mcpO.portMode(MCP23017Port::B, 0x00);  // output
+
+}
+
+void mcpIinit() {
+
+    mcpI.init();
+    
+	/*set i/o pin direction as input for both ports A and B en MCP de entradas (botones)*/
+	/* void portMode(port, directions, pullups, inverted); */
+
+    mcpI.portMode(MCP23017Port::A, 0b01111111, 0b01111111, 0b01111111);  // input salvo A7, pull-up, polaridad invertida
+    mcpI.portMode(MCP23017Port::B, 0b01111111, 0b01111111, 0b01111111);  // input salvo AB, pull-up, polaridad invertida)
+
+}
 
 
 void apagaLeds()
@@ -14,8 +52,10 @@ void apagaLeds()
     analogWrite(LEDR, 0);
     analogWrite(LEDG, 0);
     analogWrite(LEDB, 0);
-    mcp.write_gpio(MCP23017_PORTA,  0x00 , mcpOUT);
-    mcp.write_gpio(MCP23017_PORTB,  0x00 , mcpOUT);
+    mcpO.writePort(MCP23017Port::A, 0x00);
+    mcpO.writePort(MCP23017Port::B, 0x00);
+    //mcp.write_gpio(MCP23017_PORTA,  0x00 , mcpOUT);
+    //mcp.write_gpio(MCP23017_PORTB,  0x00 , mcpOUT);
   #endif
   #ifdef NODEMCU
     digitalWrite(HC595_LATCH, LOW);
@@ -33,8 +73,10 @@ void enciendeLeds()
     analogWrite(LEDR, MAXledLEVEL);
     analogWrite(LEDG, MAXledLEVEL);
     analogWrite(LEDB, MAXledLEVEL);
-    mcp.write_gpio(MCP23017_PORTA,  0xFF , mcpOUT);
-    mcp.write_gpio(MCP23017_PORTB,  0xFF , mcpOUT);
+    mcpO.writePort(MCP23017Port::A, 0xFF);
+    mcpO.writePort(MCP23017Port::B, 0xFF);
+    //mcp.write_gpio(MCP23017_PORTA,  0xFF , mcpOUT);
+    //mcp.write_gpio(MCP23017_PORTB,  0xFF , mcpOUT);
   #endif
   #ifdef NODEMCU
     digitalWrite(HC595_LATCH, LOW);
@@ -117,23 +159,6 @@ void initGPIOs()
   pinMode(bENCODER, INPUT);
 }
 
-void initMCP23017 ()
-{
-  /*set i/o pin direction as output for both ports A and B en MCP de salidas (leds)*/
-  mcp.iodir(MCP23017_PORTA, MCP23017_IODIR_ALL_OUTPUT , mcpOUT);
-  mcp.iodir(MCP23017_PORTB, MCP23017_IODIR_ALL_OUTPUT , mcpOUT);
-  /*set i/o pin direction as input for both ports A and B en MCP de entradas (botones)*/
-  mcp.iodir(MCP23017_PORTA, MCP23017_IODIR_ALL_INPUT , mcpIN);
-  mcp.iodir(MCP23017_PORTB, MCP23017_IODIR_ALL_INPUT , mcpIN);
-  #ifdef EXTRADEBUG
-    mcp.write_gpio(MCP23017_PORTA,  0xFF , mcpOUT);
-    mcp.write_gpio(MCP23017_PORTB,  0xFF , mcpOUT);
-    delay(2000);
-    mcp.write_gpio(MCP23017_PORTA,  0x00 , mcpOUT);
-    mcp.write_gpio(MCP23017_PORTB,  0x00 , mcpOUT);
-  #endif
-}
-
 void ledPWM(uint8_t id,int estado)
 {
   estado ? analogWrite(id, MAXledLEVEL) : analogWrite(id, 0);
@@ -161,8 +186,10 @@ void led(uint8_t id,int estado)
     uint8_t bajo = (uint8_t)((ledStatus & 0x00FF));
     uint8_t alto = (uint8_t)((ledStatus & 0xFF00) >> 8);
     #ifdef ESP32
-      mcp.write_gpio(MCP23017_PORTA,  bajo , mcpOUT);
-      mcp.write_gpio(MCP23017_PORTB,  alto , mcpOUT);
+      mcpO.writePort(MCP23017Port::A, bajo);
+      mcpO.writePort(MCP23017Port::B, alto);
+      //mcp.write_gpio(MCP23017_PORTA,  bajo , mcpOUT);
+      //mcp.write_gpio(MCP23017_PORTB,  alto , mcpOUT);
     #endif
     #ifdef NODEMCU
       digitalWrite(HC595_LATCH, LOW);
@@ -183,6 +210,7 @@ bool ledStatusId(int ledID)
   return((ledStatus & (1 << (ledID-1))));
 }
 
+#ifdef NODEMCU
 void initCD4021B()
 {
   pinMode(CD4021B_LATCH, OUTPUT);
@@ -205,7 +233,22 @@ byte shiftInCD4021B(int myDataPin, int myClockPin)
   }
   return myDataIn;
 }
+#endif
 
+#ifdef ESP32
+uint16_t readInputs()
+{
+ //return 0x00; 
+  uint8_t    alto;
+  uint8_t    bajo;
+  //Leemos
+  bajo = mcpI.readPort(MCP23017Port::A);
+  alto = mcpI.readPort(MCP23017Port::B);
+  return bajo | (alto << 8);
+}
+#endif
+
+#ifdef NODEMCU
 uint16_t readInputs()
 {
   byte    switchVar1;
@@ -219,6 +262,7 @@ uint16_t readInputs()
   switchVar2 = shiftInCD4021B(CD4021B_DATA, CD4021B_CLOCK);
   return switchVar2 | (switchVar1 << 8);
 }
+#endif
 
 bool testButton(uint16_t id,bool state)
 {
@@ -238,6 +282,7 @@ S_BOTON *parseInputs(bool read)
   if(currentMillis < (lastMillis + DEBOUNCEMILLIS)) return NULL;
   else lastMillis = currentMillis;
   uint16_t inputs = readInputs();
+  //analizamos estado de los botones habilitados en la estructura Boton[]
   for (i=0;i<NUM_S_BOTON;i++) {
     //Nos saltamos los disabled
     if (!Boton[i].flags.enabled) continue;

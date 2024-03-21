@@ -132,7 +132,7 @@
     #define ENCDT                 GPIO_NUM_33
     #define ENCSW                 100           // ficticio, no tratamos el boton del encoder con ClicEncoder, se hace por programa
     #define bENCODER              GPIO_NUM_34   // este es el real conectado a GPIO solo INPUT
-    #define BUZZER                GPIO_NUM_2
+    #define BUZZER                GPIO_NUM_4
     #define CD4021B_CLOCK         GPIO_NUM_13
     #define CD4021B_LATCH         GPIO_NUM_14
     #define CD4021B_DATA          GPIO_NUM_15
@@ -143,19 +143,19 @@
     #define DISPDIO               GPIO_NUM_19
     #define I2C_SDA               GPIO_NUM_21
     #define I2C_SCL               GPIO_NUM_22
-    #define lZONA1                1
-    #define lZONA2                2
-    #define lZONA3                3
-    #define lZONA4                4
-    #define lZONA5                5
-    #define lZONA6                6
-    #define lZONA7                7
-    #define lZONA8                8
-    #define lZONA9                9
-    #define lGRUPO1               13
-    #define lGRUPO2               14
-    #define lGRUPO3               15
-    #define lGRUPO4               16
+    #define lZONA1                1             // mcpO GPA0
+    #define lZONA2                2             // mcpO GPA1
+    #define lZONA3                3             // mcpO GPA2
+    #define lZONA4                4             // mcpO GPA3
+    #define lZONA5                5             // mcpO GPA4
+    #define lZONA6                6             // mcpO GPA5
+    #define lZONA7                7             // mcpO GPA6
+    #define lZONA8                8             // mcpO GPA7
+    #define lZONA9                9             // mcpO GPB0
+    #define lGRUPO1               13            // mcpO GPB4
+    #define lGRUPO2               14            // mcpO GPB5
+    #define lGRUPO3               15            // mcpO GPB6
+    #define lGRUPO4               16            // mcpO GPB7
     #define mcpOUT                0x20  //direccion del MCP23017 para salidas (leds)
     #define mcpIN                 0x21  //direccion del MCP23017 para entradas (botones)
 
@@ -241,21 +241,22 @@
   // ojo esta es la posición del bit de cada boton en el stream serie - no modificar -
   #ifdef ESP32
   enum _botones {
-    bZONA1      = 0x0001,
-    bZONA2      = 0x0002,
-    bZONA3      = 0x0004,
-    bZONA4      = 0x0008,
-    bZONA5      = 0x0010,
-    bZONA6      = 0x0020,
-    bZONA7      = 0x0040,
-    bZONA8      = 0x0080,
-    bZONA9      = 0x0100,
-    bGRUPO1     = 0x0200,
-    bGRUPO2     = 0x0400,
-    bGRUPO3     = 0x0800,
-    bGRUPO4     = 0x1000,
-    bSTOP       = 0x4000,
-    bPAUSE      = 0x8000,
+    bZONA1      = 0x0001,  // A0
+    bZONA2      = 0x0002,  // A1
+    bZONA3      = 0x0004,  // A2
+    bZONA4      = 0x0008,  // A3
+    bZONA5      = 0x0010,  // A4
+    bZONA6      = 0x0020,  // A5
+    bZONA7      = 0x0040,  // A6
+    //          = 0x0080,  // A7  (NO USAR)
+    bZONA8      = 0x0100,  // B0
+    bZONA9      = 0x0200,  // B1  
+    bGRUPO1     = 0x0400,  // B2
+    bMULTIRIEGO = 0x0800,  // B3
+    bGRUPO3     = 0x1000,  // B4
+    bPAUSE      = 0x2000,  // B5
+    bSTOP       = 0x4000,  // B6
+    //          = 0x8000,  // B7  (NO USAR)
   };
   #endif
 
@@ -281,8 +282,8 @@
   #endif
 
   //Pseudobotones
-  #define bMULTIRIEGO   0xFF03
-  //#define bGRUPO2   0xFF01
+  //#define bMULTIRIEGO   0xFF03
+  #define bGRUPO2   0xFF01
   //#define bCONFIG   0xFF02
 
   //----------------  dependientes del HW (número, orden)  ----------------------------
@@ -405,13 +406,12 @@
       {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ZONA7",       0},
       {bZONA8  ,    0,  0,  lZONA8  ,    ENABLED | ACTION,                 "ZONA8",       0},
       {bZONA9,      0,  0,  0,           disabled,                         "spare9",      0},
+      {bMULTIRIEGO, 0,  0,  0,           ENABLED | ACTION,                 "MULTIRIEGO",  0},
       {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO1",      0},
-      {bGRUPO2,     0,  0,  lGRUPO2,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO2",      0},
+      {bGRUPO2  ,   0,  0,  lGRUPO2  ,   disabled,                         "GRUPO2",      0},
       {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO3",      0},
-      {bGRUPO4  ,   0,  0,  lGRUPO4  ,   disabled,                         "GRUPO4",      0},
-    //{bENCODER,    0,  0,  0,           ENABLED | ONLYSTATUS | DUAL,      "ENCODER",     0},
-      {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",        0},
-      {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE",       0}
+      {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE",       0},
+      {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",        0}
     };
     int NUM_S_BOTON = sizeof(Boton)/sizeof(Boton[0]);
 
@@ -428,6 +428,10 @@
     const char *parmFile = "/config_parm.json";       // fichero de parametros activos
     const char *defaultFile = "/config_default.json"; // fichero de parametros por defecto
 
+    unsigned long currentMillisLoop = 0;
+    unsigned long lastMillisLoop = 0;
+    int numloops = 0;
+
   #else
     extern S_BOTON Boton [];
     extern S_MULTI multi;
@@ -442,6 +446,10 @@
     extern int NUM_S_BOTON;
     extern const char *parmFile;       // fichero de parametros activos
     extern const char *defaultFile; // fichero de parametros por defecto
+
+    extern long currentMillisLoop;
+    extern long lastMillisLoop;
+    extern int numloops;
 
 
   #endif
@@ -474,6 +482,7 @@
     uint factorRiegos[NUMZONAS];
     uint8_t minutes;
     uint8_t seconds;
+    uint8_t prevseconds;
     char  descDomoticz[20];
     int value;
     int savedValue;
@@ -528,6 +537,7 @@
   bool copyConfigFile(const char*, const char*);
   void dimmerLeds(bool);
   void displayGrupo(uint16_t *, int);
+  void displayTimer(uint8_t, uint8_t, uint8_t, uint8_t);
   bool domoticzSwitch(int,char *, int);
   void enciendeLeds(void);
   void endWS(void);
@@ -537,15 +547,18 @@
   uint16_t getMultiStatus(void);
   String *httpGetDomoticz(String *);
   void infoDisplay(const char *, int, int, int);
+  void infoLCD(const char *, int, int, int);
   void initCD4021B(void);
   void initClock(void);
   void initFactorRiegos(void);
   void initGPIOs(void);
   void initHC595(void);
   void initLastRiegos(void);
+  void initLCD(void);
   void initLeds(void);
   void initMCP23017 (void);
   bool initRiego(uint16_t);
+  void initWire(void);
   void led(uint8_t,int);
   void ledConf(int);
   void ledPWM(uint8_t, int);
@@ -556,6 +569,8 @@
   bool loadConfigFile(const char*, Config_parm&);
   void loadDefaultSignal(uint);
   void longbip(int);
+  void mcpIinit(void);
+  void mcpOinit(void);
   void memoryInfo(void);
   void parpadeoLedON(void);
   void parpadeoLedWifi(void);

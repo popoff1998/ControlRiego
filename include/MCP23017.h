@@ -1,188 +1,263 @@
-/*@brief  library for interacting with  MCP23017 I/O expander 
-          over i2c communication
-  @pinout
+#pragma once
 
-         .---------.
-  GPB0<->|1  \_/ 28|<->GPA7
-  GPB1<->|         |<->GPA6
-  GPB2<->|    M    |<->GPA5
-  GPB3<->|    C    |<->GPA4
-  GPB4<->|    P    |<->GPA3
-  GPB5<->|    2    |<->GPA2
-  GPB6<->|    3    |<->GPA1
-  GPB7<->|    0    |<->GPA0
-   VDD-->|    1    |-->INTA
-   VSS-->|    7    |-->INTB
-   NC x--|         |-->~RESET
-   SCL-->|         |<--A2
-   SDA<->|         |<--A1
-   NC x--|14     15|<--A0
-         '---------'
-*/
+//  https://github.com/blemasle/arduino-mcp23017
 
+#include <Arduino.h>
+#include <Wire.h>
 
-#ifndef _MCP23017_H_
-#define _MCP23017_H_
+#define MCP23017_I2C_ADDRESS 0x20    ///< The default I2C address of MCP23017.
+#define _MCP23017_INTERRUPT_SUPPORT_ ///< Enables support for MCP23017 interrupts.
 
-#include <Wire.h> 
-#include "Arduino.h"
-#include <stdint.h> 
-
-/*flag to select register bank addressing format*/
-#define iocon_bank   0    
-
-/*Port Definitions*/ 
-#define MCP23017_PORTA      0x00
-#define MCP23017_PORTB      0x01
-
-/* Hardware Address Pins(A0-A2) 
-       A2    A1    A0        7-bit slave address
-      GND   GND   GND              0x20
-      GND   GND   VCC              0x21
-      GND   VCC   GND              0x22
-      GND   VCC   VCC              0x23
-      VCC   GND   GND              0x24
-      VCC   GND   VCC              0x25
-      VCC   VCC   GND              0x26
-      VCC   VCC   VCC              0x27
-*/
-#define MCP23017_ADDRESS_20   0x20
-#define MCP23017_ADDRESS_21   0x21
-#define MCP23017_ADDRESS_22   0x22
-#define MCP23017_ADDRESS_23   0x23
-#define MCP23017_ADDRESS_24   0x24
-#define MCP23017_ADDRESS_25   0x25
-#define MCP23017_ADDRESS_26   0x26
-#define MCP23017_ADDRESS_27   0x27
-
-/* I/O Direction
- Default state: MCP23017_IODIR_ALL_INPUT
- */
-#define MCP23017_IODIR_ALL_OUTPUT 0x00
-#define MCP23017_IODIR_ALL_INPUT  0xFF
-#define MCP23017_IODIR_IO0_INPUT  0x01
-#define MCP23017_IODIR_IO1_INPUT  0x02
-#define MCP23017_IODIR_IO2_INPUT  0x04
-#define MCP23017_IODIR_IO3_INPUT  0x08
-#define MCP23017_IODIR_IO4_INPUT  0x10
-#define MCP23017_IODIR_IO5_INPUT  0x20
-#define MCP23017_IODIR_IO6_INPUT  0x40
-#define MCP23017_IODIR_IO7_INPUT  0x80
-
-/*Input Polarity
-  Default state: MCP23017_IPOL_ALL_NORMAL
-*/
-#define MCP23017_IPOL_ALL_NORMAL    0x00
-#define MCP23017_IPOL_ALL_INVERTED  0xFF
-#define MCP23017_IPOL_IO0_INVERTED  0x01
-#define MCP23017_IPOL_IO1_INVERTED  0x02
-#define MCP23017_IPOL_IO2_INVERTED  0x04
-#define MCP23017_IPOL_IO3_INVERTED  0x08
-#define MCP23017_IPOL_IO4_INVERTED  0x10
-#define MCP23017_IPOL_IO5_INVERTED  0x20
-#define MCP23017_IPOL_IO6_INVERTED  0x40
-#define MCP23017_IPOL_IO7_INVERTED  0x80
-
-/*Input Pull-Up Resistor
-  Default state: MCP23017_GPPU_ALL_DISABLED
-*/
-#define MCP23017_GPPU_ALL_DISABLED  0x00
-#define MCP23017_GPPU_ALL_ENABLED   0xFF
-#define MCP23017_GPPU_IO0_ENABLED   0x01
-#define MCP23017_GPPU_IO1_ENABLED   0x02
-#define MCP23017_GPPU_IO2_ENABLED   0x04
-#define MCP23017_GPPU_IO3_ENABLED   0x08
-#define MCP23017_GPPU_IO4_ENABLED   0x10
-#define MCP23017_GPPU_IO5_ENABLED   0x20
-#define MCP23017_GPPU_IO6_ENABLED   0x40
-#define MCP23017_GPPU_IO7_ENABLED   0x80
-
-/*Register IOCON is shared between the two ports
-  • If BANK = 1, the registers associated with each
-    port are segregated. Registers associated with
-    PORTA are mapped from address 00h - 0Ah and
-    registers associated with PORTB are mapped
-    from 10h - 1Ah.
-  • If BANK = 0, the A/B registers are paired. For
-    example, IODIRA is mapped to address 00h and
-    IODIRB is mapped to the next address (address 01h). 
-    The mapping for all registers is from 00h-15h.
-*/
-
-
-#if iocon_bank
-
-/*Registers Definitions (IOCON.BANK = 1)*/
-        #define REGISTER_IODIRA   0x00
-        #define REGISTER_IPOLA    0x01
-        #define REGISTER_GPINTENA 0x02
-        #define REGISTER_DEFVALA  0x03
-        #define REGISTER_INTCONA  0x04
-        #define REGISTER_IOCON    0x05
-        #define REGISTER_GPPUA    0x06
-        #define REGISTER_INTFA    0x07
-        #define REGISTER_INTCAPA  0x08
-        #define REGISTER_INTCONB  0x09
-        #define REGISTER_GPIOA    0x0A
-        #define REGISTER_OLATA    0x0C
-        #define REGISTER_IODIRB   0x10
-        #define REGISTER_IPOLB    0x11
-        #define REGISTER_GPINTENB 0x12
-        #define REGISTER_DEFVALB  0x13
-        #define REGISTER_INTCONB  0x14
-        #define REGISTER_GPPUB    0x16
-        #define REGISTER_INTFB    0x17
-        #define REGISTER_INTCAPB  0x18
-        #define REGISTER_GPIOB    0x19
-        #define REGISTER_OLATB    0x1A
-
-#else
-
-/*Registers Definitions (IOCON.BANK = 0)
-  Default address of Registers 
-*/
-        #define REGISTER_IODIRA   0x00
-        #define REGISTER_IODIRB   0x01
-        #define REGISTER_IPOLA    0x02
-        #define REGISTER_IPOLB    0x03
-        #define REGISTER_GPINTENA 0x04
-        #define REGISTER_GPINTENB 0x05
-        #define REGISTER_DEFVALA  0x06
-        #define REGISTER_DEFVALB  0x07
-        #define REGISTER_INTCONA  0x08
-        #define REGISTER_INTCONB  0x09
-        #define REGISTER_IOCON    0x0A
-        #define REGISTER_GPPUA    0x0C
-        #define REGISTER_GPPUB    0x0D
-        #define REGISTER_INTFA    0x0E
-        #define REGISTER_INTFB    0x0F
-        #define REGISTER_INTCAPA  0x10
-        #define REGISTER_INTCAPB  0x11
-        #define REGISTER_GPIOA    0x12
-        #define REGISTER_GPIOB    0x13
-        #define REGISTER_OLATA    0x14
-        #define REGISTER_OLATB    0x15
-
-#endif
-
-
-class MCP23017 {
-public:
-  MCP23017(uint8_t sda=21,uint8_t scl=22);      //constructor with default sda and scl pins 
-
-  /*functions for operations*/
-  uint8_t read(uint16_t reg, uint8_t address);
-  void write(uint16_t reg, uint8_t data, uint8_t address);
-  void iodir(uint8_t port, uint8_t iodir, uint8_t address);
-  void ipol(uint8_t port, uint8_t ipol, uint8_t address);
-  void gppu(uint8_t port, uint8_t pu, uint8_t address);
-  uint8_t  read_gpio(uint8_t port, uint8_t address);
-  void write_gpio(uint8_t port, uint32_t data, uint8_t address);
-  uint8_t read_gpio_bit(uint8_t port, uint8_t pin, uint8_t address);
-  void set_gpio_bit(uint8_t port, uint8_t pin, uint8_t address);
-  void clear_gpio_bit(uint8_t port, uint8_t pin, uint8_t address);
+enum class MCP23017Port : uint8_t
+{
+	A = 0,
+	B = 1
 };
 
+struct MCP23017Pin
+{
+	enum Names {
+		GPA0 = 0,
+		GPA1,
+		GPA2,
+		GPA3,
+		GPA4,
+		GPA5,
+		GPA6,
+		GPA7,
+		GPB0 = 8,
+		GPB1,
+		GPB2,
+		GPB3,
+		GPB4,
+		GPB5,
+		GPB6,
+		GPB7
+	};
+};
 
+/**
+ * Controls if the two interrupt pins mirror each other.
+ * See "3.6 Interrupt Logic".
+ */
+enum class MCP23017InterruptMode : uint8_t
+{
+	Separated = 0,	///< Interrupt pins are kept independent
+	Or = 0b01000000	///< Interrupt pins are mirrored
+};
+
+/**
+ * Registers addresses.
+ * The library use addresses for IOCON.BANK = 0.
+ * See "3.2.1 Byte mode and Sequential mode".
+ */
+enum class MCP23017Register : uint8_t
+{
+	IODIR_A		= 0x00, 		///< Controls the direction of the data I/O for port A.
+	IODIR_B		= 0x01,			///< Controls the direction of the data I/O for port B.
+	IPOL_A		= 0x02,			///< Configures the polarity on the corresponding GPIO_ port bits for port A.
+	IPOL_B		= 0x03,			///< Configures the polarity on the corresponding GPIO_ port bits for port B.
+	GPINTEN_A	= 0x04,			///< Controls the interrupt-on-change for each pin of port A.
+	GPINTEN_B	= 0x05,			///< Controls the interrupt-on-change for each pin of port B.
+	DEFVAL_A	= 0x06,			///< Controls the default comparaison value for interrupt-on-change for port A.
+	DEFVAL_B	= 0x07,			///< Controls the default comparaison value for interrupt-on-change for port B.
+	INTCON_A	= 0x08,			///< Controls how the associated pin value is compared for the interrupt-on-change for port A.
+	INTCON_B	= 0x09,			///< Controls how the associated pin value is compared for the interrupt-on-change for port B.
+	IOCON		= 0x0A,			///< Controls the device.
+	GPPU_A		= 0x0C,			///< Controls the pull-up resistors for the port A pins.
+	GPPU_B		= 0x0D,			///< Controls the pull-up resistors for the port B pins.
+	INTF_A		= 0x0E,			///< Reflects the interrupt condition on the port A pins.
+	INTF_B		= 0x0F,			///< Reflects the interrupt condition on the port B pins.
+	INTCAP_A	= 0x10,			///< Captures the port A value at the time the interrupt occured.
+	INTCAP_B	= 0x11,			///< Captures the port B value at the time the interrupt occured.
+	GPIO_A		= 0x12,			///< Reflects the value on the port A.
+	GPIO_B		= 0x13,			///< Reflects the value on the port B.
+	OLAT_A		= 0x14,			///< Provides access to the port A output latches.
+	OLAT_B		= 0x15,			///< Provides access to the port B output latches.
+};
+
+inline MCP23017Register operator+(MCP23017Register a, MCP23017Port b) {
+	return static_cast<MCP23017Register>(static_cast<uint8_t>(a) + static_cast<uint8_t>(b));
+};
+
+class MCP23017
+{
+private:
+	TwoWire* _bus;
+	uint8_t _deviceAddr;
+public:
+	/**
+	 * Instantiates a new instance to interact with a MCP23017 at the specified address.
+	 */
+	MCP23017(uint8_t address, TwoWire& bus = Wire);
+	/**
+	 * Instantiates a new instance to interact with a MCP23017 at the
+	 * MCP23017_I2C_ADDRESS default.
+	 */
+	MCP23017(TwoWire& bus = Wire);
+	~MCP23017();
+#ifdef _DEBUG
+	void debug();
+#endif
+	/**
+	 * Uses the I2C address set during construction. Implicitly calls init().
+	 */
+	void begin();
+	/**
+	 * Overrides the I2C address set by the constructor. Implicitly calls begin().
+
+	 */
+	void begin(uint8_t address);
+	/**
+	 * Initializes the chip with the default configuration.
+	 * Enables Byte mode (IOCON.BANK = 0 and IOCON.SEQOP = 1).
+	 * Enables pull-up resistors for all pins. This will only be effective for input pins.
+	 * 
+	 * See "3.2.1 Byte mode and Sequential mode".
+	 */
+	void init();
+	/**
+	 * Controls the pins direction on a whole port at once.
+	 * 
+	 * 1 = Pin is configured as an input.
+	 * 0 = Pin is configured as an output.
+	 * 
+	 * See "3.5.1 I/O Direction register".
+	 */
+	void portMode(MCP23017Port port, uint8_t directions, uint8_t pullups = 0xFF, uint8_t inverted = 0x00);
+	/**
+	 * Controls a single pin direction. 
+	 * Pin 0-7 for port A, 8-15 fo port B.
+	 * 
+	 * 1 = Pin is configured as an input.
+	 * 0 = Pin is configured as an output.
+	 *
+	 * See "3.5.1 I/O Direction register".
+	 * 
+	 * Beware!  
+	 * On Arduino platform, INPUT = 0, OUTPUT = 1, which is the inverse
+	 * of the MCP23017 definition where a pin is an input if its IODIR bit is set to 1.
+	 * This library pinMode function behaves like Arduino's standard pinMode for consistency.
+	 * [ OUTPUT | INPUT | INPUT_PULLUP ]
+	 */
+	void pinMode(uint8_t pin, uint8_t mode, bool inverted = false);
+
+	/**
+	 * Writes a single pin state.
+	 * Pin 0-7 for port A, 8-15 for port B.
+	 * 
+	 * 1 = Logic-high
+	 * 0 = Logic-low
+	 * 
+	 * See "3.5.10 Port register".
+	 */
+	void digitalWrite(uint8_t pin, uint8_t state);
+	/**
+	 * Reads a single pin state.
+	 * Pin 0-7 for port A, 8-15 for port B.
+	 * 
+	 * 1 = Logic-high
+	 * 0 = Logic-low
+	 * 
+	 * See "3.5.10 Port register".
+	 */ 
+	uint8_t digitalRead(uint8_t pin);
+
+	/**
+	 * Writes pins state to a whole port.
+	 * 
+	 * 1 = Logic-high
+	 * 0 = Logic-low
+	 * 
+	 * See "3.5.10 Port register".
+	 */
+	void writePort(MCP23017Port port, uint8_t value);
+	/**
+	 * Writes pins state to both ports.
+	 * 
+	 * 1 = Logic-high
+	 * 0 = Logic-low
+	 * 
+	 * See "3.5.10 Port register".
+	 */
+	void write(uint16_t value);
+
+	/**
+	 * Reads pins state for a whole port.
+	 * 
+	 * 1 = Logic-high
+	 * 0 = Logic-low
+	 * 
+	 * See "3.5.10 Port register".
+	 */
+	uint8_t readPort(MCP23017Port port);
+	/**
+	 * Reads pins state for both ports. 
+	 * 
+	 * 1 = Logic-high
+	 * 0 = Logic-low
+	 * 
+	 * See "3.5.10 Port register".
+	 */
+	uint16_t read();
+
+	/**
+	 * Writes a single register value.
+	 */
+	void writeRegister(MCP23017Register reg, uint8_t value);
+	/**
+	 * Writes values to a register pair.
+	 * 
+	 * For portA and portB variable to effectively match the desired port,
+	 * you have to supply a portA register address to reg. Otherwise, values
+	 * will be reversed due to the way the MCP23017 works in Byte mode.
+	 */
+	void writeRegister(MCP23017Register reg, uint8_t portA, uint8_t portB);
+	/**
+	 * Reads a single register value.
+	 */
+	uint8_t readRegister(MCP23017Register reg);
+	/**
+	 * Reads the values from a register pair.
+	 * 
+	 * For portA and portB variable to effectively match the desired port,
+	 * you have to supply a portA register address to reg. Otherwise, values
+	 * will be reversed due to the way the MCP23017 works in Byte mode.
+	 */
+	void readRegister(MCP23017Register reg, uint8_t& portA, uint8_t& portB);
+
+#ifdef _MCP23017_INTERRUPT_SUPPORT_
+
+	/**
+	 * Controls how the interrupt pins act with each other.
+	 * If intMode is Separated, interrupt conditions on a port will cause its respective INT pin to active.
+	 * If intMode is Or, interrupt pins are OR'ed so an interrupt on one of the port will cause both pints to active.
+	 * 
+	 * Controls the IOCON.MIRROR bit. 
+	 * See "3.5.6 Configuration register".
+	 */
+	void interruptMode(MCP23017InterruptMode intMode);
+	/**
+	 * Configures interrupt registers using an Arduino-like API.
+	 * mode can be one of CHANGE, FALLING or RISING.
+	 */
+	void interrupt(MCP23017Port port, uint8_t mode);
+	/**
+	 * Disable interrupts for the specified port.
+	 */
+	void disableInterrupt(MCP23017Port port);
+	/**
+	 * Reads which pin caused the interrupt.
+	 */
+	void interruptedBy(uint8_t& portA, uint8_t& portB);
+	/**
+	 * Clears interrupts on both ports.
+	 */
+	void clearInterrupts();
+	/**
+	 * Clear interrupts on both ports. Returns port values at the time the interrupt occured.
+	 */
+	void clearInterrupts(uint8_t& portA, uint8_t& portB);
 
 #endif
+};

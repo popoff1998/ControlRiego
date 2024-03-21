@@ -46,6 +46,7 @@ void displayGrupo(uint16_t *serie, int serieSize)
     led(Boton[bID_bIndex(serie[i])].led,ON);
     delay(300);
     bip(i+1);
+    delay(100*(i+1));
     led(Boton[bID_bIndex(serie[i])].led,OFF);
     delay(100);
   }
