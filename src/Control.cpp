@@ -42,6 +42,7 @@ void setup()
   #endif
   display = new Display(DISPCLK,DISPDIO);
   display->clearDisplay();
+  initLCD();
   //Para el encoder
   #ifdef DEBUG
    Serial.println(F("Inicializando Encoder"));
@@ -1198,6 +1199,11 @@ void StaticTimeUpdate(void)
   if (minutes < MINMINUTES) minutes = MINMINUTES;
   if (minutes > MAXMINUTES) minutes = MAXMINUTES;
   display->printTime(minutes, seconds);
+  #ifdef displayLCDStaticTimeUpdate
+    //displayTimer(minutes, seconds, 7, 1); //LCD
+    if(prevseconds != seconds) displayTimer(minutes, seconds, 7, 1); //LCD solo se actualiza si cambia
+    prevseconds = seconds;  //LCD
+  #endif  
 }
 
 
@@ -1231,6 +1237,8 @@ void infoDisplay(const char *textDisplay, int dnum, int btype, int bnum) {
     display->blink(dnum);
   #endif
   #ifdef displayLCD
+    infoLCD(textDisplay, dnum, btype, bnum);
+  #endif
 }
 
 /**---------------------------------------------------------------
@@ -1477,6 +1485,19 @@ void Verificaciones()
 {   
   #ifdef DEBUG
     leeSerial();  // para ver si simulamos algun tipo de error
+  #endif
+  #ifdef DEBUGloops
+    if (numloops < 100) {
+      ++numloops;
+      currentMillisLoop = millis();
+    }
+    else {
+      currentMillisLoop = currentMillisLoop - lastMillisLoop;
+      Serial.printf( "[CRONO] %d loops en milisegundos: %d \n" , numloops, currentMillisLoop);
+      numloops = 0;
+      lastMillisLoop = millis();
+    }
+    //  Serial.printf( "[CRONO] %d loops en milisegundos: %d \n" , numloops+1, currentMillisLoop);
   #endif
   #ifdef WEBSERVER
   if (webServerAct) {
