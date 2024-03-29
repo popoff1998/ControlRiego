@@ -1,5 +1,5 @@
 {
-  "numzonas": 7,	
+  "numzonas": 8,	
   "botones": [
     {
       "zona": 1,
@@ -35,7 +35,13 @@
       "zona": 7,
       "idx": 0,
       "nombre": "ZONA7"
+    },
+	{
+      "zona": 8,
+      "idx": 0,
+      "nombre": "ZONA8"
     }
+
   ],
   "tiempo" : {
     "minutos": 0,
