@@ -1,6 +1,21 @@
 #define __MAIN__
 #include "Control.h"
 
+/* 
+ 0   ESP_RST_UNKNOWN,    //!< Reset reason can not be determined
+ 1   ESP_RST_POWERON,    //!< Reset due to power-on event
+ 2   ESP_RST_EXT,        //!< Reset by external pin (not applicable for ESP32)
+ 3   ESP_RST_SW,         //!< Software reset via esp_restart
+ 4   ESP_RST_PANIC,      //!< Software reset due to exception/panic
+ 5   ESP_RST_INT_WDT,    //!< Reset (software or hardware) due to interrupt watchdog
+ 6   ESP_RST_TASK_WDT,   //!< Reset due to task watchdog
+ 7   ESP_RST_WDT,        //!< Reset due to other watchdogs
+ 8   ESP_RST_DEEPSLEEP,  //!< Reset after exiting deep sleep mode
+ 9   ESP_RST_BROWNOUT,   //!< Brownout reset (software or hardware)
+ 10  ESP_RST_SDIO,       //!< Reset over SDIO
+
+ */
+
 /*----------------------------------------------*
  *               Setup inicial                  *
  *----------------------------------------------*/
@@ -11,7 +26,7 @@ void setup()
                 VERIFY=true; 
   #endif
   #ifdef DEVELOP
-                NONETWORK=true;
+                NONETWORK=false;
                 VERIFY=true; 
   #endif
   #ifdef DEMO
@@ -20,43 +35,37 @@ void setup()
   #endif
 
   Serial.begin(115200);
-  Serial.println("\n\n CONTROL RIEGO V" + String(VERSION) + "    Built on " __DATE__ " at " __TIME__ );
+  //serialDetect();
+  delay(500);
+  PRINTLN("\n\n CONTROL RIEGO V" + String(VERSION) + "    Built on " __DATE__ " at " __TIME__ );
+  PRINTLN("   current log level is", (int)LOG_GET_LEVEL());
+
+  #ifdef ESP32
+    LOG_DEBUG("Startup reason: ", esp_reset_reason());
+  #endif  
   #ifdef NodeMCU
     Serial.print(F("Startup reason: "));Serial.println(ESP.getResetReason());
   #endif  
-  #ifdef TRACE
-    Serial.println(F("TRACE: in setup"));
-  #endif
+  LOG_TRACE("TRACE: in setup");
   // init de los GPIOs y bus I2C
   initGPIOs();
   initWire();
   //Para los MCPs
-  #ifdef DEBUG
-   Serial.println(F("Inicializando MCPs"));
-  #endif
+  LOG_TRACE("Inicializando MCPs");
   mcpOinit();
   mcpIinit();
   //Para el display
-  #ifdef DEBUG
-   Serial.println(F("Inicializando displays"));
-  #endif
+  LOG_TRACE("Inicializando displays");
   display = new Display(DISPCLK,DISPDIO);
   display->clearDisplay();
-  initLCD();
+  lcd.initLCD();
   //Para el encoder
-  #ifdef DEBUG
-   Serial.println(F("Inicializando Encoder"));
-  #endif
+  LOG_TRACE("Inicializando Encoder");
   Encoder = new ClickEncoder(ENCCLK,ENCDT,ENCSW);
-  //Para el Configure le paso encoder y display porque lo usara.
-  #ifdef DEBUG
-   Serial.println(F("Inicializando Configure"));
-  #endif
+  //initEncoder();
+  //Para el Configure le paso display porque lo usara.
+  LOG_TRACE("Inicializando Configure");
   configure = new Configure(display);
-  //Para el CD4021B
-  //initCD4021B();
-  //Para el 74HC595
-  //initHC595();
   //preparo indicadores de inicializaciones opcionales
   setupInit();
   //led encendido
@@ -97,9 +106,7 @@ void setup()
   tic_verificaciones.attach(VERIFY_INTERVAL, flagVerificaciones);  //TODO ¿es correcto?
   //tic_verificaciones.attach_scheduled(VERIFY_INTERVAL, flagVerificaciones);
   standbyTime = millis();
-  #ifdef TRACE
-    Serial.println(F("TRACE: ending setup"));
-  #endif
+  LOG_INFO("*** ending setup");
 }
 
 
@@ -114,9 +121,7 @@ void loop()
   #endif
 
   procesaBotones();
-  //dimmerLeds();
   procesaEstados();
-  //dimmerLeds();
   Verificaciones();
 }
 
@@ -213,9 +218,7 @@ void procesaEstados()
  */
 void setupEstado() 
 {
-  #ifdef TRACE
-    Serial.println(F("TRACE: in setupEstado"));
-  #endif
+  LOG_TRACE("");
   //inicializamos apuntador estructura multi (posicion del selector multirriego):
   if(!setMultibyId(getMultiStatus(), config) || !config.initialized) {
     statusError(E0);  //no se ha podido cargar parámetros de ficheros -> señalamos el error
@@ -226,6 +229,7 @@ void setupEstado()
     if (Boton[bID_bIndex(bSTOP)].estado) {
       setEstado(STOP);
       infoDisplay("StoP", NOBLINK, LONGBIP, 1);
+      //lcd.infoclear("STOP", NOBLINK, LONGBIP, 1);
     }
     else setEstado(STANDBY);
     bip(2);
@@ -240,6 +244,7 @@ void setupEstado()
     if (Boton[bID_bIndex(bSTOP)].estado) {
       setEstado(STOP);
       infoDisplay("StoP", NOBLINK, LONGBIP, 1);
+      //lcd.infoclear("STOP", NOBLINK, LONGBIP, 1);
     }
     else setEstado(STANDBY);
     bip(1);
@@ -256,18 +261,16 @@ void setupEstado()
  *    - Grupo3 (abajo) --> en ese caso borramos red wifi almacenada en el ESP8266
  */
 void setupInit(void) {
-  #ifdef TRACE
-    Serial.println(F("TRACE: in setupInit"));
-  #endif
+  LOG_TRACE("");
   if (!digitalRead(bENCODER)) {
     if (testButton(bGRUPO1,ON)) {
       initFlags.initParm = true;
-      Serial.println(F("encoderSW pulsado y multirriego en GRUPO1  --> flag de load default PARM true"));
+      LOG_WARN("encoderSW pulsado y multirriego en GRUPO1  --> flag de load default PARM true");
       loadDefaultSignal(6);
     }
     if (testButton(bGRUPO3,ON)) {
       initFlags.initWifi = true;
-      Serial.println(F("encoderSW pulsado y multirriego en GRUPO3  --> flag de init WIFI true"));
+      LOG_WARN("encoderSW pulsado y multirriego en GRUPO3  --> flag de init WIFI true");
       wifiClearSignal(6);
     }
   }
@@ -283,9 +286,9 @@ void procesaBotonPause(void)
       case REGANDO:
         if(encoderSW) {  //si pulsamos junto con encoderSW terminamos el riego (pasaria al siguiente en caso de multirriego)
           setEstado(TERMINANDO);
-          Serial.println(F("encoderSW+PAUSE terminamos riego de zona en curso"));
+          LOG_INFO("encoderSW+PAUSE terminamos riego de zona en curso");
         }
-        else {
+        else {    //pausa el riego en curso
           bip(1);
           setEstado(PAUSE);
           tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
@@ -300,7 +303,7 @@ void procesaBotonPause(void)
         if(Estado.estado == ERROR) { // caso de error al reanudar el riego seguimos en PAUSE y señalamos con blink rapido zona
           ledID = ultimoBoton->led;
           tic_parpadeoLedZona.attach(0.2,parpadeoLedZona);
-          Serial.printf( "error al salir de PAUSE errorText : %s Estado.fase : %d\n", errorText, Estado.fase );
+          LOG_WARN("error al salir de PAUSE errorText :",errorText,"Estado.fase :",Estado.fase );
           refreshTime();
           setEstado(PAUSE);
           break;
@@ -316,7 +319,7 @@ void procesaBotonPause(void)
           if(encoderSW) {  //si encoderSW+Pause --> conmutamos estado NONETWORK
             if (NONETWORK) {
                 NONETWORK = false;
-                Serial.println(F("encoderSW+PAUSE pasamos a modo NORMAL y leemos factor riegos"));
+                LOG_INFO("encoderSW+PAUSE pasamos a modo NORMAL y leemos factor riegos");
                 bip(2);
                 ledPWM(LEDB,OFF);
                 display->print("----");
@@ -325,9 +328,10 @@ void procesaBotonPause(void)
             }
             else {
                 NONETWORK = true;
-                Serial.println(F("encoderSW+PAUSE pasamos a modo NONETWORK (DEMO)"));
+                LOG_INFO("encoderSW+PAUSE pasamos a modo NONETWORK (DEMO)");
                 bip(2);
                 ledPWM(LEDB,ON);
+                lcd.clear();
             }
           }
           else {    // muestra hora y ultimos riegos
@@ -352,13 +356,14 @@ void procesaBotonPause(void)
             longbip(1);
             ledConf(ON);
             setEstado(CONFIGURANDO);
-            Serial.println(F("Stop + hold PAUSA --> modo ConF()"));
+            lcd.info("modo CONFIGURACION", 1);
+            LOG_INFO("Stop + hold PAUSA --> modo ConF()");
             boton = NULL;
             holdPause = false;
             savedValue = value;
           }
           else {   //si esta pulsado encoderSW hacemos un soft reset
-            Serial.println(F("Stop + encoderSW + PAUSA --> Reset....."));
+            LOG_WARN("Stop + encoderSW + PAUSA --> Reset.....");
             longbip(3);
             ESP.restart();  // Hard RESET: ESP.reset()
           }
@@ -382,29 +387,33 @@ void procesaBotonStop(void)
         boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
         return; 
       }
-      infoDisplay("StoP", DEFAULTBLINK, BIP, 6);;
+      infoDisplay("StoP", DEFAULTBLINK, BIP, 6);
+      lcd.clear();
       setEstado(STOP);
       resetFlags();
     }
     else {
       //Lo hemos pulsado en standby - seguro antinenes
       infoDisplay("StoP", NOBLINK, BIP, 3);
+      //lcd.infoclear("STOP", NOBLINK, BIP, 3);
       // apagar leds y parar riegos (por si riego activado externamente)
       if (!stopAllRiego()) {   //error en stopAllRiego
         boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
         return; 
       }
+      lcd.clear();
       setEstado(STOP);
       reposo = true; //pasamos directamente a reposo
       dimmerLeds(ON);
       displayOff = false;
+      lcd.setBacklight(ON);
     }
   }
   //si hemos liberado STOP: salimos del estado stop
   //(dejamos el release del STOP en modo ConF para que actue el codigo de procesaEstadoConfigurando
   if (!boton->estado && Estado.estado == STOP) {
-    StaticTimeUpdate();
-    Serial.println(F("Salimos de reposo"));
+    StaticTimeUpdate(REFRESH);
+    LOG_INFO("Salimos de reposo");
     reposo = false; //por si salimos de stop antinenes
     dimmerLeds(OFF);
     displayOff = false;
@@ -422,11 +431,9 @@ bool procesaBotonMultiriego(void)
       statusError(E0); 
       return false;
     }  
-    #ifdef DEBUG
-      Serial.printf( "en MULTIRRIEGO, setMultibyId devuelve: Grupo%d (%s) multi.size=%d \n" , n_grupo, multi.desc, *multi.size);
-      for (int k=0; k < *multi.size; k++) Serial.printf( "       multi.serie: x%x \n" , multi.serie[k]);
-      Serial.printf( "en MULTIRRIEGO, encoderSW status  : %d \n", encoderSW );
-    #endif
+    LOG_DEBUG("en MULTIRRIEGO, setMultibyId devuelve: Grupo", n_grupo,"(",multi.desc,") multi.size=" , *multi.size);
+    for (int k=0; k < *multi.size; k++) LOG_DEBUG( "       multi.serie: x" , multi.serie[k]);
+    LOG_DEBUG("en MULTIRRIEGO, encoderSW status  :", encoderSW );
     // si esta pulsado el boton del encoder --> solo hacemos encendido de los leds del grupo
     // y mostramos en el display la version del programa.
     if (encoderSW) {
@@ -436,10 +443,8 @@ bool procesaBotonMultiriego(void)
       std::remove(std::begin(version_n),std::end(version_n),'-');
       display->print(version_n);
       displayGrupo(multi.serie, *multi.size);
-      #ifdef DEBUG
-        Serial.printf( "en MULTIRRIEGO + encoderSW, display de grupo: %s tamaño: %d \n", multi.desc , *multi.size );
-      #endif
-      StaticTimeUpdate();
+      LOG_DEBUG("en MULTIRRIEGO + encoderSW, display de grupo:", multi.desc,"tamaño:", *multi.size );
+      StaticTimeUpdate(REFRESH);
       return false;    //para que procese el BREAK al volver a procesaBotones         
     }  
     else {
@@ -448,8 +453,9 @@ bool procesaBotonMultiriego(void)
       bip(4);
       multirriego = true;
       multi.actual = 0;
-      Serial.printf("MULTIRRIEGO iniciado: %s \n", multi.desc);
+      LOG_INFO("MULTIRRIEGO iniciado: ", multi.desc);
       led(Boton[bID_bIndex(*multi.id)].led,ON);
+      lcd.info(multi.desc, 2);
       boton = &Boton[bID_bIndex(multi.serie[multi.actual])];
     }
   }
@@ -474,9 +480,7 @@ void procesaBotonZona(void)
           fminutes = minutes;
           fseconds = seconds;
         }
-        #ifdef DEBUG
-          Serial.printf("Minutos: %d Segundos: %d FMinutos: %d FSegundos: %d\n",minutes,seconds,fminutes,fseconds);
-        #endif
+        LOG_DEBUG("Minutos:",minutes,"Segundos:",seconds,"FMinutos:",fminutes,"FSegundos:",fseconds);
         ultimoBoton = boton;
         // si tiempo factorizado de riego es 0 o IDX=0, nos saltamos este riego
         if ((fminutes == 0 && fseconds == 0) || boton->idx == 0) {
@@ -492,7 +496,7 @@ void procesaBotonZona(void)
     }
     else {  // mostramos en el display el factor de riego del boton pulsado
       led(Boton[bIndex].led,ON);
-      #ifdef DEBUG
+      #ifdef EXTRADEBUG
         Serial.printf("Boton: %s Factor de riego: %d \n", boton->desc,factorRiegos[zIndex]);
         Serial.printf("          boton.index: %d \n", bIndex);
         Serial.printf("          boton(%d).led: %d \n", bIndex, Boton[bIndex].led);
@@ -503,7 +507,7 @@ void procesaBotonZona(void)
       delay(2000);
       value = savedValue;  // para que restaure reloj
       led(Boton[bIndex].led,OFF);
-      StaticTimeUpdate();
+      StaticTimeUpdate(REFRESH);
     }
   }
 }
@@ -527,7 +531,9 @@ void procesaEstadoConfigurando()
               if (copyConfigFile(parmFile, defaultFile)) {
                 Serial.println(F("[ConF] salvado fichero de parametros actuales como DEFAULT"));
                 infoDisplay("-dEF", DEFAULTBLINK, BIPOK, 5);
+                lcd.infoclear("Saved DEFAULT", DEFAULTBLINK, BIPOK, 5);
                 display->print("ConF"); 
+                lcd.info("modo CONFIGURACION",1); 
               }
             }
             #ifdef WEBSERVER
@@ -537,6 +543,11 @@ void procesaEstadoConfigurando()
                 webServerAct = true;
                 ledConf(OFF);
                 infoDisplay("otA", DEFAULTBLINK, BIPOK, 5);
+                lcd.infoclear("OTA Webserver act", DEFAULTBLINK, BIPOK, 5);
+                //snprintf(buff, MAXBUFF, "\"%s.local:%d\"", WiFi.getHostname(), wsport);
+                snprintf(buff, MAXBUFF, "\"%s.local:8080\"", WiFi.getHostname());
+                lcd.info(buff, 3);
+                //lcd.info("¿IP?", 4);
               }
             #endif 
             if (n_grupo == 3) {  // activamos AP y portal de configuracion (bloqueante)
@@ -545,15 +556,14 @@ void procesaEstadoConfigurando()
               starConfigPortal(config);
               ledConf(ON);
               display->print("ConF");
+              lcd.info("modo CONFIGURACION",1); 
             }
           }
           else {
             //Configuramos el grupo de multirriego activo
             configure->configureMulti(n_grupo);
-            Serial.printf( "[ConF] configurando: GRUPO%d (%s) \n" , n_grupo, multi.desc);
-            #ifdef DEBUG
-              Serial.printf( "en configuracion de MULTIRRIEGO, setMultibyId devuelve: Grupo%d (%s) multi.size=%d \n" , n_grupo, multi.desc, *multi.size);
-            #endif            
+            LOG_INFO("Configurando: GRUPO",n_grupo,"(",multi.desc,")");
+            LOG_DEBUG("en configuracion de MULTIRRIEGO, setMultibyId devuelve: Grupo",n_grupo,"(",multi.desc,") multi.size=", *multi.size);
             displayGrupo(multi.serie, *multi.size);
             multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
             display->print("PUSH");
@@ -564,12 +574,14 @@ void procesaEstadoConfigurando()
           if(!boton->estado) return; //no se procesa el release del PAUSE
           if(!configure->configuring()) { //si no estamos ya configurando algo
             configure->configureTime();   //configuramos tiempo por defecto
-            Serial.println(F("[ConF] configurando tiempo riego por defecto"));
+            LOG_INFO("configurando tiempo riego por defecto");
+            lcd.info("tiempo riego def.:",2);
             delay(500);
             break;
           }
           if(configure->configuringTime()) {
-            Serial.printf( "[ConF] Save DEFAULT TIME, minutes: %d  secons: %d \n", minutes, seconds);
+            LOG_INFO("Save DEFAULT TIME, minutes:",minutes," secons:",seconds);
+            lcd.info("DEFAULT TIME saved",2);
             config.minutes = minutes;
             config.seconds = seconds;
             saveConfig = true;
@@ -583,10 +595,12 @@ void procesaEstadoConfigurando()
             Boton[bIndex].idx = (uint16_t)value;
             config.botonConfig[zIndex].idx = (uint16_t)value;
             saveConfig = true;
-            Serial.printf( "[ConF] Save Zona%d (%s) IDX value: %d \n", zIndex+1, Boton[bIndex].desc, value);
+            LOG_INFO("Save Zona",zIndex+1,"(",Boton[bIndex].desc,") IDX value:",value);
+            lcd.info("guardado IDX",2);
             value = savedValue;
             bipOK();
             led(Boton[bIndex].led,OFF);
+            delay(1000);  // para que se vea el msg
             configure->stop();
             break;
           }
@@ -598,7 +612,7 @@ void procesaEstadoConfigurando()
               for (int i=0; i<multi.w_size; ++i) {
                 config.groupConfig[g-1].serie[i] = bID_zIndex(multi.serie[i])+1;
               }
-              Serial.printf( "[ConF] SAVE PARM Multi : GRUPO%d  tamaño: %d (%s)\n", g , *multi.size , multi.desc );
+              LOG_INFO("SAVE PARM Multi : GRUPO",g,"tamaño:",*multi.size,"(",multi.desc,")");
               printMultiGroup(config, g-1);
               saveConfig = true;
               bipOK();
@@ -612,14 +626,17 @@ void procesaEstadoConfigurando()
           if(!boton->estado) { //release STOP salvamos si procede y salimos de ConF
             configure->stop();
             if (saveConfig) {
-              Serial.println(F("saveConfig=true  --> salvando parametros a fichero"));
-              if (saveConfigFile(parmFile, config)) infoDisplay("SAUE", DEFAULTBLINK, BIPOK, 5);
+              LOG_INFO("saveConfig=true  --> salvando parametros a fichero");
+              if (saveConfigFile(parmFile, config)) {
+                infoDisplay("SAUE", DEFAULTBLINK, BIPOK, 5);
+                lcd.infoclear("SAVED parameters", DEFAULTBLINK, BIPOK, 5);
+              }  
               saveConfig = false;
             }
             #ifdef WEBSERVER
               if (webServerAct) {
                 endWS();
-                Serial.println(F("[ConF][WS] desactivado webserver"));
+                LOG_INFO("[ConF][WS] desactivado webserver");
                 webServerAct = false; //al salir de modo ConF no procesaremos peticiones al webserver
               }
             #endif
@@ -627,14 +644,14 @@ void procesaEstadoConfigurando()
             resetLeds();
             standbyTime = millis();
             if (savedValue>0) value = savedValue;  // para que restaure reloj aunque no salvemos con pause el valor configurado
-            StaticTimeUpdate();
+            StaticTimeUpdate(REFRESH);
           }
           break;
         default:  //procesamos boton de ZONAx
           if (configure->configuringMulti()) {  //Configuramos el multirriego seleccionado
             if (multi.w_size < 16) {  //max. 16 zonas por grupo
               multi.serie[multi.w_size] = boton->id;
-              Serial.printf("[ConF] añadiendo ZONA%d (%s) \n",zIndex+1, boton->desc);
+              LOG_INFO("[ConF] añadiendo ZONA",zIndex+1,"(",boton->desc,")");
               multi.w_size = multi.w_size + 1;
               led(Boton[bIndex].led,ON);
             }
@@ -642,7 +659,10 @@ void procesaEstadoConfigurando()
           }
           if (!configure->configuring()) {   //si no estamos configurando nada, configuramos el idx
             //savedValue = value;
-            Serial.printf("[ConF] configurando IDX boton: %s \n",boton->desc);
+            LOG_INFO("[ConF] configurando IDX boton:",boton->desc);
+            String texto=boton->desc;
+            texto = "IDX de: "+texto;
+            lcd.info(texto.c_str(),2);
             configure->configureIdx(bIndex);
             value = boton->idx;
             led(Boton[bIndex].led,ON);
@@ -661,20 +681,23 @@ void procesaEstadoError(void)
   //   - PAUSE y pasamos a modo NONETWORK
   //   - STOP y en este caso reseteamos 
   if(boton->id == bPAUSE && boton->estado) {  //evita procesar el release del pause
-  //Si estamos en error y pulsamos pausa, nos ponemos en modo NONETWORK para test    
+    //Si estamos en error y pulsamos pausa, nos ponemos en modo NONETWORK para test
+    //reset del display lcd:    
+    resetLCD();
     if (Boton[bID_bIndex(bSTOP)].estado) {
       setEstado(STOP);
       infoDisplay("StoP", NOBLINK, LONGBIP, 1);
+      //lcd.infoclear("STOP", NOBLINK, LONGBIP, 1);
       displayOff = true;
     }
     else {
       setEstado(STANDBY);
       displayOff = false;
       standbyTime = millis();
-      StaticTimeUpdate();
+      StaticTimeUpdate(REFRESH);
     } 
     NONETWORK = true;
-    Serial.println(F("estado en ERROR y PAUSA pulsada pasamos a modo NONETWORK y reseteamos"));
+    LOG_INFO("estado en ERROR y PAUSA pulsada pasamos a modo NONETWORK y reseteamos");
     bip(2);
     //reseteos varios:
     resetLeds();    //apaga leds activos y restablece leds ON y RED
@@ -684,7 +707,7 @@ void procesaEstadoError(void)
   //Si estamos en ERROR y pulsamos o liberamos STOP, reseteamos, pero antes intentamos parar riegos
     setEstado(STANDBY);
     if(checkWifi()) stopAllRiego();
-    Serial.println(F("ERROR + STOP --> Reset....."));
+    LOG_WARN("ERROR + STOP --> Reset.....");
     longbip(3);
     ESP.restart();  
   }
@@ -696,7 +719,7 @@ void procesaEstadoRegando(void)
   tiempoTerminado = T.Timer();
   if (T.TimeHasChanged()) refreshTime();
   if (tiempoTerminado == 0) setEstado(TERMINANDO);
-  else if(flagV && VERIFY) { // verificamos periodicamente que el riego sigue activo en Domoticz
+  else if(flagV && VERIFY && !NONETWORK) { // verificamos periodicamente que el riego sigue activo en Domoticz
     if(queryStatus(ultimoBoton->idx, (char *)"On")) return;
     else {
       ledID = ultimoBoton->led;
@@ -712,7 +735,7 @@ void procesaEstadoRegando(void)
         tic_parpadeoLedON.attach(0.2,parpadeoLedON);
         tic_parpadeoLedZona.attach(0.4,parpadeoLedZona);
         errorOFF = true;  // recordatorio error
-        Serial.println(F("[ERROR] procesaEstadoRegando: SE HA DEVUELTO ERROR"));
+        LOG_ERROR("** SE HA DEVUELTO ERROR");
       }  
     }
   }
@@ -725,9 +748,12 @@ void procesaEstadoTerminando(void)
   tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
   stopRiego(ultimoBoton->id);
   if (Estado.estado == ERROR) return; //no continuamos si se ha producido error al parar el riego
-  display->blink(DEFAULTBLINK);
+  #ifdef displayLED
+    display->blink(DEFAULTBLINK);
+  #endif
+  lcd.blinkLCD(DEFAULTBLINK);
   led(Boton[bID_bIndex(ultimoBoton->id)].led,OFF);
-  StaticTimeUpdate();
+  StaticTimeUpdate(REFRESH);
   standbyTime = millis();
   setEstado(STANDBY);
   //Comprobamos si estamos en un multirriego
@@ -739,9 +765,13 @@ void procesaEstadoTerminando(void)
       multiSemaforo = true;
     }
     else {
+      int msgl = snprintf(buff, MAXBUFF, "%s finalizado", multi.desc);
+      lcd.info(buff, 2, msgl);
       longbip(3);
       resetFlags();
       Serial.printf("MULTIRRIEGO %s terminado \n", multi.desc);
+      delay(3000);
+      lcd.info("", 2);
       led(Boton[bID_bIndex(*multi.id)].led,OFF);
     }
   }
@@ -755,10 +785,11 @@ void procesaEstadoStandby(void)
   if (reposo) standbyTime = millis();
   else {
     if (millis() > standbyTime + (1000 * STANDBYSECS)) {
-      Serial.println(F("Entramos en reposo"));
+      LOG_INFO("Entramos en reposo");
       reposo = true;
       dimmerLeds(ON);
       display->clearDisplay();
+      lcd.setBacklight(OFF);
     }
   }
   if (reposo & encoderSW) reposoOFF(); // pulsar boton del encoder saca del reposo
@@ -772,15 +803,16 @@ void procesaEstadoStop(void)
   Boton[bID_bIndex(bPAUSE)].flags.holddisabled = false;
   //si estamos en Stop antinenes, apagamos el display pasado 4 x STANDBYSECS
   if(reposo && !displayOff) {
-    if (millis() > standbyTime + (4 * 1000 * STANDBYSECS) && reposo) {
+    if (millis() > standbyTime + (4 * 1000 * STANDBYSECS)) {
       display->clearDisplay();
+      lcd.setBacklight(OFF);
       displayOff = true;
     }
   }
 };
 
 void procesaEstadoPause(void) {
-  if(flagV && VERIFY) {  // verificamos zona sigue OFF en Domoticz periodicamente
+  if(flagV && VERIFY && !NONETWORK) {  // verificamos zona sigue OFF en Domoticz periodicamente
     if(queryStatus(ultimoBoton->idx, (char *)"Off")) return;
     else {
       if(Estado.fase == CERO) { //riego zona activo: salimos del PAUSE y blink lento zona activada remotamente 
@@ -806,9 +838,10 @@ void setEstado(uint8_t estado)
   Estado.estado = estado;
   Estado.fase = CERO;
   strcpy(errorText, "");
-  #ifdef DEBUG
-    Serial.printf("setEstado Cambiado estado a: %s \n", nEstado[estado]);
-  #endif
+  LOG_DEBUG( "Cambiado estado a: ", nEstado[estado]);
+  if((estado==REGANDO || estado==TERMINANDO || estado==PAUSE) && ultimoBoton != NULL) {
+    lcd.infoEstado(nEstado[estado], ultimoBoton->desc); }
+  else lcd.infoEstado(nEstado[estado]);
 }
 
 
@@ -819,9 +852,7 @@ void check(void)
 {
   display->print("----");
   #ifndef noCHECK
-    #ifdef TRACE
-    Serial.println(F("TRACE: in initLeds + display check"));
-    #endif
+    LOG_TRACE("TRACE: in initLeds + display check");
     initLeds();
     display->check(1);
   #endif
@@ -833,13 +864,13 @@ void check(void)
  */
 void initFactorRiegos()
 {
-  #ifdef TRACE
-    Serial.println(F("TRACE: in initFactorRiegos"));
-  #endif
+  LOG_TRACE("TRACE: in initFactorRiegos");
   //inicializamos a valor 100 por defecto para caso de error
   for(uint i=0;i<NUMZONAS;i++) {
     factorRiegos[i]=100;
   }
+  if(Estado.estado == ERROR) return; // si estabamos en error (no wifi) ni lo intentamos
+  lcd.info("conectando Domoticz", 2);
   //leemos factores del Domoticz
   for(uint i=0;i<NUMZONAS;i++) 
   {
@@ -899,16 +930,34 @@ void initClock()
   if (timeClient.update()) {
     setTime(timeClient.getEpochTime());
     timeOK = true;
-    Serial.print("initClock: NTP time recibido OK  (UTC) --> " + timeClient.getFormattedTime());
     time_t t = CE.toLocal(now(),&tcr);
-    Serial.printf("  local --> %d:%d:%d \n" ,hour(t),minute(t),second(t));
+    LOG_INFO("time recibido OK  (UTC) --> ", timeClient.getFormattedTime(),"  local --> ",hour(t),":",minute(t),":",second(t));
   }  
    else {
-     Serial.println(F("[ERROR] initClock: no se ha recibido time por NTP"));
+     LOG_WARN(" ** no se ha recibido time por NTP");
      timeOK = false;
     }
 }
+/* 
+void initEncoder() {
+    //we must initialize rotary encoder
+    rotaryEncoder.begin();
+    rotaryEncoder.setup(readEncoderISR);
+    //set boundaries and if values should cycle or not
+    //in this example we will set possible values between 0 and 1000;
+    bool circleValues = false;
+    rotaryEncoder.setBoundaries(0, 1000, circleValues); //minValue, maxValue, circleValues true|false (when max go to min and vice versa)
 
+    /*Rotary acceleration introduced 25.2.2021.
+   * in case range to select is huge, for example - select a value between 0 and 1000 and we want 785
+   * without accelerateion you need long time to get to that number
+   * Using acceleration, faster you turn, faster will the value raise.
+   * For fine tuning slow down.
+   */
+    //rotaryEncoder.disableAcceleration(); //acceleration is now enabled by default - disable if you dont need it
+    //rotaryEncoder.setAcceleration(0); //or set the value - larger number = more accelearation; 0 or 1 means disabled acceleration
+    //rotaryEncoder.setAcceleration(250); //or set the value - larger number = more accelearation; 0 or 1 means disabled acceleration
+//}
 
 //muestra lo regado desde las 0h encendiendo sus leds y mostrando hora o apagandolos
 void ultimosRiegos(int modo)
@@ -924,9 +973,12 @@ void ultimosRiegos(int modo)
         }
       }
       display->printTime(hour(t),minute(t));
+      lcd.infoclear("Hora actual:");
+      lcd.displayTime(hour(t),minute(t));
       break;
     case HIDE:
-      StaticTimeUpdate();
+      StaticTimeUpdate(REFRESH);
+      lcd.infoEstado("STANDBY");
       for(unsigned int i=0;i<NUMZONAS;i++) {
         led(Boton[bID_bIndex(ZONAS[i])].led,OFF);
       }
@@ -939,17 +991,13 @@ void ultimosRiegos(int modo)
 void dimmerLeds(bool status)
 {
   if(status) {
-    #ifdef TRACE
-    Serial.println(F("TRACE dimmerLeds: leds atenuados "));
-    #endif
+    LOG_TRACE("leds atenuados ");
     analogWrite(LEDR, DIMMLEVEL);
     if(connected) analogWrite(LEDG, DIMMLEVEL);
     if(NONETWORK) analogWrite(LEDB, DIMMLEVEL);
   }
   else {
-    #ifdef TRACE
-    Serial.println(F("TRACE dimmerLeds: leds brillo normal "));
-    #endif
+    LOG_TRACE("leds brillo normal ");
     analogWrite(LEDR, MAXledLEVEL);
     if(connected) analogWrite(LEDG, MAXledLEVEL);
     if(NONETWORK) analogWrite(LEDB, MAXledLEVEL);
@@ -958,13 +1006,14 @@ void dimmerLeds(bool status)
 
 void reposoOFF()
 {
-  Serial.println(F("\nSalimos de reposo"));
+  LOG_INFO(" salimos de reposo");
   reposo = false;
   dimmerLeds(OFF);
   displayOff = false;
   standbyTime = millis();
+  lcd.setBacklight(ON);
   if(Estado.estado == STOP) display->print("StoP");
-  else StaticTimeUpdate();
+  else StaticTimeUpdate(REFRESH);
 }
 
 
@@ -972,22 +1021,44 @@ void reposoOFF()
 void procesaEncoder()
 {
   Encoder->service();
-  
+  encvalue = Encoder->getValue();
+  if(!encvalue) return; 
+  /*
+  if (rotaryEncoder.encoderChanged()) {
+    encvalue = rotaryEncoder.readEncoder();
+  } 
+ */  
+  if (encvalue) {
+    //Serial.print("encvalue: ");
+    //Serial.print(encvalue);
+    //Serial.print("    Value_prev: ");
+    //Serial.print(value);
+    value = value - encvalue;
+    //Serial.print("     Value_calc: ");
+    //Serial.println(value);
+  } 
+
   if(Estado.estado == CONFIGURANDO && configure->configuringIdx()) {
       #ifdef EXTRATRACE
        Serial.print(F("i"));
       #endif
-      value -= Encoder->getValue();
+      //value -= Encoder->getValue();
       if (value > 1000) value = 1000;
       if (value <  1) value = 0; //permitimos IDX=0 para desactivar ese boton
       display->print(value);
+      //LOG_TRACE("ANTES DE LLAMAR A displayNewIDX");
+      int bIndex = configure->getActualIdxIndex();
+      lcd.displayNewIDX(bID_zIndex(Boton[bIndex].id)+1, value);
+      //savedIDX = value;
       return;
   }
 
   if (Estado.estado == CONFIGURANDO && !configure->configuringTime()) return;
 
-  if(!reposo) StaticTimeUpdate();
-  value -= Encoder->getValue();
+  if(!reposo) StaticTimeUpdate(UPDATE);
+
+  //value -= Encoder->getValue();
+  
   //Estamos en el rango de minutos
   if(seconds == 0 && value>0) {
     if (value > MAXMINUTES)  value = MAXMINUTES;
@@ -1017,11 +1088,12 @@ void procesaEncoder()
     }
   }
   if(reposo) {
-    Serial.println(F("Salimos de reposo"));
+    LOG_INFO("Salimos de reposo");
     reposo = false;
     dimmerLeds(OFF);
+    lcd.setBacklight(ON);
   }
-  StaticTimeUpdate();
+  StaticTimeUpdate(UPDATE);
   standbyTime = millis();
 }
 
@@ -1038,13 +1110,11 @@ void initLastRiegos()
 bool initRiego(uint16_t id)
 {
   int bIndex = bID_bIndex(id);
-  #ifdef DEBUG
-    Serial.printf("Boton: %s boton.index: %d \n", boton->desc, bIndex);
-  #endif
+  LOG_DEBUG("Boton:",boton->desc,"boton.index:",bIndex);
   int zIndex = bID_zIndex(id);
   time_t t;
   if(zIndex == 999) return false;
-  Serial.printf( "Iniciando riego: %s \n", Boton[bIndex].desc);
+  LOG_INFO( "Iniciando riego: ", Boton[bIndex].desc);
   led(Boton[bIndex].led,ON);
   utc = timeClient.getEpochTime();
   t = CE.toLocal(utc,&tcr);
@@ -1058,11 +1128,9 @@ bool stopRiego(uint16_t id)
 {
   int bIndex = bID_bIndex(id);
   ledID = Boton[bIndex].led;
-  #ifdef DEBUG
-  Serial.printf( "Terminando riego: %s \n", Boton[bIndex].desc);
-  #endif
+  LOG_DEBUG( "Terminando riego: ", Boton[bIndex].desc);
   domoticzSwitch(Boton[bIndex].idx, (char *)"Off", DEFAULT_SWITCH_RETRIES);
-  if (Estado.estado != ERROR) Serial.printf( "Terminado OK riego: %s \n" , Boton[bIndex].desc );
+  if (Estado.estado != ERROR) LOG_INFO( "Terminado OK riego: " , Boton[bIndex].desc );
   else {     //avisa de que no se ha podido terminar un riego
     if (!errorOFF) { //para no repetir bips en caso de stopAllRiego
       errorOFF = true;  // recordatorio error
@@ -1105,9 +1173,19 @@ void resetFlags()
 }
 
 
+//reset estado display LCD
+void resetLCD()
+{
+  LOG_TRACE("LCD reseteado");
+  lcd.clear();
+  lcd.setBacklight(ON);
+  lcd.displayON();
+}
+
 //Pone a off todos los leds de riegos y detiene riegos (solo si la llamamos con true)
 bool stopAllRiego()
 {
+  LOG_TRACE("");
   //Apago los leds de multirriego
   led(Boton[bID_bIndex(*multi.id)].led,OFF);
   //Apago los leds de riego y posible parpadeo
@@ -1130,7 +1208,7 @@ void bip(int veces)
 
 void longbip(int veces)
 {
-  Serial.println(F("longbip llamado"));
+  LOG_TRACE("longbip llamado");
   for (int i=0; i<veces;i++) {
     tone(BUZZER, NOTE_A6, 750);
     tone(BUZZER, 0, 100);
@@ -1160,16 +1238,18 @@ void blinkPause()
 {
   if (!displayOff) {
     if (millis() > lastBlinkPause + DEFAULTBLINKMILLIS) {
-      display->clearDisplay();
       displayOff = true;
       lastBlinkPause = millis();
+      display->clearDisplay();
+      lcd.displayOFF();
     }
   }
   else {
     if (millis() > lastBlinkPause + DEFAULTBLINKMILLIS) {
-      refreshDisplay();
       displayOff = false;
       lastBlinkPause = millis();
+      refreshDisplay();
+      lcd.displayON();
     }
   }
 }
@@ -1193,17 +1273,18 @@ void blinkPauseError()
 }
 
 
-void StaticTimeUpdate(void)
+void StaticTimeUpdate(bool refresh)
 {
   if (Estado.estado == ERROR) return; //para que en caso de estado ERROR no borre el código de error del display
   if (minutes < MINMINUTES) minutes = MINMINUTES;
   if (minutes > MAXMINUTES) minutes = MAXMINUTES;
-  display->printTime(minutes, seconds);
-  #ifdef displayLCDStaticTimeUpdate
-    //displayTimer(minutes, seconds, 7, 1); //LCD
-    if(prevseconds != seconds) displayTimer(minutes, seconds, 7, 1); //LCD solo se actualiza si cambia
-    prevseconds = seconds;  //LCD
-  #endif  
+  //solo se actualiza si cambia hora o REFRESH
+  if(prevseconds != seconds || prevminutes != minutes || refresh) {
+    display->printTime(minutes, seconds);
+    lcd.displayTime(minutes, seconds); 
+    prevseconds = seconds;
+    prevminutes = minutes;
+  }
 }
 
 
@@ -1215,29 +1296,39 @@ void refreshDisplay()
 
 void refreshTime()
 {
-  display->printTime(T.ShowMinutes(),T.ShowSeconds());
+  unsigned long curMinutes = T.ShowMinutes();
+  unsigned long curSeconds = T.ShowSeconds();
+  display->printTime(curMinutes,curSeconds);
+  //display->printTime(T.ShowMinutes(),T.ShowSeconds());
+  #ifdef displayLCDrefreshTime
+    if(prevseconds != curSeconds) lcd.displayTime(curMinutes, curSeconds); //LCD solo se actualiza si cambia
+    prevseconds = curSeconds;  //LCD
+  #endif  
+
 }
 
 
 /**
  * @brief muestra en el display texto informativo y suenan bips de aviso
  * 
- * @param textDisplay = texto a mostrar en el display
+ * @param info = texto a mostrar en el display
  * @param dnum = veces que parpadea el texto en el display
  * @param btype = tipo de bip emitido
  * @param bnum = numero de bips emitidos
  */
-void infoDisplay(const char *textDisplay, int dnum, int btype, int bnum) {
+void infoDisplay(const char *info, int dnum, int btype, int bnum) {
   #ifdef displayLED
-    display->print(textDisplay);
+    display->print(info);
     if (btype == LONGBIP) longbip(bnum);
     if (btype == BIP) bip(bnum);
     if (btype == BIPOK) bipOK();
     if (btype == BIPKO) bipKO();
     display->blink(dnum);
+    //lcd.blinkLCD(dnum);  // ya lo hace lcd.info
   #endif
   #ifdef displayLCD
-    infoLCD(textDisplay, dnum, btype, bnum);
+    LOG_DEBUG(" Recibido: '",info, "'   (blink=",dnum, ") btype=",btype,"bnum=",bnum);
+    //lcd.infoclear(info, dnum, btype, bnum);
   #endif
 }
 
@@ -1246,34 +1337,30 @@ void infoDisplay(const char *textDisplay, int dnum, int btype, int bnum) {
  */
 String httpGetDomoticz(String message) 
 {
-  #ifdef TRACE
-    Serial.println(F("TRACE: in httpGetDomoticz"));
-  #endif
+  LOG_TRACE("");
   String tmpStr = "http://" + String(config.domoticz_ip) + ":" + config.domoticz_port + String(message);
-  #ifdef DEBUG
-    Serial.print(F("TMPSTR: "));Serial.println(tmpStr);
-  #endif
+  LOG_DEBUG("TMPSTR:", tmpStr);
   httpclient.begin(client, tmpStr); // para v3.0.0 de platform esp8266
   String response = "{}";
   int httpCode = httpclient.GET();
   if(httpCode > 0) {
     if(httpCode == HTTP_CODE_OK) {
       response = httpclient.getString();
-      #ifdef EXTRADEBUG1
+      #ifdef EXTRADEBUG
         Serial.print(F("httpGetDomoticz RESPONSE: "));Serial.println(response);
       #endif
     }
   }
   else {
     if(Estado.estado != ERROR) {
-      Serial.printf("[ERROR] httpGetDomoticz: ERROR comunicando con Domoticz error: %s\n", httpclient.errorToString(httpCode).c_str()); 
+      LOG_ERROR("ERROR comunicando con Domoticz: ", httpclient.errorToString(httpCode).c_str()); 
     }
     return "Err2";
   }
   //vemos si la respuesta indica status error
   int pos = response.indexOf("\"status\" : \"ERR");
   if(pos != -1) {
-    Serial.println(F("[ERROR] httpGetDomoticz: SE HA DEVUELTO ERROR")); 
+    LOG_ERROR(" ** SE HA DEVUELTO ERROR"); 
     return "ErrX";
   }
   httpclient.end();
@@ -1286,9 +1373,7 @@ String httpGetDomoticz(String message)
  */
 int getFactor(uint16_t idx)
 {
-  #ifdef TRACE
-    Serial.println(F("TRACE: in getFactor"));
-  #endif
+  LOG_TRACE("");
   // si el IDX es 0 devolvemos 0 sin procesarlo (boton no asignado)
   if(idx == 0) return 0;
   factorRiegosOK = false;
@@ -1312,9 +1397,7 @@ int getFactor(uint16_t idx)
     }
     if(response == "ErrX") statusError(E3);
     else statusError(E2);
-    #ifdef DEBUG
-      Serial.printf("GETFACTOR IDX: %d [HTTP] GET... failed\n", idx);
-    #endif
+    LOG_WARN("GETFACTOR IDX: ", idx, " [HTTP] GET... failed\n");
     return 100;
   }
   /* Teoricamente ya tenemos en response el JSON, lo procesamos
@@ -1327,8 +1410,7 @@ int getFactor(uint16_t idx)
   DynamicJsonDocument jsondoc(2048);
   DeserializationError error = deserializeJson(jsondoc, response_pointer);
   if (error) {
-    Serial.print(F("[ERROR] getFactor: deserializeJson() failed: "));
-    Serial.println(error.f_str());
+    LOG_ERROR(" ** [ERROR] deserializeJson() failed: ", error.f_str());
     if(!VERIFY) return 100;
     else {
       statusError(E2);  //TODO ¿deberiamos devolver E3?
@@ -1339,9 +1421,7 @@ int getFactor(uint16_t idx)
   const char *factorstr = jsondoc["result"][0]["Description"];
   if(factorstr == NULL) {
     //El rid (idx) no esta definido en el Domoticz
-    #ifdef VERBOSE
-      Serial.printf("El idx %d no se ha podido leer del JSON\n",idx);
-    #endif
+    LOG_WARN("El idx", idx, " no se ha podido leer del JSON");
     if(!VERIFY) return 100;
     else {
       statusError(E3);
@@ -1370,9 +1450,7 @@ int getFactor(uint16_t idx)
  */
 bool queryStatus(uint16_t idx, char *status)
 {
-  #ifdef TRACE
-    Serial.println(F("TRACE: in queryStatus"));
-  #endif
+  LOG_TRACE("");
   if(!checkWifi()) {
     if(NONETWORK) return true; //si estamos en modo NONETWORK devolvemos true y no damos error
     else {
@@ -1389,7 +1467,7 @@ bool queryStatus(uint16_t idx, char *status)
     if (NONETWORK) return true;  //si estamos en modo NONETWORK devolvemos true y no damos error
     if(response == "ErrX") Estado.fase=E3;
     else Estado.fase=E2;
-    Serial.printf("[ERROR] queryStatus IDX: %d [HTTP] GET... failed\n", idx);
+    LOG_ERROR(" ** [ERROR] IDX: ", idx, " [HTTP] GET... failed");
     return false;
   }
   // ya tenemos en response el JSON, lo procesamos
@@ -1397,15 +1475,14 @@ bool queryStatus(uint16_t idx, char *status)
   DynamicJsonDocument jsondoc(2048);
   DeserializationError error = deserializeJson(jsondoc, response_pointer);
   if (error) {
-    Serial.print(F("[ERROR] queryStatus: deserializeJson() failed: "));
-    Serial.println(error.f_str());
+    LOG_ERROR(" **  [ERROR] deserializeJson() failed: ", error.f_str());
     Estado.fase=E2;  
     return false;
   }
   //Tenemos que controlar para que no resetee en caso de no haber leido por un rid malo
   const char *actual_status = jsondoc["result"][0]["Status"];
   if(actual_status == NULL) {
-    Serial.print(F("[ERROR] queryStatus: deserializeJson() failed: Status not found"));
+    LOG_ERROR(" **  [ERROR] deserializeJson() failed: Status not found");
     Estado.fase=E2;  
     return false;
   }
@@ -1422,9 +1499,7 @@ bool queryStatus(uint16_t idx, char *status)
   if(strcmp(actual_status,status) == 0) return true;
   else{
     if(NONETWORK) return true; //siempre devolvemos ok en modo simulacion
-    #ifdef DEBUG
-      Serial.print(F("queryStatus devuelve FALSE, status / actual = "));Serial.print(status);Serial.println(actual_status);
-    #endif
+    LOG_DEBUG("queryStatus devuelve FALSE, status / actual =",status,"/",actual_status);
     return false;
   }  
 }
@@ -1434,9 +1509,7 @@ bool queryStatus(uint16_t idx, char *status)
  */
 bool domoticzSwitch(int idx, char *msg, int retries)
 {
-  #ifdef TRACE
-    Serial.println(F("TRACE: in domoticzSwitch"));
-  #endif
+  LOG_TRACE("");
   if(idx == 0) return true; //simulamos que ha ido OK
   if(!checkWifi() && !NONETWORK) {
     statusError(E1);
@@ -1483,7 +1556,7 @@ void flagVerificaciones()
  */
 void Verificaciones() 
 {   
-  #ifdef DEBUG
+  #ifdef DEVELOP
     leeSerial();  // para ver si simulamos algun tipo de error
   #endif
   #ifdef DEBUGloops
@@ -1531,11 +1604,35 @@ void statusError(uint8_t errorID)
   Estado.fase = errorID;
   if (errorID == E0) strcpy(errorText, "Err0");
   else sprintf(errorText, "Err%d", errorID);
-  Serial.printf("[statusError]: %s \n", errorText);
+  LOG_ERROR("SET ERROR: ", errorText);
   display->print(errorText);
+  lcd.clear(BORRA2H);
+  lcd.setCursor(8,2);
+  lcd.print(errorText);
+  lcd.setCursor(0,3);
+  lcd.print(errorToString(errorID));
   bipKO();
   if (errorID == E5) longbip(5); // resaltamos error al parar riego
 }
+
+/**
+   * @brief Converts a level (enum value) to its string.
+   * @param level Valid enum level element
+   * @return error long text as a string
+   */
+  static const char* errorToString(uint8_t fase)
+  {
+      switch (fase)
+      {
+          case E0:      return "error en parametros";
+          case E1:      return "sin conex. wifi";
+          case E2:      return "sin conex. domoticz";
+          case E3:      return "en factores riego";
+          case E4:      return "al iniciar riego";
+          case E5:      return "al parar riego";
+          default:      return "[unknown error]";
+      }
+  }
 
 
 void parpadeoLedON()
@@ -1579,28 +1676,27 @@ void ledConf(int estado)
 
 void setupParm()
 {
-  #ifdef TRACE
-    Serial.println(F("TRACE: in setupParm"));
-  #endif
+  LOG_TRACE("");
   if(clean_FS) cleanFS();
-  #ifdef DEBUG
+  #ifdef DEVELOP
     filesInfo();
     Serial.printf( "initParm= %d \n", initFlags.initParm );
   #endif
   if( initFlags.initParm) {
-    Serial.println(F(">>>>>>>>>>>>>>  cargando parametros por defecto  <<<<<<<<<<<<<<"));
+    LOG_WARN(">>>>>>>>>>>>>>  cargando parametros por defecto  <<<<<<<<<<<<<<");
     bool bRC = copyConfigFile(defaultFile, parmFile); // defaultFile --> parmFile
     if(bRC) {
-      Serial.println(F("carga parametros por defecto OK"));
+      LOG_WARN("carga parametros por defecto OK");
       //señala la carga parametros por defecto OK
       infoDisplay("dEF-", DEFAULTBLINK, BIPOK, 3);
+      lcd.infoclear("load DEFAULT", DEFAULTBLINK, BIPOK, 3);
     }  
-    else    Serial.println(F("[ERROR] carga parametros por defecto"));
+    else LOG_ERROR(" **  [ERROR] cargando parametros por defecto");
   }
   if (!setupConfig(parmFile, config)) {
-    Serial.printf("[ERROR] Leyendo fichero parametros %s \n", parmFile);
+    LOG_ERROR(" ** [ERROR] Leyendo fichero parametros " , parmFile);
     if (!setupConfig(defaultFile, config)) {
-      Serial.printf("[ERROR] Leyendo fichero parametros %s \n", defaultFile);
+      LOG_ERROR(" ** [ERROR] Leyendo fichero parametros ", defaultFile);
     }
   }
   if (!config.initialized) zeroConfig(config);  //init config con zero-config
@@ -1614,7 +1710,7 @@ void setupParm()
 
 bool setupConfig(const char *p_filename, Config_parm &cfg) 
 {
-  Serial.printf("Leyendo fichero parametros %s \n", p_filename);
+  LOG_INFO("Leyendo fichero parametros", p_filename);
   bool loaded = loadConfigFile(p_filename, config);
   minutes = config.minutes;
   seconds = config.seconds;
@@ -1624,25 +1720,25 @@ bool setupConfig(const char *p_filename, Config_parm &cfg)
       int bIndex = bID_bIndex(ZONAS[i]);
       //NOTA: i (zIndex) y bIndex seran iguales si el orden de los botones de las zonas en ZONA[] y Boton[] 
       //es el mismo (seria mas facil si lo fueran).... @TODO ¿como detectarlo al compilar?
-      if (bIndex != i) Serial.println(F("\t\t\t@@@@@@@@@@@@  bIndex != zIndex  @@@@@@@@@@"));
+      if (bIndex != i) LOG_WARN("            @@@@@@@@@@@@  bIndex != zIndex  @@@@@@@@@@");
       //actualiza el IDX leido sobre estructura Boton:
       Boton[bIndex].idx = config.botonConfig[i].idx;
       //actualiza la descripcion leida sobre estructura Boton:
       strlcpy(Boton[bIndex].desc, config.botonConfig[i].desc, sizeof(Boton[bIndex].desc));
     }
-    #ifdef DEBUG
+    #ifdef EXTRADEBUG
       printFile(p_filename);
     #endif
     return true;
   }  
-  Serial.println(F("[ERROR] parámetros de configuración no cargados"));
+  LOG_ERROR(" ** [ERROR] parámetros de configuración no cargados");
   return false;
 }
 
 
 // funciones solo usadas en DEVELOP
 // (es igual, el compilador no las incluye si no son llamadas)
-#ifdef DEBUG
+#ifdef DEVELOP
   //imprime contenido actual de la estructura multi
   void printMulti()
   {
@@ -1705,5 +1801,17 @@ bool setupConfig(const char *p_filename, Config_parm &cfg)
       }
     }
   }
+
+void serialDetect() {
+  delay(100);
+  Serial.println();
+  Serial1.begin(0, SERIAL_8N1, -1, -1, true, 11000UL);  // Passing 0 for baudrate to detect it, the last parameter is a timeout in ms
+  unsigned long detectedBaudRate = Serial1.baudRate();
+  if(detectedBaudRate) {
+    Serial.printf("Detected baudrate is %lu\n", detectedBaudRate);
+  } else {
+    Serial.println("No baudrate detected, Serial1 will not work!");
+  }
+}
 
 #endif  

@@ -36,6 +36,7 @@ void saveWifiCallback() {
     tic_APLed.detach();
     ledPWM(LEDB,OFF);
     infoDisplay("----", NOBLINK, BIP, 0);
+    lcd.infoclear("conectando WIFI");
     // Empezamos el temporizador que hará parpadear el LED indicador de wifi
     tic_WifiLed.attach(0.2, parpadeoLedWifi);
 }
@@ -49,6 +50,8 @@ void configModeCallback (WiFiManager *myWiFiManager) {
   // Empezamos el temporizador que hará parpadear el LED indicador de AP
   tic_APLed.attach(0.5, parpadeoLedAP);
   infoDisplay("-AP-", DEFAULTBLINK, LONGBIP, 1); //lo señalamos en display
+  lcd.infoclear("   modo -AP- :", DEFAULTBLINK, LONGBIP, 1); //lo señalamos en display
+  lcd.info("\"Ardomo\" activado", 3);
 }
 
 //llamado cuando WiFiManager recibe parametros adicionales
@@ -65,6 +68,7 @@ void preOtaUpdateCallback()
 {
   Serial.println(F("[CALLBACK] setPreOtaUpdateCallback fired"));
   infoDisplay("####", DEFAULTBLINK, LONGBIP, 1);
+  lcd.infoclear("OTA in progress", DEFAULTBLINK, LONGBIP, 1);
 }
 
 // conexion a la red por medio de WifiManager
@@ -78,6 +82,7 @@ void setupRedWM(Config_parm &config)
     //delay(300);
     Serial.println(F("encoderSW pulsado y multirriego en GRUPO3 --> borramos red WIFI"));
     infoDisplay("CLEA", DEFAULTBLINK, LONGBIP, 1); //señala borrado wifi
+    lcd.infoclear("red WIFI borrada", DEFAULTBLINK, LONGBIP, 1); //señala borrado wifi
   }
   // explicitly set mode, esp defaults to STA+AP   
   WiFi.mode(WIFI_STA);
@@ -86,6 +91,7 @@ void setupRedWM(Config_parm &config)
   //wm.resetSettings();
   // Empezamos el temporizador que hará parpadear el LED indicador de wifi
   tic_WifiLed.attach(0.2, parpadeoLedWifi);
+  lcd.infoclear("conectando WIFI");
   //sets timeout until configuration portal gets turned off
   wm.setConfigPortalTimeout(timeout);
   // callbacks
@@ -124,6 +130,7 @@ void setupRedWM(Config_parm &config)
   //si no hemos podido conectar y existe una red wifi salvada,reintentamos hasta 20 seg.
   // (para caso corte de corriente)
   if (falloAP && wm.getWiFiIsSaved()) {
+    lcd.infoclear("conectando WIFI");
     Serial.println(F("Hay wifi salvada -> reintentamos la conexion"));
     int j=0;
     falloAP = false;
@@ -135,6 +142,8 @@ void setupRedWM(Config_parm &config)
       if(j == MAXCONNECTRETRY) {
         falloAP = true;
         Serial.println(F("Fallo en la reconexión"));
+        //setEstado(ERROR);
+        statusError(E1);
         break;
       }
     }
@@ -144,10 +153,11 @@ void setupRedWM(Config_parm &config)
   //detenemos parpadeo led wifi
   tic_WifiLed.detach();
   if (checkWifi()) {
-    Serial.printf("\nWifi conectado a SSID: %s\n", WiFi.SSID().c_str());
-    Serial.print(F(" IP address: "));
-    Serial.println(WiFi.localIP());
-    Serial.printf(" RSSI: %d dBm  (%d%%)\n\n", WiFi.RSSI(), wm.getRSSIasQuality(WiFi.RSSI()));
+    LOG_INFO(" >>  Conectado a SSID: ", WiFi.SSID().c_str());
+    LOG_INFO(" >>      IP address: ", WiFi.localIP());
+    LOG_INFO(" >>      RSSI:", WiFi.RSSI(), "dBm  (",  wm.getRSSIasQuality(WiFi.RSSI()),"%)");
+    int msgl = snprintf(buff, MAXBUFF, "Conectado: %s", WiFi.SSID().c_str());
+    lcd.info(buff, 1, msgl);
   }
     // ----------------------------- save the custom parameters
   if (saveConfig) {
@@ -178,15 +188,14 @@ void starConfigPortal(Config_parm &config)
   tic_APLed.detach();
   NONETWORK ? ledPWM(LEDB,ON) : ledPWM(LEDB,OFF);
   infoDisplay("----", NOBLINK, BIP, 0);
+  lcd.infoclear("reconectando WIFI");
   tic_WifiLed.detach();
   checkWifi();
 }
 
 // verificacion estado de la conexion wifi
 bool checkWifi() {
-  #ifdef TRACE
-    Serial.println(F("TRACE: in checkWifi"));
-  #endif
+  LOG_TRACE("in checkWifi");
   if(WiFi.status() == WL_CONNECTED) {
     // Encendemos el LED indicador de wifi
     ledPWM(LEDG,ON);
@@ -194,7 +203,7 @@ bool checkWifi() {
     return true;
   }
   else {
-    Serial.println(F("[ERROR] No estamos conectados a la wifi"));
+    LOG_ERROR(" ** [ERROR] No estamos conectados a la wifi");
     // apagamos el LED indicador de wifi
     ledPWM(LEDG,OFF);
     connected = false;

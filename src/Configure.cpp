@@ -25,6 +25,8 @@ void Configure::stop()
   _configuringTime = false;
   _configuringMulti = false;
   display->print("ConF");
+  lcd.clear();
+  lcd.info("modo CONFIGURACION",1);
 }
 
 bool Configure::configuringTime()

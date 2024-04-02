@@ -1,10 +1,37 @@
 #ifndef control_h
   #define control_h
-  
-  #ifndef _GNU_SOURCE  // LOCAL WORK-AROUND
-   #define _GNU_SOURCE // evitar error uint no definido en platformio (no en compilacion) tras update a espressif8266 3.2.0
-  #endif               // ver: https://community.platformio.org/t/error-acessing-eeprom-of-esp8266-after-plattform-update/22747/2
-  
+
+  // Uncommenting DEBUGLOG_DISABLE_LOG disables ASSERT and all log (Release Mode)
+  // PRINT and PRINTLN are always valid even in Release Mode
+  // #define DEBUGLOG_DISABLE_LOG
+  // para cambiarlo posteriormente: LOG_SET_LEVEL(DebugLogLevel::LVL_TRACE);
+  // 0: NONE, 1: ERROR, 2: WARN, 3: INFO, 4: DEBUG, 5: TRACE
+  #ifdef DEVELOP
+    //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
+    #define DEBUGLOG_DEFAULT_LOG_LEVEL_TRACE
+    //#define DEBUGLOG_DEFAULT_LOG_LEVEL_INFO
+    #define DEBUG
+    //#define EXTRADEBUG
+    //#define EXTRADEBUG1
+    //#define EXTRATRACE
+    #define VERBOSE
+  #endif
+
+  #ifdef RELEASE
+    //Comportamiento general para uso normal . DESCOMENTAR LO QUE CORRESPONDA
+    //#define DEBUGLOG_DISABLE_LOG
+    #define DEBUGLOG_DEFAULT_LOG_LEVEL_INFO
+    #define VERBOSE
+  #endif
+
+  #ifdef DEMO
+    //Comportamiento general para DEMO . DESCOMENTAR LO QUE CORRESPONDA
+    #define DEBUGLOG_DISABLE_LOG
+  #endif
+  #include <DebugLog.h>
+
+
+
   #include <DNSServer.h>
   #include <WifiUdp.h>
   #include <WiFiManager.h> 
@@ -17,6 +44,8 @@
   #include <ArduinoJson.h>
   #include <Ticker.h>
   #include <LittleFS.h>
+  #include <Wire.h>
+  //#include <AiEsp32RotaryEncoder.h>
 
   #ifdef NODEMCU
     #include <ESP8266HTTPClient.h>
@@ -43,34 +72,8 @@
   //Para mis clases
   #include "Display.h"
   #include "Configure.h"
+  #include "DisplayLCD.h"
 
-  #ifdef DEVELOP
-    //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
-    #define DEBUG
-    //#define EXTRADEBUG
-    #define EXTRADEBUG1
-    #define TRACE
-    //#define EXTRATRACE
-    #define VERBOSE
-  #endif
-
-  #ifdef RELEASE
-    //Comportamiento general para uso normal . DESCOMENTAR LO QUE CORRESPONDA
-    //#define DEBUG
-    //#define EXTRADEBUG
-    //#define TRACE
-    //#define EXTRATRACE
-    #define VERBOSE
-  #endif
-
-  #ifdef DEMO
-    //Comportamiento general para DEMO . DESCOMENTAR LO QUE CORRESPONDA
-    #define DEBUG
-    //#define EXTRADEBUG
-    //#define TRACE
-    //#define EXTRATRACE
-    #define VERBOSE
-  #endif
 
   #ifdef DEVELOP
     #define HOSTNAME "ardomot"
@@ -91,7 +94,7 @@
        
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.0b.1"
+                            #define VERSION  "3.0b.2"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -122,6 +125,10 @@
   #define DELAYRETRY          2000
   #define MAXledLEVEL         255 // nivel maximo leds on y wifi (0 a 255)
   #define DIMMLEVEL           50 // nivel atenuacion leds on y wifi (0 a 255)
+  #define I2C_CLOCK_SPEED     400000  // frecuencia del bus I2C en Hz (default 100000)
+  #define LCD2004_address 0x27   // direccion bus I2C de la pantalla LCD
+  #define ROTARY_ENCODER_STEPS 4 // TODO documentar
+
  //----------------  dependientes del HW   ----------------------------------------
 
   #ifdef ESP32
@@ -132,10 +139,6 @@
     #define ENCDT                 GPIO_NUM_33
     #define ENCSW                 100           // ficticio, no tratamos el boton del encoder con ClicEncoder, se hace por programa
     #define bENCODER              GPIO_NUM_34   // este es el real conectado a GPIO solo INPUT
-    #define BUZZER                GPIO_NUM_4
-    #define CD4021B_CLOCK         GPIO_NUM_13
-    #define CD4021B_LATCH         GPIO_NUM_14
-    #define CD4021B_DATA          GPIO_NUM_15
     #define LEDR                  GPIO_NUM_27  
     #define LEDG                  GPIO_NUM_26 
     #define LEDB                  GPIO_NUM_25 
@@ -143,6 +146,13 @@
     #define DISPDIO               GPIO_NUM_19
     #define I2C_SDA               GPIO_NUM_21
     #define I2C_SCL               GPIO_NUM_22
+    #define I2C_SDA1              GPIO_NUM_16
+    #define I2C_SCL1              GPIO_NUM_17
+    #ifndef MUTE
+      #define BUZZER              GPIO_NUM_4
+    #else
+      #define BUZZER              200           // ficticio para que no suene en caso de MUTE
+    #endif  
     #define lZONA1                1             // mcpO GPA0
     #define lZONA2                2             // mcpO GPA1
     #define lZONA3                3             // mcpO GPA2
@@ -200,11 +210,15 @@
   #define HIDE 0
   #define READ 1
   #define CLEAR 0
+  #define REFRESH 1
+  #define UPDATE 0
   #define LONGBIP 1
   #define BIP 2
   #define BIPOK 3
   #define BIPKO 4
   #define NOBLINK 0
+  #define BORRA1H 1
+  #define BORRA2H 2
 
   //Enums
   enum _estados {
@@ -216,9 +230,9 @@
     STOP          ,
     ERROR         ,
   };
-  #define _ESTADOS "STANDBY" , "REGANDO" , "CONFIGURANDO" , "TERMINANDO" , "PAUSE" , "STOP" , "ERROR"
+  #define _ESTADOS "STANDBY" , "REGANDO:" , "CONFIGURANDO" , "TERMINANDO" , "PAUSE:" , "STOP" , "ERROR"
 
-  enum _fases {
+  enum error_fases {
     CERO          = 0,
     E0            = 0xFF,
     E1            = 1,
@@ -383,7 +397,9 @@
 
   struct S_Estado {
     uint8_t estado; 
-    uint8_t fase; 
+    uint8_t fase;
+    char  texto[7]; 
+    char  texto_largo[21]; 
   } ;
 
   const uint16_t ZONAS[] = {_ZONAS};
@@ -432,6 +448,9 @@
     unsigned long lastMillisLoop = 0;
     int numloops = 0;
 
+    DisplayLCD lcd(LCD2004_address, 20, 4);  // 20 caracteres x 4 lineas
+    char buff[MAXBUFF];
+
   #else
     extern S_BOTON Boton [];
     extern S_MULTI multi;
@@ -451,6 +470,8 @@
     extern long lastMillisLoop;
     extern int numloops;
 
+    extern  DisplayLCD lcd;
+    extern  char buff[];
 
   #endif
 
@@ -483,9 +504,12 @@
     uint8_t minutes;
     uint8_t seconds;
     uint8_t prevseconds;
+    uint8_t prevminutes;
     char  descDomoticz[20];
     int value;
+    int encvalue;
     int savedValue;
+    int savedIDX;
     int ledID = 0;
     bool tiempoTerminado;
     bool reposo = false;
@@ -506,7 +530,9 @@
     bool encoderSW = false;
     char errorText[7];
     //bool clean_FS = false;
+
     // definiciones bips y tonos:
+
     // bipOK notes in the melody:
     int bipOK_melody[] = { NOTE_C6, NOTE_D6, NOTE_E6, NOTE_F6, NOTE_G6, NOTE_A6, NOTE_B6 };
     const int bipOK_num = sizeof(bipOK_melody)/sizeof(bipOK_melody[0]); // numero de notas en la melodia
@@ -541,14 +567,13 @@
   bool domoticzSwitch(int,char *, int);
   void enciendeLeds(void);
   void endWS(void);
+  static const char* errorToString(uint8_t);
   void filesInfo(void);
   void flagVerificaciones(void);
   int  getFactor(uint16_t);
   uint16_t getMultiStatus(void);
   String *httpGetDomoticz(String *);
   void infoDisplay(const char *, int, int, int);
-  void infoLCD(const char *, int, int, int);
-  void initCD4021B(void);
   void initClock(void);
   void initFactorRiegos(void);
   void initGPIOs(void);
@@ -601,8 +626,10 @@
   void refreshDisplay(void);
   void reposoOFF(void);
   void resetFlags(void);
+  void resetLCD(void);
   void resetLeds(void);
   bool saveConfigFile(const char*, Config_parm&);
+  void serialDetect(void);
   void setEstado(uint8_t);
   int  setMultibyId(uint16_t , Config_parm&);
   bool setupConfig(const char*, Config_parm&);
@@ -612,7 +639,7 @@
   void setupRedWM(Config_parm&);
   void setupWS(void);
   void starConfigPortal(Config_parm&);
-  void StaticTimeUpdate(void);
+  void StaticTimeUpdate(bool);
   void statusError(uint8_t);
   bool stopRiego(uint16_t);
   bool stopAllRiego(void);
