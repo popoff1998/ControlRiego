@@ -228,22 +228,13 @@ void printParms(Config_parm &cfg) {
 void filesInfo() 
 {
   LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED);
-/*   FSInfo fs_info;
-  LittleFS.info(fs_info);
-
-  float fileTotalKB = (float)fs_info.totalBytes / 1024.0; 
-  float fileUsedKB = (float)fs_info.usedBytes / 1024.0; 
+  float fileTotalKB = (float)LittleFS.totalBytes() / 1024.0; 
+  float fileUsedKB = (float)LittleFS.usedBytes() / 1024.0; 
   Serial.print("__________________________\n");
   Serial.println(F("File system (LittleFS): "));
   Serial.print(F("    Total KB: ")); Serial.print(fileTotalKB); Serial.println(F(" KB"));
   Serial.print(F("    Used KB: ")); Serial.print(fileUsedKB); Serial.println(F(" KB"));
-  Dir dir = LittleFS.openDir("/");
-  Serial.println(F("LittleFS directory {/} :"));
-  while (dir.next()) {
-    Serial.print(F("  ")); Serial.println(dir.fileName());
-  }
   Serial.print("__________________________\n");
- */  
   listDir(LittleFS, "/", 1); // List the directories up to one level beginning at the root directory
   LittleFS.end();
 }
@@ -315,34 +306,19 @@ void printFile(const char *p_filename) {
 void memoryInfo() 
 {
 /*   LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED);//FSInfo fs_info;
-  LittleFS.info(fs_info);
-
-  float fileTotalKB = (float)fs_info.totalBytes / 1024.0; 
-  float fileUsedKB = (float)fs_info.usedBytes / 1024.0; 
  */  
+
+  float fileTotalKB = (float)LittleFS.totalBytes() / 1024.0; 
+  float fileUsedKB = (float)LittleFS.usedBytes() / 1024.0; 
   int freeHeadSize = (int)ESP.getFreeHeap() / 1024.0;
   float freeSketchSize = (float)ESP.getFreeSketchSpace() / 1024.0;
   Serial.print("\n#####################\n");
-  /*
-  */
   Serial.print("__________________________\n\n");
-  
   Serial.println(F("File system (LittleFS): "));
-/*   Serial.print(F("    Total KB: ")); Serial.print(fileTotalKB); Serial.println(F(" KB"));
+  Serial.print(F("    Total KB: ")); Serial.print(fileTotalKB); Serial.println(F(" KB"));
   Serial.print(F("    Used KB: ")); Serial.print(fileUsedKB); Serial.println(F(" KB"));
-  Serial.printf("    Maximum open files: %d\n", fs_info.maxOpenFiles);
-  Serial.printf("    Maximum path length: %d\n\n", fs_info.maxPathLength);
- */
-/*   Dir dir = LittleFS.openDir("/");
-  Serial.println(F("LittleFS directory {/} :"));
-  while (dir.next()) {
-    Serial.print(F("  ")); Serial.println(dir.fileName());
-  }
- */
   listDir(LittleFS, "/", 1); // List the directories up to one level beginning at the root directory
-
   Serial.print("__________________________\n\n");
-  
   Serial.printf("free RAM (max Head size): %d KB  <<<<<<<<<<<<<<<<<<<\n\n", freeHeadSize);
   Serial.printf("free SketchSpace: %f KB\n\n", freeSketchSize);
   Serial.println(F("#####################"));

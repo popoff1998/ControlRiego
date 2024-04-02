@@ -12,13 +12,13 @@ volatile uint16_t ledStatus = 0;
 #define mcpI_ADDR 0x21    // MCP de entradas (BOTONES)
 
 
-MCP23017 mcpI = MCP23017(mcpI_ADDR);
-MCP23017 mcpO = MCP23017(mcpO_ADDR);
+MCP23017 mcpI = MCP23017(mcpI_ADDR, Wire1);  // usamos segundo bus I2C para no interferir con el display lcd
+MCP23017 mcpO = MCP23017(mcpO_ADDR, Wire1);  // usamos segundo bus I2C para no interferir con el display lcd
 
 void initWire() {
 
-  Wire.setPins(I2C_SDA, I2C_SCL);
-  Wire.begin();
+  Wire.begin(I2C_SDA, I2C_SCL, I2C_CLOCK_SPEED);     // primer bus I2C para la pantalla lcd
+  Wire1.begin(I2C_SDA1, I2C_SCL1, I2C_CLOCK_SPEED);  // segundo bus I2C para los MCPs
 }
 
 void mcpOinit() {
@@ -54,8 +54,6 @@ void apagaLeds()
     analogWrite(LEDB, 0);
     mcpO.writePort(MCP23017Port::A, 0x00);
     mcpO.writePort(MCP23017Port::B, 0x00);
-    //mcp.write_gpio(MCP23017_PORTA,  0x00 , mcpOUT);
-    //mcp.write_gpio(MCP23017_PORTB,  0x00 , mcpOUT);
   #endif
   #ifdef NODEMCU
     digitalWrite(HC595_LATCH, LOW);
@@ -75,8 +73,6 @@ void enciendeLeds()
     analogWrite(LEDB, MAXledLEVEL);
     mcpO.writePort(MCP23017Port::A, 0xFF);
     mcpO.writePort(MCP23017Port::B, 0xFF);
-    //mcp.write_gpio(MCP23017_PORTA,  0xFF , mcpOUT);
-    //mcp.write_gpio(MCP23017_PORTB,  0xFF , mcpOUT);
   #endif
   #ifdef NODEMCU
     digitalWrite(HC595_LATCH, LOW);
@@ -159,6 +155,7 @@ void initGPIOs()
   pinMode(bENCODER, INPUT);
 }
 
+// enciende o apaga un led controlado por PWM
 void ledPWM(uint8_t id,int estado)
 {
   estado ? analogWrite(id, MAXledLEVEL) : analogWrite(id, 0);
@@ -170,6 +167,7 @@ void ledPWM(uint8_t id,int estado)
 
 }
 
+// enciende o apaga un led controlado por el expansor MCP
 void led(uint8_t id,int estado)
 {
     //Por seguridad no hacemos nada si id=0
@@ -238,10 +236,8 @@ byte shiftInCD4021B(int myDataPin, int myClockPin)
 #ifdef ESP32
 uint16_t readInputs()
 {
- //return 0x00; 
   uint8_t    alto;
   uint8_t    bajo;
-  //Leemos
   bajo = mcpI.readPort(MCP23017Port::A);
   alto = mcpI.readPort(MCP23017Port::B);
   return bajo | (alto << 8);

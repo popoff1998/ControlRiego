@@ -302,7 +302,7 @@ protected:
       httpUpdater.setup(&wserver, update_path, update_username, update_password);
       defWebpages();
       MDNS.addService("http", "tcp", wsport);
-      //MDNS.announce();   no es necesario ya con la nueva libreria ?
+      //MDNS.announce();   no es necesario ya con la nueva libreria
       wserver.begin();
       Serial.println(F("[WS] HTTPUpdateServer ready!"));
       Serial.printf("[WS]    --> Open http://%s.local:%d%s in your browser and login with username '%s' and password '%s'\n\n", WiFi.getHostname(), wsport, update_path, update_username, update_password);
