@@ -41,17 +41,14 @@ void setup()
   #endif
 
   Serial.begin(115200);
-  //serialDetect();
+  //if (!serialDetect()) {
+  //  LOG_SET_LEVEL(DebugLogLevel::LVL_NONE); 
+  //}
   delay(500);
-  PRINTLN("\n\n CONTROL RIEGO V" + String(VERSION) + "    Built on " __DATE__ " at " __TIME__ );
-  PRINTLN("   current log level is", (int)LOG_GET_LEVEL());
+  PRINTLN("\n\n CONTROL RIEGO V" + String(VERSION) + "    Built on " __DATE__ " at " __TIME__  "\n");
+  PRINTLN("(current log level is", (int)LOG_GET_LEVEL(), ")");
 
-  #ifdef ESP32
-    LOG_DEBUG("Startup reason: ", esp_reset_reason());
-  #endif  
-  #ifdef NodeMCU
-    Serial.print(F("Startup reason: "));Serial.println(ESP.getResetReason());
-  #endif  
+  LOG_DEBUG("Startup reason: ", esp_reset_reason());
   LOG_TRACE("TRACE: in setup");
   // init de los GPIOs y bus I2C
   initGPIOs();
@@ -197,7 +194,7 @@ void procesaEstados()
       break;
     case ERROR:
       procesaEstadoError();
-      blinkPause();
+      if(Estado.estado == ERROR) blinkPause();
       break;
     case REGANDO:
       procesaEstadoRegando();
@@ -235,7 +232,7 @@ void setupEstado()
     if (Boton[bID_bIndex(bSTOP)].estado) {
       setEstado(STOP);
       infoDisplay("StoP", NOBLINK, LONGBIP, 1);
-      //lcd.infoclear("STOP", NOBLINK, LONGBIP, 1);
+      lcd.infoclear("STOP", NOBLINK, LONGBIP, 1);
     }
     else setEstado(STANDBY);
     bip(2);
@@ -250,7 +247,7 @@ void setupEstado()
     if (Boton[bID_bIndex(bSTOP)].estado) {
       setEstado(STOP);
       infoDisplay("StoP", NOBLINK, LONGBIP, 1);
-      //lcd.infoclear("STOP", NOBLINK, LONGBIP, 1);
+      lcd.infoclear("STOP", NOBLINK, LONGBIP, 1);
     }
     else setEstado(STANDBY);
     bip(1);
@@ -401,7 +398,7 @@ void procesaBotonStop(void)
     else {
       //Lo hemos pulsado en standby - seguro antinenes
       infoDisplay("StoP", NOBLINK, BIP, 3);
-      //lcd.infoclear("STOP", NOBLINK, BIP, 3);
+      lcd.infoclear("STOP", NOBLINK, BIP, 3);
       // apagar leds y parar riegos (por si riego activado externamente)
       if (!stopAllRiego()) {   //error en stopAllRiego
         boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
@@ -443,13 +440,19 @@ bool procesaBotonMultiriego(void)
     // si esta pulsado el boton del encoder --> solo hacemos encendido de los leds del grupo
     // y mostramos en el display la version del programa.
     if (encoderSW) {
-      char version_n[10];
-      strncpy(version_n, VERSION, 10); //eliminamos "." y "-" para mostrar version en el display
-      std::remove(std::begin(version_n),std::end(version_n),'.');
-      std::remove(std::begin(version_n),std::end(version_n),'-');
-      display->print(version_n);
+      //char version_n[10];
+      //strncpy(version_n, VERSION, 10); //eliminamos "." y "-" para mostrar version en el display
+      //std::remove(std::begin(version_n),std::end(version_n),'.');
+      //std::remove(std::begin(version_n),std::end(version_n),'-');
+      //display->print(version_n);
+      lcd.infoclear("Version:   " VERSION);
+      snprintf(buff, MAXBUFF, "grupo: %s", multi.desc);
+      lcd.info(buff, 3);
+      displayLCDGrupo(multi.zserie, *multi.size);
       displayGrupo(multi.serie, *multi.size);
       LOG_DEBUG("en MULTIRRIEGO + encoderSW, display de grupo:", multi.desc,"tamaño:", *multi.size );
+      delay(MSGDISPLAYMILLIS);
+      lcd.infoEstado(nEstado[Estado.estado]);
       StaticTimeUpdate(REFRESH);
       return false;    //para que procese el BREAK al volver a procesaBotones         
     }  
@@ -510,7 +513,12 @@ void procesaBotonZona(void)
       savedValue = value;
       value = factorRiegos[zIndex];
       display->print(value);
-      delay(2000);
+      lcd.infoclear("factor riego de ");
+      snprintf(buff, MAXBUFF, "%s :  %d", boton->desc, factorRiegos[zIndex]);
+      lcd.info(buff,3);
+      delay(2*MSGDISPLAYMILLIS);
+      lcd.clear(BORRA2H);
+      lcd.infoEstado("STANDBY");
       value = savedValue;  // para que restaure reloj
       led(Boton[bIndex].led,OFF);
       StaticTimeUpdate(REFRESH);
@@ -537,8 +545,9 @@ void procesaEstadoConfigurando()
               if (copyConfigFile(parmFile, defaultFile)) {
                 Serial.println(F("[ConF] salvado fichero de parametros actuales como DEFAULT"));
                 infoDisplay("-dEF", DEFAULTBLINK, BIPOK, 5);
-                lcd.infoclear("Saved DEFAULT", DEFAULTBLINK, BIPOK, 5);
-                display->print("ConF"); 
+                lcd.infoclear("Saved DEFAULT", DEFAULTBLINK, BIPOK);
+                display->print("ConF");
+                delay(MSGDISPLAYMILLIS); 
                 lcd.info("modo CONFIGURACION",1); 
               }
             }
@@ -549,11 +558,11 @@ void procesaEstadoConfigurando()
                 webServerAct = true;
                 ledConf(OFF);
                 infoDisplay("otA", DEFAULTBLINK, BIPOK, 5);
-                lcd.infoclear("OTA Webserver act", DEFAULTBLINK, BIPOK, 5);
+                lcd.infoclear("OTA Webserver act", DEFAULTBLINK, BIPOK);
                 //snprintf(buff, MAXBUFF, "\"%s.local:%d\"", WiFi.getHostname(), wsport);
                 snprintf(buff, MAXBUFF, "\"%s.local:8080\"", WiFi.getHostname());
                 lcd.info(buff, 3);
-                //lcd.info("¿IP?", 4);
+                delay(MSGDISPLAYMILLIS);
               }
             #endif 
             if (n_grupo == 3) {  // activamos AP y portal de configuracion (bloqueante)
@@ -574,6 +583,10 @@ void procesaEstadoConfigurando()
             multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
             display->print("PUSH");
             led(Boton[bID_bIndex(*multi.id)].led,ON);
+            snprintf(buff, MAXBUFF, "grupo: %s", multi.desc);
+            lcd.info(buff, 2);
+            snprintf(buff, MAXBUFF, "pulse ZONAS");
+            lcd.info(buff, 3);
           } 
           break;
         case bPAUSE:
@@ -592,6 +605,7 @@ void procesaEstadoConfigurando()
             config.seconds = seconds;
             saveConfig = true;
             bipOK();
+            delay(MSGDISPLAYMILLIS);
             configure->stop();
             break;
           }
@@ -603,10 +617,11 @@ void procesaEstadoConfigurando()
             saveConfig = true;
             LOG_INFO("Save Zona",zIndex+1,"(",Boton[bIndex].desc,") IDX value:",value);
             lcd.info("guardado IDX",2);
+            lcd.clear(BORRA2H);
             value = savedValue;
             bipOK();
             led(Boton[bIndex].led,OFF);
-            delay(1000);  // para que se vea el msg
+            delay(MSGDISPLAYMILLIS);  // para que se vea el msg
             configure->stop();
             break;
           }
@@ -622,6 +637,9 @@ void procesaEstadoConfigurando()
               printMultiGroup(config, g-1);
               saveConfig = true;
               bipOK();
+              lcd.info("guardado GRUPO",2);
+              lcd.clear(BORRA2H);
+              delay(MSGDISPLAYMILLIS);
             }
             ultimosRiegos(HIDE);
             led(Boton[bID_bIndex(*multi.id)].led,OFF);
@@ -635,7 +653,8 @@ void procesaEstadoConfigurando()
               LOG_INFO("saveConfig=true  --> salvando parametros a fichero");
               if (saveConfigFile(parmFile, config)) {
                 infoDisplay("SAUE", DEFAULTBLINK, BIPOK, 5);
-                lcd.infoclear("SAVED parameters", DEFAULTBLINK, BIPOK, 5);
+                lcd.infoclear("SAVED parameters", DEFAULTBLINK, BIPOK);
+                delay(MSGDISPLAYMILLIS);
               }  
               saveConfig = false;
             }
@@ -657,21 +676,24 @@ void procesaEstadoConfigurando()
           if (configure->configuringMulti()) {  //Configuramos el multirriego seleccionado
             if (multi.w_size < 16) {  //max. 16 zonas por grupo
               multi.serie[multi.w_size] = boton->id;
+              multi.zserie[multi.w_size] = zIndex+1 ;
               LOG_INFO("[ConF] añadiendo ZONA",zIndex+1,"(",boton->desc,")");
-              multi.w_size = multi.w_size + 1;
               led(Boton[bIndex].led,ON);
-            }
+              multi.w_size = multi.w_size + 1;
+              displayLCDGrupo(multi.zserie, multi.w_size);
+            }  
             else bipKO();
           }
           if (!configure->configuring()) {   //si no estamos configurando nada, configuramos el idx
-            //savedValue = value;
             LOG_INFO("[ConF] configurando IDX boton:",boton->desc);
-            String texto=boton->desc;
-            texto = "IDX de: "+texto;
-            lcd.info(texto.c_str(),2);
             configure->configureIdx(bIndex);
             value = boton->idx;
             led(Boton[bIndex].led,ON);
+            snprintf(buff, MAXBUFF, "IDX de:  %s", boton->desc);
+            lcd.info(buff, 2);
+            snprintf(buff, MAXBUFF, "actual %d", value);
+            lcd.info(buff, 3);
+
           }
       }
     }
@@ -693,7 +715,7 @@ void procesaEstadoError(void)
     if (Boton[bID_bIndex(bSTOP)].estado) {
       setEstado(STOP);
       infoDisplay("StoP", NOBLINK, LONGBIP, 1);
-      //lcd.infoclear("STOP", NOBLINK, LONGBIP, 1);
+      lcd.infoclear("STOP", NOBLINK, LONGBIP, 1);
       displayOff = true;
     }
     else {
@@ -703,7 +725,7 @@ void procesaEstadoError(void)
       StaticTimeUpdate(REFRESH);
     } 
     NONETWORK = true;
-    LOG_INFO("estado en ERROR y PAUSA pulsada pasamos a modo NONETWORK y reseteamos");
+    LOG_INFO("estado en ERROR y PAUSA pulsada pasamos a modo NONETWORK y reset del error");
     bip(2);
     //reseteos varios:
     resetLeds();    //apaga leds activos y restablece leds ON y RED
@@ -947,22 +969,14 @@ void initClock()
 
 void initEncoder() {
     LOG_TRACE("");
-    //we must initialize rotary encoder
     rotaryEncoder.begin();
     rotaryEncoder.setup(readEncoderISR);
     //set boundaries and if values should cycle or not
-    //in this example we will set possible values between 0 and 1000;
     bool circleValues = false;
-    rotaryEncoder.setBoundaries(-1000, 1000, circleValues); //minValue, maxValue, circleValues true|false (when max go to min and vice versa)
-
-    /*Rotary acceleration introduced 25.2.2021.
-   * in case range to select is huge, for example - select a value between 0 and 1000 and we want 785
-   * without accelerateion you need long time to get to that number
-   * Using acceleration, faster you turn, faster will the value raise.
-   * For fine tuning slow down.
-   */
+    rotaryEncoder.setBoundaries(0, 1000, circleValues); //minValue, maxValue, circleValues true|false (when max go to min and vice versa)
+    rotaryEncoder.setEncoderValue(500);
+    //rotaryEncoder.correctionOffset = 0;
     //rotaryEncoder.disableAcceleration(); //acceleration is now enabled by default - disable if you dont need it
-    //rotaryEncoder.setAcceleration(0); //or set the value - larger number = more accelearation; 0 or 1 means disabled acceleration
     rotaryEncoder.setAcceleration(50); //or set the value - larger number = more accelearation; 0 or 1 means disabled acceleration
 }
 
@@ -981,7 +995,8 @@ void ultimosRiegos(int modo)
       }
       display->printTime(hour(t),minute(t));
       lcd.infoclear("Hora actual:");
-      lcd.displayTime(hour(t),minute(t));
+      if (timeOK) lcd.displayTime(hour(t),minute(t));
+      else lcd.info("   <<< NO TIME >>>",3);
       break;
     case HIDE:
       StaticTimeUpdate(REFRESH);
@@ -1031,7 +1046,7 @@ void procesaEncoder()
   //encvalue = Encoder->getValue();
   encvalue = rotaryEncoder.encoderChanged();
   if(!encvalue) return; 
-  if (encvalue) value = value - encvalue;
+  else value = value - encvalue;
 
   if(Estado.estado == CONFIGURANDO && configure->configuringIdx()) {
       #ifdef EXTRATRACE
@@ -1041,9 +1056,11 @@ void procesaEncoder()
       if (value > 1000) value = 1000;
       if (value <  1) value = 0; //permitimos IDX=0 para desactivar ese boton
       display->print(value);
-      //LOG_TRACE("ANTES DE LLAMAR A displayNewIDX");
       int bIndex = configure->getActualIdxIndex();
-      lcd.displayNewIDX(bID_zIndex(Boton[bIndex].id)+1, value);
+      int currentZona = bID_zIndex(Boton[bIndex].id)+1;
+      snprintf(buff, MAXBUFF, "nuevo IDX ZONA%d %d", currentZona, value);
+      lcd.info(buff, 4);
+
       //savedIDX = value;
       return;
   }
@@ -1192,6 +1209,11 @@ bool stopAllRiego()
   return true;
 }
 
+#ifdef MUTE  //override funcion tone de Tone.cpp para que no suenen bips
+void tone(uint8_t _pin, unsigned int frequency, unsigned long duration) {
+  return;
+}
+#endif
 
 void bip(int veces)
 {
@@ -1232,10 +1254,11 @@ void bipKO() {
 void blinkPause()
 {
   if (!displayOff) {
-    if (millis() > lastBlinkPause + DEFAULTBLINKMILLIS) {
+    if (millis() > lastBlinkPause + 1.5*DEFAULTBLINKMILLIS) {  // *1.5 para compensar inercia LCD
       displayOff = true;
       lastBlinkPause = millis();
       display->clearDisplay();
+      //LOG_TRACE("blinkPause displayOFF");
       lcd.displayOFF();
     }
   }
@@ -1274,6 +1297,7 @@ void StaticTimeUpdate(bool refresh)
   if (minutes < MINMINUTES) minutes = MINMINUTES;
   if (minutes > MAXMINUTES) minutes = MAXMINUTES;
   //solo se actualiza si cambia hora o REFRESH
+  if (refresh) lcd.clear(BORRA2H);
   if(prevseconds != seconds || prevminutes != minutes || refresh) {
     display->printTime(minutes, seconds);
     lcd.displayTime(minutes, seconds); 
@@ -1312,6 +1336,7 @@ void refreshTime()
  * @param bnum = numero de bips emitidos
  */
 void infoDisplay(const char *info, int dnum, int btype, int bnum) {
+  LOG_DEBUG("[infoDisplay] Recibido: '",info, "'   (blink=",dnum, ") btype=",btype,"bnum=",bnum);
   #ifdef displayLED
     display->print(info);
     if (btype == LONGBIP) longbip(bnum);
@@ -1319,11 +1344,6 @@ void infoDisplay(const char *info, int dnum, int btype, int bnum) {
     if (btype == BIPOK) bipOK();
     if (btype == BIPKO) bipKO();
     display->blink(dnum);
-    //lcd.blinkLCD(dnum);  // ya lo hace lcd.info
-  #endif
-  #ifdef displayLCD
-    LOG_DEBUG(" Recibido: '",info, "'   (blink=",dnum, ") btype=",btype,"bnum=",bnum);
-    //lcd.infoclear(info, dnum, btype, bnum);
   #endif
 }
 
@@ -1601,9 +1621,10 @@ void statusError(uint8_t errorID)
   else sprintf(errorText, "Err%d", errorID);
   LOG_ERROR("SET ERROR: ", errorText);
   display->print(errorText);
+  snprintf(buff, MAXBUFF, ">>> %s <<<", errorText);
   lcd.clear(BORRA2H);
-  lcd.setCursor(8,2);
-  lcd.print(errorText);
+  lcd.setCursor(4,2);
+  lcd.print(buff);
   lcd.setCursor(0,3);
   lcd.print(errorToString(errorID));
   bipKO();
@@ -1684,7 +1705,8 @@ void setupParm()
       LOG_WARN("carga parametros por defecto OK");
       //señala la carga parametros por defecto OK
       infoDisplay("dEF-", DEFAULTBLINK, BIPOK, 3);
-      lcd.infoclear("load DEFAULT", DEFAULTBLINK, BIPOK, 3);
+      lcd.infoclear("load DEFAULT", DEFAULTBLINK, BIPOK);
+      delay(MSGDISPLAYMILLIS);
     }  
     else LOG_ERROR(" **  [ERROR] cargando parametros por defecto");
   }
@@ -1797,15 +1819,17 @@ bool setupConfig(const char *p_filename, Config_parm &cfg)
     }
   }
 
-void serialDetect() {
+bool serialDetect() {
   delay(100);
   Serial.println();
   Serial1.begin(0, SERIAL_8N1, -1, -1, true, 11000UL);  // Passing 0 for baudrate to detect it, the last parameter is a timeout in ms
   unsigned long detectedBaudRate = Serial1.baudRate();
   if(detectedBaudRate) {
     Serial.printf("Detected baudrate is %lu\n", detectedBaudRate);
+    return(true);
   } else {
     Serial.println("No baudrate detected, Serial1 will not work!");
+    return(false);
   }
 }
 

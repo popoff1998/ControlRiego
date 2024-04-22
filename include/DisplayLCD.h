@@ -20,7 +20,6 @@
       void printColons(uint8_t , uint8_t);
       void printNoColons(uint8_t , uint8_t);
       void infoEstadoI(const char *estado, const char *zona);
-      const char* verify(const char* info2, int size);
 
    public:
       DisplayLCD(uint8_t lcd1_Addr,uint8_t lcd1_cols,uint8_t lcd1_rows);
@@ -34,16 +33,13 @@
       void print(int);
       void setCursor(uint8_t, uint8_t);
       void setBacklight(bool);	// alias for backlight() and nobacklight()
-      void backlight(void);
-      void nobacklight(void);
       void displayON(void);      // muestra texto del display
       void displayOFF(void);     // oculta texto del display
-      void displayNewIDX(uint8_t n_zona, uint8_t newidx);
-      void displayTime(uint8_t minute, uint8_t second);
-      void displayTime(uint8_t minute, uint8_t second, uint8_t col, uint8_t line);
-      void infoclear(const char *info);
-      void infoclear(const char *info, int line);
-      void infoclear(const char *info, int dnum, int btype, int bnum);
+      //void displayTime(uint8_t minute, uint8_t second);
+      void displayTime(uint8_t minute, uint8_t second, uint8_t col=LCDBIGCOL, uint8_t line=LCDBIGROW);
+      //void infoclear(const char *info);
+      void infoclear(const char *info, int line=1);
+      void infoclear(const char *info, int dnum, int btype, int bnum=0);
       void infoEstado(const char* estado);
       void infoEstado(const char* estado, const char* zona);
       void info(const char* info, int line);

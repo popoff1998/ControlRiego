@@ -21,10 +21,11 @@ int setMultibyId(uint16_t id, Config_parm &cfg)
     if(cfg.groupConfig[i].id == id) {
       multi.id = &cfg.groupConfig[i].id;
       multi.size = &cfg.groupConfig[i].size;
-      multi.zserie = &cfg.groupConfig[i].serie[0];
+      //multi.zserie = &cfg.groupConfig[i].serie[0];
       multi.desc = cfg.groupConfig[i].desc;
       for (int j=0; j < *multi.size; j++) {
         multi.serie[j] = ZONAS[cfg.groupConfig[i].serie[j]-1];  //obtiene el id del boton de cada zona (ojo: no viene en el json)
+        multi.zserie[j] = cfg.groupConfig[i].serie[j];  //obtiene el id de cada zona
         #ifdef EXTRADEBUG 
           Serial.printf("  Zona%d   id: 0x", cfg.groupConfig[i].serie[j]);
           Serial.println(Boton[cfg.groupConfig[i].serie[j]-1].id,HEX); //id(boton) asociado a la zona
@@ -51,6 +52,16 @@ void displayGrupo(uint16_t *serie, int serieSize)
     delay(100);
   }
   led(Boton[bID_bIndex(*multi.id)].led,OFF);
+}
+
+void displayLCDGrupo(uint16_t *serieZonas, int serieSize)
+{
+  int i,n = 0;
+  for(i=0;i<serieSize;i++) {
+    n += snprintf (&buff[n], MAXBUFF, "%d-", serieZonas[i]);
+    if (n<0) break; // max 20 char alcanzados
+  }  
+  lcd.info(buff,4);
 }
 
 //imprime contenido actual de la estructura multiGroup

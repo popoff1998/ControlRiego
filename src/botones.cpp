@@ -48,38 +48,22 @@ void mcpIinit() {
 
 void apagaLeds()
 {
-  #ifdef ESP32
-    analogWrite(LEDR, 0);
-    analogWrite(LEDG, 0);
-    analogWrite(LEDB, 0);
-    mcpO.writePort(MCP23017Port::A, 0x00);
-    mcpO.writePort(MCP23017Port::B, 0x00);
-  #endif
-  #ifdef NODEMCU
-    digitalWrite(HC595_LATCH, LOW);
-    shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, 0);
-    shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, 0);
-    digitalWrite(HC595_LATCH, HIGH);
-  #endif
+  analogWrite(LEDR, 0);
+  analogWrite(LEDG, 0);
+  analogWrite(LEDB, 0);
+  mcpO.writePort(MCP23017Port::A, 0x00);
+  mcpO.writePort(MCP23017Port::B, 0x00);
   ledStatus = 0;
   delay(200);
 }
 
 void enciendeLeds()
 {
-  #ifdef ESP32
-    analogWrite(LEDR, MAXledLEVEL);
-    analogWrite(LEDG, MAXledLEVEL);
-    analogWrite(LEDB, MAXledLEVEL);
-    mcpO.writePort(MCP23017Port::A, 0xFF);
-    mcpO.writePort(MCP23017Port::B, 0xFF);
-  #endif
-  #ifdef NODEMCU
-    digitalWrite(HC595_LATCH, LOW);
-    shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, 0xFF);
-    shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, 0xFF);
-    digitalWrite(HC595_LATCH, HIGH);
-  #endif
+  analogWrite(LEDR, MAXledLEVEL);
+  analogWrite(LEDG, MAXledLEVEL);
+  analogWrite(LEDB, MAXledLEVEL);
+  mcpO.writePort(MCP23017Port::A, 0xFF);
+  mcpO.writePort(MCP23017Port::B, 0xFF);
   ledStatus = 0xFFFF;
   delay(200);
 }
@@ -133,15 +117,6 @@ void initLeds()
   ledPWM(LEDR,ON);
 }
 
-#ifdef NODEMCU
-void initHC595()
-{
-  pinMode(HC595_CLOCK, OUTPUT);
-  pinMode(HC595_DATA, OUTPUT);
-  pinMode(HC595_LATCH, OUTPUT);
-  apagaLeds();
-}
-#endif
 
 void initGPIOs()
 {
@@ -179,20 +154,8 @@ void led(uint8_t id,int estado)
     //convertimos a la parte baja y alta
     uint8_t bajo = (uint8_t)((ledStatus & 0x00FF));
     uint8_t alto = (uint8_t)((ledStatus & 0xFF00) >> 8);
-    #ifdef ESP32
-      mcpO.writePort(MCP23017Port::A, bajo);
-      mcpO.writePort(MCP23017Port::B, alto);
-      //mcp.write_gpio(MCP23017_PORTA,  bajo , mcpOUT);
-      //mcp.write_gpio(MCP23017_PORTB,  alto , mcpOUT);
-    #endif
-    #ifdef NODEMCU
-      digitalWrite(HC595_LATCH, LOW);
-      shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, alto); //repetimos para que funcione encendido led 16
-      shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, alto);
-      shiftOut(HC595_DATA, HC595_CLOCK, MSBFIRST, bajo);
-      digitalWrite(HC595_LATCH, HIGH);
-    #endif
-
+    mcpO.writePort(MCP23017Port::A, bajo);
+    mcpO.writePort(MCP23017Port::B, alto);
 }
 
 bool ledStatusId(int ledID)
@@ -204,32 +167,6 @@ bool ledStatusId(int ledID)
   return((ledStatus & (1 << (ledID-1))));
 }
 
-#ifdef NODEMCU
-void initCD4021B()
-{
-  pinMode(CD4021B_LATCH, OUTPUT);
-  pinMode(CD4021B_CLOCK, OUTPUT);
-  pinMode(CD4021B_DATA, INPUT_PULLDOWN);
-}
-
-byte shiftInCD4021B(int myDataPin, int myClockPin)
-{
-  int i;
-  int temp=0;
-  int myDataIn = 0;
-  for (i=7;i>=0;i--)
-  {
-    digitalWrite(myClockPin,0);
-    delayMicroseconds(2);
-    temp = digitalRead(myDataPin);
-    if(temp) myDataIn = myDataIn | (1 << i);
-    digitalWrite(myClockPin,1);
-  }
-  return myDataIn;
-}
-#endif
-
-#ifdef ESP32
 uint16_t readInputs()
 {
   uint8_t    alto;
@@ -238,23 +175,6 @@ uint16_t readInputs()
   alto = mcpI.readPort(MCP23017Port::B);
   return bajo | (alto << 8);
 }
-#endif
-
-#ifdef NODEMCU
-uint16_t readInputs()
-{
-  byte    switchVar1;
-  byte    switchVar2;
-  //Activamos el latch para leer
-  digitalWrite(CD4021B_LATCH,1);
-  delayMicroseconds(20);
-  digitalWrite(CD4021B_LATCH,0);
-  //Leemos
-  switchVar1 = shiftInCD4021B(CD4021B_DATA, CD4021B_CLOCK);
-  switchVar2 = shiftInCD4021B(CD4021B_DATA, CD4021B_CLOCK);
-  return switchVar2 | (switchVar1 << 8);
-}
-#endif
 
 bool testButton(uint16_t id,bool state)
 {

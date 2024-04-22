@@ -46,17 +46,6 @@
   #include <Ticker.h>
   #include <LittleFS.h>
   #include <Wire.h>
-  //#include <AiEsp32RotaryEncoder.h>
-
-  #ifdef NODEMCU
-    #include <ESP8266HTTPClient.h>
-    #include <ESP8266WiFi.h>
-    #include <ESP8266WebServer.h >
-    #ifdef WEBSERVER
-      #include <ESP8266mDNS.h>
-      #include <ESP8266HTTPUpdateServer.h>
-    #endif
-  #endif
   
   #ifdef ESP32
       #include <HTTPClient.h>
@@ -116,6 +105,7 @@
   #endif
   #define DEFAULTBLINK        5
   #define DEFAULTBLINKMILLIS  500
+  #define MSGDISPLAYMILLIS    1000 // mseg se mantienen mensajes informativos
   #define MINMINUTES          0
   #define MAXMINUTES          59  // corte automatico de seguridad a los 60 min. en los arduinos
   #define MINSECONDS          5
@@ -149,11 +139,7 @@
     #define I2C_SCL               GPIO_NUM_22
     #define I2C_SDA1              GPIO_NUM_16
     #define I2C_SCL1              GPIO_NUM_17
-    #ifndef MUTE
-      #define BUZZER              GPIO_NUM_4
-    #else
-      #define BUZZER              200           // ficticio para que no suene en caso de MUTE
-    #endif  
+    #define BUZZER                GPIO_NUM_4
     #define lZONA1                1             // mcpO GPA0
     #define lZONA2                2             // mcpO GPA1
     #define lZONA3                3             // mcpO GPA2
@@ -170,37 +156,8 @@
     #define mcpOUT                0x20  //direccion del MCP23017 para salidas (leds)
     #define mcpIN                 0x21  //direccion del MCP23017 para entradas (botones)
 
-
   #endif
 
-  #ifdef NODEMCU
-    #define ENCCLK                D0
-    #define ENCDT                 D1
-    #define ENCSW                 100
-    #define BUZZER                2
-    #define HC595_DATA            D8
-    #define HC595_LATCH           D4
-    #define HC595_CLOCK           D5
-    #define CD4021B_CLOCK         D5
-    #define CD4021B_LATCH         D6
-    #define CD4021B_DATA          D7
-    #define DISPCLK               D3
-    #define DISPDIO               D2
-
-    #define LEDR                  4
-    #define LEDG                  5
-    #define LEDB                  3 
-    #define lGRUPO1               6
-    #define lGRUPO2               7
-    #define lGRUPO3               8
-    #define lZONA1                10
-    #define lZONA2                11
-    #define lZONA3                12
-    #define lZONA4                13
-    #define lZONA5                14
-    #define lZONA6                15
-    #define lZONA7                16
-  #endif
  //----------------  fin dependientes del HW   ----------------------------------------
 
 
@@ -275,27 +232,6 @@
   };
   #endif
 
-  #ifdef NODEMCU
-  enum _botones {
-    bZONA1      = 0x0001,
-    bZONA2      = 0x0002,
-    bZONA3      = 0x0004,
-    bZONA4      = 0x0008,
-    bZONA6      = 0x0010,
-    bMULTIRIEGO = 0x0020,
-    bZONA7      = 0x0040,
-    bZONA5      = 0x0080,
-    bSPARE13    = 0x0100,
-    bGRUPO3     = 0x0200,
-    bGRUPO1     = 0x0400,
-    bSTOP       = 0x0800,
-    bENCODER    = 0x1000,
-    bSPARE15    = 0x2000,
-    bSPARE16    = 0x4000,
-    bPAUSE      = 0x8000,
-  };
-  #endif
-
   //Pseudobotones
   //#define bMULTIRIEGO   0xFF03
   #define bGRUPO2   0xFF01
@@ -344,7 +280,7 @@
   struct S_MULTI {
     uint16_t *id;        //apuntador al id del selector grupo en estructura config (bGrupo_x)
     uint16_t serie[16];  //contiene los id de los botones del grupo (bZona_x)
-    uint16_t *zserie;    //apuntador a config con las zonas del grupo (Zona_x)
+    uint16_t zserie[16]; //contiene las zonas del grupo (Zona_x)
     int *size;           //apuntador a config con el tamaño del grupo
     int w_size;          //variable auxiliar durante ConF
     int actual;          //variable auxiliar durante un multirriego 
@@ -565,6 +501,7 @@
   bool copyConfigFile(const char*, const char*);
   void dimmerLeds(bool);
   void displayGrupo(uint16_t *, int);
+  void displayLCDGrupo(uint16_t *, int);
   void displayTimer(uint8_t, uint8_t, uint8_t, uint8_t);
   bool domoticzSwitch(int,char *, int);
   void enciendeLeds(void);
@@ -632,7 +569,7 @@
   void resetLCD(void);
   void resetLeds(void);
   bool saveConfigFile(const char*, Config_parm&);
-  void serialDetect(void);
+  bool serialDetect(void);
   void setEstado(uint8_t);
   int  setMultibyId(uint16_t , Config_parm&);
   bool setupConfig(const char*, Config_parm&);

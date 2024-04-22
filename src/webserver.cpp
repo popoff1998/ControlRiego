@@ -53,15 +53,8 @@
    const char* update_username = "admin";
    const char* update_password = "admin";
 
-   #ifdef NodeMCU
-     ESP8266WebServer wserver(wsport);
-     ESP8266HTTPUpdateServer httpUpdater;
-   #endif
-
-   #ifdef ESP32
-     WebServer wserver(wsport);
-     HTTPUpdateServer httpUpdater;
-   #endif
+    WebServer wserver(wsport);
+    HTTPUpdateServer httpUpdater;
 
    // convierte timestamp a fecha hora
    String TS2Date(time_t t)

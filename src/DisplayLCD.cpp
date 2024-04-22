@@ -42,7 +42,7 @@ void DisplayLCD::initLCD() {
   LOG_TRACE("[LCD] ");
   lcdDisp.init();
   clear();
-  backlight();
+  setBacklight(ON);
 
   DefineLargeChar(); // Create the custom characters
 
@@ -81,33 +81,24 @@ void DisplayLCD::setCursor(uint8_t col, uint8_t row)
   lcdDisp.setCursor(col, row);
 }
 
-void DisplayLCD::backlight()
-{
-  LOG_TRACE("[LCD] ");
-  lcdDisp.backlight();
-}
-
-void DisplayLCD::nobacklight()
-{
-  LOG_TRACE("[LCD] ");
-  lcdDisp.noBacklight();
-}
 
 void DisplayLCD::displayON()
 {
   //LOG_TRACE("[LCD] ");
   lcdDisp.display();
+  _displayOff = false;
 }
 
 void DisplayLCD::displayOFF()
 {
   //LOG_TRACE("[LCD] ");
   lcdDisp.noDisplay();
+  _displayOff = true;
 }
 
 void DisplayLCD::setBacklight(bool value)				// alias for backlight() and nobacklight()
 {
-  LOG_TRACE("[LCD] value ");
+  LOG_TRACE("[LCD] backlight:", value);
   lcdDisp.setBacklight(value);
 }
 
@@ -140,7 +131,7 @@ void DisplayLCD::blinkLCD(int veces) //parpadea contenido actual de la pantalla 
 {
   if(veces) {                       
     // parpadea pantalla n veces
-      LOG_TRACE("[LCD]  x",veces);
+      LOG_TRACE("[LCD]blink LCD  x",veces);
       for (int i=0; i<veces; i++) {
         displayOFF(); // setBacklight(OFF);
         delay(DEFAULTBLINKMILLIS);
@@ -188,13 +179,13 @@ void DisplayLCD::info(const char* info, int line, int size) {
     setCursor(0, line-1);
     lcdDisp.print(info);
 }    
-
+/*
 void DisplayLCD::infoclear(const char *info) {
     LOG_DEBUG("[LCD]  Recibido: ", info);
     clear();
     lcd.info(info,1);
 }
-
+*/
 void DisplayLCD::infoclear(const char *info, int line) {
     LOG_DEBUG("[LCD]  Recibido: ", info, "linea: ", line);
     clear();
@@ -209,33 +200,19 @@ void DisplayLCD::infoclear(const char *info, int dnum, int btype, int bnum) {
     if(texto=="StoP" || texto=="Stop") setCursor(7,1);
     else setCursor(0, 0);
     lcdDisp.print(info);
-    #ifndef displayLED
-     #ifndef MUTE
       if (btype == LONGBIP) longbip(bnum);
       if (btype == BIP) bip(bnum);
       if (btype == BIPOK) bipOK();
       if (btype == BIPKO) bipKO();
-     #endif 
-    #endif
     if(dnum) lcd.blinkLCD(dnum);
 }
 
-
-void DisplayLCD::displayNewIDX(uint8_t n_zona, uint8_t newidx)
-{
-   LOG_DEBUG("RECIBIDO n_zona",n_zona,"newIDX", newidx);
-   setCursor(0, 3);
-   lcdDisp.print("nuevo IDX ZONA");
-   setCursor(14, 3);
-   lcdDisp.print(n_zona);
-   setCursor(16,3);
-   lcdDisp.print(newidx);
-}
-
+/*
 void DisplayLCD::displayTime(uint8_t minute, uint8_t second)
 {
    displayTime(minute, second, LCDBIGCOL, LCDBIGROW);
 }
+*/
 
 void DisplayLCD::displayTime(uint8_t minute, uint8_t second, uint8_t col, uint8_t line) 
 {
@@ -305,8 +282,3 @@ void DisplayLCD::printNoColons(uint8_t position, uint8_t line)
   lcdDisp.write (B);
 }
 
-const char* DisplayLCD::verify(const char* info2, int msgl)
-{
-  if (msgl > 0 && msgl < MAXBUFF) return info2;
-  else return "msg muy largo";
-}

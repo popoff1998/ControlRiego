@@ -15,6 +15,7 @@ int timeout = 180;  //config portal timeout
 // Creamos una instancia de la clase WiFiManager
 WiFiManager wm;
 
+
 WiFiManagerParameter custom_domoticz_server("domoticz_ip", "Domoticz_ip");
 WiFiManagerParameter custom_domoticz_port("domoticz_port", "puerto");
 WiFiManagerParameter custom_ntpserver("ntpServer", "NTP_server");
@@ -74,6 +75,10 @@ void preOtaUpdateCallback()
 // conexion a la red por medio de WifiManager
 void setupRedWM(Config_parm &config)
 {
+  #ifdef DEVELOP
+    wm.setDebugOutput(true, WM_DEBUG_DEV);
+    //wm.debugPlatformInfo();
+  #endif  
   connected = false;
   falloAP = false;
   saveConfig = false;
@@ -113,7 +118,7 @@ void setupRedWM(Config_parm &config)
   custom_ntpserver.setValue(config.ntpServer, 40);
   // activamos modo AP y portal cautivo y comprobamos si se establece la conexión
   if(!wm.autoConnect("Ardomo")) {
-    Serial.println(F("Fallo en la conexión (timeout)"));
+    LOG_WARN("Fallo en la conexión (timeout)");
     falloAP = true;
     delay(1000);
   }
@@ -131,7 +136,7 @@ void setupRedWM(Config_parm &config)
   // (para caso corte de corriente)
   if (falloAP && wm.getWiFiIsSaved()) {
     lcd.infoclear("conectando WIFI");
-    Serial.println(F("Hay wifi salvada -> reintentamos la conexion"));
+    LOG_INFO("Hay wifi salvada -> reintentamos la conexion");
     int j=0;
     falloAP = false;
     tic_WifiLed.attach(0.2, parpadeoLedWifi);
@@ -141,7 +146,7 @@ void setupRedWM(Config_parm &config)
       j++;
       if(j == MAXCONNECTRETRY) {
         falloAP = true;
-        Serial.println(F("Fallo en la reconexión"));
+        LOG_ERROR("Fallo en la reconexión");
         //setEstado(ERROR);
         statusError(E1);
         break;
@@ -156,7 +161,7 @@ void setupRedWM(Config_parm &config)
     LOG_INFO(" >>  Conectado a SSID: ", WiFi.SSID().c_str());
     LOG_INFO(" >>      IP address: ", WiFi.localIP());
     LOG_INFO(" >>      RSSI:", WiFi.RSSI(), "dBm  (",  wm.getRSSIasQuality(WiFi.RSSI()),"%)");
-    int msgl = snprintf(buff, MAXBUFF, "Conectado: %s", WiFi.SSID().c_str());
+    int msgl = snprintf(buff, MAXBUFF, "wifi OK: %s", WiFi.SSID().c_str());
     lcd.info(buff, 1, msgl);
   }
     // ----------------------------- save the custom parameters
@@ -176,7 +181,7 @@ void starConfigPortal(Config_parm &config)
 {
   wm.setConfigPortalTimeout(timeout);
   if (!wm.startConfigPortal("Ardomo")) {
-    Serial.println(F(" exit or hit timeout"));
+    LOG_INFO(" exit or hit timeout");
   }
     // ----------------------------- save the custom parameters
   if (saveConfig) {
