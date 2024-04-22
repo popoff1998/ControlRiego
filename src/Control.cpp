@@ -16,6 +16,12 @@
 
  */
 
+void IRAM_ATTR readEncoderISR()
+{
+	rotaryEncoder.readEncoder_ISR();
+}
+
+
 /*----------------------------------------------*
  *               Setup inicial                  *
  *----------------------------------------------*/
@@ -61,8 +67,8 @@ void setup()
   lcd.initLCD();
   //Para el encoder
   LOG_TRACE("Inicializando Encoder");
-  Encoder = new ClickEncoder(ENCCLK,ENCDT,ENCSW);
-  //initEncoder();
+  //Encoder = new ClickEncoder(ENCCLK,ENCDT,ENCSW);
+  initEncoder();
   //Para el Configure le paso display porque lo usara.
   LOG_TRACE("Inicializando Configure");
   configure = new Configure(display);
@@ -938,15 +944,16 @@ void initClock()
      timeOK = false;
     }
 }
-/* 
+
 void initEncoder() {
+    LOG_TRACE("");
     //we must initialize rotary encoder
     rotaryEncoder.begin();
     rotaryEncoder.setup(readEncoderISR);
     //set boundaries and if values should cycle or not
     //in this example we will set possible values between 0 and 1000;
     bool circleValues = false;
-    rotaryEncoder.setBoundaries(0, 1000, circleValues); //minValue, maxValue, circleValues true|false (when max go to min and vice versa)
+    rotaryEncoder.setBoundaries(-1000, 1000, circleValues); //minValue, maxValue, circleValues true|false (when max go to min and vice versa)
 
     /*Rotary acceleration introduced 25.2.2021.
    * in case range to select is huge, for example - select a value between 0 and 1000 and we want 785
@@ -956,8 +963,8 @@ void initEncoder() {
    */
     //rotaryEncoder.disableAcceleration(); //acceleration is now enabled by default - disable if you dont need it
     //rotaryEncoder.setAcceleration(0); //or set the value - larger number = more accelearation; 0 or 1 means disabled acceleration
-    //rotaryEncoder.setAcceleration(250); //or set the value - larger number = more accelearation; 0 or 1 means disabled acceleration
-//}
+    rotaryEncoder.setAcceleration(50); //or set the value - larger number = more accelearation; 0 or 1 means disabled acceleration
+}
 
 //muestra lo regado desde las 0h encendiendo sus leds y mostrando hora o apagandolos
 void ultimosRiegos(int modo)
@@ -1020,23 +1027,11 @@ void reposoOFF()
 //lee encoder para actualizar el display
 void procesaEncoder()
 {
-  Encoder->service();
-  encvalue = Encoder->getValue();
+  //Encoder->service();
+  //encvalue = Encoder->getValue();
+  encvalue = rotaryEncoder.encoderChanged();
   if(!encvalue) return; 
-  /*
-  if (rotaryEncoder.encoderChanged()) {
-    encvalue = rotaryEncoder.readEncoder();
-  } 
- */  
-  if (encvalue) {
-    //Serial.print("encvalue: ");
-    //Serial.print(encvalue);
-    //Serial.print("    Value_prev: ");
-    //Serial.print(value);
-    value = value - encvalue;
-    //Serial.print("     Value_calc: ");
-    //Serial.println(value);
-  } 
+  if (encvalue) value = value - encvalue;
 
   if(Estado.estado == CONFIGURANDO && configure->configuringIdx()) {
       #ifdef EXTRATRACE

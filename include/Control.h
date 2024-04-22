@@ -39,7 +39,8 @@
   #include <NTPClient.h>
   #include <Time.h>
   #include <Timezone.h>
-  #include <ClickEncoder.h>
+  //#include <ClickEncoder.h>
+  #include <AiEsp32RotaryEncoder.h>
   #include <CountUpDownTimer.h>
   #include <ArduinoJson.h>
   #include <Ticker.h>
@@ -94,7 +95,7 @@
        
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.0b.2"
+                            #define VERSION  "3.0b.3"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -486,9 +487,10 @@
     S_BOTON  *ultimoBoton;
     S_simFlags simular; // estructura flags para simular errores
     Config_parm config; //estructura parametros configurables y runtime
-    ClickEncoder *Encoder;
+    //ClickEncoder *Encoder;
     Display      *display;
     Configure    *configure;
+    AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ENCCLK,ENCDT,ENCSW, -1, ROTARY_ENCODER_STEPS);
     NTPClient timeClient(ntpUDP,config.ntpServer);
     Ticker tic_parpadeoLedON;    //para parpadeo led ON (LEDR)
     Ticker tic_parpadeoLedZona;  //para parpadeo led zona de riego
@@ -575,6 +577,7 @@
   String *httpGetDomoticz(String *);
   void infoDisplay(const char *, int, int, int);
   void initClock(void);
+  void initEncoder(void);
   void initFactorRiegos(void);
   void initGPIOs(void);
   void initHC595(void);
