@@ -153,10 +153,9 @@ void setupRedWM(Config_parm &config)
   //detenemos parpadeo led wifi
   tic_WifiLed.detach();
   if (checkWifi()) {
-    Serial.printf("\nWifi conectado a SSID: %s\n", WiFi.SSID().c_str());
-    Serial.print(F(" IP address: "));
-    Serial.println(WiFi.localIP());
-    Serial.printf(" RSSI: %d dBm  (%d%%)\n\n", WiFi.RSSI(), wm.getRSSIasQuality(WiFi.RSSI()));
+    LOG_INFO(" >>  Conectado a SSID: ", WiFi.SSID().c_str());
+    LOG_INFO(" >>      IP address: ", WiFi.localIP());
+    LOG_INFO(" >>      RSSI:", WiFi.RSSI(), "dBm  (",  wm.getRSSIasQuality(WiFi.RSSI()),"%)");
     int msgl = snprintf(buff, MAXBUFF, "Conectado: %s", WiFi.SSID().c_str());
     lcd.info(buff, 1, msgl);
   }
@@ -196,9 +195,7 @@ void starConfigPortal(Config_parm &config)
 
 // verificacion estado de la conexion wifi
 bool checkWifi() {
-  #ifdef TRACE
-    Serial.println(F("TRACE: in checkWifi"));
-  #endif
+  LOG_TRACE("in checkWifi");
   if(WiFi.status() == WL_CONNECTED) {
     // Encendemos el LED indicador de wifi
     ledPWM(LEDG,ON);
@@ -206,7 +203,7 @@ bool checkWifi() {
     return true;
   }
   else {
-    Serial.println(F("[ERROR] No estamos conectados a la wifi"));
+    LOG_ERROR(" ** [ERROR] No estamos conectados a la wifi");
     // apagamos el LED indicador de wifi
     ledPWM(LEDG,OFF);
     connected = false;

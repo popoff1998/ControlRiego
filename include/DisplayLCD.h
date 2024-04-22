@@ -38,6 +38,7 @@
       void nobacklight(void);
       void displayON(void);      // muestra texto del display
       void displayOFF(void);     // oculta texto del display
+      void displayNewIDX(uint8_t n_zona, uint8_t newidx);
       void displayTime(uint8_t minute, uint8_t second);
       void displayTime(uint8_t minute, uint8_t second, uint8_t col, uint8_t line);
       void infoclear(const char *info);

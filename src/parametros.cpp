@@ -3,10 +3,7 @@
 
 bool loadConfigFile(const char *p_filename, Config_parm &cfg)
 {
-  #ifdef TRACE
-    Serial.println(F("TRACE: in loadConfigFile"));
-  #endif
-
+  LOG_TRACE("");
   if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
     Serial.println(F("An Error has occurred while mounting LittleFS"));
     return false;
@@ -88,9 +85,7 @@ bool loadConfigFile(const char *p_filename, Config_parm &cfg)
 
 bool saveConfigFile(const char *p_filename, Config_parm &cfg)
 {
-  #ifdef TRACE
-    Serial.println(F("TRACE: in saveConfigFile"));
-  #endif
+  LOG_TRACE("TRACE: in saveConfigFile");
   //memoryInfo();
   if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
     Serial.println(F("An Error has occurred while mounting LittleFS"));
@@ -136,12 +131,12 @@ bool saveConfigFile(const char *p_filename, Config_parm &cfg)
     serializeJsonPretty(doc, Serial); 
   #endif
   int docsize = serializeJson(doc, file);
-  if (docsize == 0) Serial.println(F("Failed to write to file"));
-  else Serial.printf("\t tamaño del jsondoc: (%d) \n" , docsize);
-  Serial.printf("\t memoria usada por el jsondoc: (%d) \n" , doc.memoryUsage());
+  if (docsize == 0) LOG_ERROR("Failed to write to file");
+  else LOG_DEBUG("    tamaño del jsondoc: (",docsize,")");
+  LOG_DEBUG("    memoria usada por el jsondoc: (",doc.memoryUsage(),")");
   file.close();
   LittleFS.end();
-  #ifdef DEBUG
+  #ifdef EXTRADEBUG
     printFile(p_filename);
   #endif
   //memoryInfo();
@@ -151,26 +146,23 @@ bool saveConfigFile(const char *p_filename, Config_parm &cfg)
 
 bool copyConfigFile(const char *fileFrom, const char *fileTo)
 {
-  #ifdef TRACE
-    Serial.println(F("TRACE: in copyConfigFile"));
-  #endif
+  LOG_TRACE("in copyConfigFile");
   if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)) {
-  Serial.println(F("An Error has occurred while mounting LittleFS"));
+  LOG_ERROR("An Error has occurred while mounting LittleFS");
   return false;
   }
   // Delete existing file, otherwise the configuration is appended to the file
   LittleFS.remove(fileTo);
   File origen = LittleFS.open(fileFrom, "r");
   if (!origen) {
-    Serial.print(F("- failed to open file ")); 
-    Serial.println(fileFrom);
+    LOG_ERROR("- failed to open file ",fileFrom);
     return false;
   }
   else{
-    Serial.printf("copiando %s en %s \n", fileFrom, fileTo);
+    LOG_INFO("copiando",fileFrom,"en",fileTo);
     File destino = LittleFS.open(fileTo, "w+");
     if(!destino){
-      Serial.println(F("Failed to open file for writing")); Serial.println(fileTo);
+      LOG_ERROR("Failed to open file for writing",fileTo);
       return false;
     }
     else {
@@ -187,9 +179,7 @@ bool copyConfigFile(const char *fileFrom, const char *fileTo)
 
 //init minimo de config para evitar fallos en caso de no poder cargar parametros de ficheros
 void zeroConfig(Config_parm &cfg) {
-  #ifdef TRACE
-    Serial.println(F("TRACE: in zeroConfig"));
-  #endif
+  LOG_TRACE("");
   for (int j=0; j<cfg.n_Grupos; j++) {
     cfg.groupConfig[j].id = GRUPOS[j];
     cfg.groupConfig[j].size = 1;
@@ -198,9 +188,9 @@ void zeroConfig(Config_parm &cfg) {
 }
 
 void cleanFS() {
-  Serial.println(F("\n\n[cleanFS]Wait. . .Borrando File System!!!"));
+  LOG_WARN("  [cleanFS]Wait. . .Borrando File System!!!");
   LittleFS.format();
-  Serial.println(F("Done!"));
+  LOG_WARN("Done!");
 }
 
 void printParms(Config_parm &cfg) {
@@ -277,21 +267,19 @@ void listDir(fs::FS &fs, const char * dirname, uint8_t levels){
 
 
 // funciones solo usadas en DEVELOP
-#ifdef DEBUG
+#ifdef EXTRADEBUG
 
 // Prints the content of a file to the Serial 
 void printFile(const char *p_filename) {
-   #ifdef TRACE
-    Serial.printf("TRACE: in printFile (%s) \n" , p_filename);
-  #endif
+  LOG_TRACE("printFile (",p_filename,")");
   if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
-    Serial.println(F("An Error has occurred while mounting LittleFS"));
+    LOG_ERROR("An Error has occurred while mounting LittleFS");
   return;
   }
   // Open file for reading
   File file = LittleFS.open(p_filename, "r");
   if (!file) {
-    Serial.println(F("Failed to open config file"));
+    LOG_ERROR("Failed to open config file");
     return;
   }
   Serial.println(F("File Content:"));

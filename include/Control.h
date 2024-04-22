@@ -1,6 +1,37 @@
 #ifndef control_h
   #define control_h
 
+  // Uncommenting DEBUGLOG_DISABLE_LOG disables ASSERT and all log (Release Mode)
+  // PRINT and PRINTLN are always valid even in Release Mode
+  // #define DEBUGLOG_DISABLE_LOG
+  // para cambiarlo posteriormente: LOG_SET_LEVEL(DebugLogLevel::LVL_TRACE);
+  // 0: NONE, 1: ERROR, 2: WARN, 3: INFO, 4: DEBUG, 5: TRACE
+  #ifdef DEVELOP
+    //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
+    #define DEBUGLOG_DEFAULT_LOG_LEVEL_TRACE
+    //#define DEBUGLOG_DEFAULT_LOG_LEVEL_INFO
+    #define DEBUG
+    //#define EXTRADEBUG
+    //#define EXTRADEBUG1
+    //#define EXTRATRACE
+    #define VERBOSE
+  #endif
+
+  #ifdef RELEASE
+    //Comportamiento general para uso normal . DESCOMENTAR LO QUE CORRESPONDA
+    //#define DEBUGLOG_DISABLE_LOG
+    #define DEBUGLOG_DEFAULT_LOG_LEVEL_INFO
+    #define VERBOSE
+  #endif
+
+  #ifdef DEMO
+    //Comportamiento general para DEMO . DESCOMENTAR LO QUE CORRESPONDA
+    #define DEBUGLOG_DISABLE_LOG
+  #endif
+  #include <DebugLog.h>
+
+
+
   #include <DNSServer.h>
   #include <WifiUdp.h>
   #include <WiFiManager.h> 
@@ -43,33 +74,6 @@
   #include "Configure.h"
   #include "DisplayLCD.h"
 
-  #ifdef DEVELOP
-    //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
-    #define DEBUG
-    //#define EXTRADEBUG
-    #define EXTRADEBUG1
-    #define TRACE
-    //#define EXTRATRACE
-    #define VERBOSE
-  #endif
-
-  #ifdef RELEASE
-    //Comportamiento general para uso normal . DESCOMENTAR LO QUE CORRESPONDA
-    //#define DEBUG
-    //#define EXTRADEBUG
-    //#define TRACE
-    //#define EXTRATRACE
-    #define VERBOSE
-  #endif
-
-  #ifdef DEMO
-    //Comportamiento general para DEMO . DESCOMENTAR LO QUE CORRESPONDA
-    #define DEBUG
-    //#define EXTRADEBUG
-    //#define TRACE
-    //#define EXTRATRACE
-    #define VERBOSE
-  #endif
 
   #ifdef DEVELOP
     #define HOSTNAME "ardomot"
@@ -90,7 +94,7 @@
        
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.0b.1"
+                            #define VERSION  "3.0b.2"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -135,7 +139,6 @@
     #define ENCDT                 GPIO_NUM_33
     #define ENCSW                 100           // ficticio, no tratamos el boton del encoder con ClicEncoder, se hace por programa
     #define bENCODER              GPIO_NUM_34   // este es el real conectado a GPIO solo INPUT
-    #define BUZZER                GPIO_NUM_4
     #define LEDR                  GPIO_NUM_27  
     #define LEDG                  GPIO_NUM_26 
     #define LEDB                  GPIO_NUM_25 
@@ -145,6 +148,11 @@
     #define I2C_SCL               GPIO_NUM_22
     #define I2C_SDA1              GPIO_NUM_16
     #define I2C_SCL1              GPIO_NUM_17
+    #ifndef MUTE
+      #define BUZZER              GPIO_NUM_4
+    #else
+      #define BUZZER              200           // ficticio para que no suene en caso de MUTE
+    #endif  
     #define lZONA1                1             // mcpO GPA0
     #define lZONA2                2             // mcpO GPA1
     #define lZONA3                3             // mcpO GPA2
@@ -501,6 +509,7 @@
     int value;
     int encvalue;
     int savedValue;
+    int savedIDX;
     int ledID = 0;
     bool tiempoTerminado;
     bool reposo = false;

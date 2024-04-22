@@ -13,9 +13,9 @@ uint16_t getMultiStatus()
 // y devuelve el numero del grupo (1,2,3) , 0 en caso de que no exista
 int setMultibyId(uint16_t id, Config_parm &cfg)
 {
-  #ifdef TRACE
-    Serial.printf("TRACE: in setMultibyId - recibe id=x%x \n", id);
-  #endif
+  LOG_TRACE("setMultibyId - recibe id= 0x",DebugLogBase::HEX,id);
+  //log_i("recibe id=x%x", id);
+
   for(int i=0; i<NUMGRUPOS; i++)
   {
     if(cfg.groupConfig[i].id == id) {
@@ -26,14 +26,14 @@ int setMultibyId(uint16_t id, Config_parm &cfg)
       for (int j=0; j < *multi.size; j++) {
         multi.serie[j] = ZONAS[cfg.groupConfig[i].serie[j]-1];  //obtiene el id del boton de cada zona (ojo: no viene en el json)
         #ifdef EXTRADEBUG 
-          Serial.printf("  Zona%d   id: x", cfg.groupConfig[i].serie[j]);
+          Serial.printf("  Zona%d   id: 0x", cfg.groupConfig[i].serie[j]);
           Serial.println(Boton[cfg.groupConfig[i].serie[j]-1].id,HEX); //id(boton) asociado a la zona
         #endif  
       }
       return i+1;
     }
   }
-  Serial.println(F("[ERROR] setMultibyID devuelve -not found-"));
+  LOG_ERROR(" ** [ERROR] setMultibyID devuelve -not found-");
   return 0;
 }
 

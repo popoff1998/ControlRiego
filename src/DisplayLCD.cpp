@@ -39,9 +39,7 @@ DisplayLCD::DisplayLCD(uint8_t lcd_Addr,uint8_t lcd_cols,uint8_t lcd_rows) : lcd
 
 
 void DisplayLCD::initLCD() {
-  #ifdef TRACE
-   Serial.println(F("[TRACE] DISPLAYLCD: initLCD"));
-  #endif
+  LOG_TRACE("[LCD] ");
   lcdDisp.init();
   clear();
   backlight();
@@ -56,11 +54,13 @@ void DisplayLCD::initLCD() {
 
 void DisplayLCD::clear()
 {
+  LOG_TRACE("[LCD] BORRA lcd");
   lcdDisp.clear();
 }
 
 void DisplayLCD::clear(int mitad)
 {
+  LOG_TRACE("[LCD] borra ",mitad,"ª mitad lcd");
   if(mitad == BORRA1H) {
     setCursor(0, 0);
     lcdDisp.print(_blankline);
@@ -77,40 +77,48 @@ void DisplayLCD::clear(int mitad)
 
 void DisplayLCD::setCursor(uint8_t col, uint8_t row)
 {
+  LOG_TRACE(col,row);
   lcdDisp.setCursor(col, row);
 }
 
 void DisplayLCD::backlight()
 {
+  LOG_TRACE("[LCD] ");
   lcdDisp.backlight();
 }
 
 void DisplayLCD::nobacklight()
 {
+  LOG_TRACE("[LCD] ");
   lcdDisp.noBacklight();
 }
 
 void DisplayLCD::displayON()
 {
+  //LOG_TRACE("[LCD] ");
   lcdDisp.display();
 }
 
 void DisplayLCD::displayOFF()
 {
+  //LOG_TRACE("[LCD] ");
   lcdDisp.noDisplay();
 }
 
 void DisplayLCD::setBacklight(bool value)				// alias for backlight() and nobacklight()
 {
+  LOG_TRACE("[LCD] value ");
   lcdDisp.setBacklight(value);
 }
 
 void DisplayLCD::print(const char * text) {
+  LOG_TRACE("[LCD] recibido: '",text,"'");
   lcdDisp.print(text);
 }
 
 void DisplayLCD::check()
 {
+  LOG_TRACE("[LCD] ");
   clear();
   lcdDisp.print("----");
 }
@@ -118,6 +126,7 @@ void DisplayLCD::check()
 
 void DisplayLCD::blinkLCD(const char *info,int veces) //muestra texto recibido parpadeando n veces
 {
+    LOG_TRACE("[LCD] '",info, "' x",veces);
     for (int i=0; i<veces; i++) {
       clear();
       delay(500);
@@ -131,10 +140,11 @@ void DisplayLCD::blinkLCD(int veces) //parpadea contenido actual de la pantalla 
 {
   if(veces) {                       
     // parpadea pantalla n veces
+      LOG_TRACE("[LCD]  x",veces);
       for (int i=0; i<veces; i++) {
-        lcdDisp.noDisplay(); // setBacklight(OFF);
+        displayOFF(); // setBacklight(OFF);
         delay(DEFAULTBLINKMILLIS);
-        lcdDisp.display(); // setBacklight(ON);
+        displayON(); // setBacklight(ON);
         delay(DEFAULTBLINKMILLIS);
       }
   }
@@ -149,8 +159,8 @@ void DisplayLCD::infoEstado(const char *estado,  const char *zona) {
 }    
 
 void DisplayLCD::infoEstadoI(const char *estado, const char *zona) {
-    Serial.printf("[infoEstado] Recibido: %s %s \n", estado, zona);
-    lcdDisp.display();   // por si estuviera noDisplay por PAUSE
+    LOG_DEBUG("[LCD]  Recibido: ", estado, zona);
+    displayON();   // por si estuviera noDisplay por PAUSE
     setCursor(0, 0);
     lcdDisp.print(_blankline);
     setCursor(0, 0);
@@ -172,7 +182,7 @@ void DisplayLCD::info(const char* info, int line) {
 
 // muestra info (seran ya un maximo de 20 caracteres) en la linea pasada (1, 2 ,3 o 4)
 void DisplayLCD::info(const char* info, int line, int size) {
-    Serial.printf("[LCD.info] Recibido: '%s'   (longitud: %d linea: %d) \n", info, size, line);
+    LOG_DEBUG("[LCD]  Recibido: '", info, "'   (longitud: ", size, " linea: ", line, ")");
     setCursor(0, line-1);
     lcdDisp.print(_blankline);
     setCursor(0, line-1);
@@ -180,19 +190,19 @@ void DisplayLCD::info(const char* info, int line, int size) {
 }    
 
 void DisplayLCD::infoclear(const char *info) {
-    Serial.print(F("[LCD.infoclear] Recibido: "));Serial.println(info);
+    LOG_DEBUG("[LCD]  Recibido: ", info);
     clear();
     lcd.info(info,1);
 }
 
 void DisplayLCD::infoclear(const char *info, int line) {
-    Serial.print(F("[LCD.infoclear] Recibido: "));Serial.println(info);
+    LOG_DEBUG("[LCD]  Recibido: ", info, "linea: ", line);
     clear();
     lcd.info(info,line);
 }
 
 void DisplayLCD::infoclear(const char *info, int dnum, int btype, int bnum) {
-    Serial.printf("[LCD.info] Recibido: '%s'   (blink=%d) \n", info, dnum);
+    LOG_DEBUG("[LCD]  Recibido: '",info, "'   (blink=",dnum, ") btype=",btype,"bnum=",bnum);
     clear();
     //String texto(info);
     String texto = info;
@@ -200,14 +210,27 @@ void DisplayLCD::infoclear(const char *info, int dnum, int btype, int bnum) {
     else setCursor(0, 0);
     lcdDisp.print(info);
     #ifndef displayLED
+     #ifndef MUTE
       if (btype == LONGBIP) longbip(bnum);
       if (btype == BIP) bip(bnum);
       if (btype == BIPOK) bipOK();
       if (btype == BIPKO) bipKO();
+     #endif 
     #endif
     if(dnum) lcd.blinkLCD(dnum);
 }
 
+
+void DisplayLCD::displayNewIDX(uint8_t n_zona, uint8_t newidx)
+{
+   LOG_DEBUG("RECIBIDO n_zona",n_zona,"newIDX", newidx);
+   setCursor(0, 3);
+   lcdDisp.print("nuevo IDX ZONA");
+   setCursor(14, 3);
+   lcdDisp.print(n_zona);
+   setCursor(16,3);
+   lcdDisp.print(newidx);
+}
 
 void DisplayLCD::displayTime(uint8_t minute, uint8_t second)
 {

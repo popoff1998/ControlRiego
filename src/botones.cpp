@@ -86,9 +86,7 @@ void enciendeLeds()
 
 void loadDefaultSignal(uint veces)
 {
-  #ifdef TRACE
-    Serial.println(F("TRACE: in loadDefaultSignal"));
-  #endif
+  LOG_TRACE("in loadDefaultSignal");
   uint i;
   for(i=0;i<veces;i++) {
     ledPWM(LEDR,ON);
@@ -102,9 +100,7 @@ void loadDefaultSignal(uint veces)
 
 void wifiClearSignal(uint veces)
 {
-  #ifdef TRACE
-    Serial.println(F("TRACE: in wifiClearSignal"));
-  #endif
+  LOG_TRACE("in wifiClearSignal");
   uint i;
   for(i=0;i<veces;i++) {
     ledPWM(LEDR,ON);
@@ -288,7 +284,7 @@ S_BOTON *parseInputs(bool read)
     {
       Boton[i].ultimo_estado = Boton[i].estado;
       if (Boton[i].estado || Boton[i].flags.dual) {
-        #ifdef DEBUG
+        #ifdef EXTRADEBUG
           bool bEstado = Boton[i].estado;
           if (!read) Serial.print(F("Cleared: "));
           Serial.printf("Boton: %s  idx: %d  id: %#X  Estado: %d \n", Boton[i].desc, Boton[i].idx, Boton[i].id, bEstado);
