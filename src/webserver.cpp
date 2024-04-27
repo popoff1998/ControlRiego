@@ -11,7 +11,6 @@
 // * use http ETag Header for client side caching of static files
 // * use custom ETag calculation for static files
 // * extended FileServerHandler for uploading and deleting static files
-// * extended FileServerHandler for uploading and deleting static files
 // * serve APIs using REST services (/api/list, /api/sysinfo)
 // * define HTML response when no file/api/handler was found
 //
@@ -41,7 +40,11 @@
    #define UNUSED __attribute__((unused))
 
    // TRACE2 output simplified, can be deactivated here
-   #define TRACE2(...) Serial.printf(__VA_ARGS__)
+   #ifdef DEVELOP
+     #define TRACE2(...) Serial.printf(__VA_ARGS__)
+   #else  
+     #define TRACE2(...)
+   #endif  
 
    // local time zone definition (Madrid)
    #define TIMEZONE "CET-1CEST,M3.5.0,M10.5.0/3"

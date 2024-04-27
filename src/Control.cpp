@@ -326,6 +326,10 @@ void procesaBotonPause(void)
                 bip(2);
                 ledPWM(LEDB,OFF);
                 display->print("----");
+                if (!checkWifi()) {
+                  WiFi.reconnect(); 
+                  delay(2000);
+                }
                 initFactorRiegos();
                 if(VERIFY && Estado.estado != ERROR) stopAllRiego(); //verificamos operativa OFF para los IDX's 
             }
@@ -734,9 +738,11 @@ void procesaEstadoError(void)
   if(boton->id == bSTOP) {
   //Si estamos en ERROR y pulsamos o liberamos STOP, reseteamos, pero antes intentamos parar riegos
     setEstado(STANDBY);
-    if(checkWifi()) stopAllRiego();
+    lcd.infoclear("ERROR+STOP-> Reset..",3);
     LOG_WARN("ERROR + STOP --> Reset.....");
     longbip(3);
+    if(checkWifi()) stopAllRiego();
+    delay(3000);
     ESP.restart();  
   }
 };
@@ -882,7 +888,7 @@ void check(void)
   #ifndef noCHECK
     LOG_TRACE("TRACE: in initLeds + display check");
     initLeds();
-    display->check(1);
+    //display->check(1);
   #endif
 }
 
@@ -1539,7 +1545,7 @@ bool domoticzSwitch(int idx, char *msg, int retries)
      else if(!NONETWORK) response = httpGetDomoticz(message); // enviamos orden al Domoticz
      if(response == "ErrX") { // solo reintentamos si Domoticz informa del estado de la zona
        bip(1);
-       Serial.printf("DOMOTICZSWITH IDX: %d fallo en %s (intento %d de %d)\n", idx, msg, i+1, retries);
+       LOG_WARN("DOMOTICZSWITH IDX: %d fallo en %s (intento %d de %d)\n", idx, msg, i+1, retries);
        delay(DELAYRETRY);
      }
      else break;
@@ -1553,7 +1559,7 @@ bool domoticzSwitch(int idx, char *msg, int retries)
       }
       else statusError(E2); //otro error al comunicar con domoticz
     }
-    Serial.printf("DOMOTICZSWITH IDX: %d fallo en %s\n", idx, msg);
+    LOG_ERROR("DOMOTICZSWITH IDX: %d fallo en %s\n", idx, msg);
     return false;
   }
   return true;
@@ -1595,11 +1601,21 @@ void Verificaciones()
   #endif
   if (!flagV) return;      //si no activada por Ticker salimos sin hacer nada
   if (Estado.estado == STANDBY) Serial.print(F("."));
-  if (errorOFF) bip(2);  //recordatorio error grave
+  if (errorOFF) bip(2);  //recordatorio error grave al parar un riego
+  //si estamos en Standby o en Error por falta de conexion verificamos estado actual de la wifi (no en modo NONETWORK)
   if (!NONETWORK && (Estado.estado == STANDBY || (Estado.estado == ERROR && !connected))) {
-    if (checkWifi() && Estado.estado!=STANDBY) setEstado(STANDBY); //verificamos si seguimos connectados a la wifi
+    if (checkWifi() && Estado.estado!=STANDBY) setEstado(STANDBY); 
+    if(!connected) {   //si no estamos conectados a la wifi, intentamos reconexion
+      LOG_WARN("INTENTANDO RECONEXION WIFI");
+      WiFi.reconnect();
+      delay(2000);
+      if(checkWifi()) {
+        LOG_INFO("¡WIFI reconectada!");
+        setEstado(STANDBY);
+      } 
+    }  
     if (connected && falloAP) {
-      Serial.println(F("Wifi conectada despues Setup, leemos factor riegos"));
+      LOG_INFO("Wifi conectada despues Setup, leemos factor riegos");
       falloAP = false;
       initFactorRiegos(); //esta funcion ya dejara el estado correspondiente
     }
@@ -1678,7 +1694,6 @@ void ledConf(int estado)
     ledPWM(LEDB,OFF);
     ledPWM(LEDG,OFF);
     tic_parpadeoLedConf.attach(0.7,parpadeoLedConf);
-    //led(Boton[bID_bIndex(bCONFIG)].led,ON); 
   }
   else 
   {
@@ -1686,7 +1701,6 @@ void ledConf(int estado)
     ledPWM(LEDR,ON);                   // y los deja segun estado
     NONETWORK ? ledPWM(LEDB,ON) : ledPWM(LEDB,OFF);
     checkWifi();
-    //led(Boton[bID_bIndex(bCONFIG)].led,OFF);
   }
 }
 

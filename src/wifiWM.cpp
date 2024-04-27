@@ -72,6 +72,17 @@ void preOtaUpdateCallback()
   lcd.infoclear("OTA in progress", DEFAULTBLINK, LONGBIP, 1);
 }
 
+//evento llamado en caso de desconexion de la wifi
+void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
+ LOG_ERROR("WiFi lost connection. Reason: ", info.wifi_sta_disconnected.reason);
+ if (WiFi.reconnect()) {
+  LOG_INFO("Trying to Reconnect: success");
+  return;
+ } 
+ else LOG_ERROR("Trying to Reconnect: failed");
+ delay(3000);
+}
+
 // conexion a la red por medio de WifiManager
 void setupRedWM(Config_parm &config)
 {
@@ -85,7 +96,7 @@ void setupRedWM(Config_parm &config)
   if(initFlags.initWifi) {
     wm.resetSettings(); //borra wifi guardada
     //delay(300);
-    Serial.println(F("encoderSW pulsado y multirriego en GRUPO3 --> borramos red WIFI"));
+    LOG_INFO("encoderSW pulsado y multirriego en GRUPO3 --> borramos red WIFI");
     infoDisplay("CLEA", DEFAULTBLINK, LONGBIP, 1); //señala borrado wifi
     lcd.infoclear("red WIFI borrada", DEFAULTBLINK, LONGBIP, 1); //señala borrado wifi
   }
@@ -142,6 +153,7 @@ void setupRedWM(Config_parm &config)
     tic_WifiLed.attach(0.2, parpadeoLedWifi);
     while(WiFi.status() != WL_CONNECTED) {
       Serial.print(F("."));
+      WiFi.reconnect(); 
       delay(2000);
       j++;
       if(j == MAXCONNECTRETRY) {
@@ -161,6 +173,7 @@ void setupRedWM(Config_parm &config)
     LOG_INFO(" >>  Conectado a SSID: ", WiFi.SSID().c_str());
     LOG_INFO(" >>      IP address: ", WiFi.localIP());
     LOG_INFO(" >>      RSSI:", WiFi.RSSI(), "dBm  (",  wm.getRSSIasQuality(WiFi.RSSI()),"%)");
+    LOG_INFO(" >>      Autoreconnect:", WiFi.getAutoReconnect(), " (1 = enabled)");
     int msgl = snprintf(buff, MAXBUFF, "wifi OK: %s", WiFi.SSID().c_str());
     lcd.info(buff, 1, msgl);
   }
@@ -170,6 +183,10 @@ void setupRedWM(Config_parm &config)
     strcpy(config.domoticz_port, custom_domoticz_port.getValue());
     strcpy(config.ntpServer, custom_ntpserver.getValue());
   }
+  //dejamos activado evento de desconexion (wifi events):
+  WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+  //WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_CONNECTED);
+  //WiFi.removeEvent(WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
 }
 
 /**

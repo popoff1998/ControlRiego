@@ -179,13 +179,6 @@ void DisplayLCD::info(const char* info, int line, int size) {
     setCursor(0, line-1);
     lcdDisp.print(info);
 }    
-/*
-void DisplayLCD::infoclear(const char *info) {
-    LOG_DEBUG("[LCD]  Recibido: ", info);
-    clear();
-    lcd.info(info,1);
-}
-*/
 void DisplayLCD::infoclear(const char *info, int line) {
     LOG_DEBUG("[LCD]  Recibido: ", info, "linea: ", line);
     clear();
