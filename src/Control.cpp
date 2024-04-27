@@ -71,7 +71,7 @@ void setup()
   configure = new Configure(display);
   //preparo indicadores de inicializaciones opcionales
   setupInit();
-  //led encendido
+  //led encendido/error
   ledPWM(LEDR,ON);
   //setup parametros configuracion
   #ifdef EXTRADEBUG
@@ -326,6 +326,7 @@ void procesaBotonPause(void)
                 bip(2);
                 ledPWM(LEDB,OFF);
                 display->print("----");
+                lcd.clear();
                 if (!checkWifi()) {
                   WiFi.reconnect(); 
                   delay(2000);
@@ -766,7 +767,7 @@ void procesaEstadoRegando(void)
       }
       else {
         statusError(Estado.fase); // si no hemos podido verificar estado, señalamos el error
-        tic_parpadeoLedON.attach(0.2,parpadeoLedON);
+        tic_parpadeoLedError.attach(0.2,parpadeoLedError);
         tic_parpadeoLedZona.attach(0.4,parpadeoLedZona);
         errorOFF = true;  // recordatorio error
         LOG_ERROR("** SE HA DEVUELTO ERROR");
@@ -1020,13 +1021,13 @@ void dimmerLeds(bool status)
 {
   if(status) {
     LOG_TRACE("leds atenuados ");
-    analogWrite(LEDR, DIMMLEVEL);
+    //analogWrite(LEDR, DIMMLEVEL);
     if(connected) analogWrite(LEDG, DIMMLEVEL);
     if(NONETWORK) analogWrite(LEDB, DIMMLEVEL);
   }
   else {
     LOG_TRACE("leds brillo normal ");
-    analogWrite(LEDR, MAXledLEVEL);
+    //analogWrite(LEDR, MAXledLEVEL);
     if(connected) analogWrite(LEDG, MAXledLEVEL);
     if(NONETWORK) analogWrite(LEDB, MAXledLEVEL);
   }  
@@ -1152,7 +1153,7 @@ bool stopRiego(uint16_t id)
   else {     //avisa de que no se ha podido terminar un riego
     if (!errorOFF) { //para no repetir bips en caso de stopAllRiego
       errorOFF = true;  // recordatorio error
-      tic_parpadeoLedON.attach(0.2,parpadeoLedON);
+      tic_parpadeoLedError.attach(0.2,parpadeoLedError);
       tic_parpadeoLedZona.attach(0.4,parpadeoLedZona);
     } 
     return false;
@@ -1161,7 +1162,7 @@ bool stopRiego(uint16_t id)
 }
 
 
-//Pone a off todos los leds de riegos y restablece leds ON y RED
+//Pone a off todos los leds de riegos y grupos y restablece estado led RGB
 void resetLeds()
 {
   //Apago los leds de multirriego
@@ -1173,8 +1174,8 @@ void resetLeds()
   for(unsigned int i=0;i<NUMZONAS;i++) {
     led(Boton[bID_bIndex(ZONAS[i])].led,OFF);
   }
-  //restablece leds ON y RED
-  tic_parpadeoLedON.detach();
+  //restablece led RGB
+  tic_parpadeoLedError.detach(); //por si estuviera parpadeando
   ledConf(OFF);
 }
 
@@ -1530,7 +1531,7 @@ bool queryStatus(uint16_t idx, char *status)
  */
 bool domoticzSwitch(int idx, char *msg, int retries)
 {
-  LOG_TRACE("");
+  LOG_TRACE("idx:", msg, "(", retries, "intentos)");
   if(idx == 0) return true; //simulamos que ha ido OK
   if(!checkWifi() && !NONETWORK) {
     statusError(E1);
@@ -1643,6 +1644,7 @@ void statusError(uint8_t errorID)
   lcd.print(buff);
   lcd.setCursor(0,3);
   lcd.print(errorToString(errorID));
+  actLedError();
   bipKO();
   if (errorID == E5) longbip(5); // resaltamos error al parar riego
 }
@@ -1667,7 +1669,7 @@ void statusError(uint8_t errorID)
   }
 
 
-void parpadeoLedON()
+void parpadeoLedError()
 {
   sLEDR = !sLEDR;
   ledPWM(LEDR,sLEDR);
@@ -1681,7 +1683,7 @@ void parpadeoLedZona()
 
 void parpadeoLedConf()
 {
-  parpadeoLedON();
+  parpadeoLedError();
   parpadeoLedWifi();
 }
 
@@ -1690,15 +1692,15 @@ void ledConf(int estado)
 {
   if(estado == ON) 
   {
-    //parpadeo alterno leds ON/RED
+    //parpadeo alterno leds ERROR/RED
     ledPWM(LEDB,OFF);
     ledPWM(LEDG,OFF);
     tic_parpadeoLedConf.attach(0.7,parpadeoLedConf);
   }
   else 
   {
-    tic_parpadeoLedConf.detach();   //detiene parpadeo alterno leds ON/RED
-    ledPWM(LEDR,ON);                   // y los deja segun estado
+    tic_parpadeoLedConf.detach();   //detiene parpadeo alterno leds ERROR/RED
+    ledPWM(LEDR,OFF);                   // y los deja segun estado
     NONETWORK ? ledPWM(LEDB,ON) : ledPWM(LEDB,OFF);
     checkWifi();
   }

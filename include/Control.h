@@ -381,10 +381,6 @@
     const char *parmFile = "/config_parm.json";       // fichero de parametros activos
     const char *defaultFile = "/config_default.json"; // fichero de parametros por defecto
 
-    unsigned long currentMillisLoop = 0;
-    unsigned long lastMillisLoop = 0;
-    int numloops = 0;
-
     DisplayLCD lcd(LCD2004_address, 20, 4);  // 20 caracteres x 4 lineas
     char buff[MAXBUFF];
 
@@ -402,10 +398,6 @@
     extern int NUM_S_BOTON;
     extern const char *parmFile;       // fichero de parametros activos
     extern const char *defaultFile; // fichero de parametros por defecto
-
-    extern long currentMillisLoop;
-    extern long lastMillisLoop;
-    extern int numloops;
 
     extern  DisplayLCD lcd;
     extern  char buff[];
@@ -428,7 +420,7 @@
     Configure    *configure;
     AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ENCCLK,ENCDT,ENCSW, -1, ROTARY_ENCODER_STEPS);
     NTPClient timeClient(ntpUDP,config.ntpServer);
-    Ticker tic_parpadeoLedON;    //para parpadeo led ON (LEDR)
+    Ticker tic_parpadeoLedError;    //para parpadeo led ERROR (LEDR)
     Ticker tic_parpadeoLedZona;  //para parpadeo led zona de riego
     Ticker tic_parpadeoLedConf;  //para parpadeo led(s) indicadores de modo configuracion
     Ticker tic_verificaciones;   //para verificaciones periodicas
@@ -459,7 +451,6 @@
     bool holdPause = false;
     unsigned long countHoldPause;
     bool flagV = OFF;
-    //int ledState = LOW;
     bool timeOK = false;
     bool factorRiegosOK = false;
     bool errorOFF = false;
@@ -467,7 +458,9 @@
     bool VERIFY;
     bool encoderSW = false;
     char errorText[7];
-    //bool clean_FS = false;
+    unsigned long currentMillisLoop = 0;
+    unsigned long lastMillisLoop = 0;
+    int numloops = 0;
 
     // definiciones bips y tonos:
 
@@ -481,12 +474,10 @@
     const int bipKO_num = sizeof(bipKO_melody)/sizeof(bipKO_melody[0]); // numero de notas en la melodia
     int bipKO_duration = 120;  // duracion de cada tono en mseg.
 
-
-
-
   #endif
 
   //Funciones (prototipos)
+  void actLedError(void);
   void apagaLeds(void);
   void bip(int);
   void bipOK(void);
@@ -537,7 +528,7 @@
   void mcpIinit(void);
   void mcpOinit(void);
   void memoryInfo(void);
-  void parpadeoLedON(void);
+  void parpadeoLedError(void);
   void parpadeoLedWifi(void);
   void parpadeoLedZona(void);
   S_BOTON *parseInputs(bool);

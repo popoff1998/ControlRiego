@@ -96,6 +96,12 @@ void wifiClearSignal(uint veces)
   }
 }
 
+void actLedError(void) {
+  ledPWM(LEDR,ON);
+  ledPWM(LEDG,OFF);
+  ledPWM(LEDB,OFF);
+}
+
 void initLeds()
 {
   int i;
@@ -114,7 +120,7 @@ void initLeds()
   delay(200);
   apagaLeds();
   delay(200);
-  ledPWM(LEDR,ON);
+  //ledPWM(LEDR,ON);
 }
 
 
