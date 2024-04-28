@@ -84,7 +84,7 @@
        
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.0b.3"
+                            #define VERSION  "3.0b.4"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -339,6 +339,11 @@
     char  texto_largo[21]; 
   } ;
 
+  struct S_timeG {
+    time_t inicio; 
+    time_t final; 
+  } ;
+
   const uint16_t ZONAS[] = {_ZONAS};
   const uint16_t GRUPOS[]  = {_GRUPOS};
   const int NUMZONAS = sizeof(ZONAS)/sizeof(ZONAS[0]); // (8) numero de zonas (botones riego individual)
@@ -430,6 +435,7 @@
     TimeChangeRule *tcr;
     time_t utc;
     time_t lastRiegos[NUMZONAS];
+    S_timeG lastGrupos[NUMGRUPOS];
     uint factorRiegos[NUMZONAS];
     uint8_t minutes;
     uint8_t seconds;
@@ -492,7 +498,7 @@
   bool copyConfigFile(const char*, const char*);
   void dimmerLeds(bool);
   void displayGrupo(uint16_t *, int);
-  void displayLCDGrupo(uint16_t *, int);
+  void displayLCDGrupo(uint16_t *, int, int line=4);
   void displayTimer(uint8_t, uint8_t, uint8_t, uint8_t);
   bool domoticzSwitch(int,char *, int);
   void enciendeLeds(void);
@@ -508,7 +514,7 @@
   void initEncoder(void);
   void initFactorRiegos(void);
   void initGPIOs(void);
-  void initHC595(void);
+  void initLastGrupos(void);
   void initLastRiegos(void);
   void initLCD(void);
   void initLeds(void);

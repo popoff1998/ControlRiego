@@ -54,14 +54,14 @@ void displayGrupo(uint16_t *serie, int serieSize)
   led(Boton[bID_bIndex(*multi.id)].led,OFF);
 }
 
-void displayLCDGrupo(uint16_t *serieZonas, int serieSize)
+void displayLCDGrupo(uint16_t *serieZonas, int serieSize, int line)
 {
   int i,n = 0;
   for(i=0;i<serieSize;i++) {
     n += snprintf (&buff[n], MAXBUFF, "%d-", serieZonas[i]);
     if (n<0) break; // max 20 char alcanzados
   }  
-  lcd.info(buff,4);
+  lcd.info(buff,line);
 }
 
 //imprime contenido actual de la estructura multiGroup

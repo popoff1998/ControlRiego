@@ -50,6 +50,8 @@ void DisplayLCD::initLCD() {
   print("Ardomo Aqua");
   setCursor(0, 2);
   print("Inicializando");
+  setCursor(13, 3);
+  print("v" VERSION);
 }
 
 void DisplayLCD::clear()

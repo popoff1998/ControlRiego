@@ -6,6 +6,8 @@ Configure::Configure(class Display *disp)
   _configuringIdx = false;
   _configuringTime = false;
   _configuringMulti = false;
+  _actualIdxIndex = 0;
+  _actualGrupo = 0;
   display = disp;
 }
 
@@ -16,17 +18,12 @@ void Configure::start()
   _configuringTime = false;
   _configuringMulti = false;
   display->print("ConF");
+  lcd.infoclear("modo CONFIGURACION",1);
 }
 
 void Configure::stop()
 {
-  bip(1);
-  _configuringIdx = false;
-  _configuringTime = false;
-  _configuringMulti = false;
-  display->print("ConF");
-  lcd.clear();
-  lcd.info("modo CONFIGURACION",1);
+  Configure::start();
 }
 
 bool Configure::configuringTime()

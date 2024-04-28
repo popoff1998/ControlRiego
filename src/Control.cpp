@@ -91,8 +91,9 @@ void setup()
   timeClient.begin();
   delay(500);
   initClock();
-  //Inicializamos lastRiegos (registro fecha y riego realizado)
+  //Inicializamos lastRiegos y lastGrupos (registro fecha y riego realizado)
   initLastRiegos();
+  initLastGrupos();
   //Cargamos factorRiegos
   initFactorRiegos();
   //Deshabilitamos el hold de Pause
@@ -360,11 +361,10 @@ void procesaBotonPause(void)
       else {
         if((millis() - countHoldPause) > HOLDTIME) {
           if(!encoderSW) { //pasamos a modo Configuracion
+            setEstado(CONFIGURANDO);
             configure->start();
             longbip(1);
             ledConf(ON);
-            setEstado(CONFIGURANDO);
-            lcd.info("modo CONFIGURACION", 1);
             LOG_INFO("Stop + hold PAUSA --> modo ConF()");
             boton = NULL;
             holdPause = false;
@@ -445,19 +445,22 @@ bool procesaBotonMultiriego(void)
     // si esta pulsado el boton del encoder --> solo hacemos encendido de los leds del grupo
     // y mostramos en el display la version del programa.
     if (encoderSW) {
-      //char version_n[10];
-      //strncpy(version_n, VERSION, 10); //eliminamos "." y "-" para mostrar version en el display
-      //std::remove(std::begin(version_n),std::end(version_n),'.');
-      //std::remove(std::begin(version_n),std::end(version_n),'-');
-      //display->print(version_n);
-      lcd.infoclear("Version:   " VERSION);
       snprintf(buff, MAXBUFF, "grupo: %s", multi.desc);
-      lcd.info(buff, 3);
-      displayLCDGrupo(multi.zserie, *multi.size);
+      lcd.infoclear(buff, 1);
+      displayLCDGrupo(multi.zserie, *multi.size, 2);
+      lcd.info("ultimo:",3);
+      time_t t1=lastGrupos[n_grupo].inicio;
+      time_t t2=lastGrupos[n_grupo].final;
+      LOG_DEBUG("Grupo:", n_grupo, "time", t1);
+      if (t1) {
+        snprintf(buff, MAXBUFF, "%d/%02d %d:%02d (%d:%02d)", day(t1), month(t1), hour(t1), minute(t1), hour(t2), minute(t2));
+        lcd.info(buff,4);
+      }
+      else lcd.info("  > sin datos <",4);
       displayGrupo(multi.serie, *multi.size);
       LOG_DEBUG("en MULTIRRIEGO + encoderSW, display de grupo:", multi.desc,"tamaño:", *multi.size );
-      delay(MSGDISPLAYMILLIS);
-      lcd.infoEstado(nEstado[Estado.estado]);
+      delay(MSGDISPLAYMILLIS*3);
+      lcd.infoclear(nEstado[Estado.estado]);
       StaticTimeUpdate(REFRESH);
       return false;    //para que procese el BREAK al volver a procesaBotones         
     }  
@@ -471,6 +474,10 @@ bool procesaBotonMultiriego(void)
       led(Boton[bID_bIndex(*multi.id)].led,ON);
       lcd.info(multi.desc, 2);
       boton = &Boton[bID_bIndex(multi.serie[multi.actual])];
+      utc = timeClient.getEpochTime();
+      time_t t = CE.toLocal(utc,&tcr);
+      LOG_DEBUG("Grupo:", n_grupo, "time", t);
+      lastGrupos[n_grupo].inicio = t;
     }
   }
   return true;   //para que continue con el case DEFAULT al volver
@@ -501,6 +508,8 @@ void procesaBotonZona(void)
           setEstado(TERMINANDO);
           led(Boton[bIndex].led,ON); //para que se vea que zona es 
           display->print("-00-");
+          lcd.clear(BORRA2H);
+          lcd.info("IDX/factor:     -00-",4);
           return;
         }
         T.SetTimer(0,fminutes,fseconds);
@@ -800,6 +809,11 @@ void procesaEstadoTerminando(void)
       multiSemaforo = true;
     }
     else {
+      utc = timeClient.getEpochTime();
+      time_t t = CE.toLocal(utc,&tcr);
+      int n_grupo = setMultibyId(getMultiStatus(), config);
+      LOG_DEBUG("Grupo:", n_grupo, "time", t);
+      lastGrupos[n_grupo].final = t;
       int msgl = snprintf(buff, MAXBUFF, "%s finalizado", multi.desc);
       lcd.info(buff, 2, msgl);
       longbip(3);
@@ -1124,6 +1138,14 @@ void initLastRiegos()
   }
 }
 
+void initLastGrupos()
+{
+  for(uint i=0;i<NUMGRUPOS;i++) {
+   lastGrupos[i].inicio = 0;
+   lastGrupos[i].final = 0;
+  }
+}
+
 
 //Inicia el riego correspondiente al idx del boton (id) pulsado
 bool initRiego(uint16_t id)
@@ -1131,12 +1153,11 @@ bool initRiego(uint16_t id)
   int bIndex = bID_bIndex(id);
   LOG_DEBUG("Boton:",boton->desc,"boton.index:",bIndex);
   int zIndex = bID_zIndex(id);
-  time_t t;
   if(zIndex == 999) return false;
   LOG_INFO( "Iniciando riego: ", Boton[bIndex].desc);
   led(Boton[bIndex].led,ON);
   utc = timeClient.getEpochTime();
-  t = CE.toLocal(utc,&tcr);
+  time_t t = CE.toLocal(utc,&tcr);
   lastRiegos[zIndex] = t;
   return domoticzSwitch(Boton[bIndex].idx, (char *)"On", DEFAULT_SWITCH_RETRIES);
 }
@@ -1531,7 +1552,7 @@ bool queryStatus(uint16_t idx, char *status)
  */
 bool domoticzSwitch(int idx, char *msg, int retries)
 {
-  LOG_TRACE("idx:", msg, "(", retries, "intentos)");
+  LOG_TRACE("idx:", idx, " ", msg, "(", retries, "intentos)");
   if(idx == 0) return true; //simulamos que ha ido OK
   if(!checkWifi() && !NONETWORK) {
     statusError(E1);
