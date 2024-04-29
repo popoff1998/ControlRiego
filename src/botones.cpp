@@ -147,13 +147,13 @@ void ledPWM(uint8_t id,int estado)
 // enciende o apaga un led controlado por el expansor MCP
 void led(uint8_t id,int estado)
 {
-    //Por seguridad no hacemos nada si id=0
     #ifdef EXTRADEBUG
     Serial.print(F("[TRACE: en funcion led]"));
     Serial.print(F("ledStatus : "));Serial.println(ledStatus,BIN);
     Serial.print(F("ledID : "));Serial.println(id,DEC);
     #endif
 
+    //Por seguridad no hacemos nada si id=0
     if(id==0) return;
     if(estado == ON) ledStatus |= (1 << (id-1));
     else ledStatus &= ~(1 << (id-1));

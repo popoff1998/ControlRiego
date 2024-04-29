@@ -1,6 +1,6 @@
 #pragma once
 
-//  https://github.com/blemasle/arduino-mcp23017
+//  https://github.com/blemasle/arduino-mcp23017.git#v2.0.4
 
 #include <Arduino.h>
 #include <Wire.h>

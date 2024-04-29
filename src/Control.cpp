@@ -212,7 +212,8 @@ void procesaEstados()
       break;
     case PAUSE:
       procesaEstadoPause();
-      strcmp(errorText, "") == 0 ? blinkPause() : blinkPauseError();
+      blinkPause();
+      //strcmp(errorText, "") == 0 ? blinkPause() : blinkPauseError();
       break;
   }
 }
@@ -772,7 +773,7 @@ void procesaEstadoRegando(void)
     if(queryStatus(ultimoBoton->idx, (char *)"On")) return;
     else {
       ledID = ultimoBoton->led;
-      if(Estado.fase == CERO) { //riego zona parado: entramos en PAUSE y blink lento zona pausada remotamente 
+      if(Estado.fase == NOERROR) { //riego zona parado: entramos en PAUSE y blink lento zona pausada remotamente 
         bip(1);
         T.PauseTimer();
         tic_parpadeoLedZona.attach(0.8,parpadeoLedZona);
@@ -869,7 +870,7 @@ void procesaEstadoPause(void) {
   if(flagV && VERIFY && !NONETWORK) {  // verificamos zona sigue OFF en Domoticz periodicamente
     if(queryStatus(ultimoBoton->idx, (char *)"Off")) return;
     else {
-      if(Estado.fase == CERO) { //riego zona activo: salimos del PAUSE y blink lento zona activada remotamente 
+      if(Estado.fase == NOERROR) { //riego zona activo: salimos del PAUSE y blink lento zona activada remotamente 
         bip(2);
         ledID = ultimoBoton->led;
         Serial.printf("\tactivado blink %s (boton id= %d) \n", ultimoBoton->desc, ultimoBoton->id);
@@ -878,7 +879,7 @@ void procesaEstadoPause(void) {
         T.ResumeTimer();
         setEstado(REGANDO);
       }
-      else Estado.fase = CERO; // si no hemos podido verificar estado, ignoramos el error
+      else Estado.fase = NOERROR; // si no hemos podido verificar estado, ignoramos el error
     }
   }
 }
@@ -890,7 +891,7 @@ void procesaEstadoPause(void) {
 void setEstado(uint8_t estado)
 {
   Estado.estado = estado;
-  Estado.fase = CERO;
+  Estado.fase = NOERROR;
   strcpy(errorText, "");
   LOG_DEBUG( "Cambiado estado a: ", nEstado[estado]);
   if((estado==REGANDO || estado==TERMINANDO || estado==PAUSE) && ultimoBoton != NULL) {
@@ -1286,6 +1287,7 @@ void bipKO() {
 
 void blinkPause()
 {
+  //LOG_TRACE("");
   if (!displayOff) {
     if (millis() > lastBlinkPause + 1.5*DEFAULTBLINKMILLIS) {  // *1.5 para compensar inercia LCD
       displayOff = true;
@@ -1299,14 +1301,16 @@ void blinkPause()
     if (millis() > lastBlinkPause + DEFAULTBLINKMILLIS) {
       displayOff = false;
       lastBlinkPause = millis();
-      refreshDisplay();
+      //refreshDisplay();
       lcd.displayON();
     }
   }
 }
 
+/* 
 void blinkPauseError()
 {
+  LOG_TRACE("[BLINKPAUSEERROR]");
   if (!displayOff) {
     if (millis() > lastBlinkPause + DEFAULTBLINKMILLIS) {
       //display->print(errorText);
@@ -1322,7 +1326,7 @@ void blinkPauseError()
     }
   }
 }
-
+ */
 
 void StaticTimeUpdate(bool refresh)
 {
@@ -1339,12 +1343,12 @@ void StaticTimeUpdate(bool refresh)
   }
 }
 
-
+/* 
 void refreshDisplay()
 {
   //display->refreshDisplay();
 }
-
+ */
 
 void refreshTime()
 {
@@ -1570,7 +1574,7 @@ bool domoticzSwitch(int idx, char *msg, int retries)
      else if(!NONETWORK) response = httpGetDomoticz(message); // enviamos orden al Domoticz
      if(response == "ErrX") { // solo reintentamos si Domoticz informa del estado de la zona
        bip(1);
-       LOG_WARN("DOMOTICZSWITH IDX: %d fallo en %s (intento %d de %d)\n", idx, msg, i+1, retries);
+       LOG_WARN("DOMOTICZSWITH IDX:", idx, "fallo en", msg, "(intento", i+1, "de", retries, ")");
        delay(DELAYRETRY);
      }
      else break;
@@ -1584,7 +1588,7 @@ bool domoticzSwitch(int idx, char *msg, int retries)
       }
       else statusError(E2); //otro error al comunicar con domoticz
     }
-    LOG_ERROR("DOMOTICZSWITH IDX: %d fallo en %s\n", idx, msg);
+    LOG_ERROR("DOMOTICZSWITH IDX:", idx, "fallo en", msg);
     return false;
   }
   return true;
@@ -1655,16 +1659,17 @@ void Verificaciones()
  */
 void statusError(uint8_t errorID) 
 {
-  strcpy(errorText, "Err");    
+  //strcpy(errorText, "Err");    
   Estado.estado = ERROR;
   Estado.fase = errorID;
-  if (errorID == E0) strcpy(errorText, "Err0");
-  else sprintf(errorText, "Err%d", errorID);
+  //if (errorID == E0) strcpy(errorText, "Err0");
+  //else sprintf(errorText, "Err%d", errorID);
+  sprintf(errorText, "Error%d", errorID);
   LOG_ERROR("SET ERROR: ", errorText);
   //display->print(errorText);
   snprintf(buff, MAXBUFF, ">>> %s <<<", errorText);
   lcd.clear(BORRA2H);
-  lcd.setCursor(4,2);
+  lcd.setCursor(3,2);
   lcd.print(buff);
   lcd.setCursor(0,3);
   lcd.print(errorToString(errorID));

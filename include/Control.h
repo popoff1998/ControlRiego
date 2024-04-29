@@ -191,8 +191,8 @@
   #define _ESTADOS "STANDBY" , "REGANDO:" , "CONFIGURANDO" , "TERMINANDO" , "PAUSE:" , "STOP" , "ERROR"
 
   enum error_fases {
-    CERO          = 0,
-    E0            = 0xFF,
+    NOERROR       = 0xFF,
+    E0            = 0,
     E1            = 1,
     E2            = 2,
     E3            = 3,
@@ -498,7 +498,7 @@
   int  bID_bIndex(uint16_t);
   int  bID_zIndex(uint16_t);
   void blinkPause(void);
-  void blinkPauseError(void);
+  //void blinkPauseError(void);
   void check(void);
   bool checkWifi(void);
   void cleanFS(void);
@@ -567,7 +567,7 @@
   void procesaWebServer(void);
   bool queryStatus(uint16_t, char *);
   void refreshTime(void);
-  void refreshDisplay(void);
+  //void refreshDisplay(void);
   void reposoOFF(void);
   void resetFlags(void);
   void resetLCD(void);
