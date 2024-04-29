@@ -5,14 +5,15 @@
 class Configure
 {
   private:
-    class Display *display;
+    //class Display *display;
     bool _configuringTime;
     bool _configuringIdx;
     bool _configuringMulti;
     int _actualIdxIndex;
     int _actualGrupo;
   public:
-    Configure(class Display *);
+    //Configure(class Display *);
+    Configure(void);
     void start(void);
     void stop(void);
     void configureTime(void);

@@ -187,6 +187,14 @@ void DisplayLCD::infoclear(const char *info, int line) {
     lcd.info(info,line);
 }
 
+/**
+ * @brief muestra en el display texto informativo y suenan bips de aviso
+ * 
+ * @param info = texto a mostrar en el display
+ * @param dnum = veces que parpadea el texto en el display
+ * @param btype = tipo de bip emitido
+ * @param bnum = numero de bips emitidos
+ */
 void DisplayLCD::infoclear(const char *info, int dnum, int btype, int bnum) {
     LOG_DEBUG("[LCD]  Recibido: '",info, "'   (blink=",dnum, ") btype=",btype,"bnum=",bnum);
     clear();

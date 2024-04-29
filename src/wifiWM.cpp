@@ -36,7 +36,7 @@ void saveWifiCallback() {
     // Eliminamos el temporizador y apagamos el led indicador de modo AP
     tic_APLed.detach();
     ledPWM(LEDB,OFF);
-    infoDisplay("----", NOBLINK, BIP, 0);
+    //infoDisplay("----", NOBLINK, BIP, 0);
     lcd.infoclear("conectando WIFI");
     // Empezamos el temporizador que hará parpadear el LED indicador de wifi
     tic_WifiLed.attach(0.2, parpadeoLedWifi);
@@ -50,7 +50,7 @@ void configModeCallback (WiFiManager *myWiFiManager) {
   ledPWM(LEDG,OFF);
   // Empezamos el temporizador que hará parpadear el LED indicador de AP
   tic_APLed.attach(0.5, parpadeoLedAP);
-  infoDisplay("-AP-", DEFAULTBLINK, LONGBIP, 1); //lo señalamos en display
+  //infoDisplay("-AP-", DEFAULTBLINK, LONGBIP, 1); //lo señalamos en display
   lcd.infoclear("   modo -AP- :", DEFAULTBLINK, LONGBIP, 1); //lo señalamos en display
   lcd.info("\"Ardomo\" activado", 3);
 }
@@ -68,7 +68,7 @@ void saveParamCallback()
 void preOtaUpdateCallback()
 {
   Serial.println(F("[CALLBACK] setPreOtaUpdateCallback fired"));
-  infoDisplay("####", DEFAULTBLINK, LONGBIP, 1);
+  //infoDisplay("####", DEFAULTBLINK, LONGBIP, 1);
   lcd.infoclear("OTA in progress", DEFAULTBLINK, LONGBIP, 1);
 }
 
@@ -97,7 +97,7 @@ void setupRedWM(Config_parm &config)
     wm.resetSettings(); //borra wifi guardada
     //delay(300);
     LOG_INFO("encoderSW pulsado y multirriego en GRUPO3 --> borramos red WIFI");
-    infoDisplay("CLEA", DEFAULTBLINK, LONGBIP, 1); //señala borrado wifi
+    //infoDisplay("CLEA", DEFAULTBLINK, LONGBIP, 1); //señala borrado wifi
     lcd.infoclear("red WIFI borrada", DEFAULTBLINK, LONGBIP, 1); //señala borrado wifi
   }
   // explicitly set mode, esp defaults to STA+AP   
@@ -142,7 +142,7 @@ void setupRedWM(Config_parm &config)
     */
   // detenemos parpadeo led AP y borramos -AP- del display (caso de que se hubiera activado antes AP)
   tic_APLed.detach();
-  infoDisplay("----", NOBLINK, BIP, 0);
+  //infoDisplay("----", NOBLINK, BIP, 0);
   //si no hemos podido conectar y existe una red wifi salvada,reintentamos hasta 20 seg.
   // (para caso corte de corriente)
   if (falloAP && wm.getWiFiIsSaved()) {
@@ -209,7 +209,7 @@ void starConfigPortal(Config_parm &config)
   // Eliminamos el temporizador y dejamos LEDB segun estado de NONETWORK
   tic_APLed.detach();
   NONETWORK ? ledPWM(LEDB,ON) : ledPWM(LEDB,OFF);
-  infoDisplay("----", NOBLINK, BIP, 0);
+  //infoDisplay("----", NOBLINK, BIP, 0);
   lcd.infoclear("reconectando WIFI");
   tic_WifiLed.detach();
   checkWifi();

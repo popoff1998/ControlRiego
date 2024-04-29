@@ -60,7 +60,7 @@
   #include "MCP23017.h"  // expansor E/S MCP23017
   #include "pitches.h"   // notas musicales
   //Para mis clases
-  #include "Display.h"
+  //#include "Display.h"
   #include "Configure.h"
   #include "DisplayLCD.h"
 
@@ -84,7 +84,7 @@
        
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.0b.4"
+                            #define VERSION  "3.0b.5"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -133,8 +133,8 @@
     #define LEDR                  GPIO_NUM_27  
     #define LEDG                  GPIO_NUM_26 
     #define LEDB                  GPIO_NUM_25 
-    #define DISPCLK               GPIO_NUM_18
-    #define DISPDIO               GPIO_NUM_19
+    //#define DISPCLK               GPIO_NUM_18
+    //#define DISPDIO               GPIO_NUM_19
     #define I2C_SDA               GPIO_NUM_21
     #define I2C_SCL               GPIO_NUM_22
     #define I2C_SDA1              GPIO_NUM_16
@@ -421,7 +421,7 @@
     S_simFlags simular; // estructura flags para simular errores
     Config_parm config; //estructura parametros configurables y runtime
     //ClickEncoder *Encoder;
-    Display      *display;
+    //Display      *display;
     Configure    *configure;
     AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ENCCLK,ENCDT,ENCSW, -1, ROTARY_ENCODER_STEPS);
     NTPClient timeClient(ntpUDP,config.ntpServer);
@@ -516,7 +516,7 @@
   int  getFactor(uint16_t);
   uint16_t getMultiStatus(void);
   String *httpGetDomoticz(String *);
-  void infoDisplay(const char *, int, int, int);
+  //void infoDisplay(const char *, int, int, int);
   void initClock(void);
   void initEncoder(void);
   void initFactorRiegos(void);

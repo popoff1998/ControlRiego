@@ -1,14 +1,15 @@
 #include "Configure.h"
 #include "Control.h"
 
-Configure::Configure(class Display *disp)
+//Configure::Configure(class Display *disp)
+Configure::Configure()
 {
   _configuringIdx = false;
   _configuringTime = false;
   _configuringMulti = false;
   _actualIdxIndex = 0;
   _actualGrupo = 0;
-  display = disp;
+  //display = disp;
 }
 
 void Configure::start()
@@ -17,7 +18,7 @@ void Configure::start()
   _configuringIdx = false;
   _configuringTime = false;
   _configuringMulti = false;
-  display->print("ConF");
+  //display->print("ConF");
   lcd.infoclear("modo CONFIGURACION",1);
 }
 
