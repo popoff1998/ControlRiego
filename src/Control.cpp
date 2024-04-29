@@ -313,6 +313,7 @@ void procesaBotonPause(void)
           break;
         }
         bip(2);
+        lcd.clear(BORRA2H);
         T.ResumeTimer();
         tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
         led(ultimoBoton->led,ON);// y lo deja fijo
@@ -390,13 +391,14 @@ void procesaBotonStop(void)
     if (Estado.estado == REGANDO || Estado.estado == PAUSE) {
       //De alguna manera esta regando y hay que parar
       display->print("StoP");
+      lcd.infoclear("parando riegos", 1, BIP, 6);
       T.StopTimer();
       if (!stopAllRiego()) {   //error en stopAllRiego
         boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
         return; 
       }
+      lcd.infoclear("detenidos riegos", DEFAULTBLINK, BIP, 0);
       infoDisplay("StoP", DEFAULTBLINK, BIP, 6);
-      lcd.clear();
       setEstado(STOP);
       resetFlags();
     }
@@ -576,6 +578,8 @@ void procesaEstadoConfigurando()
                 //snprintf(buff, MAXBUFF, "\"%s.local:%d\"", WiFi.getHostname(), wsport);
                 snprintf(buff, MAXBUFF, "\"%s.local:8080\"", WiFi.getHostname());
                 lcd.info(buff, 3);
+                snprintf(buff, MAXBUFF, "%s:8080", WiFi.localIP().toString());
+                lcd.info(buff,4);
                 delay(MSGDISPLAYMILLIS);
               }
             #endif 
@@ -597,7 +601,7 @@ void procesaEstadoConfigurando()
             multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
             display->print("PUSH");
             led(Boton[bID_bIndex(*multi.id)].led,ON);
-            snprintf(buff, MAXBUFF, "grupo: %s", multi.desc);
+            snprintf(buff, MAXBUFF, "grupo%d: %s",n_grupo, multi.desc);
             lcd.info(buff, 2);
             snprintf(buff, MAXBUFF, "pulse ZONAS");
             lcd.info(buff, 3);
@@ -1237,17 +1241,17 @@ bool stopAllRiego()
   return true;
 }
 
-#ifdef MUTE  //override funcion tone de Tone.cpp para que no suenen bips
-void tone(uint8_t _pin, unsigned int frequency, unsigned long duration) {
-  return;
+//override funcion tone de Tone.cpp para que no suenen bips en caso de MUTE
+void mitone(uint8_t pin, unsigned int frequency, unsigned long duration) {
+  if (mute) return;
+  tone(pin, frequency, duration);
 }
-#endif
 
 void bip(int veces)
 {
   for (int i=0; i<veces;i++) {
-    tone(BUZZER, NOTE_A6, 50);
-    tone(BUZZER, 0, 50);
+    mitone(BUZZER, NOTE_A6, 50);
+    mitone(BUZZER, 0, 50);
   }
 }
 
@@ -1255,15 +1259,15 @@ void longbip(int veces)
 {
   LOG_TRACE("longbip llamado");
   for (int i=0; i<veces;i++) {
-    tone(BUZZER, NOTE_A6, 750);
-    tone(BUZZER, 0, 100);
+    mitone(BUZZER, NOTE_A6, 750);
+    mitone(BUZZER, 0, 100);
   }
 }
 
 void beep(int note, int duration){
-  //tone(BUZZER, note, duration);
+  //mitone(BUZZER, note, duration);
   // we only play the note for 90% of the duration, leaving 10% as a pause
-  tone(BUZZER, note, duration*0.9);
+  mitone(BUZZER, note, duration*0.9);
   delay(duration); // espera a que acabe la nota antes de enviar la siguiente
 }
 
@@ -1346,11 +1350,8 @@ void refreshTime()
   unsigned long curMinutes = T.ShowMinutes();
   unsigned long curSeconds = T.ShowSeconds();
   display->printTime(curMinutes,curSeconds);
-  //display->printTime(T.ShowMinutes(),T.ShowSeconds());
-  #ifdef displayLCDrefreshTime
-    if(prevseconds != curSeconds) lcd.displayTime(curMinutes, curSeconds); //LCD solo se actualiza si cambia
-    prevseconds = curSeconds;  //LCD
-  #endif  
+  if(prevseconds != curSeconds) lcd.displayTime(curMinutes, curSeconds); //LCD solo se actualiza si cambia
+  prevseconds = curSeconds;  //LCD
 
 }
 
@@ -1821,6 +1822,8 @@ bool setupConfig(const char *p_filename, Config_parm &cfg)
           Serial.println(F("   4 - simular EV no esta ON en Domoticz"));
           Serial.println(F("   5 - simular EV no esta OFF en Domoticz"));
           Serial.println(F("   6 - simular error al salir del PAUSE"));
+          Serial.println(F("   7 - MUTE ON"));
+          Serial.println(F("   8 - MUTE OFF"));
           Serial.println(F("   9 - anular simulacion errores"));
       }
       switch (inputNumber) {
@@ -1847,6 +1850,14 @@ bool setupConfig(const char *p_filename, Config_parm &cfg)
             case 6:
                 Serial.println(F("recibido:   6 - simular error al salir del PAUSE"));
                 simular.ErrorPause = true;
+                break;
+            case 7:
+                Serial.println(F("recibido:   7 - mute ON"));
+                mute = ON;
+                break;
+            case 8:
+                Serial.println(F("recibido:   8 - mute OFF"));
+                mute = OFF;
                 break;
             case 9:
                 Serial.println(F("recibido:   9 - anular simulacion errores"));

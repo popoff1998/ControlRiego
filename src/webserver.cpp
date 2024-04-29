@@ -39,13 +39,6 @@
    // mark parameters not used in example
    #define UNUSED __attribute__((unused))
 
-   // TRACE2 output simplified, can be deactivated here
-   #ifdef DEVELOP
-     #define TRACE2(...) Serial.printf(__VA_ARGS__)
-   #else  
-     #define TRACE2(...)
-   #endif  
-
    // local time zone definition (Madrid)
    #define TIMEZONE "CET-1CEST,M3.5.0,M10.5.0/3"
 
@@ -56,8 +49,20 @@
    const char* update_username = "admin";
    const char* update_password = "admin";
 
+   #ifdef DEVELOP
+      #define TRACE2(...) Serial.printf(__VA_ARGS__)
+      const bool httpUpdateDebug = true;  //enable serial debug msgs
+   #else
+      const bool httpUpdateDebug = false;
+      #define TRACE2(...)           // TRACE2 output simplified, can be deactivated here
+   #endif 
+
     WebServer wserver(wsport);
-    HTTPUpdateServer httpUpdater;
+    HTTPUpdateServer httpUpdater(httpUpdateDebug);  
+    // actualmente HTTPUpdateServer no soporta LittleFS por lo que la carga del file system falla con:
+    //  "Update error: Bad Size Given"
+    //hay un issue abierto para que lo soporte. TODO: actualizar HTTPUpdateServer cuando lo cierren:
+    //  https://github.com/espressif/arduino-esp32/issues/9347
 
    // convierte timestamp a fecha hora
    String TS2Date(time_t t)

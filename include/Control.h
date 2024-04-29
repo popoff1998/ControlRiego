@@ -480,6 +480,13 @@
     const int bipKO_num = sizeof(bipKO_melody)/sizeof(bipKO_melody[0]); // numero de notas en la melodia
     int bipKO_duration = 120;  // duracion de cada tono en mseg.
 
+    #ifdef MUTE
+      bool mute = true;
+    #else
+      bool mute = false;
+    #endif
+
+
   #endif
 
   //Funciones (prototipos)

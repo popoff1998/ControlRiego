@@ -190,10 +190,10 @@ void DisplayLCD::infoclear(const char *info, int line) {
 void DisplayLCD::infoclear(const char *info, int dnum, int btype, int bnum) {
     LOG_DEBUG("[LCD]  Recibido: '",info, "'   (blink=",dnum, ") btype=",btype,"bnum=",bnum);
     clear();
-    //String texto(info);
-    String texto = info;
-    if(texto=="StoP" || texto=="Stop") setCursor(7,1);
-    else setCursor(0, 0);
+    //String texto = info;
+    //if(texto=="StoP" || texto=="STOP") setCursor(7,1);
+    //else setCursor(0, 0);
+    setCursor(0, 0);
     lcdDisp.print(info);
       if (btype == LONGBIP) longbip(bnum);
       if (btype == BIP) bip(bnum);
@@ -201,13 +201,6 @@ void DisplayLCD::infoclear(const char *info, int dnum, int btype, int bnum) {
       if (btype == BIPKO) bipKO();
     if(dnum) lcd.blinkLCD(dnum);
 }
-
-/*
-void DisplayLCD::displayTime(uint8_t minute, uint8_t second)
-{
-   displayTime(minute, second, LCDBIGCOL, LCDBIGROW);
-}
-*/
 
 void DisplayLCD::displayTime(uint8_t minute, uint8_t second, uint8_t col, uint8_t line) 
 {

@@ -173,7 +173,7 @@ void setupRedWM(Config_parm &config)
     LOG_INFO(" >>  Conectado a SSID: ", WiFi.SSID().c_str());
     LOG_INFO(" >>      IP address: ", WiFi.localIP());
     LOG_INFO(" >>      RSSI:", WiFi.RSSI(), "dBm  (",  wm.getRSSIasQuality(WiFi.RSSI()),"%)");
-    LOG_INFO(" >>      Autoreconnect:", WiFi.getAutoReconnect(), " (1 = enabled)");
+    LOG_DEBUG(" >>      Autoreconnect:", WiFi.getAutoReconnect(), " (1 = enabled)");
     int msgl = snprintf(buff, MAXBUFF, "wifi OK: %s", WiFi.SSID().c_str());
     lcd.info(buff, 1, msgl);
   }
