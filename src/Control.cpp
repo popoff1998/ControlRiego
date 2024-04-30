@@ -1637,11 +1637,11 @@ void Verificaciones()
     if(!connected) {   //si no estamos conectados a la wifi, intentamos reconexion
       LOG_WARN("INTENTANDO RECONEXION WIFI");
       WiFi.reconnect();
-      delay(2000);
-      if(checkWifi()) {
-        LOG_INFO("¡WIFI reconectada!");
-        setEstado(STANDBY);
-      } 
+      //delay(3000);
+      //if(checkWifi()) {
+      //  LOG_INFO("   ¡¡¡¡WIFI reconectada!!!!");
+      //  setEstado(STANDBY);
+      //} 
     }  
     if (connected && falloAP) {
       LOG_INFO("Wifi conectada despues Setup, leemos factor riegos");

@@ -72,10 +72,18 @@ void preOtaUpdateCallback()
   lcd.infoclear("OTA in progress", DEFAULTBLINK, LONGBIP, 1);
 }
 
+//evento llamado en caso de conexion de la wifi
+void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info){
+ LOG_INFO("WiFi conectada");
+ //delay(7000);
+ //checkWifi();
+}
+
 //evento llamado en caso de desconexion de la wifi
 void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
  LOG_ERROR("WiFi lost connection. Reason: ", info.wifi_sta_disconnected.reason);
- if (WiFi.reconnect()) {
+ WiFi.reconnect();
+ if (checkWifi()) {
   LOG_INFO("Trying to Reconnect: success");
   return;
  } 
@@ -183,9 +191,9 @@ void setupRedWM(Config_parm &config)
     strcpy(config.domoticz_port, custom_domoticz_port.getValue());
     strcpy(config.ntpServer, custom_ntpserver.getValue());
   }
-  //dejamos activado evento de desconexion (wifi events):
-  WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
-  //WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_CONNECTED);
+  //dejamos activado evento de desconexion o conexion ?? (wifi events):
+  //WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+  WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_CONNECTED);
   //WiFi.removeEvent(WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
 }
 
