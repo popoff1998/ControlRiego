@@ -19,7 +19,7 @@
       void printTwoNumber(uint8_t , uint8_t , uint8_t );
       void printColons(uint8_t , uint8_t);
       void printNoColons(uint8_t , uint8_t);
-      void infoEstadoI(const char *estado, const char *zona);
+      //void infoEstadoI(const char *estado, const char *zona);
 
    public:
       DisplayLCD(uint8_t lcd1_Addr,uint8_t lcd1_cols,uint8_t lcd1_rows);
@@ -40,8 +40,8 @@
       //void infoclear(const char *info);
       void infoclear(const char *info, int line=1);
       void infoclear(const char *info, int dnum, int btype, int bnum=0);
-      void infoEstado(const char* estado);
-      void infoEstado(const char* estado, const char* zona);
+      //void infoEstado(const char* estado);
+      void infoEstado(const char* estado, const char* zona="         ");
       void info(const char* info, int line);
       void info(const char* info, int line, int size);
   };

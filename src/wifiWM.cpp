@@ -167,7 +167,6 @@ void setupRedWM(Config_parm &config)
       if(j == MAXCONNECTRETRY) {
         falloAP = true;
         LOG_ERROR("Fallo en la reconexión");
-        //setEstado(ERROR);
         statusError(E1);
         break;
       }
