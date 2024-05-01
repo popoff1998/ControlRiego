@@ -27,8 +27,6 @@ char bn2[] = {
 //-----------------------  FIN DEFINICIONES PARA CARACTERES GRANDES  (2X3)    ------------------------------------------
 
 
-//DisplayLCD lcd(LCD2004_address, 20, 4);  // 20 caracteres x 4 lineas
-
 
 DisplayLCD::DisplayLCD(uint8_t lcd_Addr,uint8_t lcd_cols,uint8_t lcd_rows) : lcdDisp(lcd_Addr, lcd_cols, lcd_rows)
 { 
@@ -79,7 +77,7 @@ void DisplayLCD::clear(int mitad)
 
 void DisplayLCD::setCursor(uint8_t col, uint8_t row)
 {
-  LOG_TRACE(col,row);
+  //LOG_TRACE(col,row);
   lcdDisp.setCursor(col, row);
 }
 
@@ -122,10 +120,10 @@ void DisplayLCD::blinkLCD(const char *info,int veces) //muestra texto recibido p
     LOG_TRACE("[LCD] '",info, "' x",veces);
     for (int i=0; i<veces; i++) {
       clear();
-      delay(500);
+      delay(DEFAULTBLINKMILLIS);
       setCursor(7, 0);
       lcdDisp.print(info);
-      delay(500);
+      delay(DEFAULTBLINKMILLIS);
     }
 }
 
@@ -143,17 +141,18 @@ void DisplayLCD::blinkLCD(int veces) //parpadea contenido actual de la pantalla 
   }
 }
 
+/* 
 void DisplayLCD::infoEstado(const char *estado) {
     infoEstadoI(estado, "         ");
 }    
-
 void DisplayLCD::infoEstado(const char *estado,  const char *zona) {
     infoEstadoI(estado, zona);
 }    
+ */
 
-void DisplayLCD::infoEstadoI(const char *estado, const char *zona) {
+void DisplayLCD::infoEstado(const char *estado, const char *zona) {
     LOG_DEBUG("[LCD]  Recibido: ", estado, zona);
-    displayON();   // por si estuviera noDisplay por PAUSE
+    //displayON();   // por si estuviera noDisplay por PAUSE
     setCursor(0, 0);
     lcdDisp.print(_blankline);
     setCursor(0, 0);
@@ -165,7 +164,7 @@ void DisplayLCD::infoEstadoI(const char *estado, const char *zona) {
 // muestra info (hasta un maximo de 20 caracteres) en la linea pasada (1, 2 ,3 o 4)
 void DisplayLCD::info(const char* info, int line) {
     int size = strlen(info);
-    char infocut[21];
+    char infocut[MAXBUFF];
     if(size>MAXBUFF) {
       strlcpy(infocut, info, MAXBUFF); 
       lcd.info(infocut, line, size);
@@ -175,7 +174,7 @@ void DisplayLCD::info(const char* info, int line) {
 
 // muestra info (seran ya un maximo de 20 caracteres) en la linea pasada (1, 2 ,3 o 4)
 void DisplayLCD::info(const char* info, int line, int size) {
-    LOG_DEBUG("[LCD]  Recibido: '", info, "'   (longitud: ", size, " linea: ", line, ")");
+    LOG_DEBUG("[LCD]  Recibido: '", info, "'   (longitud original: ", size, " linea: ", line, ")");
     setCursor(0, line-1);
     lcdDisp.print(_blankline);
     setCursor(0, line-1);

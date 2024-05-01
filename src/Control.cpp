@@ -233,12 +233,12 @@ void setupEstado()
   // Si estamos en modo NONETWORK pasamos a STANDBY (o STOP si esta pulsado) aunque no exista conexión wifi o estemos en ERROR
   if (NONETWORK) {
     if (Boton[bID2bIndex(bSTOP)].estado) {
-      setEstado(STOP);
+      setEstado(STOP,1);
       //infoDisplay("StoP", NOBLINK, LONGBIP, 1);
-      lcd.infoclear("STOP", NOBLINK, LONGBIP, 1);
+      //lcd.infoclear("STOP", NOBLINK, LONGBIP, 1);
     }
-    else setEstado(STANDBY);
-    bip(2);
+    else setEstado(STANDBY,2);
+    //bip(2);
     return;
   }
   // Si estado actual es ERROR seguimos así
@@ -248,12 +248,12 @@ void setupEstado()
   // Si estamos conectados pasamos a STANDBY o STOP (caso de estar pulsado este al inicio)
   if (checkWifi()) {
     if (Boton[bID2bIndex(bSTOP)].estado) {
-      setEstado(STOP);
+      setEstado(STOP,1);
       //infoDisplay("StoP", NOBLINK, LONGBIP, 1);
-      lcd.infoclear("STOP", NOBLINK, LONGBIP, 1);
+      //lcd.infoclear("STOP", NOBLINK, LONGBIP, 1);
     }
-    else setEstado(STANDBY);
-    bip(1);
+    else setEstado(STANDBY,1);
+    //bip(1);
     return;
   }
   //si no estamos conectados a la red y no estamos en modo NONETWORK pasamos a estado ERROR
@@ -295,8 +295,8 @@ void procesaBotonPause(void)
           LOG_INFO("encoderSW+PAUSE terminamos riego de zona en curso");
         }
         else {    //pausa el riego en curso
-          bip(1);
-          setEstado(PAUSE);
+          //bip(1);
+          setEstado(PAUSE,1);
           tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
           led(ultimoBoton->led,ON);// y lo deja fijo
           stopRiego(ultimoBoton->id);
@@ -311,7 +311,7 @@ void procesaBotonPause(void)
           tic_parpadeoLedZona.attach(0.2,parpadeoLedZona);
           LOG_WARN("error al salir de PAUSE errorText :",errorText,"Estado.fase :",Estado.fase );
           refreshTime();
-          setEstado(PAUSE);
+          setEstado(PAUSE,1);
           break;
         }
         bip(2);
@@ -407,28 +407,28 @@ void procesaBotonStop(void)
     else {
       //Lo hemos pulsado en standby - seguro antinenes
       //infoDisplay("StoP", NOBLINK, BIP, 3);
-      lcd.infoclear("STOP", NOBLINK, BIP, 3);
+      //lcd.infoclear("STOP", NOBLINK, BIP, 3);
       // apagar leds y parar riegos (por si riego activado externamente)
       if (!stopAllRiego()) {   //error en stopAllRiego
         boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
         return; 
       }
-      lcd.clear();
-      setEstado(STOP);
+      //lcd.clear();
+      setEstado(STOP,1);
       reposo = true; //pasamos directamente a reposo
       dimmerLeds(ON);
-      displayOff = false;
-      lcd.setBacklight(ON);
+      //displayOff = false;
+      //lcd.setBacklight(ON);
     }
   }
   //si hemos liberado STOP: salimos del estado stop
   //(dejamos el release del STOP en modo ConF para que actue el codigo de procesaEstadoConfigurando
   if (!boton->estado && Estado.estado == STOP) {
-    StaticTimeUpdate(REFRESH);
+    //StaticTimeUpdate(REFRESH);
     LOG_INFO("Salimos de reposo");
-    reposo = false; //por si salimos de stop antinenes
-    dimmerLeds(OFF);
-    displayOff = false;
+    //reposo = false; //por si salimos de stop antinenes
+    //dimmerLeds(OFF);
+    //displayOff = false;
     setEstado(STANDBY);
   }
   standbyTime = millis();
@@ -540,11 +540,12 @@ void procesaBotonZona(void)
       snprintf(buff, MAXBUFF, "%s :  %d", boton->desc, factorRiegos[zIndex]);
       lcd.info(buff,3);
       delay(2*MSGDISPLAYMILLIS);
-      lcd.clear(BORRA2H);
-      lcd.infoEstado("STANDBY");
-      value = savedValue;  // para que restaure reloj
+      //lcd.clear(BORRA2H);
+      //lcd.infoEstado("STANDBY");
       led(Boton[bIndex].led,OFF);
-      StaticTimeUpdate(REFRESH);
+      value = savedValue;  // para que restaure reloj
+      //StaticTimeUpdate(REFRESH);
+      setEstado(STANDBY);
     }
   }
 }
@@ -690,11 +691,11 @@ void procesaEstadoConfigurando()
                 webServerAct = false; //al salir de modo ConF no procesaremos peticiones al webserver
               }
             #endif
-            setEstado(STANDBY);
             resetLeds();
             standbyTime = millis();
             if (savedValue>0) value = savedValue;  // para que restaure reloj aunque no salvemos con pause el valor configurado
-            StaticTimeUpdate(REFRESH);
+            setEstado(STANDBY);
+            //StaticTimeUpdate(REFRESH);
           }
           break;
         default:  //procesamos boton de ZONAx
@@ -738,16 +739,16 @@ void procesaEstadoError(void)
     //reset del display lcd:    
     resetLCD();
     if (Boton[bID2bIndex(bSTOP)].estado) {
-      setEstado(STOP);
+      setEstado(STOP,1);
       //infoDisplay("StoP", NOBLINK, LONGBIP, 1);
-      lcd.infoclear("STOP", NOBLINK, LONGBIP, 1);
+      //lcd.infoclear("STOP", NOBLINK, LONGBIP, 1);
       displayOff = true;
     }
     else {
       setEstado(STANDBY);
-      displayOff = false;
+      //displayOff = false;
       standbyTime = millis();
-      StaticTimeUpdate(REFRESH);
+      //StaticTimeUpdate(REFRESH);
     } 
     NONETWORK = true;
     LOG_INFO("estado en ERROR y PAUSA pulsada pasamos a modo NONETWORK y reset del error");
@@ -758,7 +759,7 @@ void procesaEstadoError(void)
   }
   if(boton->id == bSTOP) {
   //Si estamos en ERROR y pulsamos o liberamos STOP, reseteamos, pero antes intentamos parar riegos
-    setEstado(STANDBY);
+    //setEstado(STANDBY);
     lcd.infoclear("ERROR+STOP-> Reset..",3);
     LOG_WARN("ERROR + STOP --> Reset.....");
     longbip(3);
@@ -779,11 +780,11 @@ void procesaEstadoRegando(void)
     else {
       ledID = ultimoBoton->led;
       if(Estado.fase == NOERROR) { //riego zona parado: entramos en PAUSE y blink lento zona pausada remotamente 
-        bip(1);
+        //bip(1);
         T.PauseTimer();
         tic_parpadeoLedZona.attach(0.8,parpadeoLedZona);
         Serial.printf(">>>>>>>>>> procesaEstadoRegando zona: %s en PAUSA remota <<<<<<<<\n", ultimoBoton->desc);
-        setEstado(PAUSE);
+        setEstado(PAUSE,1);
       }
       else {
         statusError(Estado.fase); // si no hemos podido verificar estado, señalamos el error
@@ -808,7 +809,7 @@ void procesaEstadoTerminando(void)
   #endif
   lcd.blinkLCD(DEFAULTBLINK);
   led(Boton[bID2bIndex(ultimoBoton->id)].led,OFF);
-  StaticTimeUpdate(REFRESH);
+  //StaticTimeUpdate(REFRESH);
   standbyTime = millis();
   setEstado(STANDBY);
   //Comprobamos si estamos en un multirriego
@@ -898,21 +899,38 @@ void procesaEstadoPause(void) {
 /**---------------------------------------------------------------
  * Pone estado pasado y sus indicadores opcionales
  */
-void setEstado(uint8_t estado)
+void setEstado(uint8_t estado, int bnum)
 {
+  LOG_DEBUG( "recibido ", nEstado[estado], "bnum=", bnum);
+  // setup y reseteos varios
   Estado.estado = estado;
   Estado.fase = NOERROR;
   strcpy(errorText, "");
   ledPWM(LEDR,OFF);   // por si led de error estuviera ON
-  if((estado==REGANDO || estado==TERMINANDO || estado==PAUSE) && ultimoBoton != NULL) {
-    lcd.infoEstado(nEstado[estado], ultimoBoton->desc); return;
+  reposo = false;     //por si salimos de stop antinenes
+  dimmerLeds(OFF);
+  displayOff = false;
+  lcd.setBacklight(ON);
+  if((estado==REGANDO || estado==TERMINANDO ) && ultimoBoton != NULL) {
+    lcd.infoEstado(nEstado[estado], ultimoBoton->desc); 
+    return;
+  }
+  if(estado==PAUSE) {
+    lcd.infoEstado(nEstado[estado], ultimoBoton->desc); 
+    if(bnum) bip(bnum);
+    return;
   }
   if(estado == STANDBY) {
-    LOG_DEBUG( "recibido STANDBY, actualizando [LCD] ");
-    lcd.infoclear(nEstado[estado],1);
+    lcd.infoclear("STANDBY",NOBLINK,BIP,bnum);
+    if(multirriego) lcd.info(multi.desc, 2);
     StaticTimeUpdate(REFRESH);
+    return;
   }
-  else lcd.infoEstado(nEstado[estado]);
+  if(estado == STOP) {
+    lcd.infoclear("STOP", NOBLINK, LONGBIP, bnum);
+    return;
+  }
+  //else lcd.infoEstado(nEstado[estado]);
 }
 
 
@@ -1043,8 +1061,9 @@ void ultimosRiegos(int modo)
       else lcd.info("   <<< NO TIME >>>",3);
       break;
     case HIDE:
-      StaticTimeUpdate(REFRESH);
-      lcd.infoEstado("STANDBY");
+      //StaticTimeUpdate(REFRESH);
+      //lcd.infoEstado("STANDBY");
+      setEstado(STANDBY);
       for(unsigned int i=0;i<NUMZONAS;i++) {
         led(Boton[bID2bIndex(ZONAS[i])].led,OFF);
       }
@@ -1274,6 +1293,7 @@ void mitone(uint8_t pin, unsigned int frequency, unsigned long duration) {
 
 void bip(int veces)
 {
+  LOG_TRACE("BIP ", veces);
   for (int i=0; i<veces;i++) {
     mitone(BUZZER, NOTE_A6, 50);
     mitone(BUZZER, 0, 50);
@@ -1282,7 +1302,7 @@ void bip(int veces)
 
 void longbip(int veces)
 {
-  LOG_TRACE("longbip llamado");
+  LOG_TRACE("LONGBIP ", veces);
   for (int i=0; i<veces;i++) {
     mitone(BUZZER, NOTE_A6, 750);
     mitone(BUZZER, 0, 100);
@@ -1656,7 +1676,7 @@ void Verificaciones()
   if (errorOFF) bip(2);  //recordatorio error grave al parar un riego
   //si estamos en Standby o en Error por falta de conexion verificamos estado actual de la wifi (no en modo NONETWORK)
   if (!NONETWORK && (Estado.estado == STANDBY || (Estado.estado == ERROR && !connected))) {
-    if (checkWifi() && Estado.estado!=STANDBY) setEstado(STANDBY); 
+    if (checkWifi() && Estado.estado!=STANDBY) setEstado(STANDBY,1); 
     if(!connected) {   //si no estamos conectados a la wifi, intentamos reconexion
       LOG_WARN("INTENTANDO RECONEXION WIFI");
       WiFi.reconnect();

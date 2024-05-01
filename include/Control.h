@@ -170,15 +170,19 @@
   #define CLEAR 0
   #define REFRESH 1
   #define UPDATE 0
-  #define LONGBIP 1
-  #define BIP 2
-  #define BIPOK 3
-  #define BIPKO 4
   #define NOBLINK 0
   #define BORRA1H 1
   #define BORRA2H 2
 
   //Enums
+
+  enum _bips {
+    LONGBIP = 1,
+    BIP,
+    BIPOK,
+    BIPKO,
+  };
+
   enum _estados {
     STANDBY       ,
     REGANDO       ,
@@ -188,6 +192,7 @@
     STOP          ,
     ERROR         ,
   };
+  
   #define _ESTADOS "STANDBY" , "REGANDO:" , "CONFIGURANDO" , "TERMINANDO" , "PAUSE:" , "STOP" , "ERROR"
 
   enum error_fases {
@@ -574,7 +579,7 @@
   void resetLeds(void);
   bool saveConfigFile(const char*, Config_parm&);
   bool serialDetect(void);
-  void setEstado(uint8_t);
+  void setEstado(uint8_t estado, int bnum = 0);
   int  setMultibyId(uint16_t , Config_parm&);
   bool setupConfig(const char*, Config_parm&);
   void setupEstado(void);
