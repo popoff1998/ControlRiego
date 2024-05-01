@@ -495,8 +495,8 @@
   void bip(int);
   void bipOK(void);
   void bipKO(void);
-  int  bID_bIndex(uint16_t);
-  int  bID_zIndex(uint16_t);
+  int  bID2bIndex(uint16_t);
+  int  bID2zIndex(uint16_t);
   void blinkPause(void);
   //void blinkPauseError(void);
   void check(void);

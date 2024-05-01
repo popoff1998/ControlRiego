@@ -98,7 +98,7 @@ void setup()
   //Cargamos factorRiegos
   initFactorRiegos();
   //Deshabilitamos el hold de Pause
-  Boton[bID_bIndex(bPAUSE)].flags.holddisabled = true;
+  Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
   //Llamo a parseInputs CLEAR para eliminar prepulsaciones antes del bucle loop
   parseInputs(CLEAR);
   //Estado final en funcion de la conexion
@@ -232,7 +232,7 @@ void setupEstado()
   }
   // Si estamos en modo NONETWORK pasamos a STANDBY (o STOP si esta pulsado) aunque no exista conexión wifi o estemos en ERROR
   if (NONETWORK) {
-    if (Boton[bID_bIndex(bSTOP)].estado) {
+    if (Boton[bID2bIndex(bSTOP)].estado) {
       setEstado(STOP);
       //infoDisplay("StoP", NOBLINK, LONGBIP, 1);
       lcd.infoclear("STOP", NOBLINK, LONGBIP, 1);
@@ -247,7 +247,7 @@ void setupEstado()
   }
   // Si estamos conectados pasamos a STANDBY o STOP (caso de estar pulsado este al inicio)
   if (checkWifi()) {
-    if (Boton[bID_bIndex(bSTOP)].estado) {
+    if (Boton[bID2bIndex(bSTOP)].estado) {
       setEstado(STOP);
       //infoDisplay("StoP", NOBLINK, LONGBIP, 1);
       lcd.infoclear("STOP", NOBLINK, LONGBIP, 1);
@@ -453,9 +453,9 @@ bool procesaBotonMultiriego(void)
       lcd.infoclear(buff, 1);
       displayLCDGrupo(multi.zserie, *multi.size, 2);
       lcd.info("ultimo:",3);
-      time_t t1=lastGrupos[n_grupo].inicio;
-      time_t t2=lastGrupos[n_grupo].final;
-      LOG_DEBUG("Grupo:", n_grupo, "time", t1);
+      time_t t1=lastGrupos[n_grupo-1].inicio;
+      time_t t2=lastGrupos[n_grupo-1].final;
+      LOG_DEBUG("Grupo:", n_grupo, "time.inicio", t1, "time.final", t2);
       if (t1) {
         snprintf(buff, MAXBUFF, "%d/%02d %d:%02d (%d:%02d)", day(t1), month(t1), hour(t1), minute(t1), hour(t2), minute(t2));
         lcd.info(buff,4);
@@ -475,13 +475,18 @@ bool procesaBotonMultiriego(void)
       multirriego = true;
       multi.actual = 0;
       LOG_INFO("MULTIRRIEGO iniciado: ", multi.desc);
-      led(Boton[bID_bIndex(*multi.id)].led,ON);
+      led(Boton[bID2bIndex(*multi.id)].led,ON);
       lcd.info(multi.desc, 2);
-      boton = &Boton[bID_bIndex(multi.serie[multi.actual])];
+      boton = &Boton[bID2bIndex(multi.serie[multi.actual])];
       utc = timeClient.getEpochTime();
       time_t t = CE.toLocal(utc,&tcr);
       LOG_DEBUG("Grupo:", n_grupo, "time", t);
-      lastGrupos[n_grupo].inicio = t;
+      lastGrupos[n_grupo-1].inicio = t;
+      #ifdef DEBUG3
+          for(uint i=0;i<NUMZONAS;i++) {
+                LOG_DEBUG("[ULTIMOSRIEGOS] zona:", i+1, "time:",lastRiegos[i]);
+            }
+      #endif
     }
   }
   return true;   //para que continue con el case DEFAULT al volver
@@ -490,9 +495,9 @@ bool procesaBotonMultiriego(void)
 
 void procesaBotonZona(void)
 {
-  int zIndex = bID_zIndex(boton->id);
+  int zIndex = bID2zIndex(boton->id);
   if (zIndex == 999) return; //el boton no es de ZONA ¿es necesaria esta comprobacion?
-  int bIndex = bID_bIndex(boton->id); 
+  int bIndex = bID2bIndex(boton->id); 
   if (Estado.estado == STANDBY) {
     if (!encoderSW || multirriego) {  //iniciamos el riego correspondiente al boton seleccionado
         bip(2);
@@ -548,12 +553,12 @@ void procesaBotonZona(void)
 void procesaEstadoConfigurando()
 {
   //Deshabilitamos el hold de Pause
-  Boton[bID_bIndex(bPAUSE)].flags.holddisabled = true;
+  Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
   if (boton != NULL) {
     if (boton->flags.action) {
       int n_grupo;
-      int bIndex = bID_bIndex(boton->id);
-      int zIndex = bID_zIndex(boton->id);
+      int bIndex = bID2bIndex(boton->id);
+      int zIndex = bID2zIndex(boton->id);
       switch(boton->id) {
         case bMULTIRIEGO:
           if (configure->configuring()) return; //si ya estamos configurando algo salimos
@@ -602,7 +607,7 @@ void procesaEstadoConfigurando()
             displayGrupo(multi.serie, *multi.size);
             multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
             //display->print("PUSH");
-            led(Boton[bID_bIndex(*multi.id)].led,ON);
+            led(Boton[bID2bIndex(*multi.id)].led,ON);
             snprintf(buff, MAXBUFF, "grupo%d: %s",n_grupo, multi.desc);
             lcd.info(buff, 2);
             snprintf(buff, MAXBUFF, "pulse ZONAS");
@@ -631,7 +636,7 @@ void procesaEstadoConfigurando()
           }
           if(configure->configuringIdx()) {
             int bIndex = configure->getActualIdxIndex();
-            int zIndex = bID_zIndex(Boton[bIndex].id);
+            int zIndex = bID2zIndex(Boton[bIndex].id);
             Boton[bIndex].idx = (uint16_t)value;
             config.botonConfig[zIndex].idx = (uint16_t)value;
             saveConfig = true;
@@ -651,7 +656,7 @@ void procesaEstadoConfigurando()
               *multi.size = multi.w_size;
               int g = configure->getActualGrupo();
               for (int i=0; i<multi.w_size; ++i) {
-                config.groupConfig[g-1].serie[i] = bID_zIndex(multi.serie[i])+1;
+                config.groupConfig[g-1].serie[i] = bID2zIndex(multi.serie[i])+1;
               }
               LOG_INFO("SAVE PARM Multi : GRUPO",g,"tamaño:",*multi.size,"(",multi.desc,")");
               printMultiGroup(config, g-1);
@@ -662,7 +667,7 @@ void procesaEstadoConfigurando()
               delay(MSGDISPLAYMILLIS);
             }
             ultimosRiegos(HIDE);
-            led(Boton[bID_bIndex(*multi.id)].led,OFF);
+            led(Boton[bID2bIndex(*multi.id)].led,OFF);
             configure->stop();
           }
           break;
@@ -732,7 +737,7 @@ void procesaEstadoError(void)
     //Si estamos en error y pulsamos pausa, nos ponemos en modo NONETWORK para test
     //reset del display lcd:    
     resetLCD();
-    if (Boton[bID_bIndex(bSTOP)].estado) {
+    if (Boton[bID2bIndex(bSTOP)].estado) {
       setEstado(STOP);
       //infoDisplay("StoP", NOBLINK, LONGBIP, 1);
       lcd.infoclear("STOP", NOBLINK, LONGBIP, 1);
@@ -802,7 +807,7 @@ void procesaEstadoTerminando(void)
     //display->blink(DEFAULTBLINK);
   #endif
   lcd.blinkLCD(DEFAULTBLINK);
-  led(Boton[bID_bIndex(ultimoBoton->id)].led,OFF);
+  led(Boton[bID2bIndex(ultimoBoton->id)].led,OFF);
   StaticTimeUpdate(REFRESH);
   standbyTime = millis();
   setEstado(STANDBY);
@@ -811,7 +816,7 @@ void procesaEstadoTerminando(void)
     multi.actual++;
     if (multi.actual < *multi.size) {
       //Simular la pulsacion del siguiente boton de la serie de multirriego
-      boton = &Boton[bID_bIndex(multi.serie[multi.actual])];
+      boton = &Boton[bID2bIndex(multi.serie[multi.actual])];
       multiSemaforo = true;
     }
     else {
@@ -819,7 +824,7 @@ void procesaEstadoTerminando(void)
       time_t t = CE.toLocal(utc,&tcr);
       int n_grupo = setMultibyId(getMultiStatus(), config);
       LOG_DEBUG("Grupo:", n_grupo, "time", t);
-      lastGrupos[n_grupo].final = t;
+      lastGrupos[n_grupo-1].final = t;
       int msgl = snprintf(buff, MAXBUFF, "%s finalizado", multi.desc);
       lcd.info(buff, 2, msgl);
       longbip(3);
@@ -827,7 +832,12 @@ void procesaEstadoTerminando(void)
       Serial.printf("MULTIRRIEGO %s terminado \n", multi.desc);
       delay(3000);
       lcd.info("", 2);
-      led(Boton[bID_bIndex(*multi.id)].led,OFF);
+      led(Boton[bID2bIndex(*multi.id)].led,OFF);
+      #ifdef DEBUG3
+          for(uint i=0;i<NUMZONAS;i++) {
+                LOG_DEBUG("[ULTIMOSRIEGOS] zona:", i+1, "time:",lastRiegos[i]);
+            }
+      #endif
     }
   }
 };
@@ -835,7 +845,7 @@ void procesaEstadoTerminando(void)
 
 void procesaEstadoStandby(void)
 {
-  Boton[bID_bIndex(bPAUSE)].flags.holddisabled = true;
+  Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
   //Apagamos el display si ha pasado el lapso
   if (reposo) standbyTime = millis();
   else {
@@ -855,7 +865,7 @@ void procesaEstadoStandby(void)
 void procesaEstadoStop(void)
 {
   //En stop activamos el comportamiento hold de pausa
-  Boton[bID_bIndex(bPAUSE)].flags.holddisabled = false;
+  Boton[bID2bIndex(bPAUSE)].flags.holddisabled = false;
   //si estamos en Stop antinenes, apagamos el display pasado 4 x STANDBYSECS
   if(reposo && !displayOff) {
     if (millis() > standbyTime + (4 * 1000 * STANDBYSECS)) {
@@ -893,9 +903,15 @@ void setEstado(uint8_t estado)
   Estado.estado = estado;
   Estado.fase = NOERROR;
   strcpy(errorText, "");
-  LOG_DEBUG( "Cambiado estado a: ", nEstado[estado]);
+  ledPWM(LEDR,OFF);   // por si led de error estuviera ON
   if((estado==REGANDO || estado==TERMINANDO || estado==PAUSE) && ultimoBoton != NULL) {
-    lcd.infoEstado(nEstado[estado], ultimoBoton->desc); }
+    lcd.infoEstado(nEstado[estado], ultimoBoton->desc); return;
+  }
+  if(estado == STANDBY) {
+    LOG_DEBUG( "recibido STANDBY, actualizando [LCD] ");
+    lcd.infoclear(nEstado[estado],1);
+    StaticTimeUpdate(REFRESH);
+  }
   else lcd.infoEstado(nEstado[estado]);
 }
 
@@ -929,7 +945,7 @@ void initFactorRiegos()
   //leemos factores del Domoticz
   for(uint i=0;i<NUMZONAS;i++) 
   {
-    int bIndex = bID_bIndex(ZONAS[i]);
+    int bIndex = bID2bIndex(ZONAS[i]);
     uint factorR = getFactor(Boton[bIndex].idx);
     if(factorR == 999) break; //en modo NONETWORK no continuamos iterando si no hay conexion
     if(Estado.estado == ERROR) {  //al primer error salimos
@@ -962,7 +978,7 @@ void initFactorRiegos()
     Serial.print(F("Factores de riego "));
     factorRiegosOK ? Serial.println(F("leidos: ")) :  Serial.println(F("(simulados): "));
     for(uint i=0;i<NUMZONAS;i++) {
-      Serial.printf("\tfactor ZONA%d: %d (%s) \n", i+1, factorRiegos[i], Boton[bID_bIndex(ZONAS[i])].desc);
+      Serial.printf("\tfactor ZONA%d: %d (%s) \n", i+1, factorRiegos[i], Boton[bID2bIndex(ZONAS[i])].desc);
     }
   #endif
 }
@@ -1017,7 +1033,8 @@ void ultimosRiegos(int modo)
       t = CE.toLocal(utc,&tcr);
       for(uint i=0;i<NUMZONAS;i++) {
         if(lastRiegos[i] > previousMidnight(t)) {
-            led(Boton[bID_bIndex(ZONAS[i])].led,ON);
+            LOG_DEBUG("[ULTIMOSRIEGOS] zona:", i+1, "time:",lastRiegos[i]);
+            led(Boton[bID2bIndex(ZONAS[i])].led,ON);
         }
       }
       //display->printTime(hour(t),minute(t));
@@ -1029,7 +1046,7 @@ void ultimosRiegos(int modo)
       StaticTimeUpdate(REFRESH);
       lcd.infoEstado("STANDBY");
       for(unsigned int i=0;i<NUMZONAS;i++) {
-        led(Boton[bID_bIndex(ZONAS[i])].led,OFF);
+        led(Boton[bID2bIndex(ZONAS[i])].led,OFF);
       }
       break;
   }
@@ -1084,7 +1101,7 @@ void procesaEncoder()
       if (value <  1) value = 0; //permitimos IDX=0 para desactivar ese boton
       //display->print(value);
       int bIndex = configure->getActualIdxIndex();
-      int currentZona = bID_zIndex(Boton[bIndex].id)+1;
+      int currentZona = bID2zIndex(Boton[bIndex].id)+1;
       snprintf(buff, MAXBUFF, "nuevo IDX ZONA%d %d", currentZona, value);
       lcd.info(buff, 4);
 
@@ -1156,15 +1173,21 @@ void initLastGrupos()
 //Inicia el riego correspondiente al idx del boton (id) pulsado
 bool initRiego(uint16_t id)
 {
-  int bIndex = bID_bIndex(id);
+  int bIndex = bID2bIndex(id);
   LOG_DEBUG("Boton:",boton->desc,"boton.index:",bIndex);
-  int zIndex = bID_zIndex(id);
+  int zIndex = bID2zIndex(id);
   if(zIndex == 999) return false;
   LOG_INFO( "Iniciando riego: ", Boton[bIndex].desc);
   led(Boton[bIndex].led,ON);
   utc = timeClient.getEpochTime();
   time_t t = CE.toLocal(utc,&tcr);
+  LOG_DEBUG("actualizo lastriegos bIndex:", bIndex, "zIndex:", zIndex);
   lastRiegos[zIndex] = t;
+      #ifdef DEBUG3
+          for(uint i=0;i<NUMZONAS;i++) {
+                LOG_DEBUG("[ULTIMOSRIEGOS] zona:", i+1, "time:",lastRiegos[i]);
+            }
+      #endif
   return domoticzSwitch(Boton[bIndex].idx, (char *)"On", DEFAULT_SWITCH_RETRIES);
 }
 
@@ -1172,7 +1195,7 @@ bool initRiego(uint16_t id)
 //Termina el riego correspondiente al idx del boton (id) pulsado
 bool stopRiego(uint16_t id)
 {
-  int bIndex = bID_bIndex(id);
+  int bIndex = bID2bIndex(id);
   ledID = Boton[bIndex].led;
   LOG_DEBUG( "Terminando riego: ", Boton[bIndex].desc);
   domoticzSwitch(Boton[bIndex].idx, (char *)"Off", DEFAULT_SWITCH_RETRIES);
@@ -1194,12 +1217,12 @@ void resetLeds()
 {
   //Apago los leds de multirriego
   for(unsigned int j=0;j<NUMGRUPOS;j++) {
-    led(Boton[bID_bIndex(GRUPOS[j])].led,OFF);
+    led(Boton[bID2bIndex(GRUPOS[j])].led,OFF);
   }
   //Apago los leds de riego y posible parpadeo
   tic_parpadeoLedZona.detach();
   for(unsigned int i=0;i<NUMZONAS;i++) {
-    led(Boton[bID_bIndex(ZONAS[i])].led,OFF);
+    led(Boton[bID2bIndex(ZONAS[i])].led,OFF);
   }
   //restablece led RGB
   tic_parpadeoLedError.detach(); //por si estuviera parpadeando
@@ -1233,11 +1256,11 @@ bool stopAllRiego()
 {
   LOG_TRACE("");
   //Apago los leds de multirriego
-  led(Boton[bID_bIndex(*multi.id)].led,OFF);
+  led(Boton[bID2bIndex(*multi.id)].led,OFF);
   //Apago los leds de riego y posible parpadeo
   tic_parpadeoLedZona.detach();
   for(unsigned int i=0;i<NUMZONAS;i++) { //paramos todas las zonas de riego
-    led(Boton[bID_bIndex(ZONAS[i])].led,OFF);
+    led(Boton[bID2bIndex(ZONAS[i])].led,OFF);
     if(!stopRiego(ZONAS[i])) return false; //al primer error salimos
   }
   return true;
@@ -1779,7 +1802,7 @@ bool setupConfig(const char *p_filename, Config_parm &cfg)
   value = ((seconds==0)?minutes:seconds);
   if (loaded) {
     for(int i=0;i<NUMZONAS;i++) {
-      int bIndex = bID_bIndex(ZONAS[i]);
+      int bIndex = bID2bIndex(ZONAS[i]);
       //NOTA: i (zIndex) y bIndex seran iguales si el orden de los botones de las zonas en ZONA[] y Boton[] 
       //es el mismo (seria mas facil si lo fueran).... @TODO ¿como detectarlo al compilar?
       if (bIndex != i) LOG_WARN("            @@@@@@@@@@@@  bIndex != zIndex  @@@@@@@@@@");

@@ -4,8 +4,8 @@
 //devuelve posicion del selector de multirriego
 uint16_t getMultiStatus()
 {
-  if (Boton[bID_bIndex(bGRUPO1)].estado) return bGRUPO1;
-  if (Boton[bID_bIndex(bGRUPO3)].estado) return bGRUPO3;
+  if (Boton[bID2bIndex(bGRUPO1)].estado) return bGRUPO1;
+  if (Boton[bID2bIndex(bGRUPO3)].estado) return bGRUPO3;
   return bGRUPO2  ;
 }
 
@@ -40,18 +40,18 @@ int setMultibyId(uint16_t id, Config_parm &cfg)
 
 void displayGrupo(uint16_t *serie, int serieSize)
 {
-  led(Boton[bID_bIndex(*multi.id)].led,ON);
+  led(Boton[bID2bIndex(*multi.id)].led,ON);
   int i;
   for(i=0;i<serieSize;i++) {
-    //Serial.printf("[displayGrupo]  encendiendo led %d \n", bID_bIndex(serie[i])+1);
-    led(Boton[bID_bIndex(serie[i])].led,ON);
+    //Serial.printf("[displayGrupo]  encendiendo led %d \n", bID2bIndex(serie[i])+1);
+    led(Boton[bID2bIndex(serie[i])].led,ON);
     delay(300);
     bip(i+1);
     delay(100*(i+1));
-    led(Boton[bID_bIndex(serie[i])].led,OFF);
+    led(Boton[bID2bIndex(serie[i])].led,OFF);
     delay(100);
   }
-  led(Boton[bID_bIndex(*multi.id)].led,OFF);
+  led(Boton[bID2bIndex(*multi.id)].led,OFF);
 }
 
 void displayLCDGrupo(uint16_t *serieZonas, int serieSize, int line)
