@@ -107,6 +107,7 @@ void DisplayLCD::print(const char * text) {
   lcdDisp.print(text);
 }
 
+/* 
 void DisplayLCD::check()
 {
   LOG_TRACE("[LCD] ");
@@ -114,18 +115,18 @@ void DisplayLCD::check()
   lcdDisp.print("----");
 }
 
-
 void DisplayLCD::blinkLCD(const char *info,int veces) //muestra texto recibido parpadeando n veces
 {
     LOG_TRACE("[LCD] '",info, "' x",veces);
     for (int i=0; i<veces; i++) {
       clear();
       delay(DEFAULTBLINKMILLIS);
-      setCursor(7, 0);
+      setCursor(7, 1);
       lcdDisp.print(info);
       delay(DEFAULTBLINKMILLIS);
     }
 }
+ */
 
 void DisplayLCD::blinkLCD(int veces) //parpadea contenido actual de la pantalla n veces
 {

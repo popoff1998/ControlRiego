@@ -24,11 +24,11 @@
    public:
       DisplayLCD(uint8_t lcd1_Addr,uint8_t lcd1_cols,uint8_t lcd1_rows);
       void initLCD(void);
-      void blinkLCD(const char *,int);
+      //void blinkLCD(const char *,int);
       void blinkLCD(int);
       void clear(void);
       void clear(int);
-      void check(void);
+      //void check(void);
       void print(const char *);
       void print(int);
       void setCursor(uint8_t, uint8_t);

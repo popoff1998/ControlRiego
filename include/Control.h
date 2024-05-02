@@ -84,7 +84,7 @@
        
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.0b.5"
+                            #define VERSION  "3.0b.6"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz

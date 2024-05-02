@@ -14,7 +14,7 @@ Configure::Configure()
 
 void Configure::start()
 {
-  bip(1);
+  //bip(1);
   _configuringIdx = false;
   _configuringTime = false;
   _configuringMulti = false;

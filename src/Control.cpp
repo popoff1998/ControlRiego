@@ -315,10 +315,10 @@ void procesaBotonPause(void)
           break;
         }
         bip(2);
-        lcd.clear(BORRA2H);
         T.ResumeTimer();
         tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
         led(ultimoBoton->led,ON);// y lo deja fijo
+        lcd.clear(BORRA2H); //por si hubiera msgs de error (caso error al salir del pause previo)
         setEstado(REGANDO);
         break;
       case STANDBY:
@@ -333,7 +333,7 @@ void procesaBotonPause(void)
                 lcd.clear();
                 if (!checkWifi()) {
                   WiFi.reconnect(); 
-                  delay(2000);
+                  delay(5000);
                 }
                 initFactorRiegos();
                 if(VERIFY && Estado.estado != ERROR) stopAllRiego(); //verificamos operativa OFF para los IDX's 
@@ -343,13 +343,15 @@ void procesaBotonPause(void)
                 LOG_INFO("encoderSW+PAUSE pasamos a modo NONETWORK (DEMO)");
                 bip(2);
                 ledPWM(LEDB,ON);
-                lcd.clear();
+                //lcd.clear();
             }
           }
           else {    // muestra hora y ultimos riegos
             ultimosRiegos(SHOW);
             delay(3000);
             ultimosRiegos(HIDE);
+            LOG_TRACE("[poniendo estado STANDBY]");
+            setEstado(STANDBY);  // para restaurar pantalla
           }
           standbyTime = millis();
     }
@@ -429,6 +431,7 @@ void procesaBotonStop(void)
     //reposo = false; //por si salimos de stop antinenes
     //dimmerLeds(OFF);
     //displayOff = false;
+    LOG_TRACE("[poniendo estado STANDBY]");
     setEstado(STANDBY);
   }
   standbyTime = millis();
@@ -464,8 +467,9 @@ bool procesaBotonMultiriego(void)
       displayGrupo(multi.serie, *multi.size);
       LOG_DEBUG("en MULTIRRIEGO + encoderSW, display de grupo:", multi.desc,"tamaño:", *multi.size );
       delay(MSGDISPLAYMILLIS*3);
-      lcd.infoclear(nEstado[Estado.estado]);
-      StaticTimeUpdate(REFRESH);
+      setEstado(STANDBY);   //para que restaure pantalla
+      //lcd.infoclear(nEstado[Estado.estado]);
+      //StaticTimeUpdate(REFRESH);
       return false;    //para que procese el BREAK al volver a procesaBotones         
     }  
     else {
@@ -545,6 +549,7 @@ void procesaBotonZona(void)
       led(Boton[bIndex].led,OFF);
       value = savedValue;  // para que restaure reloj
       //StaticTimeUpdate(REFRESH);
+      LOG_TRACE("[poniendo estado STANDBY]");
       setEstado(STANDBY);
     }
   }
@@ -605,12 +610,12 @@ void procesaEstadoConfigurando()
             configure->configureMulti(n_grupo);
             LOG_INFO("Configurando: GRUPO",n_grupo,"(",multi.desc,")");
             LOG_DEBUG("en configuracion de MULTIRRIEGO, setMultibyId devuelve: Grupo",n_grupo,"(",multi.desc,") multi.size=", *multi.size);
+            snprintf(buff, MAXBUFF, "grupo%d: %s",n_grupo, multi.desc);
+            lcd.info(buff, 2);
+            led(Boton[bID2bIndex(*multi.id)].led,ON);
             displayGrupo(multi.serie, *multi.size);
             multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
             //display->print("PUSH");
-            led(Boton[bID2bIndex(*multi.id)].led,ON);
-            snprintf(buff, MAXBUFF, "grupo%d: %s",n_grupo, multi.desc);
-            lcd.info(buff, 2);
             snprintf(buff, MAXBUFF, "pulse ZONAS");
             lcd.info(buff, 3);
           } 
@@ -694,6 +699,7 @@ void procesaEstadoConfigurando()
             resetLeds();
             standbyTime = millis();
             if (savedValue>0) value = savedValue;  // para que restaure reloj aunque no salvemos con pause el valor configurado
+            LOG_TRACE("[poniendo estado STANDBY]");
             setEstado(STANDBY);
             //StaticTimeUpdate(REFRESH);
           }
@@ -737,7 +743,7 @@ void procesaEstadoError(void)
   if(boton->id == bPAUSE && boton->estado) {  //evita procesar el release del pause
     //Si estamos en error y pulsamos pausa, nos ponemos en modo NONETWORK para test
     //reset del display lcd:    
-    resetLCD();
+    //resetLCD();
     if (Boton[bID2bIndex(bSTOP)].estado) {
       setEstado(STOP,1);
       //infoDisplay("StoP", NOBLINK, LONGBIP, 1);
@@ -745,6 +751,7 @@ void procesaEstadoError(void)
       displayOff = true;
     }
     else {
+      LOG_TRACE("[poniendo estado STANDBY]");
       setEstado(STANDBY);
       //displayOff = false;
       standbyTime = millis();
@@ -811,6 +818,7 @@ void procesaEstadoTerminando(void)
   led(Boton[bID2bIndex(ultimoBoton->id)].led,OFF);
   //StaticTimeUpdate(REFRESH);
   standbyTime = millis();
+  LOG_TRACE("[poniendo estado STANDBY]");
   setEstado(STANDBY);
   //Comprobamos si estamos en un multirriego
   if (multirriego) {
@@ -911,6 +919,8 @@ void setEstado(uint8_t estado, int bnum)
   dimmerLeds(OFF);
   displayOff = false;
   lcd.setBacklight(ON);
+  lcd.displayON();
+
   if((estado==REGANDO || estado==TERMINANDO ) && ultimoBoton != NULL) {
     lcd.infoEstado(nEstado[estado], ultimoBoton->desc); 
     return;
@@ -1063,7 +1073,8 @@ void ultimosRiegos(int modo)
     case HIDE:
       //StaticTimeUpdate(REFRESH);
       //lcd.infoEstado("STANDBY");
-      setEstado(STANDBY);
+      //LOG_TRACE("[poniendo estado STANDBY]");
+      //if(Estado.estado != CONFIGURANDO) setEstado(STANDBY);
       for(unsigned int i=0;i<NUMZONAS;i++) {
         led(Boton[bID2bIndex(ZONAS[i])].led,OFF);
       }
@@ -1485,6 +1496,7 @@ int getFactor(uint16_t idx)
   //if (Estado.estado == ERROR && response.startsWith("Err")) {
   if (response.startsWith("Err")) {
     if (NONETWORK) {  //si estamos en modo NONETWORK devolvemos 999 y no damos error
+      LOG_TRACE("[poniendo estado STANDBY]");
       setEstado(STANDBY);
       return 999;
     }
