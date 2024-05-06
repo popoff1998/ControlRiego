@@ -13,6 +13,7 @@ Ticker tic_APLed;
 int timeout = 180;  //config portal timeout
 
 // Creamos una instancia de la clase WiFiManager
+
 WiFiManager wm;
 
 
@@ -32,11 +33,10 @@ void parpadeoLedAP() {
 
 //llamado cuando WiFiManager sale del modo configuracion
 void saveWifiCallback() {
-  Serial.println(F("[CALLBACK] saveWifiCallback fired"));
+    LOG_INFO("[CALLBACK] saveWifiCallback fired");
     // Eliminamos el temporizador y apagamos el led indicador de modo AP
     tic_APLed.detach();
     ledPWM(LEDB,OFF);
-    //infoDisplay("----", NOBLINK, BIP, 0);
     lcd.infoclear("conectando WIFI");
     // Empezamos el temporizador que hará parpadear el LED indicador de wifi
     tic_WifiLed.attach(0.2, parpadeoLedWifi);
@@ -44,13 +44,12 @@ void saveWifiCallback() {
 
 //llamado cuando WiFiManager entra en modo configuracion
 void configModeCallback (WiFiManager *myWiFiManager) {
-  Serial.println(F("[CALLBACK] configModeCallback fired"));
+  LOG_INFO("[CALLBACK] configModeCallback fired");
   // apagamos el LED indicador de wifi
   tic_WifiLed.detach();
   ledPWM(LEDG,OFF);
   // Empezamos el temporizador que hará parpadear el LED indicador de AP
   tic_APLed.attach(0.5, parpadeoLedAP);
-  //infoDisplay("-AP-", DEFAULTBLINK, LONGBIP, 1); //lo señalamos en display
   lcd.infoclear("   modo -AP- :", DEFAULTBLINK, LONGBIP, 1); //lo señalamos en display
   lcd.info("\"Ardomo\" activado", 3);
 }
@@ -58,8 +57,8 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 //llamado cuando WiFiManager recibe parametros adicionales
 void saveParamCallback()
 {
-  Serial.println(F("[CALLBACK] saveParamCallback fired"));
-  Serial.println(F("Should save config"));
+  LOG_INFO("[CALLBACK] saveParamCallback fired");
+  LOG_INFO("Should save config");
   saveConfig = true;
   wm.stopConfigPortal();
 }
@@ -67,16 +66,13 @@ void saveParamCallback()
 //lamado antes de empezar carga del sketch via OTA
 void preOtaUpdateCallback()
 {
-  Serial.println(F("[CALLBACK] setPreOtaUpdateCallback fired"));
-  //infoDisplay("####", DEFAULTBLINK, LONGBIP, 1);
+  LOG_INFO("[CALLBACK] setPreOtaUpdateCallback fired");
   lcd.infoclear("OTA in progress", DEFAULTBLINK, LONGBIP, 1);
 }
 
 //evento llamado en caso de conexion de la wifi
 void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info){
  LOG_INFO("WiFi conectada");
- //delay(7000);
- //checkWifi();
 }
 
 //evento llamado en caso de desconexion de la wifi
@@ -105,7 +101,6 @@ void setupRedWM(Config_parm &config)
     wm.resetSettings(); //borra wifi guardada
     //delay(300);
     LOG_INFO("encoderSW pulsado y multirriego en GRUPO3 --> borramos red WIFI");
-    //infoDisplay("CLEA", DEFAULTBLINK, LONGBIP, 1); //señala borrado wifi
     lcd.infoclear("red WIFI borrada", DEFAULTBLINK, LONGBIP, 1); //señala borrado wifi
   }
   // explicitly set mode, esp defaults to STA+AP   
@@ -150,7 +145,6 @@ void setupRedWM(Config_parm &config)
     */
   // detenemos parpadeo led AP y borramos -AP- del display (caso de que se hubiera activado antes AP)
   tic_APLed.detach();
-  //infoDisplay("----", NOBLINK, BIP, 0);
   //si no hemos podido conectar y existe una red wifi salvada,reintentamos hasta 20 seg.
   // (para caso corte de corriente)
   if (falloAP && wm.getWiFiIsSaved()) {
@@ -216,7 +210,6 @@ void starConfigPortal(Config_parm &config)
   // Eliminamos el temporizador y dejamos LEDB segun estado de NONETWORK
   tic_APLed.detach();
   NONETWORK ? ledPWM(LEDB,ON) : ledPWM(LEDB,OFF);
-  //infoDisplay("----", NOBLINK, BIP, 0);
   lcd.infoclear("reconectando WIFI");
   tic_WifiLed.detach();
   checkWifi();
@@ -226,15 +219,13 @@ void starConfigPortal(Config_parm &config)
 bool checkWifi() {
   LOG_TRACE("in checkWifi");
   if(WiFi.status() == WL_CONNECTED) {
-    // Encendemos el LED indicador de wifi
-    ledPWM(LEDG,ON);
+    ledPWM(LEDG,ON);  // Encendemos el LED indicador de wifi
     connected = true;
     return true;
   }
   else {
     LOG_ERROR(" ** [ERROR] No estamos conectados a la wifi");
-    // apagamos el LED indicador de wifi
-    ledPWM(LEDG,OFF);
+    ledPWM(LEDG,OFF);  // apagamos el LED indicador de wifi
     connected = false;
     return false;
   }

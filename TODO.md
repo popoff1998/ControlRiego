@@ -45,5 +45,8 @@ HECHOS
 - verifica periódicamente si el riego en curso esta activo o en pause en Domoticz y lo refleja V2.5
 - si al lanzar o detener un riego Domoticz informa de error, se reintenta varias veces antes de dar error V2.5
 - mejoras en menu de servicio (webserver): posibilida de ver, borrar y actualizar ficheros individuales del file system V2.5
-
+**Version 3:**
+- adaptacion para ESP32 y expansores I/O MCP23017
+- cambio libreria encoder por una que soporta interrupciones
+- sustitucion display led de 7 segmentos por pantalla LCD de 20 caracteres x 4 lineas (bus I2C)
 

@@ -43,7 +43,6 @@ void displayGrupo(uint16_t *serie, int serieSize)
   led(Boton[bID2bIndex(*multi.id)].led,ON);
   int i;
   for(i=0;i<serieSize;i++) {
-    //Serial.printf("[displayGrupo]  encendiendo led %d \n", bID2bIndex(serie[i])+1);
     led(Boton[bID2bIndex(serie[i])].led,ON);
     delay(300);
     bip(i+1);

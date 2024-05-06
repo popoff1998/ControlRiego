@@ -5,34 +5,33 @@ bool loadConfigFile(const char *p_filename, Config_parm &cfg)
 {
   LOG_TRACE("");
   if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
-    Serial.println(F("An Error has occurred while mounting LittleFS"));
+    LOG_ERROR("An Error has occurred while mounting LittleFS");
     return false;
   }
   File file = LittleFS.open(p_filename, "r");
   if(!file){
-    Serial.println(F("Failed to open file for reading"));
+    LOG_ERROR("Failed to open file for reading");
     return false;
   }
   size_t size = file.size();
   if (size > 2048) {
-    Serial.println(F("Config file size is too large"));
+    LOG_ERROR("Config file size is too large");
     return false;
   }
-  Serial.printf("\t tamaño de %s --> %d bytes \n", p_filename, size);
+  LOG_INFO("\t tamaño de", p_filename, "-->", size, "bytes");
 
   DynamicJsonDocument doc(1536);
   DeserializationError error = deserializeJson(doc, file);
 
   if (error) {
-    Serial.print(F("\t  deserializeJson() failed: "));
-    Serial.println(error.f_str());
+    LOG_ERROR("\t  deserializeJson() failed: ", error.f_str());
     return false;
   }
-  Serial.printf("\t memoria usada por el jsondoc: (%d) \n" , doc.memoryUsage());
+  Serial.printf("\t memoria usada por el jsondoc: (%d) \n" , doc.memoryUsage());  //TODO ¿eliminar msg?
   //--------------  procesa botones (IDX)  --------------------------------------------------
   int numzonas = doc["numzonas"] | 0; // carga 0 si no viene este elemento
   if (numzonas != cfg.n_Zonas) {
-    Serial.println(F("ERROR numero de zonas incorrecto"));
+    LOG_ERROR("ERROR numero de zonas incorrecto");
     return false;
   }  
   for (JsonObject botones_item : doc["botones"].as<JsonArray>()) {
@@ -49,7 +48,7 @@ bool loadConfigFile(const char *p_filename, Config_parm &cfg)
   strlcpy(cfg.ntpServer, doc["ntpServer"] | "", sizeof(cfg.ntpServer));
   int numgroups = doc["numgroups"] | 1;
   if (numgroups != cfg.n_Grupos) {
-    Serial.println(F("ERROR numero de grupos incorrecto"));
+    LOG_ERROR("ERROR numero de grupos incorrecto");
     return false;
   }  
   //--------------  procesa grupos  ---------------------------------------------------------
@@ -59,14 +58,14 @@ bool loadConfigFile(const char *p_filename, Config_parm &cfg)
     cfg.groupConfig[i-1].size = groups_item["size"] | 1;
     if (cfg.groupConfig[i-1].size == 0) {
       cfg.groupConfig[i-1].size =1;
-      Serial.println(F("ERROR tamaño del grupo incorrecto, es 0 -> ponemos 1"));
+      LOG_ERROR("ERROR tamaño del grupo incorrecto, es 0 -> ponemos 1");
     }
     //Serial.printf("[loadConfigFile] procesando GRUPO%d size=%d id=x%x \n",i,cfg.groupConfig[i-1].size,cfg.groupConfig[i-1].id); //DEBUG
     strlcpy(cfg.groupConfig[i-1].desc, groups_item["desc"] | "", sizeof(cfg.groupConfig[i-1].desc)); 
     JsonArray array = groups_item["zonas"].as<JsonArray>();
     int count = array.size();
     if (count != cfg.groupConfig[i-1].size) {
-      Serial.println(F("ERROR tamaño del grupo incorrecto"));
+      LOG_ERROR("ERROR tamaño del grupo incorrecto");
       return false;
     }  
     int j = 0;
@@ -88,14 +87,14 @@ bool saveConfigFile(const char *p_filename, Config_parm &cfg)
   LOG_TRACE("TRACE: in saveConfigFile");
   //memoryInfo();
   if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
-    Serial.println(F("An Error has occurred while mounting LittleFS"));
+    LOG_ERROR("An Error has occurred while mounting LittleFS");
     return false;
   }
   // Delete existing file, otherwise the configuration is appended to the file
   LittleFS.remove(p_filename);
   File file = LittleFS.open(p_filename, "w");
   if(!file){
-    Serial.println(F("Failed to open file for writing"));
+    LOG_ERROR("Failed to open file for writing");
     return false;
   }
   DynamicJsonDocument doc(2048);

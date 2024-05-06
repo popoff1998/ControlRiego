@@ -48,24 +48,26 @@ void DisplayLCD::initLCD() {
   print("Ardomo Aqua");
   setCursor(0, 2);
   print("Inicializando");
-  setCursor(13, 3);
+  int longitud = strlen(VERSION);
+  setCursor(LCDMAXLEN-(longitud+1), 3);
   print("v" VERSION);
 }
 
-void DisplayLCD::clear()
-{
-  LOG_TRACE("[LCD] BORRA lcd");
-  lcdDisp.clear();
-}
 
 void DisplayLCD::clear(int mitad)
 {
+  if(!mitad) {
+    LOG_TRACE("[LCD] BORRA lcd");
+    lcdDisp.clear();
+    return;
+  }
   LOG_TRACE("[LCD] borra ",mitad,"ª mitad lcd");
   if(mitad == BORRA1H) {
     setCursor(0, 0);
     lcdDisp.print(_blankline);
     setCursor(0, 1);
     lcdDisp.print(_blankline);
+    return;
   }
   if(mitad == BORRA2H) {
     setCursor(0, 2);
@@ -108,13 +110,6 @@ void DisplayLCD::print(const char * text) {
 }
 
 /* 
-void DisplayLCD::check()
-{
-  LOG_TRACE("[LCD] ");
-  clear();
-  lcdDisp.print("----");
-}
-
 void DisplayLCD::blinkLCD(const char *info,int veces) //muestra texto recibido parpadeando n veces
 {
     LOG_TRACE("[LCD] '",info, "' x",veces);
@@ -142,14 +137,6 @@ void DisplayLCD::blinkLCD(int veces) //parpadea contenido actual de la pantalla 
   }
 }
 
-/* 
-void DisplayLCD::infoEstado(const char *estado) {
-    infoEstadoI(estado, "         ");
-}    
-void DisplayLCD::infoEstado(const char *estado,  const char *zona) {
-    infoEstadoI(estado, zona);
-}    
- */
 
 void DisplayLCD::infoEstado(const char *estado, const char *zona) {
     LOG_DEBUG("[LCD]  Recibido: ", estado, zona);

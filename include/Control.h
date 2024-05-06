@@ -30,8 +30,6 @@
   #endif
   #include <DebugLog.h>
 
-
-
   #include <DNSServer.h>
   #include <WifiUdp.h>
   #include <WiFiManager.h> 
@@ -39,7 +37,6 @@
   #include <NTPClient.h>
   #include <Time.h>
   #include <Timezone.h>
-  //#include <ClickEncoder.h>
   #include <AiEsp32RotaryEncoder.h>
   #include <CountUpDownTimer.h>
   #include <ArduinoJson.h>
@@ -60,7 +57,6 @@
   #include "MCP23017.h"  // expansor E/S MCP23017
   #include "pitches.h"   // notas musicales
   //Para mis clases
-  //#include "Display.h"
   #include "Configure.h"
   #include "DisplayLCD.h"
 
@@ -84,7 +80,7 @@
        
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.0b.6"
+                            #define VERSION  "3.0"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -117,7 +113,7 @@
   #define MAXledLEVEL         255 // nivel maximo leds on y wifi (0 a 255)
   #define DIMMLEVEL           50 // nivel atenuacion leds on y wifi (0 a 255)
   #define I2C_CLOCK_SPEED     400000  // frecuencia del bus I2C en Hz (default 100000)
-  #define LCD2004_address 0x27   // direccion bus I2C de la pantalla LCD
+  #define LCD2004_address     0x27   // direccion bus I2C de la pantalla LCD
   #define ROTARY_ENCODER_STEPS 4 // TODO documentar
 
  //----------------  dependientes del HW   ----------------------------------------
@@ -128,13 +124,10 @@
     // GPIOs    I usables: 34 35 36 39 (4/4)
     #define ENCCLK                GPIO_NUM_32
     #define ENCDT                 GPIO_NUM_33
-    #define ENCSW                 100           // ficticio, no tratamos el boton del encoder con ClicEncoder, se hace por programa
-    #define bENCODER              GPIO_NUM_34   // este es el real conectado a GPIO solo INPUT
+    #define bENCODER              GPIO_NUM_34   // conectado a GPIO solo INPUT (no se trata por Encoder, se hace por programa)
     #define LEDR                  GPIO_NUM_27  
     #define LEDG                  GPIO_NUM_26 
     #define LEDB                  GPIO_NUM_25 
-    //#define DISPCLK               GPIO_NUM_18
-    //#define DISPDIO               GPIO_NUM_19
     #define I2C_SDA               GPIO_NUM_21
     #define I2C_SCL               GPIO_NUM_22
     #define I2C_SDA1              GPIO_NUM_16
@@ -192,7 +185,7 @@
     STOP          ,
     ERROR         ,
   };
-  
+  // literales para los estados en el display
   #define _ESTADOS "STANDBY" , "REGANDO:" , "CONFIGURANDO" , "TERMINANDO" , "PAUSE:" , "STOP" , "ERROR"
 
   enum error_fases {
@@ -280,7 +273,7 @@
     Grupo_parm groupConfig[n_Grupos];
   };
 
-  // estructura de un grupo de multirriego *nueva
+  // estructura de un grupo de multirriego 
   // (todos son pointer al multirriego correspondiente en config menos los indicados)
   struct S_MULTI {
     uint16_t *id;        //apuntador al id del selector grupo en estructura config (bGrupo_x)
@@ -340,8 +333,6 @@
   struct S_Estado {
     uint8_t estado; 
     uint8_t fase;
-    char  texto[7]; 
-    char  texto_largo[21]; 
   } ;
 
   struct S_timeG {
@@ -425,10 +416,9 @@
     S_BOTON  *ultimoBoton;
     S_simFlags simular; // estructura flags para simular errores
     Config_parm config; //estructura parametros configurables y runtime
-    //ClickEncoder *Encoder;
-    //Display      *display;
     Configure    *configure;
-    AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ENCCLK,ENCDT,ENCSW, -1, ROTARY_ENCODER_STEPS);
+    AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ENCCLK,ENCDT,-1, -1, ROTARY_ENCODER_STEPS);
+    //AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ENCCLK,ENCDT,ENCSW, -1, ROTARY_ENCODER_STEPS);
     NTPClient timeClient(ntpUDP,config.ntpServer);
     Ticker tic_parpadeoLedError;    //para parpadeo led ERROR (LEDR)
     Ticker tic_parpadeoLedZona;  //para parpadeo led zona de riego
@@ -503,7 +493,6 @@
   int  bID2bIndex(uint16_t);
   int  bID2zIndex(uint16_t);
   void blinkPause(void);
-  //void blinkPauseError(void);
   void check(void);
   bool checkWifi(void);
   void cleanFS(void);
@@ -521,7 +510,6 @@
   int  getFactor(uint16_t);
   uint16_t getMultiStatus(void);
   String *httpGetDomoticz(String *);
-  //void infoDisplay(const char *, int, int, int);
   void initClock(void);
   void initEncoder(void);
   void initFactorRiegos(void);
@@ -572,7 +560,6 @@
   void procesaWebServer(void);
   bool queryStatus(uint16_t, char *);
   void refreshTime(void);
-  //void refreshDisplay(void);
   void reposoOFF(void);
   void resetFlags(void);
   void resetLCD(void);

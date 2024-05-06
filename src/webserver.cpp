@@ -297,15 +297,15 @@ protected:
 
    void setupWS()
    {
-      if (!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)) TRACE2("could not mount the filesystem...\n");
-      if (!MDNS.begin(HOSTNAME)) Serial.println("Error iniciando mDNS");
-      else Serial.println("mDNS iniciado");
+      if (!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)) LOG_ERROR("could not mount the filesystem...");
+      if (!MDNS.begin(HOSTNAME)) LOG_ERROR("Error iniciando mDNS");
+      else LOG_INFO("mDNS iniciado");
       httpUpdater.setup(&wserver, update_path, update_username, update_password);
       defWebpages();
       MDNS.addService("http", "tcp", wsport);
       //MDNS.announce();   no es necesario ya con la nueva libreria
       wserver.begin();
-      Serial.println(F("[WS] HTTPUpdateServer ready!"));
+      LOG_INFO("[WS] HTTPUpdateServer ready!");
       Serial.printf("[WS]    --> Open http://%s.local:%d%s in your browser and login with username '%s' and password '%s'\n\n", WiFi.getHostname(), wsport, update_path, update_username, update_password);
       TRACE2("hostname=%s\n", WiFi.getHostname());
    }
