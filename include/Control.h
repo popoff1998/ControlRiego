@@ -10,9 +10,8 @@
     //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
     #define DEBUGLOG_DEFAULT_LOG_LEVEL_TRACE
     //#define DEBUGLOG_DEFAULT_LOG_LEVEL_INFO
-    #define DEBUG
     //#define EXTRADEBUG
-    //#define EXTRADEBUG1
+    //#define EXTRADEBUG2
     //#define EXTRATRACE
     #define VERBOSE
   #endif
@@ -66,6 +65,7 @@
   #else
     #define HOSTNAME "ardomo"
   #endif  
+  #define WSPORT 8080
 
   //#define CONFIG_LITTLEFS_SPIFFS_COMPAT 1  // modo compatibilidad con SPIFFS
 
@@ -80,7 +80,7 @@
        
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.0"
+                            #define VERSION  "3.0.1"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -124,7 +124,7 @@
     // GPIOs    I usables: 34 35 36 39 (4/4)
     #define ENCCLK                GPIO_NUM_32
     #define ENCDT                 GPIO_NUM_33
-    #define bENCODER              GPIO_NUM_34   // conectado a GPIO solo INPUT (no se trata por Encoder, se hace por programa)
+    #define ENCBOTON              GPIO_NUM_34   // conectado a GPIO solo INPUT (no se trata por Encoder, se hace por programa)
     #define LEDR                  GPIO_NUM_27  
     #define LEDG                  GPIO_NUM_26 
     #define LEDB                  GPIO_NUM_25 
@@ -171,6 +171,7 @@
 
   enum _bips {
     LONGBIP = 1,
+    LOWBIP,
     BIP,
     BIPOK,
     BIPKO,
@@ -231,9 +232,7 @@
   #endif
 
   //Pseudobotones
-  //#define bMULTIRIEGO   0xFF03
   #define bGRUPO2   0xFF01
-  //#define bCONFIG   0xFF02
 
   //----------------  dependientes del HW (número, orden)  ----------------------------
     // lista de todos los botones de zonas de riego disponibles:
@@ -322,8 +321,8 @@
 
   struct S_BOTON {
     uint16_t   id;
-    int   estado;
-    int   ultimo_estado;
+    bool   estado;
+    bool   ultimo_estado;
     int   led;
     S_bFLAGS  flags;
     char  desc[20];
@@ -531,6 +530,7 @@
   bool loadConfigFile(const char*, Config_parm&);
   void loadDefaultSignal(uint);
   void longbip(int);
+  void lowbip(int);
   void mcpIinit(void);
   void mcpOinit(void);
   void memoryInfo(void);

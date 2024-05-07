@@ -132,7 +132,7 @@ void procesaBotones()
 {
   // almacenamos estado pulsador del encoder (para modificar comportamiento de otros botones)
   //NOTA: el encoderSW esta en estado HIGH en reposo y en estado LOW cuando esta pulsado
-  encoderSW = !digitalRead(bENCODER);
+  encoderSW = !digitalRead(ENCBOTON);
   //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multirriego
   if (multiSemaforo) multiSemaforo = false;
   else  boton = parseInputs(READ);  //vemos si algun boton ha cambiado de estado
@@ -236,24 +236,43 @@ void setupEstado()
   statusError(E1);
 }
 
-
+//  TODO pendiente de decidir que botones se usan y cambiar codigo y msgs aqui y en setupRedWM
 /**---------------------------------------------------------------
- * verificamos si encoderSW esta pulsado (estado OFF) y selector de multirriego esta en:
+ * verificamos si STOP y encoderSW esta pulsado (estado OFF)  y selector de multirriego esta en:
  *    - Grupo1 (arriba) --> en ese caso cargamos los parametros del fichero de configuracion por defecto
  *    - Grupo3 (abajo) --> en ese caso borramos red wifi almacenada en el ESP8266
  */
 void setupInit(void) {
-  LOG_TRACE("");
-  if (!digitalRead(bENCODER)) {
-    if (testButton(bGRUPO1,ON)) {
-      initFlags.initParm = true;
-      LOG_WARN("encoderSW pulsado y multirriego en GRUPO1  --> flag de load default PARM true");
-      loadDefaultSignal(6);
-    }
-    if (testButton(bGRUPO3,ON)) {
-      initFlags.initWifi = true;
-      LOG_WARN("encoderSW pulsado y multirriego en GRUPO3  --> flag de init WIFI true");
-      wifiClearSignal(6);
+
+  if (!digitalRead(ENCBOTON) && testButton(bSTOP,ON)) {
+    LOG_TRACE("en opciones setupInit");
+    lcd.infoclear("       Pulse:");
+    lcd.info("zona1 > load DEFAULT",2);
+    lcd.info("zona4 > erase WIFI",3);
+    lcd.info("EXIT -> release STOP",4);
+    while (1) {
+      boton = parseInputs(READ);
+      if(boton == NULL) continue;
+      Serial.printf("parseImputs devuelve: boton->id %x  boton->estado %d \n", boton->id ,boton->estado);
+      
+      if(boton->id == bSTOP && !boton->estado ) break;
+      
+      if (boton->id == bZONA1) 
+      {
+        initFlags.initParm = true;
+        LOG_WARN("pulsado ZONA1  --> flag de load default PARM true");
+        lcd.infoclear("load default PARM",1,BIPOK);
+        loadDefaultSignal(6);
+        break;
+      }
+      if (boton->id == bZONA4) 
+      {
+        initFlags.initWifi = true;
+        LOG_WARN("pulsado ZONA4  --> flag de init WIFI true");
+        lcd.infoclear("clear WIFI",1,BIPOK);
+        wifiClearSignal(6);
+        break;
+      }
     }
   }
 };
@@ -342,7 +361,7 @@ void procesaBotonPause(void)
           if(!encoderSW) { //pasamos a modo Configuracion
             setEstado(CONFIGURANDO);
             configure->start();
-            longbip(1);
+            lowbip(1);
             ledConf(ON);
             LOG_INFO("Stop + hold PAUSA --> modo ConF()");
             boton = NULL;
@@ -351,7 +370,8 @@ void procesaBotonPause(void)
           }
           else {   //si esta pulsado encoderSW hacemos un soft reset
             LOG_WARN("Stop + encoderSW + PAUSA --> Reset.....");
-            longbip(3);
+            lcd.infoclear(">>  REINICIANDO  <<", NOBLINK, LOWBIP, 1);
+            delay(2000);
             ESP.restart();  // Hard RESET: ESP.reset()
           }
         }
@@ -426,7 +446,7 @@ bool procesaBotonMultiriego(void)
         snprintf(buff, MAXBUFF, "%d/%02d %d:%02d (%d:%02d)", day(t1), month(t1), hour(t1), minute(t1), hour(t2), minute(t2));
         lcd.info(buff,4);
       }
-      else lcd.info("  > sin datos <",4);
+      else lcd.info("   > sin datos <",4);
       displayGrupo(multi.serie, *multi.size);
       LOG_DEBUG("en MULTIRRIEGO + encoderSW, display de grupo:", multi.desc,"tamaño:", *multi.size );
       delay(MSGDISPLAYMILLIS*3);
@@ -449,7 +469,7 @@ bool procesaBotonMultiriego(void)
       time_t t = CE.toLocal(utc,&tcr);
       LOG_DEBUG("Grupo:", n_grupo, "time", t);
       lastGrupos[n_grupo-1].inicio = t;
-      #ifdef DEBUG3
+      #ifdef EXTRADEBUG2
           for(uint i=0;i<NUMZONAS;i++) {
                 LOG_DEBUG("[ULTIMOSRIEGOS] zona:", i+1, "time:",lastRiegos[i]);
             }
@@ -543,10 +563,9 @@ void procesaEstadoConfigurando()
                 webServerAct = true;
                 ledConf(OFF);
                 lcd.infoclear("OTA Webserver act", DEFAULTBLINK, BIPOK);
-                //snprintf(buff, MAXBUFF, "\"%s.local:%d\"", WiFi.getHostname(), wsport);
-                snprintf(buff, MAXBUFF, "\"%s.local:8080\"", WiFi.getHostname());
+                snprintf(buff, MAXBUFF, "\"%s.local:%d\"", WiFi.getHostname(), WSPORT);
                 lcd.info(buff, 3);
-                snprintf(buff, MAXBUFF, "%s:8080", WiFi.localIP().toString());
+                snprintf(buff, MAXBUFF, "%s:%d" , WiFi.localIP().toString(), WSPORT);
                 lcd.info(buff,4);
                 delay(MSGDISPLAYMILLIS);
               }
@@ -715,7 +734,7 @@ void procesaEstadoError(void)
   //Si estamos en ERROR y pulsamos o liberamos STOP, reseteamos, pero antes intentamos parar riegos
     lcd.infoclear("ERROR+STOP-> Reset..",3);
     LOG_WARN("ERROR + STOP --> Reset.....");
-    longbip(3);
+    lowbip(1);
     if(checkWifi()) stopAllRiego();
     delay(3000);
     ESP.restart();  
@@ -870,7 +889,7 @@ void setEstado(uint8_t estado, int bnum)
     return;
   }
   if(estado == STOP) {
-    lcd.infoclear("STOP", NOBLINK, LONGBIP, bnum);
+    lcd.infoclear("STOP", NOBLINK, LOWBIP, bnum);
     return;
   }
 }
@@ -1122,7 +1141,7 @@ bool initRiego(uint16_t id)
   time_t t = CE.toLocal(utc,&tcr);
   LOG_DEBUG("actualizo lastriegos bIndex:", bIndex, "zIndex:", zIndex);
   lastRiegos[zIndex] = t;
-      #ifdef DEBUG3
+      #ifdef EXTRADEBUG2
           for(uint i=0;i<NUMZONAS;i++) {
                 LOG_DEBUG("[ULTIMOSRIEGOS] zona:", i+1, "time:",lastRiegos[i]);
             }
@@ -1229,8 +1248,16 @@ void longbip(int veces)
   }
 }
 
+void lowbip(int veces)
+{
+  LOG_TRACE("LOWBIP ", veces);
+  for (int i=0; i<veces;i++) {
+    mitone(BUZZER, NOTE_A5, 650);
+    mitone(BUZZER, 0, 100);
+  }
+}
+
 void beep(int note, int duration){
-  //mitone(BUZZER, note, duration);
   // we only play the note for 90% of the duration, leaving 10% as a pause
   mitone(BUZZER, note, duration*0.9);
   delay(duration); // espera a que acabe la nota antes de enviar la siguiente
@@ -1652,7 +1679,7 @@ void setupParm()
     if(bRC) {
       LOG_WARN("carga parametros por defecto OK");
       //señala la carga parametros por defecto OK
-      lcd.infoclear("load DEFAULT", DEFAULTBLINK, BIPOK);
+      lcd.infoclear("load DEFAULT parm OK", DEFAULTBLINK, BIPOK);
       delay(MSGDISPLAYMILLIS);
     }  
     else LOG_ERROR(" **  [ERROR] cargando parametros por defecto");

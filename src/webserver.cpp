@@ -43,8 +43,7 @@
    #define TIMEZONE "CET-1CEST,M3.5.0,M10.5.0/3"
 
 
-   //const char* host = "ardomo";
-   int wsport = 8080;
+   //int wsport = 8080;
    const char* update_path = "/$update";
    const char* update_username = "admin";
    const char* update_password = "admin";
@@ -57,7 +56,7 @@
       #define TRACE2(...)           // TRACE2 output simplified, can be deactivated here
    #endif 
 
-    WebServer wserver(wsport);
+    WebServer wserver(WSPORT);
     HTTPUpdateServer httpUpdater(httpUpdateDebug);  
     // actualmente HTTPUpdateServer no soporta LittleFS por lo que la carga del file system falla con:
     //  "Update error: Bad Size Given"
@@ -302,11 +301,11 @@ protected:
       else LOG_INFO("mDNS iniciado");
       httpUpdater.setup(&wserver, update_path, update_username, update_password);
       defWebpages();
-      MDNS.addService("http", "tcp", wsport);
+      MDNS.addService("http", "tcp", WSPORT);
       //MDNS.announce();   no es necesario ya con la nueva libreria
       wserver.begin();
       LOG_INFO("[WS] HTTPUpdateServer ready!");
-      Serial.printf("[WS]    --> Open http://%s.local:%d%s in your browser and login with username '%s' and password '%s'\n\n", WiFi.getHostname(), wsport, update_path, update_username, update_password);
+      Serial.printf("[WS]    --> Open http://%s.local:%d%s in your browser and login with username '%s' and password '%s'\n\n", WiFi.getHostname(), WSPORT, update_path, update_username, update_password);
       TRACE2("hostname=%s\n", WiFi.getHostname());
    }
 

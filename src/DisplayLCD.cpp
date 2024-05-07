@@ -191,6 +191,7 @@ void DisplayLCD::infoclear(const char *info, int dnum, int btype, int bnum) {
     setCursor(0, 0);
     lcdDisp.print(info);
       if (btype == LONGBIP) longbip(bnum);
+      if (btype == LOWBIP) lowbip(bnum);
       if (btype == BIP) bip(bnum);
       if (btype == BIPOK) bipOK();
       if (btype == BIPKO) bipKO();

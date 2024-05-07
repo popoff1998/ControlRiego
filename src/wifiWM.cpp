@@ -50,7 +50,7 @@ void configModeCallback (WiFiManager *myWiFiManager) {
   ledPWM(LEDG,OFF);
   // Empezamos el temporizador que hará parpadear el LED indicador de AP
   tic_APLed.attach(0.5, parpadeoLedAP);
-  lcd.infoclear("   modo -AP- :", DEFAULTBLINK, LONGBIP, 1); //lo señalamos en display
+  lcd.infoclear("   modo -AP- :", DEFAULTBLINK, LOWBIP, 1); //lo señalamos en display
   lcd.info("\"Ardomo\" activado", 3);
 }
 
@@ -67,7 +67,7 @@ void saveParamCallback()
 void preOtaUpdateCallback()
 {
   LOG_INFO("[CALLBACK] setPreOtaUpdateCallback fired");
-  lcd.infoclear("OTA in progress", DEFAULTBLINK, LONGBIP, 1);
+  lcd.infoclear("OTA in progress", DEFAULTBLINK, LOWBIP, 1);
 }
 
 //evento llamado en caso de conexion de la wifi
@@ -101,7 +101,7 @@ void setupRedWM(Config_parm &config)
     wm.resetSettings(); //borra wifi guardada
     //delay(300);
     LOG_INFO("encoderSW pulsado y multirriego en GRUPO3 --> borramos red WIFI");
-    lcd.infoclear("red WIFI borrada", DEFAULTBLINK, LONGBIP, 1); //señala borrado wifi
+    lcd.infoclear("red WIFI borrada", DEFAULTBLINK, LOWBIP, 1); //señala borrado wifi
   }
   // explicitly set mode, esp defaults to STA+AP   
   WiFi.mode(WIFI_STA);

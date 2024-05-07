@@ -129,7 +129,8 @@ void initGPIOs()
   pinMode(LEDR, OUTPUT);
   pinMode(LEDG, OUTPUT);
   pinMode(LEDB, OUTPUT);
-  pinMode(bENCODER, INPUT);
+  pinMode(BUZZER, OUTPUT);
+  pinMode(ENCBOTON, INPUT);
 }
 
 // enciende o apaga un led controlado por PWM
