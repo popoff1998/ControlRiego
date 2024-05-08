@@ -222,9 +222,10 @@
     //          = 0x0080,  // A7  (NO USAR)
     bZONA8      = 0x0100,  // B0
     bZONA9      = 0x0200,  // B1  
-    bGRUPO1     = 0x0400,  // B2
-    bMULTIRIEGO = 0x0800,  // B3
-    bGRUPO3     = 0x1000,  // B4
+    bGRUPO1     = 0x0400,  // B2  (grupos deben ser consecutivos)
+    bGRUPO2     = 0x0800,  // B3  (grupos deben ser consecutivos)
+    //bMULTIRIEGO = 0x0800,  // B3
+    bGRUPO3     = 0x1000,  // B4  (grupos deben ser consecutivos)
     bPAUSE      = 0x2000,  // B5
     bSTOP       = 0x4000,  // B6
     //          = 0x8000,  // B7  (NO USAR)
@@ -232,7 +233,7 @@
   #endif
 
   //Pseudobotones
-  #define bGRUPO2   0xFF01
+  //#define bGRUPO2   0xFF01
 
   //----------------  dependientes del HW (número, orden)  ----------------------------
     // lista de todos los botones de zonas de riego disponibles:
@@ -359,10 +360,13 @@
       {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ZONA7",       0},
       {bZONA8  ,    0,  0,  lZONA8  ,    ENABLED | ACTION,                 "ZONA8",       0},
       {bZONA9,      0,  0,  0,           disabled,                         "spare9",      0},
-      {bMULTIRIEGO, 0,  0,  0,           ENABLED | ACTION,                 "MULTIRIEGO",  0},
-      {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO1",      0},
-      {bGRUPO2  ,   0,  0,  lGRUPO2  ,   disabled,                         "GRUPO2",      0},
-      {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO3",      0},
+      //{bMULTIRIEGO, 0,  0,  0,           ENABLED | ACTION,                 "MULTIRIEGO",  0},
+      //{bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO1",      0},
+      //{bGRUPO2  ,   0,  0,  lGRUPO2  ,   disabled,                         "GRUPO2",      0},
+      //{bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO3",      0},
+      {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ACTION,                 "GRUPO1",      0},
+      {bGRUPO2  ,   0,  0,  lGRUPO2  ,   ENABLED | ACTION,                 "GRUPO2",      0},
+      {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ACTION,                 "GRUPO3",      0},
       {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE",       0},
       {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",        0}
     };
@@ -507,7 +511,7 @@
   void filesInfo(void);
   void flagVerificaciones(void);
   int  getFactor(uint16_t);
-  uint16_t getMultiStatus(void);
+  //uint16_t getMultiStatus(void);
   String *httpGetDomoticz(String *);
   void initClock(void);
   void initEncoder(void);

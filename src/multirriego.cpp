@@ -1,19 +1,19 @@
 
 #include "Control.h"
 
-//devuelve posicion del selector de multirriego
+/*devuelve posicion del selector de multirriego
 uint16_t getMultiStatus()
 {
   if (Boton[bID2bIndex(bGRUPO1)].estado) return bGRUPO1;
   if (Boton[bID2bIndex(bGRUPO3)].estado) return bGRUPO3;
   return bGRUPO2  ;
-}
+}*/
 
 //asigna en multi valores o apuntadores de/a config del grupo cuyo id se recibe
 // y devuelve el numero del grupo (1,2,3) , 0 en caso de que no exista
 int setMultibyId(uint16_t id, Config_parm &cfg)
 {
-  LOG_TRACE("setMultibyId - recibe id= 0x",DebugLogBase::HEX,id);
+  LOG_DEBUG("[setMultibyId] recibe id= 0x",DebugLogBase::HEX,id);
   //log_i("recibe id=x%x", id);
 
   for(int i=0; i<NUMGRUPOS; i++)
@@ -31,6 +31,7 @@ int setMultibyId(uint16_t id, Config_parm &cfg)
           Serial.println(Boton[cfg.groupConfig[i].serie[j]-1].id,HEX); //id(boton) asociado a la zona
         #endif  
       }
+      LOG_DEBUG("[setMultibyId] devuelve GRUPO", i+1);
       return i+1;
     }
   }
