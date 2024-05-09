@@ -159,7 +159,7 @@ void procesaBotones()
       procesaBotonStop();
       break;
     //case bMULTIRIEGO:
-    case bGRUPO1 ... bGRUPO3:
+    case bGRUPO1 ... bGRUPO4:
       if (!procesaBotonMultiriego()) break;
       //Aqui no hay break para que comience multirriego por default
     default:
@@ -552,7 +552,7 @@ void procesaEstadoConfigurando()
       int zIndex = bID2zIndex(boton->id);
       switch(boton->id) {
         //case bMULTIRIEGO:
-        case bGRUPO1 ... bGRUPO3:
+        case bGRUPO1 ... bGRUPO4:
           if (configure->configuring()) return; //si ya estamos configurando algo salimos
           n_grupo = setMultibyId(boton->id, config);
           if (encoderSW) {  //encoderSW pulsado: actuamos segun grupo multirriego pulsado
@@ -1746,6 +1746,7 @@ bool setupConfig(const char *p_filename, Config_parm &cfg)
   void printMulti()
   {
       Serial.println(F("TRACE: in printMulti"));
+      if(multi.id == NULL) return;  // evita guru meditation si no se ha apuntado a ningun grupo
       Serial.printf("MULTI Boton_id x%x: size=%d (%s)\n", *multi.id, *multi.size, multi.desc);
       for(int j = 0; j < *multi.size; j++) {
         Serial.printf("  Zona  id: x%x \n", multi.serie[j]);

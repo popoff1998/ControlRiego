@@ -1,5 +1,5 @@
 {
-  "numzonas": 8,	
+  "numzonas": 9,	
   "botones": [
     {
       "zona": 1,
@@ -36,10 +36,15 @@
       "idx": 0,
       "nombre": "ZONA7"
     },
-	{
+    {
       "zona": 8,
       "idx": 0,
       "nombre": "ZONA8"
+    },
+	{
+      "zona": 9,
+      "idx": 0,
+      "nombre": "ZONA9"
     }
 
   ],
@@ -52,7 +57,7 @@
     "port": "xxxx"
     },
   "ntpServer": "es.pool.ntp.org",
-  "numgroups": 3,
+  "numgroups": 4,
   "grupos": [
     {
       "grupo": 1,
@@ -71,6 +76,12 @@
       "desc": "GRUPO3",
       "size": 1,
       "zonas": [3]
+    },
+    {
+      "grupo": 4,
+      "desc": "GRUPO4",
+      "size": 1,
+      "zonas": [4]
     }
   ]  
 }

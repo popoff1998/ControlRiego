@@ -20,7 +20,7 @@ bool loadConfigFile(const char *p_filename, Config_parm &cfg)
   }
   LOG_INFO("\t tamaño de", p_filename, "-->", size, "bytes");
 
-  DynamicJsonDocument doc(1536);
+  DynamicJsonDocument doc(3072);
   DeserializationError error = deserializeJson(doc, file);
 
   if (error) {
@@ -97,7 +97,7 @@ bool saveConfigFile(const char *p_filename, Config_parm &cfg)
     LOG_ERROR("Failed to open file for writing");
     return false;
   }
-  DynamicJsonDocument doc(2048);
+  DynamicJsonDocument doc(3072);
   //--------------  procesa botones (IDX)  --------------------------------------------------
   doc["numzonas"] = NUMZONAS;
   doc["botones"].as<JsonArray>();
@@ -197,7 +197,7 @@ void printParms(Config_parm &cfg) {
   //--------------  imprime array botones (IDX)  --------------------------------------------------
   Serial.printf("\tnumzonas= %d \n", cfg.n_Zonas);
   Serial.println(F("\tBotones: "));
-  for(int i=0; i<7; i++) {
+  for(int i=0; i<cfg.n_Zonas; i++) {
     Serial.printf("\t\t Zona%d: IDX=%d (%s) l=%d \n", i+1, cfg.botonConfig[i].idx, cfg.botonConfig[i].desc, sizeof(cfg.botonConfig[i].desc));
   }
   //--------------  imprime parametro individuales   ----------------------------------------
