@@ -1,13 +1,16 @@
 
 #include "Control.h"
 
-/*devuelve posicion del selector de multirriego
-uint16_t getMultiStatus()
-{
-  if (Boton[bID2bIndex(bGRUPO1)].estado) return bGRUPO1;
-  if (Boton[bID2bIndex(bGRUPO3)].estado) return bGRUPO3;
-  return bGRUPO2  ;
-}*/
+#ifdef M3GRP
+  // devuelve posicion del selector de multirriego
+  uint16_t getMultiStatus()
+  {
+    if (Boton[bID2bIndex(bGRUPO1)].estado) return bGRUPO1;
+    if (Boton[bID2bIndex(bGRUPO2)].estado) return bGRUPO2;
+    if (Boton[bID2bIndex(bGRUPO3)].estado) return bGRUPO3;
+    return bGRUPO2  ;
+  }
+#endif
 
 //asigna en multi valores o apuntadores de/a config del grupo cuyo id se recibe
 // y devuelve el numero del grupo (1,2,3) , 0 en caso de que no exista
@@ -36,6 +39,7 @@ int setMultibyId(uint16_t id, Config_parm &cfg)
     }
   }
   LOG_ERROR(" ** [ERROR] setMultibyID devuelve -not found-");
+  statusError(E0); 
   return 0;
 }
 

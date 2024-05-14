@@ -82,7 +82,7 @@ void setup()
     if (saveConfigFile(parmFile, config))  bipOK();
     saveConfig = false;
   }
-  //delay(2000);
+  delay(1000);
   //Ponemos en hora
   timeClient.begin();
   delay(500);
@@ -158,8 +158,7 @@ void procesaBotones()
     case bSTOP:
       procesaBotonStop();
       break;
-    //case bMULTIRIEGO:
-    case bGRUPO1 ... bGRUPO4:
+    case MULTIRRIEGO:
       if (!procesaBotonMultiriego()) break;
       //Aqui no hay break para que comience multirriego por default
     default:
@@ -239,50 +238,71 @@ void setupEstado()
   statusError(E1);
 }
 
-//  TODO pendiente de decidir que botones se usan y cambiar codigo y msgs aqui y en setupRedWM
-/**---------------------------------------------------------------
- * Verificamos si STOP y encoderSW esta pulsado (estado OFF) en el arranque,
- * en ese caso se muestra pantalla de opciones.
- * Pulsando entonces:
- *    - boton Grupo1 --> cargamos los parametros del fichero de configuracion por defecto
- *    - boton Grupo3 --> borramos red wifi almacenada en el ESP32
- *    - liberando boton de STOP  --> salimos sin hacer nada y continua la inicializacion
- */
-void setupInit(void) {
+#ifdef GRP4
+  /**---------------------------------------------------------------
+   * Verificamos si STOP y encoderSW esta pulsado (estado OFF) en el arranque,
+   * en ese caso se muestra pantalla de opciones.
+   * Pulsando entonces:
+   *    - boton Grupo1 --> cargamos los parametros del fichero de configuracion por defecto
+   *    - boton Grupo3 --> borramos red wifi almacenada en el ESP32
+   *    - liberando boton de STOP  --> salimos sin hacer nada y continua la inicializacion
+   */
+  void setupInit(void) {
 
-  if (!digitalRead(ENCBOTON) && testButton(bSTOP,ON)) {
-    LOG_TRACE("en opciones setupInit");
-    lcd.infoclear("       Pulse:");
-    lcd.info("grupo1 >load DEFAULT",2);
-    lcd.info("grupo3 >erase WIFI",3);
-    lcd.info("EXIT -> release STOP",4);
-    while (1) {
-      boton = parseInputs(READ);
-      if(boton == NULL) continue;
-      Serial.printf("parseImputs devuelve: boton->id %x  boton->estado %d \n", boton->id ,boton->estado);
-      
-      if(boton->id == bSTOP && !boton->estado ) break;
-      
-      if (boton->id == bGRUPO1) 
-      {
-        initFlags.initParm = true;
-        LOG_WARN("pulsado GRUPO1  --> flag de load default PARM true");
-        lcd.infoclear("load default PARM",1,BIPOK);
-        loadDefaultSignal(6);
-        break;
-      }
-      if (boton->id == bGRUPO3) 
-      {
-        initFlags.initWifi = true;
-        LOG_WARN("pulsado GRUPO3  --> flag de init WIFI true");
-        lcd.infoclear("clear WIFI",1,BIPOK);
-        wifiClearSignal(6);
-        break;
+    if (!digitalRead(ENCBOTON) && testButton(bSTOP,ON)) {
+      LOG_TRACE("en opciones setupInit");
+      lcd.infoclear("       Pulse:");
+      lcd.info("grupo1 >load DEFAULT",2);
+      lcd.info("grupo3 >erase WIFI",3);
+      lcd.info("EXIT -> release STOP",4);
+      while (1) {
+        boton = parseInputs(READ);
+        if(boton == NULL) continue;
+        Serial.printf("parseImputs devuelve: boton->id %x  boton->estado %d \n", boton->id ,boton->estado);
+        
+        if(boton->id == bSTOP && !boton->estado ) break;
+        
+        if (boton->id == bGRUPO1) 
+        {
+          initFlags.initParm = true;
+          LOG_WARN("pulsado GRUPO1  --> flag de load default PARM true");
+          lcd.infoclear("load default PARM",1,BIPOK);
+          loadDefaultSignal(6);
+          break;
+        }
+        if (boton->id == bGRUPO3) 
+        {
+          initFlags.initWifi = true;
+          LOG_WARN("pulsado GRUPO3  --> flag de init WIFI true");
+          lcd.infoclear("clear WIFI",1,BIPOK);
+          wifiClearSignal(6);
+          break;
+        }
       }
     }
-  }
-};
-
+  };
+#else // M3GRP
+  /**---------------------------------------------------------------
+   * verificamos si encoderSW esta pulsado (estado OFF) y selector de multirriego esta en:
+   *    - Grupo1 (arriba) --> en ese caso cargamos los parametros del fichero de configuracion por defecto
+   *    - Grupo3 (abajo) --> en ese caso borramos red wifi almacenada en el ESP8266
+   */
+  void setupInit(void) {
+    LOG_TRACE("");
+    if (!digitalRead(ENCBOTON)) {
+      if (testButton(bGRUPO1,ON)) {
+        initFlags.initParm = true;
+        LOG_WARN("encoderSW pulsado y multirriego en GRUPO1  --> flag de load default PARM true");
+        loadDefaultSignal(6);
+      }
+      if (testButton(bGRUPO3,ON)) {
+        initFlags.initWifi = true;
+        LOG_WARN("encoderSW pulsado y multirriego en GRUPO3  --> flag de init WIFI true");
+        wifiClearSignal(6);
+      }
+    }
+  };
+#endif // GRP4
 
 void procesaBotonPause(void)
 {
@@ -430,12 +450,14 @@ void procesaBotonStop(void)
 bool procesaBotonMultiriego(void)
 {
   if (Estado.estado == STANDBY && !multirriego) {
-    //int n_grupo = setMultibyId(getMultiStatus(), config);
-    int n_grupo = setMultibyId(boton->id, config);
-    if (n_grupo == 0) {  //error en setup de apuntadores 
-      statusError(E0); 
-      return false;
-    }  
+    int n_grupo;
+    #ifdef GRP4
+      n_grupo = setMultibyId(boton->id, config);
+    #endif
+    #ifdef M3GRP
+      n_grupo = setMultibyId(getMultiStatus(), config);
+    #endif
+    if (n_grupo == 0) return false; //error en setup de apuntadores 
     LOG_DEBUG("en MULTIRRIEGO, setMultibyId devuelve: Grupo", n_grupo,"(",multi.desc,") multi.size=" , *multi.size);
     for (int k=0; k < *multi.size; k++) LOG_DEBUG( "       multi.serie: x" , multi.serie[k]);
     LOG_DEBUG("en MULTIRRIEGO, encoderSW status  :", encoderSW );
@@ -551,10 +573,15 @@ void procesaEstadoConfigurando()
       int bIndex = bID2bIndex(boton->id);
       int zIndex = bID2zIndex(boton->id);
       switch(boton->id) {
-        //case bMULTIRIEGO:
-        case bGRUPO1 ... bGRUPO4:
+        case MULTIRRIEGO:
           if (configure->configuring()) return; //si ya estamos configurando algo salimos
-          n_grupo = setMultibyId(boton->id, config);
+          #ifdef GRP4
+            n_grupo = setMultibyId(boton->id, config);
+          #endif
+          #ifdef M3GRP
+            n_grupo = setMultibyId(getMultiStatus(), config);
+          #endif
+          if (n_grupo == 0) return; //error en setup de apuntadores 
           if (encoderSW) {  //encoderSW pulsado: actuamos segun grupo multirriego pulsado
             if (n_grupo == 1) {  // copiamos fichero parametros en fichero default
               if (copyConfigFile(parmFile, defaultFile)) {
@@ -799,8 +826,14 @@ void procesaEstadoTerminando(void)
     else {
       utc = timeClient.getEpochTime();
       time_t t = CE.toLocal(utc,&tcr);
-      //int n_grupo = setMultibyId(getMultiStatus(), config);
-      int n_grupo = setMultibyId(*multi.id, config);   // ultimo boton de multirriego pulsado
+      int n_grupo;
+      #ifdef GRP4
+        n_grupo = setMultibyId(*multi.id, config);   // ultimo boton de multirriego pulsado
+      #endif
+      #ifdef M3GRP
+        n_grupo = setMultibyId(getMultiStatus(), config);  // posicion del selector multirriego
+      #endif
+      if (n_grupo == 0) return; //error en setup de apuntadores 
       LOG_DEBUG("Grupo:", n_grupo, "time", t);
       lastGrupos[n_grupo-1].final = t;
       int msgl = snprintf(buff, MAXBUFF, "%s finalizado", multi.desc);
@@ -1264,7 +1297,7 @@ void lowbip(int veces)
 {
   LOG_TRACE("LOWBIP ", veces);
   for (int i=0; i<veces;i++) {
-    mitone(BUZZER, NOTE_A5, 650);
+    mitone(BUZZER, NOTE_A4, 500);
     mitone(BUZZER, 0, 100);
   }
 }
