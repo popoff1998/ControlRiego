@@ -250,7 +250,7 @@ void setupEstado()
  */
 void setupInit(void) {
 
-  if (!digitalRead(ENCBOTON) && testButton(bSTOP,ON)) {
+  if (!digitalRead(ENCBOTON) && digitalRead(STOPBOTON)) {
     LOG_TRACE("en opciones setupInit");
     lcd.infoclear("       Pulse:");
     lcd.info("grupo1 >load DEFAULT",2);

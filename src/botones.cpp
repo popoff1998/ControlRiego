@@ -29,7 +29,7 @@ void mcpOinit() {
 	/* void portMode(port, directions, pullups, inverted); */
 
     mcpO.portMode(MCP23017Port::A, 0x00);  // output
-    mcpO.portMode(MCP23017Port::B, 0b00001100, 0b00001100, 0b00001100);  // output (salvo B2-B3: input, pull-up, polaridad invertida)
+    mcpO.portMode(MCP23017Port::B, 0x00);  // output
 
 }
 
@@ -131,6 +131,8 @@ void initGPIOs()
   pinMode(LEDB, OUTPUT);
   pinMode(BUZZER, OUTPUT);
   pinMode(ENCBOTON, INPUT);
+  pinMode(PAUSEBOTON, INPUT_PULLUP);
+  pinMode(STOPBOTON, INPUT_PULLUP);
 }
 
 // enciende o apaga un led controlado por PWM
@@ -176,13 +178,12 @@ bool ledStatusId(int ledID)
 
 uint16_t readInputs()
 {
-  uint8_t    alto, bajo, altoMCPO;
+  uint8_t    alto, bajo, pausebtStatus, stopbtStatus;
   bajo = mcpI.readPort(MCP23017Port::A);
   alto = mcpI.readPort(MCP23017Port::B);
-  //**  los bits 11 y 12 correspondientes a bPAUSE y bSTOP leidos de mcpO  
+  //**  las lecturas de GPIO23 y GPIO35 correspondientes a bPAUSE y bSTOP  
   // se deben convertir e integrar como bits 15 y 16 con los leidos de mcpI
-  altoMCPO = mcpO.readPort(MCP23017Port::B);
-  alto = alto | ((altoMCPO << 4) & 0b11000000);
+  alto = alto | (!digitalRead(STOPBOTON) << 7) | (!digitalRead(PAUSEBOTON) << 6);
   return bajo | (alto << 8);
 }
 

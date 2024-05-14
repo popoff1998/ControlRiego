@@ -80,8 +80,8 @@
        
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.0.2a"
-  //   PAUSE y STOP conectados a MCPO                          
+                            #define VERSION  "3.0.2b"
+  //   PAUSE y STOP conectados a GPIOs                          
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -134,6 +134,8 @@
     #define I2C_SDA1              GPIO_NUM_16
     #define I2C_SCL1              GPIO_NUM_17
     #define BUZZER                GPIO_NUM_4
+    #define PAUSEBOTON            GPIO_NUM_23
+    #define STOPBOTON             GPIO_NUM_5
     #define lZONA1                1             // mcpO GPA0
     #define lZONA2                2             // mcpO GPA1
     #define lZONA3                3             // mcpO GPA2
@@ -227,8 +229,8 @@
     bGRUPO2     = 0x0800,  // mcpI B3  (grupos deben ser consecutivos)
     bGRUPO3     = 0x1000,  // mcpI B4  (grupos deben ser consecutivos)
     bGRUPO4     = 0x2000,  // mcpI B5
-    bPAUSE      = 0x4000,  // mcpO B2  (OJO conectados a mcpO se integran como bits 15 y 16 de readInputs)
-    bSTOP       = 0x8000,  // mcpO B3  (OJO conectados a mcpO se integran como bits 15 y 16 de readInputs)
+    bPAUSE      = 0x4000,  // GPIO23  (OJO conectado a GPIO23 se integra como bit 15 de readInputs)
+    bSTOP       = 0x8000,  // GPIO35  (OJO conectado a GPIO35 se integra como bit 16 de readInputs)
     //          = 0x8000,  // mcpI B7  (NO USAR para inputs)
   };
   #endif
@@ -369,6 +371,11 @@
       {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",        0}
     };
     int NUM_S_BOTON = sizeof(Boton)/sizeof(Boton[0]);
+
+      //{bMULTIRIEGO, 0,  0,  0,           ENABLED | ACTION,                 "MULTIRIEGO",  0},
+      //{bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO1",      0},
+      //{bGRUPO2  ,   0,  0,  lGRUPO2  ,   disabled,                         "GRUPO2",      0},
+      //{bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO3",      0},
 
     S_MULTI multi;  //estructura con variables del multigrupo activo
     S_initFlags initFlags ;
