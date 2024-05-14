@@ -46,7 +46,10 @@ HECHOS
 - si al lanzar o detener un riego Domoticz informa de error, se reintenta varias veces antes de dar error V2.5
 - mejoras en menu de servicio (webserver): posibilida de ver, borrar y actualizar ficheros individuales del file system V2.5
 **Version 3:**
-- adaptacion para ESP32 y expansores I/O MCP23017
-- cambio libreria encoder por una que soporta interrupciones
-- sustitucion display led de 7 segmentos por pantalla LCD de 20 caracteres x 4 lineas (bus I2C)
+- adaptacion para ESP32 y expansores I/O MCP23017  V3.0
+- cambio libreria encoder por una que soporta interrupciones  V3.0
+- sustitucion display led de 7 segmentos por pantalla LCD de 20 caracteres x 4 lineas (bus I2C)  V3.0
+- opciones de inicio por pantalla V3.0.1
+- ampliacion a 9 zonas / 4 grupos V3.0.2
+- botones PAUSE y STOP conectados a GPIOs V3.0.2b
 
