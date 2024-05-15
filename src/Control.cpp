@@ -79,10 +79,10 @@ void setup()
   //Para la red
   setupRedWM(config);
   if (saveConfig) {
-    if (saveConfigFile(parmFile, config))  bipOK();;
+    if (saveConfigFile(parmFile, config))  bipOK();
     saveConfig = false;
   }
-  delay(2000);
+  delay(1000);
   //Ponemos en hora
   timeClient.begin();
   delay(500);
@@ -158,7 +158,7 @@ void procesaBotones()
     case bSTOP:
       procesaBotonStop();
       break;
-    case bMULTIRIEGO:
+    case MULTIRRIEGO:
       if (!procesaBotonMultiriego()) break;
       //Aqui no hay break para que comience multirriego por default
     default:
@@ -208,7 +208,9 @@ void setupEstado()
 {
   LOG_TRACE("");
   //inicializamos apuntador estructura multi (posicion del selector multirriego):
-  if(!setMultibyId(getMultiStatus(), config) || !config.initialized) {
+  //if(!setMultibyId(getMultiStatus(), config) || !config.initialized) {
+  // Verificamos que se han cargado parametros de configuracion correctamente  
+  if(!config.initialized) {
     statusError(E0);  //no se ha podido cargar parámetros de ficheros -> señalamos el error
   return;
   }
@@ -236,47 +238,71 @@ void setupEstado()
   statusError(E1);
 }
 
-//  TODO pendiente de decidir que botones se usan y cambiar codigo y msgs aqui y en setupRedWM
-/**---------------------------------------------------------------
- * verificamos si STOP y encoderSW esta pulsado (estado OFF)  y selector de multirriego esta en:
- *    - Grupo1 (arriba) --> en ese caso cargamos los parametros del fichero de configuracion por defecto
- *    - Grupo3 (abajo) --> en ese caso borramos red wifi almacenada en el ESP8266
- */
-void setupInit(void) {
+#ifdef GRP4
+  /**---------------------------------------------------------------
+   * Verificamos si STOP y encoderSW esta pulsado (estado OFF) en el arranque,
+   * en ese caso se muestra pantalla de opciones.
+   * Pulsando entonces:
+   *    - boton Grupo1 --> cargamos los parametros del fichero de configuracion por defecto
+   *    - boton Grupo3 --> borramos red wifi almacenada en el ESP32
+   *    - liberando boton de STOP  --> salimos sin hacer nada y continua la inicializacion
+   */
+  void setupInit(void) {
 
-  if (!digitalRead(ENCBOTON) && testButton(bSTOP,ON)) {
-    LOG_TRACE("en opciones setupInit");
-    lcd.infoclear("       Pulse:");
-    lcd.info("zona1 > load DEFAULT",2);
-    lcd.info("zona4 > erase WIFI",3);
-    lcd.info("EXIT -> release STOP",4);
-    while (1) {
-      boton = parseInputs(READ);
-      if(boton == NULL) continue;
-      Serial.printf("parseImputs devuelve: boton->id %x  boton->estado %d \n", boton->id ,boton->estado);
-      
-      if(boton->id == bSTOP && !boton->estado ) break;
-      
-      if (boton->id == bZONA1) 
-      {
-        initFlags.initParm = true;
-        LOG_WARN("pulsado ZONA1  --> flag de load default PARM true");
-        lcd.infoclear("load default PARM",1,BIPOK);
-        loadDefaultSignal(6);
-        break;
-      }
-      if (boton->id == bZONA4) 
-      {
-        initFlags.initWifi = true;
-        LOG_WARN("pulsado ZONA4  --> flag de init WIFI true");
-        lcd.infoclear("clear WIFI",1,BIPOK);
-        wifiClearSignal(6);
-        break;
+    if (!digitalRead(ENCBOTON) && testButton(bSTOP,ON)) {
+      LOG_TRACE("en opciones setupInit");
+      lcd.infoclear("       Pulse:");
+      lcd.info("grupo1 >load DEFAULT",2);
+      lcd.info("grupo3 >erase WIFI",3);
+      lcd.info("EXIT -> release STOP",4);
+      while (1) {
+        boton = parseInputs(READ);
+        if(boton == NULL) continue;
+        Serial.printf("parseImputs devuelve: boton->id %x  boton->estado %d \n", boton->id ,boton->estado);
+        
+        if(boton->id == bSTOP && !boton->estado ) break;
+        
+        if (boton->id == bGRUPO1) 
+        {
+          initFlags.initParm = true;
+          LOG_WARN("pulsado GRUPO1  --> flag de load default PARM true");
+          lcd.infoclear("load default PARM",1,BIPOK);
+          loadDefaultSignal(6);
+          break;
+        }
+        if (boton->id == bGRUPO3) 
+        {
+          initFlags.initWifi = true;
+          LOG_WARN("pulsado GRUPO3  --> flag de init WIFI true");
+          lcd.infoclear("clear WIFI",1,BIPOK);
+          wifiClearSignal(6);
+          break;
+        }
       }
     }
-  }
-};
-
+  };
+#else // M3GRP
+  /**---------------------------------------------------------------
+   * verificamos si encoderSW esta pulsado (estado OFF) y selector de multirriego esta en:
+   *    - Grupo1 (arriba) --> en ese caso cargamos los parametros del fichero de configuracion por defecto
+   *    - Grupo3 (abajo) --> en ese caso borramos red wifi almacenada en el ESP8266
+   */
+  void setupInit(void) {
+    LOG_TRACE("");
+    if (!digitalRead(ENCBOTON)) {
+      if (testButton(bGRUPO1,ON)) {
+        initFlags.initParm = true;
+        LOG_WARN("encoderSW pulsado y multirriego en GRUPO1  --> flag de load default PARM true");
+        loadDefaultSignal(6);
+      }
+      if (testButton(bGRUPO3,ON)) {
+        initFlags.initWifi = true;
+        LOG_WARN("encoderSW pulsado y multirriego en GRUPO3  --> flag de init WIFI true");
+        wifiClearSignal(6);
+      }
+    }
+  };
+#endif // GRP4
 
 void procesaBotonPause(void)
 {
@@ -424,17 +450,21 @@ void procesaBotonStop(void)
 bool procesaBotonMultiriego(void)
 {
   if (Estado.estado == STANDBY && !multirriego) {
-    int n_grupo = setMultibyId(getMultiStatus(), config);
-    if (n_grupo == 0) {  //error en setup de apuntadores 
-      statusError(E0); 
-      return false;
-    }  
+    int n_grupo;
+    #ifdef GRP4
+      n_grupo = setMultibyId(boton->id, config);
+    #endif
+    #ifdef M3GRP
+      n_grupo = setMultibyId(getMultiStatus(), config);
+    #endif
+    if (n_grupo == 0) return false; //error en setup de apuntadores 
     LOG_DEBUG("en MULTIRRIEGO, setMultibyId devuelve: Grupo", n_grupo,"(",multi.desc,") multi.size=" , *multi.size);
     for (int k=0; k < *multi.size; k++) LOG_DEBUG( "       multi.serie: x" , multi.serie[k]);
     LOG_DEBUG("en MULTIRRIEGO, encoderSW status  :", encoderSW );
     // si esta pulsado el boton del encoder --> solo hacemos encendido de los leds del grupo
     // y mostramos en el display la version del programa.
     if (encoderSW) {
+      LOG_DEBUG("en MULTIRRIEGO + encoderSW, display de grupo:", multi.desc,"tamaño:", *multi.size );
       snprintf(buff, MAXBUFF, "grupo: %s", multi.desc);
       lcd.infoclear(buff, 1);
       displayLCDGrupo(multi.zserie, *multi.size, 2);
@@ -448,7 +478,6 @@ bool procesaBotonMultiriego(void)
       }
       else lcd.info("   > sin datos <",4);
       displayGrupo(multi.serie, *multi.size);
-      LOG_DEBUG("en MULTIRRIEGO + encoderSW, display de grupo:", multi.desc,"tamaño:", *multi.size );
       delay(MSGDISPLAYMILLIS*3);
       setEstado(STANDBY);   //para que restaure pantalla
       //lcd.infoclear(nEstado[Estado.estado]);
@@ -544,10 +573,16 @@ void procesaEstadoConfigurando()
       int bIndex = bID2bIndex(boton->id);
       int zIndex = bID2zIndex(boton->id);
       switch(boton->id) {
-        case bMULTIRIEGO:
+        case MULTIRRIEGO:
           if (configure->configuring()) return; //si ya estamos configurando algo salimos
-          n_grupo = setMultibyId(getMultiStatus(), config);
-          if (encoderSW) {  //encoderSW pulsado: actuamos segun posicion selector multirriego
+          #ifdef GRP4
+            n_grupo = setMultibyId(boton->id, config);
+          #endif
+          #ifdef M3GRP
+            n_grupo = setMultibyId(getMultiStatus(), config);
+          #endif
+          if (n_grupo == 0) return; //error en setup de apuntadores 
+          if (encoderSW) {  //encoderSW pulsado: actuamos segun grupo multirriego pulsado
             if (n_grupo == 1) {  // copiamos fichero parametros en fichero default
               if (copyConfigFile(parmFile, defaultFile)) {
                 LOG_INFO("[ConF] salvado fichero de parametros actuales como DEFAULT");
@@ -571,7 +606,7 @@ void procesaEstadoConfigurando()
               }
             #endif 
             if (n_grupo == 3) {  // activamos AP y portal de configuracion (bloqueante)
-              LOG_INFO("[ConF] encoderSW + selector ABAJO: activamos AP y portal de configuracion");
+              LOG_INFO("[ConF] encoderSW + GRUPO3: activamos AP y portal de configuracion");
               ledConf(OFF);
               starConfigPortal(config);
               ledConf(ON);
@@ -791,7 +826,14 @@ void procesaEstadoTerminando(void)
     else {
       utc = timeClient.getEpochTime();
       time_t t = CE.toLocal(utc,&tcr);
-      int n_grupo = setMultibyId(getMultiStatus(), config);
+      int n_grupo;
+      #ifdef GRP4
+        n_grupo = setMultibyId(*multi.id, config);   // ultimo boton de multirriego pulsado
+      #endif
+      #ifdef M3GRP
+        n_grupo = setMultibyId(getMultiStatus(), config);  // posicion del selector multirriego
+      #endif
+      if (n_grupo == 0) return; //error en setup de apuntadores 
       LOG_DEBUG("Grupo:", n_grupo, "time", t);
       lastGrupos[n_grupo-1].final = t;
       int msgl = snprintf(buff, MAXBUFF, "%s finalizado", multi.desc);
@@ -1214,7 +1256,10 @@ bool stopAllRiego()
 {
   LOG_TRACE("");
   //Apago los leds de multirriego
-  led(Boton[bID2bIndex(*multi.id)].led,OFF);
+  //led(Boton[bID2bIndex(*multi.id)].led,OFF);
+  for(unsigned int i=0;i<NUMGRUPOS;i++) { 
+    led(Boton[bID2bIndex(GRUPOS[i])].led,OFF);
+  }
   //Apago los leds de riego y posible parpadeo
   tic_parpadeoLedZona.detach();
   for(unsigned int i=0;i<NUMZONAS;i++) { //paramos todas las zonas de riego
@@ -1252,7 +1297,7 @@ void lowbip(int veces)
 {
   LOG_TRACE("LOWBIP ", veces);
   for (int i=0; i<veces;i++) {
-    mitone(BUZZER, NOTE_A5, 650);
+    mitone(BUZZER, NOTE_A4, 500);
     mitone(BUZZER, 0, 100);
   }
 }
@@ -1734,6 +1779,7 @@ bool setupConfig(const char *p_filename, Config_parm &cfg)
   void printMulti()
   {
       Serial.println(F("TRACE: in printMulti"));
+      if(multi.id == NULL) return;  // evita guru meditation si no se ha apuntado a ningun grupo
       Serial.printf("MULTI Boton_id x%x: size=%d (%s)\n", *multi.id, *multi.size, multi.desc);
       for(int j = 0; j < *multi.size; j++) {
         Serial.printf("  Zona  id: x%x \n", multi.serie[j]);

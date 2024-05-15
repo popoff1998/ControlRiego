@@ -29,7 +29,7 @@ void mcpOinit() {
 	/* void portMode(port, directions, pullups, inverted); */
 
     mcpO.portMode(MCP23017Port::A, 0x00);  // output
-    mcpO.portMode(MCP23017Port::B, 0x00);  // output
+    mcpO.portMode(MCP23017Port::B, 0b00001100, 0b00001100, 0b00001100);  // output (salvo B2-B3: input, pull-up, polaridad invertida)
 
 }
 
@@ -40,8 +40,8 @@ void mcpIinit() {
 	/*set i/o pin direction as input for both ports A and B en MCP de entradas (botones)*/
 	/* void portMode(port, directions, pullups, inverted); */
 
-    mcpI.portMode(MCP23017Port::A, 0b01111111, 0b01111111, 0b01111111);  // input salvo A7, pull-up, polaridad invertida
-    mcpI.portMode(MCP23017Port::B, 0b01111111, 0b01111111, 0b01111111);  // input salvo AB, pull-up, polaridad invertida)
+    mcpI.portMode(MCP23017Port::A, 0b01111111, 0b01111111, 0b01111111);  // input (salvo A7), pull-up, polaridad invertida
+    mcpI.portMode(MCP23017Port::B, 0b01111111, 0b01111111, 0b01111111);  // input (salvo B7), pull-up, polaridad invertida
 
 }
 
@@ -105,8 +105,8 @@ void actLedError(void) {
 void initLeds()
 {
   int i;
-  uint ledOrder[] = { lGRUPO1 , lGRUPO2 , lGRUPO3 ,
-                      lZONA1 , lZONA2 , lZONA3 , lZONA4 , lZONA5 , lZONA6 , lZONA7 , lZONA8 };
+  uint ledOrder[] = { lGRUPO1 , lGRUPO2 , lGRUPO3 , lGRUPO4 ,
+                      lZONA1 , lZONA2 , lZONA3 , lZONA4 , lZONA5 , lZONA6 , lZONA7 , lZONA8 , lZONA9 };
   size_t numLeds = sizeof(ledOrder)/sizeof(ledOrder[0]);
   apagaLeds();
   delay(200);
@@ -176,10 +176,13 @@ bool ledStatusId(int ledID)
 
 uint16_t readInputs()
 {
-  uint8_t    alto;
-  uint8_t    bajo;
+  uint8_t    alto, bajo, altoMCPO;
   bajo = mcpI.readPort(MCP23017Port::A);
   alto = mcpI.readPort(MCP23017Port::B);
+  //**  los bits 11 y 12 correspondientes a bPAUSE y bSTOP leidos de mcpO  
+  // se deben convertir e integrar como bits 15 y 16 con los leidos de mcpI
+  altoMCPO = mcpO.readPort(MCP23017Port::B);
+  alto = alto | ((altoMCPO << 4) & 0b11000000);
   return bajo | (alto << 8);
 }
 

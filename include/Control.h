@@ -1,6 +1,13 @@
 #ifndef control_h
   #define control_h
 
+  #ifdef M3GRP      // opcion con boton multirriego + selector 3 grupos multirriego
+    #define MULTIRRIEGO bMULTIRRIEGO 
+  #else
+    #define GRP4     // por defecto GRP4: 4 botones de grupos multirriego
+    #define MULTIRRIEGO bGRUPO1 ... bGRUPO4 
+  #endif
+
   // Uncommenting DEBUGLOG_DISABLE_LOG disables ASSERT and all log (Release Mode)
   // PRINT and PRINTLN are always valid even in Release Mode
   // #define DEBUGLOG_DISABLE_LOG
@@ -80,7 +87,7 @@
        
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.0.1"
+                            #define VERSION  "3.0.3"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -210,39 +217,69 @@
 
   //----------------  dependientes del HW   ----------------------------------------
   // ojo esta es la posición del bit de cada boton en el stream serie - no modificar -
-  #ifdef ESP32
-  enum _botones {
-    bZONA1      = 0x0001,  // A0
-    bZONA2      = 0x0002,  // A1
-    bZONA3      = 0x0004,  // A2
-    bZONA4      = 0x0008,  // A3
-    bZONA5      = 0x0010,  // A4
-    bZONA6      = 0x0020,  // A5
-    bZONA7      = 0x0040,  // A6
-    //          = 0x0080,  // A7  (NO USAR)
-    bZONA8      = 0x0100,  // B0
-    bZONA9      = 0x0200,  // B1  
-    bGRUPO1     = 0x0400,  // B2
-    bMULTIRIEGO = 0x0800,  // B3
-    bGRUPO3     = 0x1000,  // B4
-    bPAUSE      = 0x2000,  // B5
-    bSTOP       = 0x4000,  // B6
-    //          = 0x8000,  // B7  (NO USAR)
-  };
+  #ifdef GRP4
+    enum _botones {
+      bZONA1      = 0x0001,  // mcpI A0
+      bZONA2      = 0x0002,  // mcpI A1
+      bZONA3      = 0x0004,  // mcpI A2
+      bZONA4      = 0x0008,  // mcpI A3
+      bZONA5      = 0x0010,  // mcpI A4
+      bZONA6      = 0x0020,  // mcpI A5
+      bZONA7      = 0x0040,  // mcpI A6
+      //          = 0x0080,  // mcpI A7  (NO USAR  para inputs)
+      bZONA8      = 0x0100,  // mcpI B0
+      bZONA9      = 0x0200,  // mcpI B1  
+      bGRUPO1     = 0x0400,  // mcpI B2  (grupos deben ser consecutivos)
+      bGRUPO2     = 0x0800,  // mcpI B3  (grupos deben ser consecutivos)
+      bGRUPO3     = 0x1000,  // mcpI B4  (grupos deben ser consecutivos)
+      bGRUPO4     = 0x2000,  // mcpI B5
+      bPAUSE      = 0x4000,  // mcpO B2  (OJO conectados a mcpO se integran como bits 15 y 16 de readInputs)
+      bSTOP       = 0x8000,  // mcpO B3  (OJO conectados a mcpO se integran como bits 15 y 16 de readInputs)
+      //          = 0x8000,  // mcpI B7  (NO USAR para inputs)
+    };
+    //----------------  dependientes del HW (número, orden)  ----------------------------
+      // lista de todos los botones de zonas de riego disponibles:
+      // OJO! el número y orden debe coincidir con las especificadas en Boton[]
+    #define _ZONAS  bZONA1 , bZONA2 , bZONA3 , bZONA4 , bZONA5 , bZONA6 , bZONA7 , bZONA8 , bZONA9
+      // lista de todos los botones de grupos disponibles:
+    #define _GRUPOS bGRUPO1 , bGRUPO2 , bGRUPO3 , bGRUPO4
+    #define _NUMZONAS            9  // numero de zonas (botones riego individual)
+    #define _NUMGRUPOS           4  // numero de grupos multirriego
+  //----------------  fin dependientes del HW   ----------------------------------------
+
   #endif
 
-  //Pseudobotones
-  #define bGRUPO2   0xFF01
+  #ifdef M3GRP
+    enum _botones {
+      bZONA1      = 0x0001,  // mcpI A0
+      bZONA2      = 0x0002,  // mcpI A1
+      bZONA3      = 0x0004,  // mcpI A2
+      bZONA4      = 0x0008,  // mcpI A3
+      bZONA5      = 0x0010,  // mcpI A4
+      bZONA6      = 0x0020,  // mcpI A5
+      bZONA7      = 0x0040,  // mcpI A6
+      //          = 0x0080,  // mcpI A7  (NO USAR  para inputs)
+      bZONA8      = 0x0100,  // mcpI B0
+      bZONA9      = 0x0200,  // mcpI B1  
+      bGRUPO1     = 0x0400,  // mcpI B2  (grupos deben ser consecutivos)
+      bGRUPO2     = 0x0800,  // mcpI B3  (grupos deben ser consecutivos)
+      bGRUPO3     = 0x1000,  // mcpI B4  (grupos deben ser consecutivos)
+      bMULTIRRIEGO= 0x2000,  // mcpI B5
+      bPAUSE      = 0x4000,  // mcpO B2  (OJO conectados a mcpO se integran como bits 15 y 16 de readInputs)
+      bSTOP       = 0x8000,  // mcpO B3  (OJO conectados a mcpO se integran como bits 15 y 16 de readInputs)
+      //          = 0x8000,  // mcpI B7  (NO USAR para inputs)
+    };
 
-  //----------------  dependientes del HW (número, orden)  ----------------------------
-    // lista de todos los botones de zonas de riego disponibles:
-    // OJO! el número y orden debe coincidir con las especificadas en Boton[]
-  #define _ZONAS  bZONA1 , bZONA2 , bZONA3 , bZONA4 , bZONA5 , bZONA6 , bZONA7 , bZONA8
-    // lista de todos los botones (selector) de grupos disponibles:
-  #define _GRUPOS bGRUPO1 , bGRUPO2 , bGRUPO3
-  #define _NUMZONAS            8  // numero de zonas (botones riego individual)
-  #define _NUMGRUPOS           3  // numero de grupos multirriego
- //----------------  fin dependientes del HW   ----------------------------------------
+    //----------------  dependientes del HW (número, orden)  ----------------------------
+      // lista de todos los botones de zonas de riego disponibles:
+      // OJO! el número y orden debe coincidir con las especificadas en Boton[]
+    #define _ZONAS  bZONA1 , bZONA2 , bZONA3 , bZONA4 , bZONA5 , bZONA6 , bZONA7 , bZONA8 , bZONA9
+      // lista de todos los botones (selector) de grupos disponibles:
+    #define _GRUPOS bGRUPO1 , bGRUPO2 , bGRUPO3 
+    #define _NUMZONAS            9  // numero de zonas (botones riego individual)
+    #define _NUMGRUPOS           3  // numero de grupos multirriego
+  //----------------  fin dependientes del HW   ----------------------------------------
+  #endif
 
   //estructura para salvar un grupo
   struct Grupo_parm {
@@ -341,31 +378,55 @@
 
   const uint16_t ZONAS[] = {_ZONAS};
   const uint16_t GRUPOS[]  = {_GRUPOS};
-  const int NUMZONAS = sizeof(ZONAS)/sizeof(ZONAS[0]); // (8) numero de zonas (botones riego individual)
-  const int NUMGRUPOS = sizeof(GRUPOS)/sizeof(GRUPOS[0]); // (3) numero de grupos multirriego
+  const int NUMZONAS = sizeof(ZONAS)/sizeof(ZONAS[0]); // numero de zonas (botones riego individual)
+  const int NUMGRUPOS = sizeof(GRUPOS)/sizeof(GRUPOS[0]); // numero de grupos multirriego
   const char nEstado[][15] = {_ESTADOS};
 
    //Globales a todos los módulos
   #ifdef __MAIN__
+    #ifdef GRP4
+      S_BOTON Boton [] =  { 
+        //ID,          S   uS  LED          FLAGS                             DESC          IDX
+        {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "ZONA1",       0},
+        {bZONA2 ,     0,  0,  lZONA2 ,     ENABLED | ACTION,                 "ZONA2",       0},
+        {bZONA3    ,  0,  0,  lZONA3    ,  ENABLED | ACTION,                 "ZONA3",       0},
+        {bZONA4    ,  0,  0,  lZONA4    ,  ENABLED | ACTION,                 "ZONA4",       0},
+        {bZONA5    ,  0,  0,  lZONA5    ,  ENABLED | ACTION,                 "ZONA5",       0},
+        {bZONA6 ,     0,  0,  lZONA6 ,     ENABLED | ACTION,                 "ZONA6",       0},
+        {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ZONA7",       0},
+        {bZONA8  ,    0,  0,  lZONA8  ,    ENABLED | ACTION,                 "ZONA8",       0},
+        {bZONA9,      0,  0,  lZONA9  ,    ENABLED | ACTION,                 "ZONA9",       0},
+        {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ACTION,                 "GRUPO1",      0},
+        {bGRUPO2  ,   0,  0,  lGRUPO2  ,   ENABLED | ACTION,                 "GRUPO2",      0},
+        {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ACTION,                 "GRUPO3",      0},
+        {bGRUPO4,     0,  0,  lGRUPO4,     ENABLED | ACTION,                 "GRUPO4",      0},
+        {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE",       0},
+        {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",        0}
+      };
+    #endif
+    
+    #ifdef M3GRP
+      S_BOTON Boton [] =  { 
+        //ID,          S   uS  LED          FLAGS                             DESC          IDX
+        {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "ZONA1",       0},
+        {bZONA2 ,     0,  0,  lZONA2 ,     ENABLED | ACTION,                 "ZONA2",       0},
+        {bZONA3    ,  0,  0,  lZONA3    ,  ENABLED | ACTION,                 "ZONA3",       0},
+        {bZONA4    ,  0,  0,  lZONA4    ,  ENABLED | ACTION,                 "ZONA4",       0},
+        {bZONA5    ,  0,  0,  lZONA5    ,  ENABLED | ACTION,                 "ZONA5",       0},
+        {bZONA6 ,     0,  0,  lZONA6 ,     ENABLED | ACTION,                 "ZONA6",       0},
+        {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ZONA7",       0},
+        {bZONA8  ,    0,  0,  lZONA8  ,    ENABLED | ACTION,                 "ZONA8",       0},
+        {bZONA9,      0,  0,  lZONA9  ,    ENABLED | ACTION,                 "ZONA9",       0},
+        {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO1",      0},
+        {bGRUPO2  ,   0,  0,  lGRUPO2  ,   ENABLED | ONLYSTATUS | DUAL,      "GRUPO2",      0},
+        {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO3",      0},
+        {bMULTIRRIEGO,0,  0,  0,           ENABLED | ACTION,                 "MULTIRRIEGO", 0},
+        {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE",       0},
+        {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",        0}
+      };
+    #endif
 
-    S_BOTON Boton [] =  { 
-      //ID,          S   uS  LED          FLAGS                             DESC          IDX
-      {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "ZONA1",       0},
-      {bZONA2 ,     0,  0,  lZONA2 ,     ENABLED | ACTION,                 "ZONA2",       0},
-      {bZONA3    ,  0,  0,  lZONA3    ,  ENABLED | ACTION,                 "ZONA3",       0},
-      {bZONA4    ,  0,  0,  lZONA4    ,  ENABLED | ACTION,                 "ZONA4",       0},
-      {bZONA5    ,  0,  0,  lZONA5    ,  ENABLED | ACTION,                 "ZONA5",       0},
-      {bZONA6 ,     0,  0,  lZONA6 ,     ENABLED | ACTION,                 "ZONA6",       0},
-      {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ZONA7",       0},
-      {bZONA8  ,    0,  0,  lZONA8  ,    ENABLED | ACTION,                 "ZONA8",       0},
-      {bZONA9,      0,  0,  0,           disabled,                         "spare9",      0},
-      {bMULTIRIEGO, 0,  0,  0,           ENABLED | ACTION,                 "MULTIRIEGO",  0},
-      {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO1",      0},
-      {bGRUPO2  ,   0,  0,  lGRUPO2  ,   disabled,                         "GRUPO2",      0},
-      {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO3",      0},
-      {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE",       0},
-      {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",        0}
-    };
+    
     int NUM_S_BOTON = sizeof(Boton)/sizeof(Boton[0]);
 
     S_MULTI multi;  //estructura con variables del multigrupo activo
@@ -481,7 +542,7 @@
     #endif
 
 
-  #endif
+  #endif  // __MAIN__
 
   //Funciones (prototipos)
   void actLedError(void);
@@ -586,4 +647,4 @@
   void wifiClearSignal(uint);
   void zeroConfig(Config_parm&);
 
-#endif
+#endif  // control_h
