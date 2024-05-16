@@ -130,7 +130,10 @@ bool saveConfigFile(const char *p_filename, Config_parm &cfg)
     serializeJsonPretty(doc, Serial); 
   #endif
   int docsize = serializeJson(doc, file);
-  if (docsize == 0) LOG_ERROR("Failed to write to file");
+  if (docsize == 0) {
+    LOG_ERROR("Failed to write to file");
+    return false;
+  }
   else LOG_DEBUG("    tamaño del jsondoc: (",docsize,")");
   LOG_DEBUG("    memoria usada por el jsondoc: (",doc.memoryUsage(),")");
   file.close();

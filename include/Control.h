@@ -8,16 +8,18 @@
     #define MULTIRRIEGO bGRUPO1 ... bGRUPO4 
   #endif
 
-  // Uncommenting DEBUGLOG_DISABLE_LOG disables ASSERT and all log (Release Mode)
-  // PRINT and PRINTLN are always valid even in Release Mode
-  // #define DEBUGLOG_DISABLE_LOG
-  // para cambiarlo posteriormente: LOG_SET_LEVEL(DebugLogLevel::LVL_TRACE);
-  // 0: NONE, 1: ERROR, 2: WARN, 3: INFO, 4: DEBUG, 5: TRACE
+  /*
+  * Uncommenting DEBUGLOG_DISABLE_LOG disables ASSERT and all log (Release Mode)
+  * PRINT and PRINTLN are always valid even in Release Mode
+  * #define DEBUGLOG_DISABLE_LOG
+  * para cambiarlo posteriormente: LOG_SET_LEVEL(DebugLogLevel::LVL_TRACE);
+  *  0: NONE, 1: ERROR, 2: WARN, 3: INFO, 4: DEBUG, 5: TRACE
+  */
   #ifdef DEVELOP
     //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
     #define DEBUGLOG_DEFAULT_LOG_LEVEL_TRACE
     //#define DEBUGLOG_DEFAULT_LOG_LEVEL_INFO
-    //#define EXTRADEBUG
+    #define EXTRADEBUG
     //#define EXTRADEBUG2
     //#define EXTRATRACE
     #define VERBOSE
@@ -93,7 +95,6 @@
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
 
   //Comportamiento General
-  #define STANDBYSECS         15
   #ifdef RELEASE
     #define DEFAULTMINUTES      10
     #define DEFAULTSECONDS      0
@@ -106,29 +107,30 @@
     #define DEFAULTMINUTES      0
     #define DEFAULTSECONDS      7
   #endif
-  #define DEFAULTBLINK        5
-  #define DEFAULTBLINKMILLIS  500
-  #define MSGDISPLAYMILLIS    1000 // mseg se mantienen mensajes informativos
-  #define MINMINUTES          0
-  #define MAXMINUTES          59  // corte automatico de seguridad a los 60 min. en los arduinos
-  #define MINSECONDS          5
-  #define HOLDTIME            3000
-  #define MAXCONNECTRETRY     10
-  #define VERIFY_INTERVAL     15
-  #define DEFAULT_SWITCH_RETRIES 5
-  #define DELAYRETRY          2000
-  #define MAXledLEVEL         255 // nivel maximo leds on y wifi (0 a 255)
-  #define DIMMLEVEL           50 // nivel atenuacion leds on y wifi (0 a 255)
+  #define STANDBYSECS         15      // tiempo en segundos para pasar a reposo desde standby (apagar pantalla y atenuar leds)
+  #define DEFAULTBLINK        5       // numero de parpadeos de la pantalla
+  #define DEFAULTBLINKMILLIS  500     // mseg entre parpadeo de la pantalla
+  #define MSGDISPLAYMILLIS    1000    // mseg se mantienen mensajes informativos
+  #define MINMINUTES          0       // minimo de minutos ajustables en el temporizador
+  #define MAXMINUTES          59      // corte automatico de seguridad a los 60 min. en los arduinos
+  #define MINSECONDS          5       // minimo de segundos ajustables en el temporizador
+  #define HOLDTIME            3000    // mseg que hay que mantener PAUSE pulsado para ciertas acciones
+  #define MAXCONNECTRETRY     10      // numero maximo de reintentos de reconexion a la wifi tras el fallo en inicio
+  #define VERIFY_INTERVAL     15      // intervalo en segundos entre verificaciones periodicas
+  #define DEFAULT_SWITCH_RETRIES 5    // numero de reintentos para parar o encender una zona de riego en el Domoticz
+  #define DELAYRETRY          2000    // mseg de retardo entre reintentos
+  #define MAXledLEVEL         255     // nivel maximo leds on y wifi (0 a 255)
+  #define DIMMLEVEL           50      // nivel atenuacion leds on y wifi (0 a 255)
   #define I2C_CLOCK_SPEED     400000  // frecuencia del bus I2C en Hz (default 100000)
-  #define LCD2004_address     0x27   // direccion bus I2C de la pantalla LCD
-  #define ROTARY_ENCODER_STEPS 4 // TODO documentar
+  #define LCD2004_address     0x27    // direccion bus I2C de la pantalla LCD
+  #define ROTARY_ENCODER_STEPS 4      // TODO documentar
 
  //----------------  dependientes del HW   ----------------------------------------
 
   #ifdef ESP32
     // GPIOs  I/O usables: 2 4 5 16 17 18 19 21 22 23 25 26 27 32 33  (15/15)
     // GPIOs  I/O los reservo para JTAG: 12 13 14 15
-    // GPIOs    I usables: 34 35 36 39 (4/4)
+    // GPIOs  I usables: 34 35 36 39 (4/4)  (ojo no tienen pullup/pulldown interno, requieren resistencia externa)
     #define ENCCLK                GPIO_NUM_32
     #define ENCDT                 GPIO_NUM_33
     #define ENCBOTON              GPIO_NUM_34   // conectado a GPIO solo INPUT (no se trata por Encoder, se hace por programa)
@@ -310,9 +312,9 @@
   };
 
   // estructura de un grupo de multirriego 
-  // (todos son pointer al multirriego correspondiente en config menos los indicados)
+  // (algunos son pointer al multirriego correspondiente en config *)
   struct S_MULTI {
-    uint16_t *id;        //apuntador al id del selector grupo en estructura config (bGrupo_x)
+    uint16_t *id;        //apuntador al id del boton/selector grupo en estructura config (bGrupo_x)
     uint16_t serie[16];  //contiene los id de los botones del grupo (bZona_x)
     uint16_t zserie[16]; //contiene las zonas del grupo (Zona_x)
     int *size;           //apuntador a config con el tamaño del grupo
@@ -384,7 +386,7 @@
 
    //Globales a todos los módulos
   #ifdef __MAIN__
-    #ifdef GRP4
+    #ifdef GRP4     // matriz Boton para caso de 9 zonas y 4 botones de grupos multirriego
       S_BOTON Boton [] =  { 
         //ID,          S   uS  LED          FLAGS                             DESC          IDX
         {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "ZONA1",       0},
@@ -405,7 +407,7 @@
       };
     #endif
     
-    #ifdef M3GRP
+    #ifdef M3GRP     // matriz Boton para caso de 9 zonas, boton multirriego y selector de 3 grupos multirriego
       S_BOTON Boton [] =  { 
         //ID,          S   uS  LED          FLAGS                             DESC          IDX
         {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "ZONA1",       0},
@@ -431,13 +433,11 @@
 
     S_MULTI multi;  //estructura con variables del multigrupo activo
     S_initFlags initFlags ;
+    S_Estado Estado;
     bool connected;
     bool NONETWORK;
     bool falloAP;
     bool saveConfig = false;
-    bool sLEDR = LOW;
-    bool sLEDG = LOW;
-    bool sLEDB = LOW;
     
     const char *parmFile = "/config_parm.json";       // fichero de parametros activos
     const char *defaultFile = "/config_default.json"; // fichero de parametros por defecto
@@ -448,17 +448,15 @@
   #else
     extern S_BOTON Boton [];
     extern S_MULTI multi;
+    extern S_Estado Estado;
     extern S_initFlags initFlags;
     extern bool connected;
     extern bool NONETWORK;
     extern bool falloAP;
     extern bool saveConfig;
-    extern bool sLEDR;
-    extern bool sLEDG;
-    extern bool sLEDB;
     extern int NUM_S_BOTON;
-    extern const char *parmFile;       // fichero de parametros activos
-    extern const char *defaultFile; // fichero de parametros por defecto
+    extern const char *parmFile; 
+    extern const char *defaultFile;
 
     extern  DisplayLCD lcd;
     extern  char buff[];
@@ -471,7 +469,6 @@
     HTTPClient httpclient;
     WiFiUDP    ntpUDP;
     CountUpDownTimer T(DOWN);
-    S_Estado Estado;
     S_BOTON  *boton;
     S_BOTON  *ultimoBoton;
     S_simFlags simular; // estructura flags para simular errores
@@ -482,7 +479,6 @@
     NTPClient timeClient(ntpUDP,config.ntpServer);
     Ticker tic_parpadeoLedError;    //para parpadeo led ERROR (LEDR)
     Ticker tic_parpadeoLedZona;  //para parpadeo led zona de riego
-    Ticker tic_parpadeoLedConf;  //para parpadeo led(s) indicadores de modo configuracion
     Ticker tic_verificaciones;   //para verificaciones periodicas
     TimeChangeRule CEST = {"CEST", Last, Sun, Mar, 2, 120};
     TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};
@@ -497,11 +493,11 @@
     uint8_t prevseconds;
     uint8_t prevminutes;
     char  descDomoticz[20];
-    int value;
-    int encvalue;
-    int savedValue;
-    int savedIDX;
-    int ledID = 0;
+    int  ledID = 0;
+    int  value;
+    int  encvalue;
+    int  savedValue;
+    int  savedIDX;
     bool tiempoTerminado;
     bool reposo = false;
     unsigned long standbyTime;
@@ -582,7 +578,7 @@
   bool initRiego(uint16_t);
   void initWire(void);
   void led(uint8_t,int);
-  void ledConf(int);
+  void ledYellow(int);
   void ledPWM(uint8_t, int);
   void ledRGB(int,int,int);
   bool ledStatusId(int);
@@ -597,7 +593,8 @@
   void memoryInfo(void);
   void parpadeoLedError(void);
   void parpadeoLedWifi(void);
-  void parpadeoLedZona(void);
+  void parpadeoLedZona(int);
+  void parpadeoLedAP(void);
   S_BOTON *parseInputs(bool);
   void printCharArray(char*, size_t);
   void printFile(const char*);

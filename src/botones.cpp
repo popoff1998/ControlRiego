@@ -1,12 +1,10 @@
 #include "Control.h"
-#include "MCP23017.h"
 
 //Globales a este modulo
 unsigned long lastMillis;
 #define DEBOUNCEMILLIS 20
 volatile uint16_t ledStatus = 0;
 
-//MCP23017 mcp(I2C_SDA,I2C_SCL);    //create mcp instance
 
 #define mcpO_ADDR 0x20    // MCP de salidas (LEDs)
 #define mcpI_ADDR 0x21    // MCP de entradas (BOTONES)
@@ -14,6 +12,11 @@ volatile uint16_t ledStatus = 0;
 
 MCP23017 mcpI = MCP23017(mcpI_ADDR, Wire1);  // usamos segundo bus I2C para no interferir con el display lcd
 MCP23017 mcpO = MCP23017(mcpO_ADDR, Wire1);  // usamos segundo bus I2C para no interferir con el display lcd
+
+bool sLEDR = LOW;
+bool sLEDG = LOW;
+bool sLEDB = LOW;
+
 
 void initWire() {
 
@@ -46,6 +49,36 @@ void mcpIinit() {
 }
 
 
+void initLeds()
+{
+  int i;
+  uint ledOrder[] = { lGRUPO1 , lGRUPO2 , lGRUPO3 , lGRUPO4 ,
+                      lZONA1 , lZONA2 , lZONA3 , lZONA4 , lZONA5 , lZONA6 , lZONA7 , lZONA8 , lZONA9 };
+  size_t numLeds = sizeof(ledOrder)/sizeof(ledOrder[0]);
+  apagaLeds();
+  delay(200);
+  for(i=0;i<numLeds;i++) {
+    led(ledOrder[i],ON);
+    delay(300);
+    led(ledOrder[i],OFF);
+  }
+  delay(200);
+  enciendeLeds();
+  delay(200);
+  apagaLeds();
+  delay(200);
+}
+
+
+void initGPIOs()
+{
+  pinMode(LEDR, OUTPUT);
+  pinMode(LEDG, OUTPUT);
+  pinMode(LEDB, OUTPUT);
+  pinMode(BUZZER, OUTPUT);
+  pinMode(ENCBOTON, INPUT);
+}
+
 void apagaLeds()
 {
   analogWrite(LEDR, 0);
@@ -68,16 +101,21 @@ void enciendeLeds()
   delay(200);
 }
 
+void ledRGB(int  R, int G, int B)
+{
+  ledPWM(LEDR,R);
+  ledPWM(LEDG,G);
+  ledPWM(LEDB,B);
+}
+
 void loadDefaultSignal(uint veces)
 {
   LOG_TRACE("in loadDefaultSignal");
   uint i;
   for(i=0;i<veces;i++) {
-    ledPWM(LEDR,ON);
-    ledPWM(LEDG,ON);
+    ledRGB(ON,OFF,OFF);
     delay(300);
-    ledPWM(LEDR,OFF);
-    ledPWM(LEDG,OFF);
+    ledRGB(OFF,ON,OFF);
     delay(300);
   }
 }
@@ -87,68 +125,76 @@ void wifiClearSignal(uint veces)
   LOG_TRACE("in wifiClearSignal");
   uint i;
   for(i=0;i<veces;i++) {
-    ledPWM(LEDR,ON);
-    ledPWM(LEDB,ON);
+    ledRGB(ON,OFF,OFF);
     delay(300);
-    ledPWM(LEDR,OFF);
-    ledPWM(LEDB,OFF);
+    ledRGB(OFF,OFF,ON);
     delay(300);
   }
 }
 
 void actLedError(void) {
-  ledPWM(LEDR,ON);
-  ledPWM(LEDG,OFF);
-  ledPWM(LEDB,OFF);
+  ledRGB(ON,OFF,OFF);
 }
 
-void initLeds()
+void parpadeoLedWifi() {
+  sLEDG = !sLEDG;
+  ledPWM(LEDG,sLEDG);
+}
+
+void parpadeoLedAP() {
+  sLEDB = !sLEDB;
+  ledPWM(LEDB,sLEDB);
+}
+
+void parpadeoLedError()
 {
-  int i;
-  uint ledOrder[] = { lGRUPO1 , lGRUPO2 , lGRUPO3 , lGRUPO4 ,
-                      lZONA1 , lZONA2 , lZONA3 , lZONA4 , lZONA5 , lZONA6 , lZONA7 , lZONA8 , lZONA9 };
-  size_t numLeds = sizeof(ledOrder)/sizeof(ledOrder[0]);
-  apagaLeds();
-  delay(200);
-  for(i=0;i<numLeds;i++) {
-    led(ledOrder[i],ON);
-    delay(300);
-    led(ledOrder[i],OFF);
+  sLEDR = !sLEDR;
+  ledPWM(LEDR,sLEDR);
+}
+
+void parpadeoLedZona(int ledid)
+{
+  byte estado = ledStatusId(ledid);
+  led(ledid,!estado);
+}
+
+
+//activa o desactiva el(los) led(s) indicadores de que estamos en modo configuracion (R+G=Y)
+void ledYellow(int estado)
+{
+  if(estado == ON) ledRGB(ON,ON,OFF);   //  LED AMARILLO
+  if(estado == OFF) 
+  {
+    if (Estado.estado == PAUSE) {  //  los apaga para parpadeo
+      ledRGB(OFF,OFF,OFF);
+    }
+    else {                         // los deja segun estado
+      ledPWM(LEDR,OFF);                   
+      NONETWORK ? ledPWM(LEDB,ON) : ledPWM(LEDB,OFF);
+      checkWifi();
+    }  
   }
-  delay(200);
-  enciendeLeds();
-  delay(200);
-  apagaLeds();
-  delay(200);
-  //ledPWM(LEDR,ON);
 }
 
-
-void initGPIOs()
-{
-  pinMode(LEDR, OUTPUT);
-  pinMode(LEDG, OUTPUT);
-  pinMode(LEDB, OUTPUT);
-  pinMode(BUZZER, OUTPUT);
-  pinMode(ENCBOTON, INPUT);
-}
 
 // enciende o apaga un led controlado por PWM
 void ledPWM(uint8_t id,int estado)
 {
   estado ? analogWrite(id, MAXledLEVEL) : analogWrite(id, 0);
   switch (id) {
-    case LEDR: sLEDR = estado;
-    case LEDG: sLEDG = estado;
-    case LEDB: sLEDB = estado;
+    case LEDR: sLEDR = estado; break;
+    case LEDG: sLEDG = estado; break;
+    case LEDB: sLEDB = estado; break;
   }  
-
+  #ifdef EXTRADEBUG2
+    Serial.printf("[led R/G/B : %d/%d/%d]\n", sLEDR, sLEDG, sLEDB);
+  #endif
 }
 
 // enciende o apaga un led controlado por el expansor MCP
 void led(uint8_t id,int estado)
 {
-    #ifdef EXTRADEBUG
+    #ifdef EXTRADEBUG2
     Serial.print(F("[TRACE: en funcion led]"));
     Serial.print(F("ledStatus : "));Serial.println(ledStatus,BIN);
     Serial.print(F("ledID : "));Serial.println(id,DEC);
@@ -167,7 +213,7 @@ void led(uint8_t id,int estado)
 
 bool ledStatusId(int ledID)
 {
-  #ifdef EXTRADEBUG
+  #ifdef EXTRADEBUG2
     Serial.print(F("ledStatus : "));Serial.println(ledStatus,BIN);
     Serial.print(F("ledID : "));Serial.println(ledID,DEC);
   #endif

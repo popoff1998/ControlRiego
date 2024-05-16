@@ -42,20 +42,19 @@ void setup()
   #endif
 
   Serial.begin(115200);
-  //if (!serialDetect()) {
-  //  LOG_SET_LEVEL(DebugLogLevel::LVL_NONE); 
-  //}
+  //if (!serialDetect()) LOG_SET_LEVEL(DebugLogLevel::LVL_NONE); 
   delay(500);
   PRINTLN("\n\n CONTROL RIEGO V" + String(VERSION) + "    Built on " __DATE__ " at " __TIME__  "\n");
   #ifndef DEBUGLOG_DISABLE_LOG
     PRINTLN("(current log level is", (int)LOG_GET_LEVEL(), ")");
   #endif
-
   LOG_DEBUG("Startup reason: ", esp_reset_reason());
   LOG_TRACE("TRACE: in setup");
   // init de los GPIOs y bus I2C
   initGPIOs();
   initWire();
+  //led encendido/error
+  ledPWM(LEDR,ON);
   LOG_TRACE("Inicializando MCPs");
   mcpOinit();
   mcpIinit();
@@ -67,8 +66,6 @@ void setup()
   configure = new Configure();
   //preparo indicadores de inicializaciones opcionales
   setupInit();
-  //led encendido/error
-  ledPWM(LEDR,ON);
   //setup parametros configuracion
   #ifdef EXTRADEBUG
     printFile(parmFile);
@@ -80,6 +77,7 @@ void setup()
   setupRedWM(config);
   if (saveConfig) {
     if (saveConfigFile(parmFile, config))  bipOK();
+    else bipKO();
     saveConfig = false;
   }
   delay(1000);
@@ -98,10 +96,6 @@ void setup()
   parseInputs(CLEAR);
   //Estado final en funcion de la conexion
   setupEstado();
-  #ifdef EXTRADEBUG
-    printMulti();
-    printFile(parmFile);
-  #endif
   //lanzamos supervision periodica estado cada VERIFY_INTERVAL seg.
   tic_verificaciones.attach(VERIFY_INTERVAL, flagVerificaciones);
   standbyTime = millis();
@@ -285,7 +279,7 @@ void setupEstado()
   /**---------------------------------------------------------------
    * verificamos si encoderSW esta pulsado (estado OFF) y selector de multirriego esta en:
    *    - Grupo1 (arriba) --> en ese caso cargamos los parametros del fichero de configuracion por defecto
-   *    - Grupo3 (abajo) --> en ese caso borramos red wifi almacenada en el ESP8266
+   *    - Grupo3 (abajo) --> en ese caso borramos red wifi almacenada en el ESP32
    */
   void setupInit(void) {
     LOG_TRACE("");
@@ -328,7 +322,7 @@ void procesaBotonPause(void)
         else initRiego(ultimoBoton->id);
         if(Estado.estado == ERROR) { // caso de error al reanudar el riego seguimos en PAUSE y señalamos con blink rapido zona
           ledID = ultimoBoton->led;
-          tic_parpadeoLedZona.attach(0.2,parpadeoLedZona);
+          tic_parpadeoLedZona.attach(0.2, parpadeoLedZona, ledID);
           LOG_WARN("error al salir de PAUSE errorText :",errorText,"Estado.fase :",Estado.fase );
           refreshTime();
           setEstado(PAUSE,1);
@@ -388,7 +382,7 @@ void procesaBotonPause(void)
             setEstado(CONFIGURANDO);
             configure->start();
             lowbip(1);
-            ledConf(ON);
+            ledYellow(ON);
             LOG_INFO("Stop + hold PAUSA --> modo ConF()");
             boton = NULL;
             holdPause = false;
@@ -397,7 +391,7 @@ void procesaBotonPause(void)
           else {   //si esta pulsado encoderSW hacemos un soft reset
             LOG_WARN("Stop + encoderSW + PAUSA --> Reset.....");
             lcd.infoclear(">>  REINICIANDO  <<", NOBLINK, LOWBIP, 1);
-            delay(2000);
+            delay(1000);
             ESP.restart();  // Hard RESET: ESP.reset()
           }
         }
@@ -498,7 +492,7 @@ bool procesaBotonMultiriego(void)
       time_t t = CE.toLocal(utc,&tcr);
       LOG_DEBUG("Grupo:", n_grupo, "time", t);
       lastGrupos[n_grupo-1].inicio = t;
-      #ifdef EXTRADEBUG2
+      #ifdef EXTRADEBUG
           for(uint i=0;i<NUMZONAS;i++) {
                 LOG_DEBUG("[ULTIMOSRIEGOS] zona:", i+1, "time:",lastRiegos[i]);
             }
@@ -596,7 +590,7 @@ void procesaEstadoConfigurando()
                 setupWS();
                 LOG_INFO("[ConF][WS] activado webserver para actualizaciones OTA de SW o filesystem");
                 webServerAct = true;
-                ledConf(OFF);
+                ledYellow(OFF);
                 lcd.infoclear("OTA Webserver act", DEFAULTBLINK, BIPOK);
                 snprintf(buff, MAXBUFF, "\"%s.local:%d\"", WiFi.getHostname(), WSPORT);
                 lcd.info(buff, 3);
@@ -607,9 +601,9 @@ void procesaEstadoConfigurando()
             #endif 
             if (n_grupo == 3) {  // activamos AP y portal de configuracion (bloqueante)
               LOG_INFO("[ConF] encoderSW + GRUPO3: activamos AP y portal de configuracion");
-              ledConf(OFF);
+              ledYellow(OFF);
               starConfigPortal(config);
-              ledConf(ON);
+              ledYellow(ON);
               lcd.info("modo CONFIGURACION",1); 
             }
           }
@@ -788,14 +782,14 @@ void procesaEstadoRegando(void)
       ledID = ultimoBoton->led;
       if(Estado.fase == NOERROR) { //riego zona parado: entramos en PAUSE y blink lento zona pausada remotamente 
         T.PauseTimer();
-        tic_parpadeoLedZona.attach(0.8,parpadeoLedZona);
+        tic_parpadeoLedZona.attach(0.8, parpadeoLedZona, ledID);
         LOG_WARN(">>>>>>>>>> procesaEstadoRegando zona:", ultimoBoton->desc, "en PAUSA remota <<<<<<<<");
         setEstado(PAUSE,1);
       }
       else {
         statusError(Estado.fase); // si no hemos podido verificar estado, señalamos el error
         tic_parpadeoLedError.attach(0.2,parpadeoLedError);
-        tic_parpadeoLedZona.attach(0.4,parpadeoLedZona);
+        tic_parpadeoLedZona.attach(0.4, parpadeoLedZona, ledID);
         errorOFF = true;  // recordatorio error
         LOG_ERROR("** SE HA DEVUELTO ERROR");
       }  
@@ -887,7 +881,7 @@ void procesaEstadoPause(void) {
       if(Estado.fase == NOERROR) { //riego zona activo: salimos del PAUSE y blink lento zona activada remotamente 
         bip(2);
         ledID = ultimoBoton->led;
-        tic_parpadeoLedZona.attach(0.8,parpadeoLedZona);
+        tic_parpadeoLedZona.attach(0.8, parpadeoLedZona, ledID);
         LOG_WARN(">>>>>>>>>> procesaEstadoPause zona:", ultimoBoton->desc,"activada REMOTAMENTE <<<<<<<");
         T.ResumeTimer();
         setEstado(REGANDO);
@@ -969,7 +963,7 @@ void initFactorRiegos()
     if(Estado.estado == ERROR) {  //al primer error salimos
       if(Estado.fase == E3) {     // y señalamos zona que falla si no es error general de conexion
         ledID = Boton[bIndex].led;
-        tic_parpadeoLedZona.attach(0.4,parpadeoLedZona);
+        tic_parpadeoLedZona.attach(0.4, parpadeoLedZona, ledID);
       }
       break;
     }
@@ -1183,7 +1177,7 @@ bool initRiego(uint16_t id)
   time_t t = CE.toLocal(utc,&tcr);
   LOG_DEBUG("actualizo lastriegos bIndex:", bIndex, "zIndex:", zIndex);
   lastRiegos[zIndex] = t;
-      #ifdef EXTRADEBUG2
+      #ifdef EXTRADEBUG
           for(uint i=0;i<NUMZONAS;i++) {
                 LOG_DEBUG("[ULTIMOSRIEGOS] zona:", i+1, "time:",lastRiegos[i]);
             }
@@ -1204,7 +1198,7 @@ bool stopRiego(uint16_t id)
     if (!errorOFF) { //para no repetir bips en caso de stopAllRiego
       errorOFF = true;  // recordatorio error
       tic_parpadeoLedError.attach(0.2,parpadeoLedError);
-      tic_parpadeoLedZona.attach(0.4,parpadeoLedZona);
+      tic_parpadeoLedZona.attach(0.4, parpadeoLedZona, ledID);
     } 
     return false;
   }
@@ -1226,7 +1220,7 @@ void resetLeds()
   }
   //restablece led RGB
   tic_parpadeoLedError.detach(); //por si estuviera parpadeando
-  ledConf(OFF);
+  ledYellow(OFF);
 }
 
 
@@ -1328,6 +1322,7 @@ void blinkPause()
       displayOff = true;
       lastBlinkPause = millis();
       lcd.displayOFF();
+      if(Estado.estado == PAUSE) ledYellow(OFF);
     }
   }
   else {
@@ -1335,9 +1330,11 @@ void blinkPause()
       displayOff = false;
       lastBlinkPause = millis();
       lcd.displayON();
+      if(Estado.estado == PAUSE) ledYellow(ON);
     }
   }
 }
+
 
 /// @brief Actualiza el tiempo en pantalla
 /// @param refresh si true actualiza incondicionalmente, en caso contrario solo si ha cambiado
@@ -1672,44 +1669,6 @@ void statusError(uint8_t errorID)
       }
   }
 
-
-void parpadeoLedError()
-{
-  sLEDR = !sLEDR;
-  ledPWM(LEDR,sLEDR);
-}
-
-void parpadeoLedZona()
-{
-  byte estado = ledStatusId(ledID);
-  led(ledID,!estado);
-}
-
-void parpadeoLedConf()
-{
-  parpadeoLedError();
-  parpadeoLedWifi();
-}
-
-//activa o desactiva el(los) led(s) indicadores de que estamos en modo configuracion
-void ledConf(int estado)
-{
-  if(estado == ON) 
-  {
-    //parpadeo alterno leds ERROR/RED
-    ledPWM(LEDB,OFF);
-    ledPWM(LEDG,OFF);
-    tic_parpadeoLedConf.attach(0.7,parpadeoLedConf);
-  }
-  else 
-  {
-    tic_parpadeoLedConf.detach();   //detiene parpadeo alterno leds ERROR/RED
-    ledPWM(LEDR,OFF);                   // y los deja segun estado
-    NONETWORK ? ledPWM(LEDB,ON) : ledPWM(LEDB,OFF);
-    checkWifi();
-  }
-}
-
 void setupParm()
 {
   LOG_TRACE("");
@@ -1849,18 +1808,20 @@ bool setupConfig(const char *p_filename, Config_parm &cfg)
     }
   }
 
-bool serialDetect() {
-  delay(100);
-  Serial.println();
-  Serial1.begin(0, SERIAL_8N1, -1, -1, true, 11000UL);  // Passing 0 for baudrate to detect it, the last parameter is a timeout in ms
-  unsigned long detectedBaudRate = Serial1.baudRate();
-  if(detectedBaudRate) {
-    Serial.printf("Detected baudrate is %lu\n", detectedBaudRate);
-    return(true);
-  } else {
-    Serial.println("No baudrate detected, Serial1 will not work!");
-    return(false);
+  /* On the computer side, everytime you want to start the debugging mode, 
+  simply send a byte over the serial connection during the setup phase and sit back.*/
+  bool serialDetect() {
+    //Wait for four seconds or till data is available on serial, 
+    //whichever occurs first.
+    while(Serial.available()==0 && millis()<4000);
+    //On timeout or availability of data, we come here.
+    if(Serial.available()>0)
+    {
+      //If data is available, we enter here.
+      Serial.println("\n \t SERIAL available"); //Give feedback indicating mode
+      return true;
+    }
+    return false;
   }
-}
 
 #endif  

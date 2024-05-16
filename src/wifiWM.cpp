@@ -21,16 +21,6 @@ WiFiManagerParameter custom_domoticz_server("domoticz_ip", "Domoticz_ip");
 WiFiManagerParameter custom_domoticz_port("domoticz_port", "puerto");
 WiFiManagerParameter custom_ntpserver("ntpServer", "NTP_server");
 
-void parpadeoLedWifi() {
-  sLEDG = !sLEDG;
-  ledPWM(LEDG,sLEDG);
-}
-
-void parpadeoLedAP() {
-  sLEDB = !sLEDB;
-  ledPWM(LEDB,sLEDB);
-}
-
 //llamado cuando WiFiManager sale del modo configuracion
 void saveWifiCallback() {
     LOG_INFO("[CALLBACK] saveWifiCallback fired");
@@ -108,8 +98,9 @@ void setupRedWM(Config_parm &config)
   wm.setHostname(HOSTNAME); 
   // Descomentar para resetear configuración
   //wm.resetSettings();
-  // Empezamos el temporizador que hará parpadear el LED indicador de wifi
-  tic_WifiLed.attach(0.2, parpadeoLedWifi);
+  
+  tic_WifiLed.attach(0.2, parpadeoLedWifi); // Empezamos el temporizador que hará parpadear el LED indicador de wifi
+  ledPWM(LEDR,OFF);   // y apagamos LEDR
   lcd.infoclear("conectando WIFI");
   //sets timeout until configuration portal gets turned off
   wm.setConfigPortalTimeout(timeout);

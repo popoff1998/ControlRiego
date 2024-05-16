@@ -49,10 +49,8 @@ HECHOS
 - adaptacion para ESP32 y expansores I/O MCP23017
 - cambio libreria encoder por una que soporta interrupciones
 - sustitucion display led de 7 segmentos por pantalla LCD de 20 caracteres x 4 lineas (bus I2C)
-- adaptacion para ESP32 y expansores I/O MCP23017  V3.0
-- cambio libreria encoder por una que soporta interrupciones  V3.0
-- sustitucion display led de 7 segmentos por pantalla LCD de 20 caracteres x 4 lineas (bus I2C)  V3.0
 - opciones de inicio por pantalla V3.0.1
 - ampliacion a 9 zonas / 4 grupos V3.0.2 (botones PAUSE y STOP conectados a mcpO V3.0.2a)
 - opcion de compilacion para 4 botones de grupos o selector 3 grupos con boton de multirriego V3.0.3
+- modificaciones en los indicadores leds RGB V3.0.3
 
