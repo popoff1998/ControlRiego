@@ -80,7 +80,7 @@ void setup()
     else bipKO();
     saveConfig = false;
   }
-  delay(1000);
+  delay(2000);
   //Ponemos en hora
   timeClient.begin();
   delay(500);
@@ -201,6 +201,7 @@ void procesaEstados()
 void setupEstado() 
 {
   LOG_TRACE("");
+  Estado.tipo = LOCAL;
   //inicializamos apuntador estructura multi (posicion del selector multirriego):
   //if(!setMultibyId(getMultiStatus(), config) || !config.initialized) {
   // Verificamos que se han cargado parametros de configuracion correctamente  
@@ -323,7 +324,7 @@ void procesaBotonPause(void)
         if(Estado.estado == ERROR) { // caso de error al reanudar el riego seguimos en PAUSE y señalamos con blink rapido zona
           ledID = ultimoBoton->led;
           tic_parpadeoLedZona.attach(0.2, parpadeoLedZona, ledID);
-          LOG_WARN("error al salir de PAUSE errorText :",errorText,"Estado.fase :",Estado.fase );
+          LOG_WARN("error al salir de PAUSE errorText :",errorText,"Estado.error :",Estado.error );
           refreshTime();
           setEstado(PAUSE,1);
           break;
@@ -776,18 +777,19 @@ void procesaEstadoRegando(void)
   tiempoTerminado = T.Timer();
   if (T.TimeHasChanged()) refreshTime();
   if (tiempoTerminado == 0) setEstado(TERMINANDO);
-  else if(flagV && VERIFY && !NONETWORK) { // verificamos periodicamente que el riego sigue activo en Domoticz
+  else if(flagV && VERIFY && (!NONETWORK || simular.all_simFlags)) { // verificamos periodicamente que el riego sigue activo en Domoticz
     if(queryStatus(ultimoBoton->idx, (char *)"On")) return;
     else {
       ledID = ultimoBoton->led;
-      if(Estado.fase == NOERROR) { //riego zona parado: entramos en PAUSE y blink lento zona pausada remotamente 
+      if(Estado.error == NOERROR) { //riego zona parado: entramos en PAUSE y blink lento zona pausada remotamente 
         T.PauseTimer();
         tic_parpadeoLedZona.attach(0.8, parpadeoLedZona, ledID);
         LOG_WARN(">>>>>>>>>> procesaEstadoRegando zona:", ultimoBoton->desc, "en PAUSA remota <<<<<<<<");
+        Estado.tipo = REMOTO;
         setEstado(PAUSE,1);
       }
       else {
-        statusError(Estado.fase); // si no hemos podido verificar estado, señalamos el error
+        statusError(Estado.error); // si no hemos podido verificar estado, señalamos el error
         tic_parpadeoLedError.attach(0.2,parpadeoLedError);
         tic_parpadeoLedZona.attach(0.4, parpadeoLedZona, ledID);
         errorOFF = true;  // recordatorio error
@@ -875,18 +877,19 @@ void procesaEstadoStop(void)
 };
 
 void procesaEstadoPause(void) {
-  if(flagV && VERIFY && !NONETWORK) {  // verificamos zona sigue OFF en Domoticz periodicamente
+  if(flagV && VERIFY && (!NONETWORK || simular.all_simFlags)) {  // verificamos zona sigue OFF en Domoticz periodicamente
     if(queryStatus(ultimoBoton->idx, (char *)"Off")) return;
     else {
-      if(Estado.fase == NOERROR) { //riego zona activo: salimos del PAUSE y blink lento zona activada remotamente 
+      if(Estado.error == NOERROR) { //riego zona activo: salimos del PAUSE y blink lento zona activada remotamente 
         bip(2);
         ledID = ultimoBoton->led;
         tic_parpadeoLedZona.attach(0.8, parpadeoLedZona, ledID);
         LOG_WARN(">>>>>>>>>> procesaEstadoPause zona:", ultimoBoton->desc,"activada REMOTAMENTE <<<<<<<");
         T.ResumeTimer();
+        Estado.tipo = REMOTO;
         setEstado(REGANDO);
       }
-      else Estado.fase = NOERROR; // si no hemos podido verificar estado, ignoramos el error
+      else Estado.error = NOERROR; // si no hemos podido verificar estado, ignoramos el error
     }
   }
 }
@@ -900,7 +903,7 @@ void setEstado(uint8_t estado, int bnum)
   LOG_DEBUG( "recibido ", nEstado[estado], "bnum=", bnum);
   // setup y reseteos varios
   Estado.estado = estado;
-  Estado.fase = NOERROR;
+  Estado.error = NOERROR;
   strcpy(errorText, "");
   ledPWM(LEDR,OFF);   // por si led de error estuviera ON
   reposo = false;     //por si salimos de stop antinenes
@@ -908,7 +911,11 @@ void setEstado(uint8_t estado, int bnum)
   displayOff = false;
   lcd.setBacklight(ON);
   lcd.displayON();
-
+  LOG_DEBUG( "Estado.tipo =", Estado.tipo);
+  lcd.setCursor(17, 1);
+  if (Estado.tipo==REMOTO) lcd.print("(R)");
+  else lcd.print("   ");
+  Estado.tipo = LOCAL;
   if((estado==REGANDO || estado==TERMINANDO ) && ultimoBoton != NULL) {
     lcd.infoEstado(nEstado[estado], ultimoBoton->desc); 
     return;
@@ -961,7 +968,7 @@ void initFactorRiegos()
     uint factorR = getFactor(Boton[bIndex].idx);
     if(factorR == 999) break; //en modo NONETWORK no continuamos iterando si no hay conexion
     if(Estado.estado == ERROR) {  //al primer error salimos
-      if(Estado.fase == E3) {     // y señalamos zona que falla si no es error general de conexion
+      if(Estado.error == E3) {     // y señalamos zona que falla si no es error general de conexion
         ledID = Boton[bIndex].led;
         tic_parpadeoLedZona.attach(0.4, parpadeoLedZona, ledID);
       }
@@ -1481,11 +1488,19 @@ int getFactor(uint16_t idx)
  */
 bool queryStatus(uint16_t idx, char *status)
 {
-  LOG_TRACE("");
+  LOG_DEBUG("idx:", idx, "status:", status), "allSimFlags:", simular.all_simFlags;
+
+  if(simular.ErrorVerifyON) {   // simulamos EV no esta ON en Domoticz
+    if(strcmp(status, "On") == 0) return false; else return true; 
+  } 
+  if(simular.ErrorVerifyOFF) {   // simulamos EV no esta OFF en Domoticz
+    if(strcmp(status, "Off") == 0) return false; else return true; 
+  } 
+
   if(!checkWifi()) {
     if(NONETWORK) return true; //si estamos en modo NONETWORK devolvemos true y no damos error
     else {
-      Estado.fase=E1;
+      Estado.error=E1;
       return false;
     }
   }
@@ -1496,8 +1511,8 @@ bool queryStatus(uint16_t idx, char *status)
   //procesamos la respuesta para ver si se ha producido error:
   if (response.startsWith("Err")) {
     if (NONETWORK) return true;  //si estamos en modo NONETWORK devolvemos true y no damos error
-    if(response == "ErrX") Estado.fase=E3;
-    else Estado.fase=E2;
+    if(response == "ErrX") Estado.error=E3;
+    else Estado.error=E2;
     LOG_ERROR(" ** [ERROR] IDX: ", idx, " [HTTP] GET... failed");
     return false;
   }
@@ -1507,30 +1522,24 @@ bool queryStatus(uint16_t idx, char *status)
   DeserializationError error = deserializeJson(jsondoc, response_pointer);
   if (error) {
     LOG_ERROR(" **  [ERROR] deserializeJson() failed: ", error.f_str());
-    Estado.fase=E2;  
+    Estado.error=E2;  
     return false;
   }
   //Tenemos que controlar para que no resetee en caso de no haber leido por un rid malo
   const char *actual_status = jsondoc["result"][0]["Status"];
   if(actual_status == NULL) {
     LOG_ERROR(" **  [ERROR] deserializeJson() failed: Status not found");
-    Estado.fase=E2;  
+    Estado.error=E2;  
     return false;
   }
   #ifdef EXTRADEBUG
     Serial.printf( "queryStatus verificando, status=%s / actual=%s \n" , status, actual_status);
     Serial.printf( "                status_size=%d / actual_size=%d \n" , strlen(status), strlen(actual_status));
   #endif
-  if(simular.ErrorVerifyON) {   // simulamos EV no esta ON en Domoticz
-    if(strcmp(status, "On")==0) return false; else return true; 
-  } 
-  if(simular.ErrorVerifyOFF) {   // simulamos EV no esta OFF en Domoticz
-    if(strcmp(status, "Off")==0) return false; else return true; 
-  } 
   if(strcmp(actual_status,status) == 0) return true;
   else{
     if(NONETWORK) return true; //siempre devolvemos ok en modo simulacion
-    LOG_DEBUG("queryStatus devuelve FALSE, status / actual =",status,"/",actual_status);
+    LOG_WARN("queryStatus devuelve FALSE, status / actual =",status,"/",actual_status);
     return false;
   }  
 }
@@ -1624,8 +1633,8 @@ void Verificaciones()
       falloAP = false;
       initFactorRiegos(); //esta funcion ya dejara el estado correspondiente
     }
-    if (!timeOK && connected) initClock();    //verificamos time
   }
+  if (!timeOK && connected) initClock();    //verificamos time
   flagV = OFF;
 }
 
@@ -1636,7 +1645,7 @@ void Verificaciones()
 void statusError(uint8_t errorID) 
 {
   Estado.estado = ERROR;
-  Estado.fase = errorID;
+  Estado.error = errorID;
   sprintf(errorText, "Error%d", errorID);
   LOG_ERROR("SET ERROR: ", errorText);
   snprintf(buff, MAXBUFF, ">>> %s <<<", errorText);

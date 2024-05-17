@@ -198,7 +198,7 @@
   // literales para los estados en el display
   #define _ESTADOS "STANDBY" , "REGANDO:" , "CONFIGURANDO" , "TERMINANDO" , "PAUSE:" , "STOP" , "ERROR"
 
-  enum error_fases {
+  enum error_tipos {
     NOERROR       = 0xFF,
     E0            = 0,
     E1            = 1,
@@ -206,6 +206,11 @@
     E3            = 3,
     E4            = 4,
     E5            = 5,
+  };
+
+  enum estado_tipos {
+    LOCAL       = 0,
+    REMOTO      = 1,
   };
 
   enum _flags {
@@ -370,7 +375,8 @@
 
   struct S_Estado {
     uint8_t estado; 
-    uint8_t fase;
+    uint8_t tipo;
+    uint8_t error;
   } ;
 
   struct S_timeG {
