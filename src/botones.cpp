@@ -162,19 +162,17 @@ void parpadeoLedZona(int ledid)
 //activa o desactiva el(los) led(s) indicadores de que estamos en modo configuracion (R+G=Y)
 void ledYellow(int estado)
 {
-  if(estado == ON) ledRGB(ON,ON,OFF);   //  LED AMARILLO
-  if(estado == OFF) 
-  {
-    if (Estado.estado == PAUSE) {  //  los apaga para parpadeo
-      ledRGB(OFF,OFF,OFF);
-    }
-    else {                         // los deja segun estado
-      ledPWM(LEDR,OFF);                   
-      NONETWORK ? ledPWM(LEDB,ON) : ledPWM(LEDB,OFF);
-      checkWifi();
-    }  
-  }
+  if(estado == ON) ledRGB(ON,ON,OFF);     //  LED AMARILLO
+  if(estado == OFF) ledRGB(OFF,OFF,OFF);  //  los apaga para parpadeo
 }
+
+// deja led RGB segun estado wifi y NONETWORK
+void setledRGB()
+{
+    ledPWM(LEDR,OFF);                   
+    checkWifi();
+    NONETWORK ? ledPWM(LEDB,ON) : ledPWM(LEDB,OFF);
+}  
 
 
 // enciende o apaga un led controlado por PWM

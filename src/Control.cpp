@@ -591,7 +591,7 @@ void procesaEstadoConfigurando()
                 setupWS();
                 LOG_INFO("[ConF][WS] activado webserver para actualizaciones OTA de SW o filesystem");
                 webServerAct = true;
-                ledYellow(OFF);
+                //ledYellow(OFF);
                 lcd.infoclear("OTA Webserver act", DEFAULTBLINK, BIPOK);
                 snprintf(buff, MAXBUFF, "\"%s.local:%d\"", WiFi.getHostname(), WSPORT);
                 lcd.info(buff, 3);
@@ -1227,7 +1227,7 @@ void resetLeds()
   }
   //restablece led RGB
   tic_parpadeoLedError.detach(); //por si estuviera parpadeando
-  ledYellow(OFF);
+  setledRGB();
 }
 
 

@@ -439,7 +439,6 @@
 
     S_MULTI multi;  //estructura con variables del multigrupo activo
     S_initFlags initFlags ;
-    S_Estado Estado;
     bool connected;
     bool NONETWORK;
     bool falloAP;
@@ -454,7 +453,6 @@
   #else
     extern S_BOTON Boton [];
     extern S_MULTI multi;
-    extern S_Estado Estado;
     extern S_initFlags initFlags;
     extern bool connected;
     extern bool NONETWORK;
@@ -477,11 +475,11 @@
     CountUpDownTimer T(DOWN);
     S_BOTON  *boton;
     S_BOTON  *ultimoBoton;
+    S_Estado Estado;
     S_simFlags simular; // estructura flags para simular errores
     Config_parm config; //estructura parametros configurables y runtime
     Configure    *configure;
     AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ENCCLK,ENCDT,-1, -1, ROTARY_ENCODER_STEPS);
-    //AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ENCCLK,ENCDT,ENCSW, -1, ROTARY_ENCODER_STEPS);
     NTPClient timeClient(ntpUDP,config.ntpServer);
     Ticker tic_parpadeoLedError;    //para parpadeo led ERROR (LEDR)
     Ticker tic_parpadeoLedZona;  //para parpadeo led zona de riego
@@ -631,6 +629,7 @@
   bool saveConfigFile(const char*, Config_parm&);
   bool serialDetect(void);
   void setEstado(uint8_t estado, int bnum = 0);
+  void setledRGB(void);
   int  setMultibyId(uint16_t , Config_parm&);
   bool setupConfig(const char*, Config_parm&);
   void setupEstado(void);
