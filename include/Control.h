@@ -390,6 +390,8 @@
   const int NUMGRUPOS = sizeof(GRUPOS)/sizeof(GRUPOS[0]); // numero de grupos multirriego
   const char nEstado[][15] = {_ESTADOS};
 
+  const char MESES[][12] = {"Ene.", "Feb.", "Mar.", "Abr.", "May.", "Jun.", "Jul.", "Ago.", "Sep.", "Oct.", "Nov.", "Dic."};
+
    //Globales a todos los módulos
   #ifdef __MAIN__
     #ifdef GRP4     // matriz Boton para caso de 9 zonas y 4 botones de grupos multirriego
@@ -469,26 +471,26 @@
 
   #ifdef __MAIN__
     //Globales a este módulo
+    Config_parm config; //estructura parametros configurables y runtime
     WiFiClient client;
     HTTPClient httpclient;
     WiFiUDP    ntpUDP;
-    CountUpDownTimer T(DOWN);
-    S_BOTON  *boton;
-    S_BOTON  *ultimoBoton;
-    S_Estado Estado;
-    S_simFlags simular; // estructura flags para simular errores
-    Config_parm config; //estructura parametros configurables y runtime
-    Configure    *configure;
-    AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ENCCLK,ENCDT,-1, -1, ROTARY_ENCODER_STEPS);
     NTPClient timeClient(ntpUDP,config.ntpServer);
-    Ticker tic_parpadeoLedError;    //para parpadeo led ERROR (LEDR)
-    Ticker tic_parpadeoLedZona;  //para parpadeo led zona de riego
-    Ticker tic_verificaciones;   //para verificaciones periodicas
     TimeChangeRule CEST = {"CEST", Last, Sun, Mar, 2, 120};
     TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};
     Timezone CE(CEST, CET);
     TimeChangeRule *tcr;
     time_t utc;
+    CountUpDownTimer T(DOWN);
+    S_BOTON  *boton;
+    S_BOTON  *ultimoBoton;
+    S_Estado Estado;
+    S_simFlags simular; // estructura flags para simular errores
+    Configure    *configure;
+    AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ENCCLK,ENCDT,-1, -1, ROTARY_ENCODER_STEPS);
+    Ticker tic_parpadeoLedError;    //para parpadeo led ERROR (LEDR)
+    Ticker tic_parpadeoLedZona;  //para parpadeo led zona de riego
+    Ticker tic_verificaciones;   //para verificaciones periodicas
     time_t lastRiegos[NUMZONAS];
     S_timeG lastGrupos[NUMGRUPOS];
     uint factorRiegos[NUMZONAS];

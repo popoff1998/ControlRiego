@@ -1057,7 +1057,12 @@ void ultimosRiegos(int modo)
         }
       }
       lcd.infoclear("Hora actual:");
-      if (timeOK) lcd.displayTime(hour(t),minute(t));
+      if (timeOK) {
+        sprintf(buff, " %d", day(t));
+        lcd.info(buff,3);
+        lcd.info(MESES[month(t)-1],4);
+        lcd.displayTime(hour(t),minute(t));
+      }
       else lcd.info("   <<< NO TIME >>>",3);
       break;
     case HIDE:
