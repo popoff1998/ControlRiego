@@ -454,16 +454,15 @@
 
   #else
     extern S_BOTON Boton [];
+    extern int NUM_S_BOTON;
     extern S_MULTI multi;
     extern S_initFlags initFlags;
     extern bool connected;
     extern bool NONETWORK;
     extern bool falloAP;
     extern bool saveConfig;
-    extern int NUM_S_BOTON;
     extern const char *parmFile; 
     extern const char *defaultFile;
-
     extern  DisplayLCD lcd;
     extern  char buff[];
 
@@ -501,10 +500,7 @@
     char  descDomoticz[20];
     int  ledID = 0;
     int  value;
-    int  encvalue;
     int  savedValue;
-    int  savedIDX;
-    bool tiempoTerminado;
     bool reposo = false;
     unsigned long standbyTime;
     bool displayOff = false;

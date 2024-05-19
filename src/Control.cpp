@@ -564,6 +564,7 @@ void procesaEstadoConfigurando()
   Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
   if (boton != NULL) {
     if (boton->flags.action) {
+      if (boton->id != bSTOP && webServerAct) return; //si webserver esta activo solo procesamos boton STOP
       int n_grupo;
       int bIndex = bID2bIndex(boton->id);
       int zIndex = bID2zIndex(boton->id);
@@ -774,7 +775,7 @@ void procesaEstadoError(void)
 
 void procesaEstadoRegando(void)
 {
-  tiempoTerminado = T.Timer();
+  int tiempoTerminado = T.Timer();
   if (T.TimeHasChanged()) refreshTime();
   if (tiempoTerminado == 0) setEstado(TERMINANDO);
   else if(flagV && VERIFY && (!NONETWORK || simular.all_simFlags)) { // verificamos periodicamente que el riego sigue activo en Domoticz
@@ -1105,7 +1106,7 @@ void reposoOFF()
 //lee encoder para actualizar el display
 void procesaEncoder()
 {
-  encvalue = rotaryEncoder.encoderChanged();
+  int encvalue = rotaryEncoder.encoderChanged();
   if(!encvalue) return; 
   else value = value - encvalue;
 
@@ -1493,7 +1494,7 @@ int getFactor(uint16_t idx)
  */
 bool queryStatus(uint16_t idx, char *status)
 {
-  LOG_DEBUG("idx:", idx, "status:", status), "allSimFlags:", simular.all_simFlags;
+  LOG_DEBUG("idx:", idx, "status:", status, "allSimFlags:", simular.all_simFlags);
 
   if(simular.ErrorVerifyON) {   // simulamos EV no esta ON en Domoticz
     if(strcmp(status, "On") == 0) return false; else return true; 
@@ -1605,7 +1606,7 @@ void Verificaciones()
     leeSerial();  // para ver si simulamos algun tipo de error
   #endif
   #ifdef DEBUGloops
-    if (numloops < 100) {
+    if (numloops < 10000) {
       ++numloops;
       currentMillisLoop = millis();
     }
@@ -1639,7 +1640,7 @@ void Verificaciones()
       initFactorRiegos(); //esta funcion ya dejara el estado correspondiente
     }
   }
-  if (!timeOK && connected) initClock();    //verificamos time
+  if (!timeOK && connected) initClock();    // actualizamos time
   flagV = OFF;
 }
 
