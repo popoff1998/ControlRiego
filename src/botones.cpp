@@ -253,7 +253,7 @@ S_BOTON *parseInputs(bool read)
     //Nos saltamos los disabled
     if (!Boton[i].flags.enabled) continue;
     Boton[i].estado = inputs & Boton[i].id;
-    //Solo si el estado del boton ha cambiado devuelve cual ha sido 
+    //Solo si el estado del boton ha cambiado (o tiene habilitado el HOLD) devuelve cual ha sido 
     if ((Boton[i].estado != Boton[i].ultimo_estado) || (Boton[i].estado && Boton[i].flags.hold && !Boton[i].flags.holddisabled))
     {
       Boton[i].ultimo_estado = Boton[i].estado;

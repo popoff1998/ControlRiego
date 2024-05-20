@@ -91,11 +91,11 @@ void setup()
   //Cargamos factorRiegos
   initFactorRiegos();
   //Deshabilitamos el hold de Pause
-  Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
-  //Llamo a parseInputs CLEAR para eliminar prepulsaciones antes del bucle loop
-  parseInputs(CLEAR);
+  //Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
   //Estado final en funcion de la conexion
   setupEstado();
+  //Llamo a parseInputs CLEAR para eliminar prepulsaciones antes del bucle loop
+  parseInputs(CLEAR);
   //lanzamos supervision periodica estado cada VERIFY_INTERVAL seg.
   tic_verificaciones.attach(VERIFY_INTERVAL, flagVerificaciones);
   standbyTime = millis();
@@ -202,6 +202,8 @@ void setupEstado()
 {
   LOG_TRACE("");
   Estado.tipo = LOCAL;
+  //Deshabilitamos el hold de Pause
+  Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
   //inicializamos apuntador estructura multi (posicion del selector multirriego):
   //if(!setMultibyId(getMultiStatus(), config) || !config.initialized) {
   // Verificamos que se han cargado parametros de configuracion correctamente  
@@ -561,7 +563,7 @@ void procesaBotonZona(void)
 void procesaEstadoConfigurando()
 {
   //Deshabilitamos el hold de Pause
-  Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
+  //Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
   if (boton != NULL) {
     if (boton->flags.action) {
       if (boton->id != bSTOP && webServerAct) return; //si webserver esta activo solo procesamos boton STOP
@@ -627,6 +629,7 @@ void procesaEstadoConfigurando()
           if(!boton->estado) return; //no se procesa el release del PAUSE
           if(!configure->configuring()) { //si no estamos ya configurando algo
             configure->configureTime();   //configuramos tiempo por defecto
+            rotaryEncoder.enable();   // habilitamos el encoder
             LOG_INFO("configurando tiempo riego por defecto");
             lcd.info("tiempo riego def.:",2);
             minutes = config.minutes;
@@ -643,6 +646,7 @@ void procesaEstadoConfigurando()
             bipOK();
             delay(MSGDISPLAYMILLIS);
             configure->stop();
+            rotaryEncoder.disable();   // deshabilitamos el encoder
             break;
           }
           if(configure->configuringIdx()) {
@@ -659,6 +663,7 @@ void procesaEstadoConfigurando()
             led(Boton[bIndex].led,OFF);
             delay(MSGDISPLAYMILLIS);  // para que se vea el msg
             configure->stop();
+            rotaryEncoder.disable();   // deshabilitamos el encoder
             break;
           }
           if(configure->configuringMulti()) {
@@ -723,6 +728,7 @@ void procesaEstadoConfigurando()
           if (!configure->configuring()) {   //si no estamos configurando nada, configuramos el idx
             LOG_INFO("[ConF] configurando IDX boton:",boton->desc);
             configure->configureIdx(bIndex);
+            rotaryEncoder.enable();   // habilitamos el encoder
             value = boton->idx;
             led(Boton[bIndex].led,ON);
             snprintf(buff, MAXBUFF, "IDX de:  %s", boton->desc);
@@ -848,7 +854,7 @@ void procesaEstadoTerminando(void)
 
 void procesaEstadoStandby(void)
 {
-  Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
+  //Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
   //Apagamos el display si ha pasado el lapso
   if (reposo) standbyTime = millis();
   else {
@@ -906,9 +912,12 @@ void setEstado(uint8_t estado, int bnum)
   Estado.estado = estado;
   Estado.error = NOERROR;
   strcpy(errorText, "");
+  //Deshabilitamos el hold de Pause
+  Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
   ledPWM(LEDR,OFF);   // por si led de error estuviera ON
   reposo = false;     //por si salimos de stop antinenes
   dimmerLeds(OFF);
+  rotaryEncoder.disable();  // para que no cuente pasos salvo que lo habilitemos
   displayOff = false;
   lcd.setBacklight(ON);
   lcd.displayON();
@@ -927,6 +936,7 @@ void setEstado(uint8_t estado, int bnum)
     return;
   }
   if(estado == STANDBY) {
+    rotaryEncoder.enable();  // habilitamos encoder
     lcd.infoclear("STANDBY",NOBLINK,BIP,bnum);
     if(multirriego) lcd.info(multi.desc, 2);
     StaticTimeUpdate(REFRESH);
@@ -1109,6 +1119,7 @@ void procesaEncoder()
   int encvalue = rotaryEncoder.encoderChanged();
   if(!encvalue) return; 
   else value = value - encvalue;
+  LOG_DEBUG("rotaryEncoder.encoderChanged() devuelve encvalue =", encvalue);
 
   if(Estado.estado == CONFIGURANDO && configure->configuringIdx()) {
       if (value > 1000) value = 1000;
@@ -1432,7 +1443,6 @@ int getFactor(uint16_t idx)
   sprintf(message,JSONMSG,idx);
   String response = httpGetDomoticz(message);
   //procesamos la respuesta para ver si se ha producido error:
-  //if (Estado.estado == ERROR && response.startsWith("Err")) {
   if (response.startsWith("Err")) {
     if (NONETWORK) {  //si estamos en modo NONETWORK devolvemos 999 y no damos error
       LOG_TRACE("[poniendo estado STANDBY]");
@@ -1652,6 +1662,7 @@ void statusError(uint8_t errorID)
 {
   Estado.estado = ERROR;
   Estado.error = errorID;
+  rotaryEncoder.disable();
   sprintf(errorText, "Error%d", errorID);
   LOG_ERROR("SET ERROR: ", errorText);
   snprintf(buff, MAXBUFF, ">>> %s <<<", errorText);
