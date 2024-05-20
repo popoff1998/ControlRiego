@@ -108,6 +108,7 @@
     #define DEFAULTSECONDS      7
   #endif
   #define STANDBYSECS         15      // tiempo en segundos para pasar a reposo desde standby (apagar pantalla y atenuar leds)
+  #define NTPUPDATEINTERVAL   60      // tiempo en minutos para resincronizar el reloj del sistema con el servidor NTP
   #define DEFAULTBLINK        5       // numero de parpadeos de la pantalla
   #define DEFAULTBLINKMILLIS  500     // mseg entre parpadeo de la pantalla
   #define MSGDISPLAYMILLIS    1000    // mseg se mantienen mensajes informativos
@@ -519,6 +520,8 @@
     char errorText[7];
     unsigned long currentMillisLoop = 0;
     unsigned long lastMillisLoop = 0;
+    unsigned long lastMillisVerify = 0;
+    unsigned long NTPlastUpdate = 0;
     int numloops = 0;
 
     // definiciones bips y tonos:
@@ -568,7 +571,7 @@
   int  getFactor(uint16_t);
   uint16_t getMultiStatus(void);
   String *httpGetDomoticz(String *);
-  void initClock(void);
+  void setClock(void);
   void initEncoder(void);
   void initFactorRiegos(void);
   void initGPIOs(void);
@@ -642,6 +645,8 @@
   bool stopAllRiego(void);
   bool testButton(uint16_t, bool);
   void timeByFactor(int,uint8_t *,uint8_t *);
+  String TS2Date(time_t);
+  String TS2Hour(time_t);
   void ultimosRiegos(int);
   void Verificaciones(void);
   void wifiClearSignal(uint);

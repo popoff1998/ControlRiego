@@ -63,14 +63,6 @@
     //hay un issue abierto para que lo soporte. TODO: actualizar HTTPUpdateServer cuando lo cierren:
     //  https://github.com/espressif/arduino-esp32/issues/9347
 
-   // convierte timestamp a fecha hora
-   String TS2Date(time_t t)
-   {
-   char buff[32];
-   sprintf(buff, "%02d-%02d-%02d %02d:%02d:%02d", day(t), month(t), year(t), hour(t), minute(t), second(t));
-   return buff;
-   }
-
 
 // ===== Simple functions used to answer simple GET requests =====
 

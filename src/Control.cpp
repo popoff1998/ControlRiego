@@ -84,7 +84,7 @@ void setup()
   //Ponemos en hora
   timeClient.begin();
   delay(500);
-  initClock();
+  setClock();
   //Inicializamos lastRiegos y lastGrupos (registro fecha/hora y riego realizado)
   initLastRiegos();
   initLastGrupos();
@@ -1026,18 +1026,20 @@ void timeByFactor(int factor,uint8_t *fminutes, uint8_t *fseconds)
 }
 
 
-void initClock()
+void setClock()
 {
   if (timeClient.update()) {
-    setTime(timeClient.getEpochTime());
+    NTPlastUpdate = millis();
+    setTime(timeClient.getEpochTime());  // set reloj del sistema con el time recibido por NTP
     timeOK = true;
     time_t t = CE.toLocal(now(),&tcr);
-    LOG_INFO("time recibido OK  (UTC) --> ", timeClient.getFormattedTime(),"  local --> ",hour(t),":",minute(t),":",second(t));
+    LOG_INFO("\n NTP time recibido OK  (UTC) --> ",timeClient.getFormattedTime(),"  local --> ",TS2Hour(t));
   }  
-   else {
-     LOG_WARN(" ** no se ha recibido time por NTP");
-     timeOK = false;
-    }
+   else {  // si se recibio al menos una vez anteriormente consideramos valida la hora del sistema
+     if (timeOK) LOG_WARN("no se ha recibido time por NTP desde",(millis()-NTPlastUpdate)/60000,"minutos");
+     else LOG_WARN(">>> NO TIME SET by NTP <<<");
+     // timeOK = false; 
+   }
 }
 
 void initEncoder() {
@@ -1650,7 +1652,9 @@ void Verificaciones()
       initFactorRiegos(); //esta funcion ya dejara el estado correspondiente
     }
   }
-  if (!timeOK && connected) initClock();    // actualizamos time
+  // si tenemos conexion y no hemos recibido time por NTP o han pasado NTPUPDATEINTERVAL minutos
+  // desde la ultima sincronizacion -> actualizamos time del sistema con el del servidor NTP
+  if (connected && (!timeOK || millis() > NTPlastUpdate + NTPUPDATEINTERVAL * 60000 )) setClock();   
   flagV = OFF;
 }
 
@@ -1754,6 +1758,22 @@ bool setupConfig(const char *p_filename, Config_parm &cfg)
   }  
   LOG_ERROR(" ** [ERROR] parámetros de configuración no cargados");
   return false;
+}
+
+// convierte timestamp a fecha hora
+String TS2Date(time_t t)
+{
+char buff[32];
+sprintf(buff, "%02d-%02d-%02d %02d:%02d:%02d", day(t), month(t), year(t), hour(t), minute(t), second(t));
+return buff;
+}
+
+// convierte timestamp a hora
+String TS2Hour(time_t t)
+{
+char buff[32];
+sprintf(buff, "%02d:%02d:%02d", hour(t), minute(t), second(t));
+return buff;
 }
 
 

@@ -53,4 +53,5 @@ HECHOS
 - ampliacion a 9 zonas / 4 grupos V3.0.2 (botones PAUSE y STOP conectados a mcpO V3.0.2a)
 - opcion de compilacion para 4 botones de grupos o selector 3 grupos con boton de multirriego V3.0.3
 - modificaciones en los indicadores leds RGB V3.0.3
+- muestra dia/mes al mostrar hora actual. Sincronizacion del time por NTP cada 60 minutos V3.0.3
 
