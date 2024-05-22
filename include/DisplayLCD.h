@@ -1,6 +1,6 @@
 #ifndef DisplayLCD_h
   #define DisplayLCD_h
-  #include "Control.h"
+  //#include "Control.h"
   #include "LiquidCrystal_I2C.h"
 
   #define LCDBIGROW 2           // linea por defecto para timer en numeros grandes
@@ -26,6 +26,7 @@
       void blinkLCD(int);
       void clear(int mitad=0);
       void print(const char *);
+      void print(const String &s);
       void print(int);
       void setCursor(uint8_t, uint8_t);
       void setBacklight(bool);	// alias for backlight() and nobacklight()

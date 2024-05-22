@@ -1,7 +1,9 @@
 PENDIENTES
 ==========
-- boton Pause reflejado en Domoticz (en ambos sentidos)
+- Boton Pause reflejado en Domoticz (en ambos sentidos)
 - Si estado REGANDO tiempo de riego restante reflejado en Domoticz
+- Migrar a JSON V7 y mas parametros configurables
+- Logica de configuracion como funciones en Configure.cpp
 
 HECHOS
 ======
@@ -53,5 +55,6 @@ HECHOS
 - ampliacion a 9 zonas / 4 grupos V3.0.2 (botones PAUSE y STOP conectados a mcpO V3.0.2a)
 - opcion de compilacion para 4 botones de grupos o selector 3 grupos con boton de multirriego V3.0.3
 - modificaciones en los indicadores leds RGB V3.0.3
-- muestra dia/mes al mostrar hora actual. Sincronizacion del time por NTP cada 60 minutos V3.0.3
+- muestra dia/mes al mostrar hora actual. Sincronizacion del time por NTP cada 10 horas V3.0.3
+- Opciones en modo configuracion por menu en pantalla, opciones MUTE V3.0.4
 

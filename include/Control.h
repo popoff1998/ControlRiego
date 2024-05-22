@@ -89,7 +89,7 @@
        
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.0.3"
+                            #define VERSION  "3.0.4"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -108,7 +108,7 @@
     #define DEFAULTSECONDS      7
   #endif
   #define STANDBYSECS         15      // tiempo en segundos para pasar a reposo desde standby (apagar pantalla y atenuar leds)
-  #define NTPUPDATEINTERVAL   60      // tiempo en minutos para resincronizar el reloj del sistema con el servidor NTP
+  #define NTPUPDATEINTERVAL   600     // tiempo en minutos para resincronizar el reloj del sistema con el servidor NTP
   #define DEFAULTBLINK        5       // numero de parpadeos de la pantalla
   #define DEFAULTBLINKMILLIS  500     // mseg entre parpadeo de la pantalla
   #define MSGDISPLAYMILLIS    1000    // mseg se mantienen mensajes informativos
@@ -132,8 +132,8 @@
     // GPIOs  I/O usables: 2 4 5 16 17 18 19 21 22 23 25 26 27 32 33  (15/15)
     // GPIOs  I/O los reservo para JTAG: 12 13 14 15
     // GPIOs  I usables: 34 35 36 39 (4/4)  (ojo no tienen pullup/pulldown interno, requieren resistencia externa)
-    #define ENCCLK                GPIO_NUM_32
-    #define ENCDT                 GPIO_NUM_33
+    #define ENCDT                 GPIO_NUM_32
+    #define ENCCLK                GPIO_NUM_33
     #define ENCBOTON              GPIO_NUM_34   // conectado a GPIO solo INPUT (no se trata por Encoder, se hace por programa)
     #define LEDR                  GPIO_NUM_27  
     #define LEDG                  GPIO_NUM_26 
@@ -444,6 +444,7 @@
     S_initFlags initFlags ;
     bool connected;
     bool NONETWORK;
+    bool NOWIFI;
     bool falloAP;
     bool saveConfig = false;
     
@@ -460,6 +461,7 @@
     extern S_initFlags initFlags;
     extern bool connected;
     extern bool NONETWORK;
+    extern bool NOWIFI;
     extern bool falloAP;
     extern bool saveConfig;
     extern const char *parmFile; 
@@ -487,7 +489,8 @@
     S_Estado Estado;
     S_simFlags simular; // estructura flags para simular errores
     Configure    *configure;
-    AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ENCCLK,ENCDT,-1, -1, ROTARY_ENCODER_STEPS);
+    //AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ENCCLK,ENCDT,-1, -1, ROTARY_ENCODER_STEPS);
+    AiEsp32RotaryEncoder rotaryEncoder(ENCCLK,ENCDT,-1, -1, ROTARY_ENCODER_STEPS);
     Ticker tic_parpadeoLedError;    //para parpadeo led ERROR (LEDR)
     Ticker tic_parpadeoLedZona;  //para parpadeo led zona de riego
     Ticker tic_verificaciones;   //para verificaciones periodicas
@@ -629,6 +632,8 @@
   void resetLeds(void);
   bool saveConfigFile(const char*, Config_parm&);
   bool serialDetect(void);
+  void setEncoderMenu(int);
+  void setEncoderTime(void);
   void setEstado(uint8_t estado, int bnum = 0);
   void setledRGB(void);
   int  setMultibyId(uint16_t , Config_parm&);

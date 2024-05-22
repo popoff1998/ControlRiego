@@ -99,9 +99,6 @@ void setupRedWM(Config_parm &config)
   // Descomentar para resetear configuración
   //wm.resetSettings();
   
-  tic_WifiLed.attach(0.2, parpadeoLedWifi); // Empezamos el temporizador que hará parpadear el LED indicador de wifi
-  ledPWM(LEDR,OFF);   // y apagamos LEDR
-  lcd.infoclear("conectando WIFI");
   //sets timeout until configuration portal gets turned off
   wm.setConfigPortalTimeout(timeout);
   // callbacks
@@ -121,6 +118,10 @@ void setupRedWM(Config_parm &config)
   custom_domoticz_server.setValue(config.domoticz_ip, 40);
   custom_domoticz_port.setValue(config.domoticz_port, 5);
   custom_ntpserver.setValue(config.ntpServer, 40);
+  if(NONETWORK && NOWIFI) return;
+  lcd.infoclear("conectando WIFI");
+  tic_WifiLed.attach(0.2, parpadeoLedWifi); // Empezamos el temporizador que hará parpadear el LED indicador de wifi
+  ledPWM(LEDR,OFF);   // y apagamos LEDR
   // activamos modo AP y portal cautivo y comprobamos si se establece la conexión
   if(!wm.autoConnect("Ardomo")) {
     LOG_WARN("Fallo en la conexión (timeout)");
