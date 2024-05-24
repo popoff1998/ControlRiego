@@ -637,7 +637,7 @@
   void setEstado(uint8_t estado, int bnum = 0);
   void setledRGB(void);
   int  setMultibyId(uint16_t , Config_parm&);
-  bool setupConfig(const char*, Config_parm&);
+  bool setupConfig(const char*);
   void setupEstado(void);
   void setupInit(void);
   void setupParm(void);

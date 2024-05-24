@@ -1775,9 +1775,9 @@ void setupParm()
     }  
     else LOG_ERROR(" **  [ERROR] cargando parametros por defecto");
   }
-  if (!setupConfig(parmFile, config)) {
+  if (!setupConfig(parmFile)) {
     LOG_ERROR(" ** [ERROR] Leyendo fichero parametros " , parmFile);
-    if (!setupConfig(defaultFile, config)) {
+    if (!setupConfig(defaultFile)) {
       LOG_ERROR(" ** [ERROR] Leyendo fichero parametros ", defaultFile);
     }
   }
@@ -1790,7 +1790,7 @@ void setupParm()
 }
 
 
-bool setupConfig(const char *p_filename, Config_parm &cfg) 
+bool setupConfig(const char *p_filename) 
 {
   LOG_INFO("Leyendo fichero parametros", p_filename);
   bool loaded = loadConfigFile(p_filename, config);

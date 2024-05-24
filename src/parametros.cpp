@@ -1,7 +1,7 @@
 
 #include "Control.h"
 
-bool loadConfigFile(const char *p_filename, Config_parm &cfg)
+bool loadConfigFile(const char *p_filename, Config_parm &config)
 {
   LOG_TRACE("");
   if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
@@ -30,59 +30,59 @@ bool loadConfigFile(const char *p_filename, Config_parm &cfg)
   Serial.printf("\t memoria usada por el jsondoc: (%d) \n" , doc.memoryUsage());  //TODO ¿eliminar msg?
   //--------------  procesa botones (IDX)  --------------------------------------------------
   int numzonas = doc["numzonas"] | 0; // carga 0 si no viene este elemento
-  if (numzonas != cfg.n_Zonas) {
+  if (numzonas != config.n_Zonas) {
     LOG_ERROR("ERROR numero de zonas incorrecto");
     return false;
   }  
   for (JsonObject botones_item : doc["botones"].as<JsonArray>()) {
     int i = botones_item["zona"] | 1; 
-    cfg.botonConfig[i-1].idx = botones_item["idx"] | 0;
-    strlcpy(cfg.botonConfig[i-1].desc, botones_item["nombre"] | "", sizeof(cfg.botonConfig[i-1].desc));
+    config.botonConfig[i-1].idx = botones_item["idx"] | 0;
+    strlcpy(config.botonConfig[i-1].desc, botones_item["nombre"] | "", sizeof(config.botonConfig[i-1].desc));
     i++;
   }
   //--------------  procesa parametro individuales   ----------------------------------------
-  cfg.minutes = doc["tiempo"]["minutos"] | 0; // 0
-  cfg.seconds = doc["tiempo"]["segundos"] | 10; // 10
-  strlcpy(cfg.domoticz_ip, doc["domoticz"]["ip"] | "", sizeof(cfg.domoticz_ip));
-  strlcpy(cfg.domoticz_port, doc["domoticz"]["port"] | "", sizeof(cfg.domoticz_port));
-  strlcpy(cfg.ntpServer, doc["ntpServer"] | "", sizeof(cfg.ntpServer));
+  config.minutes = doc["tiempo"]["minutos"] | 0; // 0
+  config.seconds = doc["tiempo"]["segundos"] | 10; // 10
+  strlcpy(config.domoticz_ip, doc["domoticz"]["ip"] | "", sizeof(config.domoticz_ip));
+  strlcpy(config.domoticz_port, doc["domoticz"]["port"] | "", sizeof(config.domoticz_port));
+  strlcpy(config.ntpServer, doc["ntpServer"] | "", sizeof(config.ntpServer));
   int numgroups = doc["numgroups"] | 1;
-  if (numgroups != cfg.n_Grupos) {
+  if (numgroups != config.n_Grupos) {
     LOG_ERROR("ERROR numero de grupos incorrecto");
     return false;
   }  
   //--------------  procesa grupos  ---------------------------------------------------------
   for (JsonObject groups_item : doc["grupos"].as<JsonArray>()) {
     int i = groups_item["grupo"] | 1; // 1, 2, 3
-    cfg.groupConfig[i-1].id = GRUPOS[i-1];  //obtiene el id del boton de ese grupo (ojo: no viene en el json)
-    cfg.groupConfig[i-1].size = groups_item["size"] | 1;
-    if (cfg.groupConfig[i-1].size == 0) {
-      cfg.groupConfig[i-1].size =1;
+    config.groupConfig[i-1].id = GRUPOS[i-1];  //obtiene el id del boton de ese grupo (ojo: no viene en el json)
+    config.groupConfig[i-1].size = groups_item["size"] | 1;
+    if (config.groupConfig[i-1].size == 0) {
+      config.groupConfig[i-1].size =1;
       LOG_ERROR("ERROR tamaño del grupo incorrecto, es 0 -> ponemos 1");
     }
-    //Serial.printf("[loadConfigFile] procesando GRUPO%d size=%d id=x%x \n",i,cfg.groupConfig[i-1].size,cfg.groupConfig[i-1].id); //DEBUG
-    strlcpy(cfg.groupConfig[i-1].desc, groups_item["desc"] | "", sizeof(cfg.groupConfig[i-1].desc)); 
+    //Serial.printf("[loadConfigFile] procesando GRUPO%d size=%d id=x%x \n",i,config.groupConfig[i-1].size,config.groupConfig[i-1].id); //DEBUG
+    strlcpy(config.groupConfig[i-1].desc, groups_item["desc"] | "", sizeof(config.groupConfig[i-1].desc)); 
     JsonArray array = groups_item["zonas"].as<JsonArray>();
     int count = array.size();
-    if (count != cfg.groupConfig[i-1].size) {
+    if (count != config.groupConfig[i-1].size) {
       LOG_ERROR("ERROR tamaño del grupo incorrecto");
       return false;
     }  
     int j = 0;
     for(JsonVariant zonas_item_elemento : array) {
-      cfg.groupConfig[i-1].serie[j] = zonas_item_elemento.as<int>();
+      config.groupConfig[i-1].serie[j] = zonas_item_elemento.as<int>();
       j++;
     }
     i++;
-  cfg.initialized = 1; //solo marcamos como init config si pasa por este bucle
+  config.initialized = 1; //solo marcamos como init config si pasa por este bucle
   }
   file.close();
   LittleFS.end();
-  if (cfg.initialized) return true;
+  if (config.initialized) return true;
   else return false;
 }
 
-bool saveConfigFile(const char *p_filename, Config_parm &cfg)
+bool saveConfigFile(const char *p_filename, Config_parm &config)
 {
   LOG_TRACE("TRACE: in saveConfigFile");
   //memoryInfo();
@@ -104,25 +104,25 @@ bool saveConfigFile(const char *p_filename, Config_parm &cfg)
   JsonArray array_botones = doc.createNestedArray("botones");
   for (int i=0; i<NUMZONAS; i++) {
     array_botones[i]["zona"]   = i+1;
-    array_botones[i]["idx"]    = cfg.botonConfig[i].idx;
-    array_botones[i]["nombre"] = cfg.botonConfig[i].desc;
+    array_botones[i]["idx"]    = config.botonConfig[i].idx;
+    array_botones[i]["nombre"] = config.botonConfig[i].desc;
   }
   //--------------  procesa parametro individuales   ----------------------------------------
-  doc["tiempo"]["minutos"]  = cfg.minutes; 
-  doc["tiempo"]["segundos"] = cfg.seconds;
-  doc["domoticz"]["ip"]     = cfg.domoticz_ip;
-  doc["domoticz"]["port"]   = cfg.domoticz_port;
-  doc["ntpServer"]          = cfg.ntpServer;
+  doc["tiempo"]["minutos"]  = config.minutes; 
+  doc["tiempo"]["segundos"] = config.seconds;
+  doc["domoticz"]["ip"]     = config.domoticz_ip;
+  doc["domoticz"]["port"]   = config.domoticz_port;
+  doc["ntpServer"]          = config.ntpServer;
   //--------------  procesa grupos  ---------------------------------------------------------
   doc["numgroups"]          = NUMGRUPOS;
   JsonArray array_grupos = doc.createNestedArray("grupos");
   for (int i=0; i<NUMGRUPOS; i++) {
     array_grupos[i]["grupo"]   = i+1;
-    array_grupos[i]["desc"]    = cfg.groupConfig[i].desc;
-    array_grupos[i]["size"]    = cfg.groupConfig[i].size;
+    array_grupos[i]["desc"]    = config.groupConfig[i].desc;
+    array_grupos[i]["size"]    = config.groupConfig[i].size;
     JsonArray array_zonas = array_grupos[i].createNestedArray("zonas");
-    for(int j=0; j<cfg.groupConfig[i].size; j++) {
-      array_zonas[j] = cfg.groupConfig[i].serie[j];
+    for(int j=0; j<config.groupConfig[i].size; j++) {
+      array_zonas[j] = config.groupConfig[i].serie[j];
     }  
   }
   // Serialize JSON to file
@@ -180,12 +180,12 @@ bool copyConfigFile(const char *fileFrom, const char *fileTo)
 }
 
 //init minimo de config para evitar fallos en caso de no poder cargar parametros de ficheros
-void zeroConfig(Config_parm &cfg) {
+void zeroConfig(Config_parm &config) {
   LOG_TRACE("");
-  for (int j=0; j<cfg.n_Grupos; j++) {
-    cfg.groupConfig[j].id = GRUPOS[j];
-    cfg.groupConfig[j].size = 1;
-    cfg.groupConfig[j].serie[0]=j+1;
+  for (int j=0; j<config.n_Grupos; j++) {
+    config.groupConfig[j].id = GRUPOS[j];
+    config.groupConfig[j].size = 1;
+    config.groupConfig[j].serie[0]=j+1;
   }  
 }
 
@@ -195,24 +195,24 @@ void cleanFS() {
   LOG_WARN("Done!");
 }
 
-void printParms(Config_parm &cfg) {
+void printParms(Config_parm &config) {
   Serial.println(F("contenido estructura parametros configuracion: "));
   //--------------  imprime array botones (IDX)  --------------------------------------------------
-  Serial.printf("\tnumzonas= %d \n", cfg.n_Zonas);
+  Serial.printf("\tnumzonas= %d \n", config.n_Zonas);
   Serial.println(F("\tBotones: "));
-  for(int i=0; i<cfg.n_Zonas; i++) {
-    Serial.printf("\t\t Zona%d: IDX=%d (%s) l=%d \n", i+1, cfg.botonConfig[i].idx, cfg.botonConfig[i].desc, sizeof(cfg.botonConfig[i].desc));
+  for(int i=0; i<config.n_Zonas; i++) {
+    Serial.printf("\t\t Zona%d: IDX=%d (%s) l=%d \n", i+1, config.botonConfig[i].idx, config.botonConfig[i].desc, sizeof(config.botonConfig[i].desc));
   }
   //--------------  imprime parametro individuales   ----------------------------------------
-  Serial.printf("\tminutes= %d seconds= %d \n", cfg.minutes, cfg.seconds);
-  Serial.printf("\tdomoticz_ip= %s domoticz_port= %s \n", cfg.domoticz_ip, cfg.domoticz_port);
-  Serial.printf("\tntpServer= %s \n", cfg.ntpServer);
-  Serial.printf("\tnumgroups= %d \n", cfg.n_Grupos);
+  Serial.printf("\tminutes= %d seconds= %d \n", config.minutes, config.seconds);
+  Serial.printf("\tdomoticz_ip= %s domoticz_port= %s \n", config.domoticz_ip, config.domoticz_port);
+  Serial.printf("\tntpServer= %s \n", config.ntpServer);
+  Serial.printf("\tnumgroups= %d \n", config.n_Grupos);
   //--------------  imprime array y subarray de grupos  ----------------------------------------------
-  for(int i = 0; i < cfg.n_Grupos; i++) {
-    Serial.printf("\tGrupo%d: size=%d (%s)\n", i+1, cfg.groupConfig[i].size, cfg.groupConfig[i].desc);
-    for(int j = 0; j < cfg.groupConfig[i].size; j++) {
-      Serial.printf("\t\t Zona%d \n", cfg.groupConfig[i].serie[j]);
+  for(int i = 0; i < config.n_Grupos; i++) {
+    Serial.printf("\tGrupo%d: size=%d (%s)\n", i+1, config.groupConfig[i].size, config.groupConfig[i].desc);
+    for(int j = 0; j < config.groupConfig[i].size; j++) {
+      Serial.printf("\t\t Zona%d \n", config.groupConfig[i].serie[j]);
     }
   }
 }

@@ -14,24 +14,24 @@
 
 //asigna en multi valores o apuntadores de/a config del grupo cuyo id se recibe
 // y devuelve el numero del grupo (1,2,3) , 0 en caso de que no exista
-int setMultibyId(uint16_t id, Config_parm &cfg)
+int setMultibyId(uint16_t id, Config_parm &config)
 {
   LOG_DEBUG("[setMultibyId] recibe id= 0x",DebugLogBase::HEX,id);
   //log_i("recibe id=x%x", id);
 
   for(int i=0; i<NUMGRUPOS; i++)
   {
-    if(cfg.groupConfig[i].id == id) {
-      multi.id = &cfg.groupConfig[i].id;
-      multi.size = &cfg.groupConfig[i].size;
-      //multi.zserie = &cfg.groupConfig[i].serie[0];
-      multi.desc = cfg.groupConfig[i].desc;
+    if(config.groupConfig[i].id == id) {
+      multi.id = &config.groupConfig[i].id;
+      multi.size = &config.groupConfig[i].size;
+      //multi.zserie = &config.groupConfig[i].serie[0];
+      multi.desc = config.groupConfig[i].desc;
       for (int j=0; j < *multi.size; j++) {
-        multi.serie[j] = ZONAS[cfg.groupConfig[i].serie[j]-1];  //obtiene el id del boton de cada zona (ojo: no viene en el json)
-        multi.zserie[j] = cfg.groupConfig[i].serie[j];  //obtiene el id de cada zona
+        multi.serie[j] = ZONAS[config.groupConfig[i].serie[j]-1];  //obtiene el id del boton de cada zona (ojo: no viene en el json)
+        multi.zserie[j] = config.groupConfig[i].serie[j];  //obtiene el id de cada zona
         #ifdef EXTRADEBUG 
-          Serial.printf("  Zona%d   id: 0x", cfg.groupConfig[i].serie[j]);
-          Serial.println(Boton[cfg.groupConfig[i].serie[j]-1].id,HEX); //id(boton) asociado a la zona
+          Serial.printf("  Zona%d   id: 0x", config.groupConfig[i].serie[j]);
+          Serial.println(Boton[config.groupConfig[i].serie[j]-1].id,HEX); //id(boton) asociado a la zona
         #endif  
       }
       LOG_DEBUG("[setMultibyId] devuelve GRUPO", i+1);
@@ -69,11 +69,11 @@ void displayLCDGrupo(uint16_t *serieZonas, int serieSize, int line)
 }
 
 //imprime contenido actual de la estructura multiGroup
-void printMultiGroup(Config_parm &cfg, int pgrupo)
+void printMultiGroup(Config_parm &config, int pgrupo)
 {
-  for(int j = 0; j < cfg.groupConfig[pgrupo].size; j++) {
-    Serial.printf("  Zona%d   id: x", cfg.groupConfig[pgrupo].serie[j]);
-    Serial.println(Boton[cfg.groupConfig[pgrupo].serie[j]-1].id,HEX); //id(boton) asociado a la zona
+  for(int j = 0; j < config.groupConfig[pgrupo].size; j++) {
+    Serial.printf("  Zona%d   id: x", config.groupConfig[pgrupo].serie[j]);
+    Serial.println(Boton[config.groupConfig[pgrupo].serie[j]-1].id,HEX); //id(boton) asociado a la zona
   }
   Serial.println();
 }
