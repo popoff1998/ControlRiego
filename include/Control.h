@@ -89,7 +89,7 @@
        
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.0.4"
+                            #define VERSION  "3.0.5"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -453,6 +453,13 @@
 
     DisplayLCD lcd(LCD2004_address, 20, 4);  // 20 caracteres x 4 lineas
     char buff[MAXBUFF];
+    
+    uint8_t minutes;
+    uint8_t seconds;
+    int  value;
+    int  savedValue;
+    S_BOTON  *boton;
+    bool webServerAct = false;
 
   #else
     extern S_BOTON Boton [];
@@ -466,8 +473,15 @@
     extern bool saveConfig;
     extern const char *parmFile; 
     extern const char *defaultFile;
-    extern  DisplayLCD lcd;
-    extern  char buff[];
+    extern DisplayLCD lcd;
+    extern char buff[];
+
+    extern uint8_t minutes;
+    extern uint8_t seconds;
+    extern int  value;
+    extern int  savedValue;
+    extern S_BOTON  *boton;
+    extern bool webServerAct;
 
   #endif
 
@@ -484,12 +498,10 @@
     TimeChangeRule *tcr;
     time_t utc;
     CountUpDownTimer T(DOWN);
-    S_BOTON  *boton;
     S_BOTON  *ultimoBoton;
     S_Estado Estado;
     S_simFlags simular; // estructura flags para simular errores
     Configure    *configure;
-    //AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ENCCLK,ENCDT,-1, -1, ROTARY_ENCODER_STEPS);
     AiEsp32RotaryEncoder rotaryEncoder(ENCCLK,ENCDT,-1, -1, ROTARY_ENCODER_STEPS);
     Ticker tic_parpadeoLedError;    //para parpadeo led ERROR (LEDR)
     Ticker tic_parpadeoLedZona;  //para parpadeo led zona de riego
@@ -497,14 +509,10 @@
     time_t lastRiegos[NUMZONAS];
     S_timeG lastGrupos[NUMGRUPOS];
     uint factorRiegos[NUMZONAS];
-    uint8_t minutes;
-    uint8_t seconds;
     uint8_t prevseconds;
     uint8_t prevminutes;
     char  descDomoticz[20];
     int  ledID = 0;
-    int  value;
-    int  savedValue;
     bool reposo = false;
     unsigned long standbyTime;
     bool displayOff = false;
@@ -517,7 +525,6 @@
     bool timeOK = false;
     bool factorRiegosOK = false;
     bool errorOFF = false;
-    bool webServerAct = false;
     bool VERIFY;
     bool encoderSW = false;
     char errorText[7];

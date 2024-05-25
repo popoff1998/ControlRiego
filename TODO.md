@@ -3,7 +3,7 @@ PENDIENTES
 - Boton Pause reflejado en Domoticz (en ambos sentidos)
 - Si estado REGANDO tiempo de riego restante reflejado en Domoticz
 - Migrar a JSON V7 y mas parametros configurables
-- Logica de configuracion como funciones en Configure.cpp
+- pseudogrupo riego temporal
 
 HECHOS
 ======
@@ -57,4 +57,5 @@ HECHOS
 - modificaciones en los indicadores leds RGB V3.0.3
 - muestra dia/mes al mostrar hora actual. Sincronizacion del time por NTP cada 10 horas V3.0.3
 - Opciones en modo configuracion por menu en pantalla, opciones MUTE V3.0.4
+- pasados procesos de procesaEstadoConfigurando como funciones clase Configure en configure.cpp V3.0.5
 

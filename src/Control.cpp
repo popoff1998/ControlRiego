@@ -94,8 +94,6 @@ void setup()
   initLastGrupos();
   //Cargamos factorRiegos
   initFactorRiegos();
-  //Deshabilitamos el hold de Pause
-  //Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
   //Estado final en funcion de la conexion
   setupEstado();
   //Llamo a parseInputs CLEAR para eliminar prepulsaciones antes del bucle loop
@@ -562,19 +560,6 @@ void procesaBotonZona(void)
   }
 }
 
-void configureTime()    //configuramos tiempo por defecto
-{
-              configure->configureTime();   //configuramos tiempo por defecto
-              setEncoderTime();
-              LOG_INFO("configurando tiempo riego por defecto");
-              lcd.infoclear("Configurando");
-              lcd.info("tiempo riego def.:",2);
-              minutes = config.minutes;
-              seconds = config.seconds;
-              StaticTimeUpdate(REFRESH);
-}              
-
-
 
 
 void procesaEstadoConfigurando()
@@ -585,6 +570,7 @@ void procesaEstadoConfigurando()
       int n_grupo;
       int bIndex = bID2bIndex(boton->id);
       int zIndex = bID2zIndex(boton->id);
+
       switch(boton->id) {
         case MULTIRRIEGO:
             if (configure->configuring()) return; //si ya estamos configurando algo salimos
@@ -598,174 +584,82 @@ void procesaEstadoConfigurando()
             //Configuramos el grupo de multirriego activo
             configure->configureMulti(n_grupo);
             rotaryEncoder.disable();
-            LOG_INFO("Configurando: GRUPO",n_grupo,"(",multi.desc,")");
-            LOG_DEBUG("en configuracion de MULTIRRIEGO, setMultibyId devuelve: Grupo",n_grupo,"(",multi.desc,") multi.size=", *multi.size);
-            lcd.infoclear("Configurando");
-            snprintf(buff, MAXBUFF, "grupo%d: %s",n_grupo, multi.desc);
-            lcd.info(buff, 2);
-            led(Boton[bID2bIndex(*multi.id)].led,ON);
-            displayGrupo(multi.serie, *multi.size);
-            multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
-            snprintf(buff, MAXBUFF, "pulse ZONAS");
-            lcd.info(buff, 3);
             break;
         case bPAUSE:
             if(!boton->estado) return; //no se procesa el release del PAUSE
-            if(!configure->configuring()) { //si no estamos ya configurando algo
-              boton = NULL; //para que no se procese mas adelante
-              switch(configure->get_currentItem()) {
+            if(!configure->configuring()) { //si no estamos ya configurando algo 
+              boton = NULL; //para que no se procese mas adelante  tODO ¿es necesario?
+
+              switch(configure->get_currentItem()) {  // ejecutamos opcion seleccionada del menu
                 case 0 :      //configuramos boton de zona (IDX) o de grupo (zonas que lo componen)
-                  lcd.infoclear("pulse ZONA o GRUPO",1);
-                  lcd.info("a configurar...",2);   
-                  break;
+                        lcd.infoclear("pulse ZONA o GRUPO",1);
+                        lcd.info("a configurar...",2);   
+                        break;
                 case 1 :      //configuramos tiempo por defecto
-                  configureTime();   
-                  break;
+                        configure->configureTime(config);   
+                        break;
                 case 2 :  // copiamos fichero parametros en fichero default
-                  if (copyConfigFile(parmFile, defaultFile)) {
-                    LOG_INFO("[ConF] salvado fichero de parametros actuales como DEFAULT");
-                    lcd.infoclear("Saved DEFAULT", DEFAULTBLINK, BIPOK);
-                    delay(MSGDISPLAYMILLIS); 
-                    configure->stop(); 
-                  }
-                  break;
-              #ifdef WEBSERVER
+                        if (copyConfigFile(parmFile, defaultFile)) {
+                          LOG_INFO("[ConF] salvado fichero de parametros actuales como DEFAULT");
+                          lcd.infoclear("Saved DEFAULT", DEFAULTBLINK, BIPOK);
+                          delay(MSGDISPLAYMILLIS); 
+                          configure->stop(); 
+                        }
+                        break;
+   #ifdef WEBSERVER
                 case 3 :  // activamos webserver
-                  setupWS();
-                  LOG_INFO("[ConF][WS] activado webserver para actualizaciones OTA de SW o filesystem");
-                  webServerAct = true;
-                  lcd.infoclear("OTA Webserver act", DEFAULTBLINK, BIPOK);
-                  snprintf(buff, MAXBUFF, "\"%s.local:%d\"", WiFi.getHostname(), WSPORT);
-                  lcd.info(buff, 3);
-                  snprintf(buff, MAXBUFF, "%s:%d" , WiFi.localIP().toString(), WSPORT);
-                  lcd.info(buff,4);
-                  delay(MSGDISPLAYMILLIS);
-                  break;
-              #endif 
+                        setupWS();
+                        break;
+   #endif 
                 case 4 :   // activamos AP y portal de configuracion (bloqueante)
-                  LOG_INFO("[ConF] encoderSW + GRUPO3: activamos AP y portal de configuracion");
-                  ledYellow(OFF);
-                  starConfigPortal(config);
-                  ledYellow(ON);
-                  configure->stop();
-                  break; 
+                        LOG_INFO("[ConF] encoderSW + GRUPO3: activamos AP y portal de configuracion");
+                        ledYellow(OFF);
+                        starConfigPortal(config);
+                        ledYellow(ON);
+                        configure->stop();
+                        break; 
                 case 5 :   // MUTE ON
-                  mute = true;
-                  lcd.infoclear("     MUTE ON",2);
-                  bip(2);
-                  delay(1000);
-                  configure->stop();
-                  break; 
+                        mute = true;
+                        lcd.infoclear("     MUTE ON",2);
+                        bip(2);
+                        delay(1000);
+                        configure->stop();
+                        break; 
                 case 6 :   // MUTE OFF
-                  mute = false;
-                  lcd.infoclear("     MUTE OFF",2);
-                  bip(2);
-                  delay(1000);
-                  configure->stop();
-                  break; 
+                        mute = false;
+                        lcd.infoclear("     MUTE OFF",2);
+                        bip(2);
+                        delay(1000);
+                        configure->stop();
+                        break; 
               }
               return;
             }
+            // si ya estamos configurando algo: PAUSE consolida lo configurado en config
             if(configure->configuringTime()) {
-              LOG_INFO("Save DEFAULT TIME, minutes:",minutes," secons:",seconds);
-              lcd.info("DEFAULT TIME saved",2);
-              config.minutes = minutes;
-              config.seconds = seconds;
-              saveConfig = true;
-              bipOK();
-              delay(MSGDISPLAYMILLIS);
-              configure->stop();
-              setEncoderMenu(configure->get_maxItems());
+              configure->configuringTime_process_end(config);  //  salvamos en config el nuevo tiempo por defecto
               break;
             }
             if(configure->configuringIdx()) {
-              int bIndex = configure->getActualIdxIndex();
-              int zIndex = bID2zIndex(Boton[bIndex].id);
-              Boton[bIndex].idx = (uint16_t)value;
-              config.botonConfig[zIndex].idx = (uint16_t)value;
-              saveConfig = true;
-              LOG_INFO("Save Zona",zIndex+1,"(",Boton[bIndex].desc,") IDX value:",value);
-              lcd.info("guardado IDX",2);
-              lcd.clear(BORRA2H);
-              value = savedValue;
-              bipOK();
-              led(Boton[bIndex].led,OFF);
-              delay(MSGDISPLAYMILLIS);  // para que se vea el msg
-              configure->stop();
-              setEncoderMenu(configure->get_maxItems());
+              configure->configuringIdx_process_end(config);  //  salvamos en config el nuevo IDX
               break;
             }
             if(configure->configuringMulti()) {
-              // actualizamos config con las zonas introducidas
-              if (multi.w_size) {  //solo si se ha pulsado alguna
-                *multi.size = multi.w_size;
-                int g = configure->getActualGrupo();
-                for (int i=0; i<multi.w_size; ++i) {
-                  config.groupConfig[g-1].serie[i] = bID2zIndex(multi.serie[i])+1;
-                }
-                LOG_INFO("SAVE PARM Multi : GRUPO",g,"tamaño:",*multi.size,"(",multi.desc,")");
-                printMultiGroup(config, g-1);
-                saveConfig = true;
-                bipOK();
-                lcd.info("guardado GRUPO",2);
-                lcd.clear(BORRA2H);
-                delay(MSGDISPLAYMILLIS);
-              }
-              ultimosRiegos(HIDE);
-              led(Boton[bID2bIndex(*multi.id)].led,OFF);
-              configure->stop();
-              setEncoderMenu(configure->get_maxItems());
+              configure->configuringMulti_process_end(config);  // actualizamos config con las zonas introducidas
             }
             break;
         case bSTOP:
             if(!boton->estado) { //release STOP salvamos si procede y salimos de ConF
-              configure->stop();
-              setEncoderTime();
-              if (saveConfig) {
-                LOG_INFO("saveConfig=true  --> salvando parametros a fichero");
-                if (saveConfigFile(parmFile, config)) {
-                  lcd.infoclear("SAVED parameters", DEFAULTBLINK, BIPOK);
-                  delay(MSGDISPLAYMILLIS);
-                }  
-                saveConfig = false;
-              }
-              #ifdef WEBSERVER
-                if (webServerAct) {
-                  endWS();
-                  LOG_INFO("[ConF][WS] desactivado webserver");
-                  webServerAct = false; //al salir de modo ConF no procesaremos peticiones al webserver
-                }
-              #endif
-              resetLeds();
+              configure->exit(config);
               standbyTime = millis();
-              if (savedValue>0) value = savedValue;  // para que restaure reloj aunque no salvemos con pause el valor configurado
-              LOG_TRACE("[poniendo estado STANDBY]");
-              setEstado(STANDBY);
             }
             break;
         default:  //procesamos boton de ZONAx
-            if (configure->configuringMulti()) {  //Configuramos el multirriego seleccionado
-              if (multi.w_size < 16) {  //max. 16 zonas por grupo
-                multi.serie[multi.w_size] = boton->id;
-                multi.zserie[multi.w_size] = zIndex+1 ;
-                LOG_INFO("[ConF] añadiendo ZONA",zIndex+1,"(",boton->desc,")");
-                led(Boton[bIndex].led,ON);
-                multi.w_size = multi.w_size + 1;
-                displayLCDGrupo(multi.zserie, multi.w_size);
-              }  
-              else bipKO();
+            if (configure->configuringMulti()) {  //añadimos zona al multirriego que estamos definiendo
+              configure->configuringMulti_process_update();
             }
             if (!configure->configuring()) {   //si no estamos configurando nada, configuramos el idx
-              LOG_INFO("[ConF] configurando IDX boton:",boton->desc);
               configure->configureIdx(bIndex);
-              setEncoderTime();
-              value = boton->idx;
-              led(Boton[bIndex].led,ON);
-              lcd.infoclear("Configurando");
-              snprintf(buff, MAXBUFF, "IDX de:  %s", boton->desc);
-              lcd.info(buff, 2);
-              snprintf(buff, MAXBUFF, "actual %d", value);
-              lcd.info(buff, 3);
             }
       }
     }
@@ -945,11 +839,8 @@ void setEstado(uint8_t estado, int bnum)
   //Deshabilitamos el hold de Pause
   Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
   ledPWM(LEDR,OFF);   // por si led de error estuviera ON
-  reposo = false;     //por si salimos de stop antinenes
-  dimmerLeds(OFF);
+  reposoOFF();     //por si salimos de stop antinenes
   rotaryEncoder.disable();  // para que no cuente pasos salvo que lo habilitemos
-  displayOff = false;
-  lcd.setBacklight(ON);
   lcd.displayON();
   LOG_DEBUG( "Estado.tipo =", Estado.tipo);
   lcd.setCursor(17, 1);
@@ -1162,8 +1053,7 @@ void reposoOFF()
 //lee encoder para actualizar el display
 void procesaEncoder()
 {
-  if(Estado.estado == CONFIGURANDO && !configure->configuring()) {
-      //if(!rotaryEncoder.encoderChanged()) return; 
+  if(Estado.estado == CONFIGURANDO && !configure->configuring()) {  //encoder selecciona item menu
       int menuOption = rotaryEncoder.readEncoder();
       if(menuOption == configure->get_currentItem()) return;
       LOG_DEBUG("rotaryEncoder.readEncoder() devuelve menuOption =", menuOption, "currentItem =", configure->get_currentItem());
@@ -1176,7 +1066,7 @@ void procesaEncoder()
   value = value + encvalue;
   LOG_DEBUG("rotaryEncoder.encoderChanged() devuelve encvalue =", encvalue);
 
-  if(Estado.estado == CONFIGURANDO && configure->configuringIdx()) {
+  if(Estado.estado == CONFIGURANDO && configure->configuringIdx()) {  //encoder ajusta numero IDX
       if (value > 1000) value = 1000;
       if (value <  0) value = 0; //permitimos IDX=0 para desactivar ese boton
       int bIndex = configure->getActualIdxIndex();
@@ -1187,9 +1077,8 @@ void procesaEncoder()
   }
 
   if (Estado.estado == CONFIGURANDO && !configure->configuringTime()) return;
-
-  //Estamos en el rango de minutos
-  if(seconds == 0 && value>0) {
+  //encoder ajusta tiempo:
+  if(seconds == 0 && value>0) {   //Estamos en el rango de minutos
     if (value > MAXMINUTES)  value = MAXMINUTES;
     if (value != minutes) {
       minutes = value;
@@ -1216,12 +1105,7 @@ void procesaEncoder()
       minutes = 0;
     }
   }
-  if(reposo) {
-    LOG_INFO("Salimos de reposo");
-    reposo = false;
-    dimmerLeds(OFF);
-    lcd.setBacklight(ON);
-  }
+  if(reposo) reposoOFF();
   StaticTimeUpdate(UPDATE);
   standbyTime = millis();
 }
