@@ -62,7 +62,7 @@ void preOtaUpdateCallback()
 
 //evento llamado en caso de conexion de la wifi
 void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info){
- LOG_INFO("WiFi conectada");
+ LOG_INFO("    <<<<---  WiFi conectada  --->>>>");
 }
 
 //evento llamado en caso de desconexion de la wifi
@@ -95,6 +95,7 @@ void setupRedWM(Config_parm &config)
   }
   // explicitly set mode, esp defaults to STA+AP   
   WiFi.mode(WIFI_STA);
+  esp_wifi_set_ps( WIFI_PS_NONE );
   wm.setHostname(HOSTNAME); 
   // Descomentar para resetear configuración
   //wm.resetSettings();

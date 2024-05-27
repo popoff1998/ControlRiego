@@ -130,7 +130,7 @@ void procesaBotones()
   //NOTA: el encoderSW esta en estado HIGH en reposo y en estado LOW cuando esta pulsado
   encoderSW = !digitalRead(ENCBOTON);
   //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multirriego
-  if (multiSemaforo) multiSemaforo = false;
+  if (multiSemaforo) multiSemaforo = false;  // si multisemaforo, no leemos botones: ya los pasa multirriego
   else  boton = parseInputs(READ);  //vemos si algun boton ha cambiado de estado
   // si no se ha pulsado ningun boton salimos
   if(boton == NULL) return;
@@ -191,7 +191,6 @@ void procesaEstados()
     case PAUSE:
       procesaEstadoPause();
       blinkPause();
-      //strcmp(errorText, "") == 0 ? blinkPause() : blinkPauseError();
       break;
   }
 }
@@ -993,6 +992,7 @@ void setEncoderMenu(int menuitems) {
 //muestra lo regado desde las 0h encendiendo sus leds y mostrando hora o apagandolos
 void ultimosRiegos(int modo)
 {
+  LOG_TRACE("modo:",modo);
   switch(modo) {
     case SHOW:
       time_t t;
@@ -1551,6 +1551,7 @@ void flagVerificaciones()
  */
 void Verificaciones() 
 {   
+  static unsigned long lastmillisReconnect = 0;
   #ifdef DEVELOP
     leeSerial();  // para ver si simulamos algun tipo de error
   #endif
@@ -1579,9 +1580,13 @@ void Verificaciones()
   //si estamos en Standby o en Error por falta de conexion verificamos estado actual de la wifi (no en modo NONETWORK)
   if (!NONETWORK && (Estado.estado == STANDBY || (Estado.estado == ERROR && !connected))) {
     if (checkWifi() && Estado.estado!=STANDBY) setEstado(STANDBY,1); 
-    if(!connected) {   //si no estamos conectados a la wifi, intentamos reconexion
+    if(!connected && millis() > lastmillisReconnect + RECONNECTINTERVAL * 60000) {   //si no estamos conectados a la wifi, intentamos reconexion
       LOG_WARN("INTENTANDO RECONEXION WIFI");
-      WiFi.reconnect();
+      //WiFi.reconnect();
+      WiFi.disconnect();
+      delay(500);
+      WiFi.begin();
+      lastmillisReconnect = millis();
     }  
     if (connected && falloAP) {
       LOG_INFO("Wifi conectada despues Setup, leemos factor riegos");

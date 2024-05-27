@@ -259,9 +259,8 @@ S_BOTON *parseInputs(bool read)
       Boton[i].ultimo_estado = Boton[i].estado;
       if (Boton[i].estado || Boton[i].flags.dual) {
         #ifdef EXTRADEBUG
-          bool bEstado = Boton[i].estado;
           if (!read) Serial.print(F("Cleared: "));
-          Serial.printf("Boton: %s  idx: %d  id: %#X  Estado: %d \n", Boton[i].desc, Boton[i].idx, Boton[i].id, bEstado);
+          Serial.printf("Boton: %s  idx: %d  id: %#X  Estado: %d \n", Boton[i].desc, Boton[i].idx, Boton[i].id, Boton[i].estado);
         #endif
         if (read) return &Boton[i]; //si no clear retorna 1er boton que ha cambiado de estado
       }

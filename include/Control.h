@@ -109,6 +109,7 @@
   #endif
   #define STANDBYSECS         15      // tiempo en segundos para pasar a reposo desde standby (apagar pantalla y atenuar leds)
   #define NTPUPDATEINTERVAL   600     // tiempo en minutos para resincronizar el reloj del sistema con el servidor NTP
+  #define RECONNECTINTERVAL   1       // tiempo en minutos para intentar reconexion a la wifi
   #define DEFAULTBLINK        5       // numero de parpadeos de la pantalla
   #define DEFAULTBLINKMILLIS  500     // mseg entre parpadeo de la pantalla
   #define MSGDISPLAYMILLIS    1000    // mseg se mantienen mensajes informativos
@@ -132,16 +133,16 @@
     // GPIOs  I/O usables: 2 4 5 16 17 18 19 21 22 23 25 26 27 32 33  (15/15)
     // GPIOs  I/O los reservo para JTAG: 12 13 14 15
     // GPIOs  I usables: 34 35 36 39 (4/4)  (ojo no tienen pullup/pulldown interno, requieren resistencia externa)
-    #define ENCDT                 GPIO_NUM_32
-    #define ENCCLK                GPIO_NUM_33
+    #define ENCDT                 GPIO_NUM_17
+    #define ENCCLK                GPIO_NUM_16
     #define ENCBOTON              GPIO_NUM_34   // conectado a GPIO solo INPUT (no se trata por Encoder, se hace por programa)
     #define LEDR                  GPIO_NUM_27  
     #define LEDG                  GPIO_NUM_26 
     #define LEDB                  GPIO_NUM_25 
     #define I2C_SDA               GPIO_NUM_21
     #define I2C_SCL               GPIO_NUM_22
-    #define I2C_SDA1              GPIO_NUM_16
-    #define I2C_SCL1              GPIO_NUM_17
+    #define I2C_SDA1              GPIO_NUM_33
+    #define I2C_SCL1              GPIO_NUM_32
     #define BUZZER                GPIO_NUM_4
     #define lZONA1                1             // mcpO GPA0
     #define lZONA2                2             // mcpO GPA1
