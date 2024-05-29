@@ -320,7 +320,7 @@ void procesaBotonPause(void)
         break;
       case PAUSE:
         if(simular.ErrorPause) statusError(E2); //simulamos error al salir del PAUSE
-        else initRiego(ultimoBoton->id);
+        else initRiego(ultimoBoton->id);        // reanudamos riego que estaba parado 
         if(Estado.estado == ERROR) { // caso de error al reanudar el riego seguimos en PAUSE y señalamos con blink rapido zona
           ledID = ultimoBoton->led;
           tic_parpadeoLedZona.attach(0.2, parpadeoLedZona, ledID);
@@ -346,10 +346,7 @@ void procesaBotonPause(void)
                 bip(2);
                 ledPWM(LEDB,OFF);
                 lcd.clear();
-                if (!checkWifi()) {
-                  WiFi.reconnect(); 
-                  delay(5000);
-                }
+                if (!checkWifi()) wifiReconnect();
                 initFactorRiegos();
                 if(VERIFY && Estado.estado != ERROR) stopAllRiego(); //verificamos operativa OFF para los IDX's 
             }
@@ -358,7 +355,6 @@ void procesaBotonPause(void)
                 LOG_INFO("encoderSW+PAUSE pasamos a modo NONETWORK (DEMO)");
                 bip(2);
                 ledPWM(LEDB,ON);
-                //lcd.clear();
             }
           }
           else {    // muestra hora y ultimos riegos
@@ -381,15 +377,10 @@ void procesaBotonPause(void)
       else {
         if((millis() - countHoldPause) > HOLDTIME) {
           if(!encoderSW) { //pasamos a modo Configuracion
-            setEstado(CONFIGURANDO);
-            configure->start();
+            setEstado(CONFIGURANDO,1);
+            configure->menu();
             setEncoderMenu(configure->get_maxItems());
-            lowbip(1);
-            ledYellow(ON);
             LOG_INFO("Stop + hold PAUSA --> modo ConF()");
-            boton = NULL;
-            holdPause = false;
-            savedValue = value;
           }
           else {   //si esta pulsado encoderSW hacemos un soft reset
             LOG_WARN("Stop + encoderSW + PAUSA --> Reset.....");
@@ -421,16 +412,24 @@ void procesaBotonStop(void)
       setEstado(STOP);
       resetFlags();
     }
-    else {
-      //Lo hemos pulsado en standby - seguro antinenes
-      // apagar leds y parar riegos (por si riego activado externamente)
-      if (!stopAllRiego()) {   //error en stopAllRiego
-        boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
-        return; 
+    if (Estado.estado == STANDBY) { //Lo hemos pulsado en standby
+      if (encoderSW) {  // activar configuracion de grupo multirriego temporal
+          setMultibyId(0, config);  // apunta estructura multi a grupo temporal en config (n+1) con id = 0
+          setEstado(CONFIGURANDO,1);
+          boton = NULL;
+          configure->configureMultiTemp();
+          return;
       }
-      setEstado(STOP,1);
-      reposo = true; //pasamos directamente a reposo
-      dimmerLeds(ON);
+      else {      // seguro antinenes
+          // apagar leds y parar riegos (por si riego activado externamente)
+          if (!stopAllRiego()) {   //error en stopAllRiego
+            boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
+            return; 
+          }
+          setEstado(STOP,1);
+          reposo = true; //pasamos directamente a reposo
+          dimmerLeds(ON);
+      }    
     }
   }
   //si hemos liberado STOP: salimos del estado stop
@@ -440,7 +439,7 @@ void procesaBotonStop(void)
     LOG_TRACE("[poniendo estado STANDBY]");
     setEstado(STANDBY);
   }
-  standbyTime = millis();
+  //standbyTime = millis();  ¿hace falta?
 }
 
 
@@ -477,8 +476,6 @@ bool procesaBotonMultiriego(void)
       displayGrupo(multi.serie, *multi.size);
       delay(MSGDISPLAYMILLIS*3);
       setEstado(STANDBY);   //para que restaure pantalla
-      //lcd.infoclear(nEstado[Estado.estado]);
-      //StaticTimeUpdate(REFRESH);
       return false;    //para que procese el BREAK al volver a procesaBotones         
     }  
     else {
@@ -552,7 +549,7 @@ void procesaBotonZona(void)
       lcd.info(buff,3);
       delay(2*MSGDISPLAYMILLIS);
       led(Boton[bIndex].led,OFF);
-      value = savedValue;  // para que restaure reloj
+      //value = savedValue;  // para que restaure reloj
       LOG_TRACE("[poniendo estado STANDBY]");
       setEstado(STANDBY);
     }
@@ -586,6 +583,7 @@ void procesaEstadoConfigurando()
             break;
         case bPAUSE:
             if(!boton->estado) return; //no se procesa el release del PAUSE
+            LOG_DEBUG("PAUSE pulsado recibido");
             if(!configure->configuring()) { //si no estamos ya configurando algo 
               boton = NULL; //para que no se procese mas adelante  tODO ¿es necesario?
 
@@ -602,7 +600,7 @@ void procesaEstadoConfigurando()
                           LOG_INFO("[ConF] salvado fichero de parametros actuales como DEFAULT");
                           lcd.infoclear("Saved DEFAULT", DEFAULTBLINK, BIPOK);
                           delay(MSGDISPLAYMILLIS); 
-                          configure->stop(); 
+                          configure->menu();  // vuelve a mostrar menu de configuracion 
                         }
                         break;
    #ifdef WEBSERVER
@@ -615,25 +613,26 @@ void procesaEstadoConfigurando()
                         ledYellow(OFF);
                         starConfigPortal(config);
                         ledYellow(ON);
-                        configure->stop();
+                        configure->menu();  // vuelve a mostrar menu de configuracion
                         break; 
                 case 5 :   // MUTE ON
                         mute = true;
                         lcd.infoclear("     MUTE ON",2);
                         bip(2);
                         delay(1000);
-                        configure->stop();
+                        configure->menu();  // vuelve a mostrar menu de configuracion
                         break; 
                 case 6 :   // MUTE OFF
                         mute = false;
                         lcd.infoclear("     MUTE OFF",2);
                         bip(2);
                         delay(1000);
-                        configure->stop();
+                        configure->menu();  // vuelve a mostrar menu de configuracion
                         break; 
               }
               return;
             }
+            LOG_DEBUG("PAUSE pulsado recibido y estamos configurando algo");
             // si ya estamos configurando algo: PAUSE consolida lo configurado en config
             if(configure->configuringTime()) {
               configure->configuringTime_process_end(config);  //  salvamos en config el nuevo tiempo por defecto
@@ -645,16 +644,39 @@ void procesaEstadoConfigurando()
             }
             if(configure->configuringMulti()) {
               configure->configuringMulti_process_end(config);  // actualizamos config con las zonas introducidas
+              break;
+            }
+            if(configure->configuringMultiTemp()) {
+              LOG_DEBUG("PAUSE recibido llamamos a configuringMultiTemp_process_end");
+              configure->configuringMultiTemp_process_end(config);  // actualizamos config con las zonas introducidas
             }
             break;
         case bSTOP:
-            if(!boton->estado) { //release STOP salvamos si procede y salimos de ConF
-              configure->exit(config);
-              standbyTime = millis();
+            if(!boton->estado) {    //release STOP
+              
+                if(configure->configuringMultiTemp()) {     
+                    if (multi.w_size && saveConfig) {  //solo si se ha guardado alguna zona iniciamos riego grupo temporal
+                        LOG_DEBUG("Activamos riego de grupo TEMPORAL");
+                        //n_grupo = setMultibyId(0, config); // set apuntador grupo TEMPORAL ¿ya estaba?
+                        saveConfig = false;  
+                        multirriegotemp = true;
+                        multirriego = true;
+                        multi.actual = 0;
+                        multiSemaforo = true;
+                        //  para que comience el riego en proximo procesaBoton:
+                        boton = &Boton[bID2bIndex(multi.serie[multi.actual])];
+                        bip(4);
+                        displayLCDGrupo(multi.zserie, *multi.size, 2);  //  display zonas
+                    }    
+                    configure->exit(config);   // salimos de Conf
+                }
+                else {  // salvamos si procede y salimos de ConF
+                    configure->exit(config);
+                }    
             }
             break;
         default:  //procesamos boton de ZONAx
-            if (configure->configuringMulti()) {  //añadimos zona al multirriego que estamos definiendo
+            if (configure->configuringMulti() || configure->configuringMultiTemp()) {  //añadimos zona al multirriego que estamos definiendo
               configure->configuringMulti_process_update();
             }
             if (!configure->configuring()) {   //si no estamos configurando nada, configuramos el idx
@@ -684,7 +706,7 @@ void procesaEstadoError(void)
     }
     else {
       setEstado(STANDBY);
-      standbyTime = millis();
+      //standbyTime = millis();
     } 
     //reseteos varios:
     resetLeds();    //apaga leds activos y restablece leds ON y RED
@@ -738,7 +760,7 @@ void procesaEstadoTerminando(void)
   if (Estado.estado == ERROR) return; //no continuamos si se ha producido error al parar el riego
   lcd.blinkLCD(DEFAULTBLINK);
   led(Boton[bID2bIndex(ultimoBoton->id)].led,OFF);
-  standbyTime = millis();
+  //standbyTime = millis();
   LOG_TRACE("[poniendo estado STANDBY]");
   setEstado(STANDBY);
   //Comprobamos si estamos en un multirriego
@@ -761,7 +783,7 @@ void procesaEstadoTerminando(void)
       #endif
       if (n_grupo == 0) return; //error en setup de apuntadores 
       LOG_DEBUG("Grupo:", n_grupo, "time", t);
-      lastGrupos[n_grupo-1].final = t;
+      if(!multirriegotemp) lastGrupos[n_grupo-1].final = t;
       int msgl = snprintf(buff, MAXBUFF, "%s finalizado", multi.desc);
       lcd.info(buff, 2, msgl);
       longbip(3);
@@ -858,12 +880,23 @@ void setEstado(uint8_t estado, int bnum)
   if(estado == STANDBY) {
     setEncoderTime();
     lcd.infoclear("STANDBY",NOBLINK,BIP,bnum);
-    if(multirriego) lcd.info(multi.desc, 2);
+    if(multirriego) lcd.info(multi.desc, 2);  //  display nombre del grupo multirriego
+    if(multirriegotemp) displayLCDGrupo(multi.zserie, *multi.size, 2);  //  display zonas
+    standbyTime = millis();
+    if (savedValue) value = savedValue;  // para que restaure reloj
     StaticTimeUpdate(REFRESH);
     return;
   }
   if(estado == STOP) {
     lcd.infoclear("STOP", NOBLINK, LOWBIP, bnum);
+    return;
+  }
+  if(estado == CONFIGURANDO) {
+    lcd.infoclear("CONFIGURANDO", NOBLINK, LOWBIP, bnum);
+    ledYellow(ON);
+    boton = NULL;
+    holdPause = false;
+    savedValue = value;  // salvamos tiempo riego en display
     return;
   }
 }
@@ -1191,6 +1224,7 @@ void resetLeds()
 void resetFlags()
 {
   multirriego = false;
+  multirriegotemp = false;
   multiSemaforo = false;
   errorOFF = false;
   falloAP = false;
@@ -1681,6 +1715,13 @@ void setupParm()
 
 bool setupConfig(const char *p_filename) 
 {
+  //init grupo temporal n+1  
+  LOG_INFO("Init grupo temporal (GRUPO", _NUMGRUPOS+1,")");
+  config.groupConfig[_NUMGRUPOS].id = 0;     // id del boton de grupo ficticio
+  config.groupConfig[_NUMGRUPOS].size = 1;
+  config.groupConfig[_NUMGRUPOS].serie[0]=1; // numero de zona ficticia ???
+  sprintf(config.groupConfig[_NUMGRUPOS].desc, "TEMPORAL"); 
+
   LOG_INFO("Leyendo fichero parametros", p_filename);
   bool loaded = loadConfigFile(p_filename, config);
   minutes = config.minutes;

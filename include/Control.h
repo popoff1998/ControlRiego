@@ -315,7 +315,7 @@
     char domoticz_port[6];
     char ntpServer[40];
     static const int  n_Grupos = _NUMGRUPOS;  //no modificable por fichero de parámetros (depende HW)
-    Grupo_parm groupConfig[n_Grupos];
+    Grupo_parm groupConfig[n_Grupos+1];       // grupo temporal n+1
   };
 
   // estructura de un grupo de multirriego 
@@ -455,10 +455,10 @@
     DisplayLCD lcd(LCD2004_address, 20, 4);  // 20 caracteres x 4 lineas
     char buff[MAXBUFF];
     
-    uint8_t minutes;
-    uint8_t seconds;
-    int  value;
-    int  savedValue;
+    uint8_t minutes = 0;
+    uint8_t seconds = 0;
+    int  value = 0;
+    int  savedValue = 0;
     S_BOTON  *boton;
     bool webServerAct = false;
 
@@ -519,6 +519,7 @@
     bool displayOff = false;
     unsigned long lastBlinkPause;
     bool multirriego = false;
+    bool multirriegotemp = false;
     bool multiSemaforo = false;
     bool holdPause = false;
     unsigned long countHoldPause;
@@ -663,6 +664,7 @@
   void ultimosRiegos(int);
   void Verificaciones(void);
   void wifiClearSignal(uint);
+  bool wifiReconnect(void);
   void zeroConfig(Config_parm&);
 
 #endif  // control_h

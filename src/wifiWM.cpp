@@ -95,7 +95,8 @@ void setupRedWM(Config_parm &config)
   }
   // explicitly set mode, esp defaults to STA+AP   
   WiFi.mode(WIFI_STA);
-  esp_wifi_set_ps( WIFI_PS_NONE );
+  //esp_wifi_set_ps( WIFI_PS_NONE );  // Set current WiFi power save type (Default is WIFI_PS_MIN_MODEM)
+  //WiFi.setTxPower(WIFI_POWER_19_5dBm); // ajusta la potencia de transmision wifi al maximo
   wm.setHostname(HOSTNAME); 
   // Descomentar para resetear configuración
   //wm.resetSettings();
@@ -212,6 +213,7 @@ void starConfigPortal(Config_parm &config)
 bool checkWifi() {
   LOG_TRACE("in checkWifi");
   if(WiFi.status() == WL_CONNECTED) {
+    tic_WifiLed.detach();  // detenemos su parpadeo por si lo tuviera activo
     ledPWM(LEDG,ON);  // Encendemos el LED indicador de wifi
     connected = true;
     return true;
@@ -223,3 +225,12 @@ bool checkWifi() {
     return false;
   }
 }
+
+bool wifiReconnect () {
+    lcd.infoclear("conectando WIFI");
+    tic_WifiLed.attach(0.2, parpadeoLedWifi);
+    WiFi.reconnect(); 
+    delay(5000);
+    tic_WifiLed.detach();
+    return checkWifi();
+}    

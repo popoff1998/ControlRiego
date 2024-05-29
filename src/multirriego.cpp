@@ -19,7 +19,7 @@ int setMultibyId(uint16_t id, Config_parm &config)
   LOG_DEBUG("[setMultibyId] recibe id= 0x",DebugLogBase::HEX,id);
   //log_i("recibe id=x%x", id);
 
-  for(int i=0; i<NUMGRUPOS; i++)
+  for(int i=0; i<NUMGRUPOS+1; i++)
   {
     if(config.groupConfig[i].id == id) {
       multi.id = &config.groupConfig[i].id;

@@ -8,6 +8,7 @@ class Configure
     bool _configuringTime;
     bool _configuringIdx;
     bool _configuringMulti;
+    bool _configuringMultiTemp;
     int _actualIdxIndex;
     int _actualGrupo;
     int _maxItems;
@@ -18,8 +19,7 @@ class Configure
 
   public:
     Configure(void);
-    void start(void);
-    void stop(void);
+    void menu(void);
     void exit(struct Config_parm&);
     void configureTime(struct Config_parm&);
     bool configuringTime(void);
@@ -31,6 +31,9 @@ class Configure
     bool configuringMulti(void);
     void configuringMulti_process_update(void);
     void configuringMulti_process_end(struct Config_parm&);
+    void configureMultiTemp(void);
+    bool configuringMultiTemp(void);
+    void configuringMultiTemp_process_end(struct Config_parm&);
     bool configuring(void);
     int mostrar_menu(int);
     int getActualIdxIndex(void);

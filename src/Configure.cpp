@@ -5,22 +5,19 @@ Configure::Configure()
   _configuringIdx = false;
   _configuringTime = false;
   _configuringMulti = false;
+  _configuringMultiTemp = false;
   _actualIdxIndex = 0;
   _actualGrupo = 0;
 }
 
-void Configure::start()
+void Configure::menu()
 {
   _configuringIdx = false;
   _configuringTime = false;
   _configuringMulti = false;
-  _maxItems = mostrar_menu(0);
+  _configuringMultiTemp = false;
+  _maxItems = this->mostrar_menu(0);
   _currentItem = 0;
-}
-
-void Configure::stop()
-{
-  Configure::start();
 }
 
 bool Configure::configuringTime(void)
@@ -38,9 +35,15 @@ bool Configure::configuringMulti()
   return _configuringMulti;
 }
 
+bool Configure::configuringMultiTemp()
+{
+  LOG_DEBUG("_configuringMultiTemp devuelve  >>>>>", _configuringMultiTemp); 
+  return _configuringMultiTemp;
+}
+
 bool Configure::configuring()
 {
-  return (_configuringIdx | _configuringTime | _configuringMulti);
+  return (_configuringIdx | _configuringTime | _configuringMulti | _configuringMultiTemp);
 }
 
 void Configure::configureIdx(int index)
@@ -48,6 +51,7 @@ void Configure::configureIdx(int index)
   _configuringIdx = true;
   _configuringTime = false;
   _configuringMulti = false;
+  _configuringMultiTemp = false;
   _actualIdxIndex = index;
 
   this->configureIdx_process();
@@ -58,6 +62,7 @@ void Configure::configureTime(struct Config_parm& config)
   _configuringTime = true;
   _configuringIdx = false;
   _configuringMulti = false;
+  _configuringMultiTemp = false;
 
   this->configureTime_process(config);
 }
@@ -65,10 +70,23 @@ void Configure::configureTime(struct Config_parm& config)
 //  Configuramos el grupo de multirriego activo
 void Configure::configureMulti(int grupo)
 {
+  _configuringMulti = true;
   _configuringTime = false;
   _configuringIdx = false;
-  _configuringMulti = true;
+  _configuringMultiTemp = false;
   _actualGrupo = grupo;
+
+  this->configureMulti_process();
+}
+
+//  Configuramos el grupo de multirriego temporal
+void Configure::configureMultiTemp(void)
+{
+  _configuringMultiTemp = true;
+  _configuringTime = false;
+  _configuringIdx = false;
+  _configuringMulti = false;
+  _actualGrupo = _NUMGRUPOS+1;   // grupo temporal: n+1
 
   this->configureMulti_process();
 }
@@ -149,7 +167,7 @@ void Configure::configureMulti_process(void)
       snprintf(buff, MAXBUFF, "pulse ZONAS");
       lcd.info(buff, 3);
 
-      displayGrupo(multi.serie, *multi.size);
+      if(!_configuringMultiTemp) displayGrupo(multi.serie, *multi.size); // no encendemos leds si grupo TEMPORAL 
 }              
 
 //  configuramos IDX asociado al boton de zona
@@ -180,7 +198,7 @@ void Configure::configuringTime_process_end(struct Config_parm &config)
       bipOK();
       delay(MSGDISPLAYMILLIS);
 
-      this->stop();
+      this->menu();  // vuelve a mostrar menu de configuracion
       setEncoderMenu(_maxItems);
 }
 
@@ -200,8 +218,8 @@ void Configure::configuringIdx_process_end(struct Config_parm &config)
       delay(MSGDISPLAYMILLIS);  // para que se vea el msg
       led(Boton[bIndex].led,OFF);
 
-      value = savedValue;
-      this->stop();
+      value = savedValue;  // restaura tiempo (en lugar del IDX)
+      this->menu();  // vuelve a mostrar menu de configuracion
       setEncoderMenu(_maxItems);
 }
 
@@ -243,15 +261,40 @@ void Configure::configuringMulti_process_end(struct Config_parm &config)
       }
       ultimosRiegos(HIDE);
       led(Boton[bID2bIndex(*multi.id)].led,OFF);
-      this->stop();
+      this->menu();  // vuelve a mostrar menu de configuracion
       setEncoderMenu(_maxItems);
+}
+
+// actualizamos config con las zonas introducidas para grupo temporal
+void Configure::configuringMultiTemp_process_end(struct Config_parm &config)
+{
+      if (multi.w_size) {  //solo si se ha pulsado alguna
+        *multi.size = multi.w_size;
+        int g = _actualGrupo;
+        for (int i=0; i<multi.w_size; ++i) {
+          config.groupConfig[g-1].serie[i] = bID2zIndex(multi.serie[i])+1;
+        }
+        saveConfig = true;  //  solo para indicar que hemos salvado grupo temporal y tenemos que iniciarlo
+
+        LOG_INFO("SAVE config grupo TEMPORAL : GRUPO",g,"tamaño:",*multi.size,"(",multi.desc,")");
+        printMultiGroup(config, g-1);
+        bipOK();
+        lcd.info("  >> libere STOP <<",1);
+        lcd.info("para comenzar riego",2);
+        lcd.info("de las zonas:",3);
+      }
 }
 
 //  escritura de parametros a fichero si procede y salimos de ConF
 void Configure::exit(struct Config_parm &config)
 {
-      this->stop();
+      _configuringIdx = false;
+      _configuringTime = false;
+      _configuringMulti = false;
+      _configuringMultiTemp = false;
+
       setEncoderTime();
+
       if (saveConfig) {
         LOG_INFO("saveConfig=true  --> salvando parametros a fichero");
         if (saveConfigFile(parmFile, config)) {
@@ -260,16 +303,16 @@ void Configure::exit(struct Config_parm &config)
         }  
         saveConfig = false;
       }
+
       #ifdef WEBSERVER
         if (webServerAct) {
           endWS();           //al salir de modo ConF no procesaremos peticiones al webserver
           LOG_INFO("[ConF][WS] desactivado webserver");
         }
       #endif
+
       resetLeds();
-      if (savedValue>0) value = savedValue;  // para que restaure reloj aunque no salvemos con pause el valor configurado
       LOG_TRACE("[poniendo estado STANDBY]");
       setEstado(STANDBY);
-
 }
 
