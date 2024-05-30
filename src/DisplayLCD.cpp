@@ -109,6 +109,11 @@ void DisplayLCD::print(const char * text) {
   lcdDisp.print(text);
 }
 
+void DisplayLCD::print(const String &s) {
+  //LOG_TRACE("[LCD] recibido: '",text,"'");
+  lcdDisp.print(s);
+}
+
 /* 
 void DisplayLCD::blinkLCD(const char *info,int veces) //muestra texto recibido parpadeando n veces
 {

@@ -62,7 +62,7 @@ void preOtaUpdateCallback()
 
 //evento llamado en caso de conexion de la wifi
 void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info){
- LOG_INFO("WiFi conectada");
+ LOG_INFO("    <<<<---  WiFi conectada  --->>>>");
 }
 
 //evento llamado en caso de desconexion de la wifi
@@ -95,13 +95,12 @@ void setupRedWM(Config_parm &config)
   }
   // explicitly set mode, esp defaults to STA+AP   
   WiFi.mode(WIFI_STA);
+  //esp_wifi_set_ps( WIFI_PS_NONE );  // Set current WiFi power save type (Default is WIFI_PS_MIN_MODEM)
+  //WiFi.setTxPower(WIFI_POWER_19_5dBm); // ajusta la potencia de transmision wifi al maximo
   wm.setHostname(HOSTNAME); 
   // Descomentar para resetear configuración
   //wm.resetSettings();
   
-  tic_WifiLed.attach(0.2, parpadeoLedWifi); // Empezamos el temporizador que hará parpadear el LED indicador de wifi
-  ledPWM(LEDR,OFF);   // y apagamos LEDR
-  lcd.infoclear("conectando WIFI");
   //sets timeout until configuration portal gets turned off
   wm.setConfigPortalTimeout(timeout);
   // callbacks
@@ -121,6 +120,10 @@ void setupRedWM(Config_parm &config)
   custom_domoticz_server.setValue(config.domoticz_ip, 40);
   custom_domoticz_port.setValue(config.domoticz_port, 5);
   custom_ntpserver.setValue(config.ntpServer, 40);
+  if(NONETWORK && NOWIFI) return;
+  lcd.infoclear("conectando WIFI");
+  tic_WifiLed.attach(0.2, parpadeoLedWifi); // Empezamos el temporizador que hará parpadear el LED indicador de wifi
+  ledPWM(LEDR,OFF);   // y apagamos LEDR
   // activamos modo AP y portal cautivo y comprobamos si se establece la conexión
   if(!wm.autoConnect("Ardomo")) {
     LOG_WARN("Fallo en la conexión (timeout)");
@@ -210,6 +213,7 @@ void starConfigPortal(Config_parm &config)
 bool checkWifi() {
   LOG_TRACE("in checkWifi");
   if(WiFi.status() == WL_CONNECTED) {
+    tic_WifiLed.detach();  // detenemos su parpadeo por si lo tuviera activo
     ledPWM(LEDG,ON);  // Encendemos el LED indicador de wifi
     connected = true;
     return true;
@@ -221,3 +225,12 @@ bool checkWifi() {
     return false;
   }
 }
+
+bool wifiReconnect () {
+    lcd.infoclear("conectando WIFI");
+    tic_WifiLed.attach(0.2, parpadeoLedWifi);
+    WiFi.reconnect(); 
+    delay(5000);
+    tic_WifiLed.detach();
+    return checkWifi();
+}    

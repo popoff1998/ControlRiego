@@ -89,7 +89,7 @@
        
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.0.3"
+                            #define VERSION  "3.0.5"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -108,7 +108,8 @@
     #define DEFAULTSECONDS      7
   #endif
   #define STANDBYSECS         15      // tiempo en segundos para pasar a reposo desde standby (apagar pantalla y atenuar leds)
-  #define NTPUPDATEINTERVAL   60      // tiempo en minutos para resincronizar el reloj del sistema con el servidor NTP
+  #define NTPUPDATEINTERVAL   600     // tiempo en minutos para resincronizar el reloj del sistema con el servidor NTP
+  #define RECONNECTINTERVAL   1       // tiempo en minutos para intentar reconexion a la wifi
   #define DEFAULTBLINK        5       // numero de parpadeos de la pantalla
   #define DEFAULTBLINKMILLIS  500     // mseg entre parpadeo de la pantalla
   #define MSGDISPLAYMILLIS    1000    // mseg se mantienen mensajes informativos
@@ -132,16 +133,16 @@
     // GPIOs  I/O usables: 2 4 5 16 17 18 19 21 22 23 25 26 27 32 33  (15/15)
     // GPIOs  I/O los reservo para JTAG: 12 13 14 15
     // GPIOs  I usables: 34 35 36 39 (4/4)  (ojo no tienen pullup/pulldown interno, requieren resistencia externa)
-    #define ENCCLK                GPIO_NUM_32
-    #define ENCDT                 GPIO_NUM_33
+    #define ENCDT                 GPIO_NUM_17
+    #define ENCCLK                GPIO_NUM_16
     #define ENCBOTON              GPIO_NUM_34   // conectado a GPIO solo INPUT (no se trata por Encoder, se hace por programa)
     #define LEDR                  GPIO_NUM_27  
     #define LEDG                  GPIO_NUM_26 
     #define LEDB                  GPIO_NUM_25 
     #define I2C_SDA               GPIO_NUM_21
     #define I2C_SCL               GPIO_NUM_22
-    #define I2C_SDA1              GPIO_NUM_16
-    #define I2C_SCL1              GPIO_NUM_17
+    #define I2C_SDA1              GPIO_NUM_33
+    #define I2C_SCL1              GPIO_NUM_32
     #define BUZZER                GPIO_NUM_4
     #define lZONA1                1             // mcpO GPA0
     #define lZONA2                2             // mcpO GPA1
@@ -314,7 +315,7 @@
     char domoticz_port[6];
     char ntpServer[40];
     static const int  n_Grupos = _NUMGRUPOS;  //no modificable por fichero de parámetros (depende HW)
-    Grupo_parm groupConfig[n_Grupos];
+    Grupo_parm groupConfig[n_Grupos+1];       // grupo temporal n+1
   };
 
   // estructura de un grupo de multirriego 
@@ -444,6 +445,7 @@
     S_initFlags initFlags ;
     bool connected;
     bool NONETWORK;
+    bool NOWIFI;
     bool falloAP;
     bool saveConfig = false;
     
@@ -452,6 +454,13 @@
 
     DisplayLCD lcd(LCD2004_address, 20, 4);  // 20 caracteres x 4 lineas
     char buff[MAXBUFF];
+    
+    uint8_t minutes = 0;
+    uint8_t seconds = 0;
+    int  value = 0;
+    int  savedValue = 0;
+    S_BOTON  *boton;
+    bool webServerAct = false;
 
   #else
     extern S_BOTON Boton [];
@@ -460,12 +469,20 @@
     extern S_initFlags initFlags;
     extern bool connected;
     extern bool NONETWORK;
+    extern bool NOWIFI;
     extern bool falloAP;
     extern bool saveConfig;
     extern const char *parmFile; 
     extern const char *defaultFile;
-    extern  DisplayLCD lcd;
-    extern  char buff[];
+    extern DisplayLCD lcd;
+    extern char buff[];
+
+    extern uint8_t minutes;
+    extern uint8_t seconds;
+    extern int  value;
+    extern int  savedValue;
+    extern S_BOTON  *boton;
+    extern bool webServerAct;
 
   #endif
 
@@ -482,31 +499,27 @@
     TimeChangeRule *tcr;
     time_t utc;
     CountUpDownTimer T(DOWN);
-    S_BOTON  *boton;
     S_BOTON  *ultimoBoton;
     S_Estado Estado;
     S_simFlags simular; // estructura flags para simular errores
     Configure    *configure;
-    AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ENCCLK,ENCDT,-1, -1, ROTARY_ENCODER_STEPS);
+    AiEsp32RotaryEncoder rotaryEncoder(ENCCLK,ENCDT,-1, -1, ROTARY_ENCODER_STEPS);
     Ticker tic_parpadeoLedError;    //para parpadeo led ERROR (LEDR)
     Ticker tic_parpadeoLedZona;  //para parpadeo led zona de riego
     Ticker tic_verificaciones;   //para verificaciones periodicas
     time_t lastRiegos[NUMZONAS];
     S_timeG lastGrupos[NUMGRUPOS];
     uint factorRiegos[NUMZONAS];
-    uint8_t minutes;
-    uint8_t seconds;
     uint8_t prevseconds;
     uint8_t prevminutes;
     char  descDomoticz[20];
     int  ledID = 0;
-    int  value;
-    int  savedValue;
     bool reposo = false;
     unsigned long standbyTime;
     bool displayOff = false;
     unsigned long lastBlinkPause;
     bool multirriego = false;
+    bool multirriegotemp = false;
     bool multiSemaforo = false;
     bool holdPause = false;
     unsigned long countHoldPause;
@@ -514,7 +527,6 @@
     bool timeOK = false;
     bool factorRiegosOK = false;
     bool errorOFF = false;
-    bool webServerAct = false;
     bool VERIFY;
     bool encoderSW = false;
     char errorText[7];
@@ -629,10 +641,12 @@
   void resetLeds(void);
   bool saveConfigFile(const char*, Config_parm&);
   bool serialDetect(void);
+  void setEncoderMenu(int);
+  void setEncoderTime(void);
   void setEstado(uint8_t estado, int bnum = 0);
   void setledRGB(void);
   int  setMultibyId(uint16_t , Config_parm&);
-  bool setupConfig(const char*, Config_parm&);
+  bool setupConfig(const char*);
   void setupEstado(void);
   void setupInit(void);
   void setupParm(void);
@@ -650,6 +664,7 @@
   void ultimosRiegos(int);
   void Verificaciones(void);
   void wifiClearSignal(uint);
+  bool wifiReconnect(void);
   void zeroConfig(Config_parm&);
 
 #endif  // control_h
