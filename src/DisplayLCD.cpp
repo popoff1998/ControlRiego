@@ -145,7 +145,6 @@ void DisplayLCD::blinkLCD(int veces) //parpadea contenido actual de la pantalla 
 
 void DisplayLCD::infoEstado(const char *estado, const char *zona) {
     LOG_DEBUG("[LCD]  Recibido: ", estado, zona);
-    //displayON();   // por si estuviera noDisplay por PAUSE
     setCursor(0, 0);
     lcdDisp.print(_blankline);
     setCursor(0, 0);
@@ -158,8 +157,9 @@ void DisplayLCD::infoEstado(const char *estado, const char *zona) {
 void DisplayLCD::info(const char* info, int line) {
     int size = strlen(info);
     char infocut[MAXBUFF];
-    if(size>MAXBUFF) {
-      strlcpy(infocut, info, MAXBUFF); 
+    if(size>MAXBUFF-1) {
+      LOG_DEBUG("*info recibido de longitud =",size);
+      strlcpy(infocut, info, sizeof(infocut)); 
       lcd.info(infocut, line, size);
     }  
     else lcd.info(info, line, size);
@@ -190,9 +190,6 @@ void DisplayLCD::infoclear(const char *info, int line) {
 void DisplayLCD::infoclear(const char *info, int dnum, int btype, int bnum) {
     LOG_DEBUG("[LCD]  Recibido: '",info, "'   (blink=",dnum, ") btype=",btype,"bnum=",bnum);
     clear();
-    //String texto = info;
-    //if(texto=="StoP" || texto=="STOP") setCursor(7,1);
-    //else setCursor(0, 0);
     setCursor(0, 0);
     lcdDisp.print(info);
       if (btype == LONGBIP) longbip(bnum);

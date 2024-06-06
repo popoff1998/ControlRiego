@@ -89,7 +89,7 @@
        
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.0.5"
+                            #define VERSION  "3.0.6"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -241,7 +241,7 @@
       bGRUPO1     = 0x0400,  // mcpI B2  (grupos deben ser consecutivos)
       bGRUPO2     = 0x0800,  // mcpI B3  (grupos deben ser consecutivos)
       bGRUPO3     = 0x1000,  // mcpI B4  (grupos deben ser consecutivos)
-      bGRUPO4     = 0x2000,  // mcpI B5
+      bGRUPO4     = 0x2000,  // mcpI B5  (grupos deben ser consecutivos)
       bPAUSE      = 0x4000,  // mcpO B2  (OJO conectados a mcpO se integran como bits 15 y 16 de readInputs)
       bSTOP       = 0x8000,  // mcpO B3  (OJO conectados a mcpO se integran como bits 15 y 16 de readInputs)
       //          = 0x8000,  // mcpI B7  (NO USAR para inputs)
@@ -255,6 +255,7 @@
     #define _NUMZONAS            9  // numero de zonas (botones riego individual)
     #define _NUMGRUPOS           4  // numero de grupos multirriego
   //----------------  fin dependientes del HW   ----------------------------------------
+    #define ZONASXGRUPO          9  // maximo de zonas en un grupo multirriego (9 para coja en pantalla, max. 16)
 
   #endif
 
@@ -288,6 +289,7 @@
     #define _NUMZONAS            9  // numero de zonas (botones riego individual)
     #define _NUMGRUPOS           3  // numero de grupos multirriego
   //----------------  fin dependientes del HW   ----------------------------------------
+    #define ZONASXGRUPO          9  // maximo de zonas en un grupo multirriego (9 para coja en pantalla, max. 16)
   #endif
 
   //estructura para salvar un grupo
@@ -461,6 +463,14 @@
     int  savedValue = 0;
     S_BOTON  *boton;
     bool webServerAct = false;
+    bool reposo = false;
+
+    #ifdef MUTE
+      bool mute = true;
+    #else
+      bool mute = false;
+    #endif
+
 
   #else
     extern S_BOTON Boton [];
@@ -483,6 +493,8 @@
     extern int  savedValue;
     extern S_BOTON  *boton;
     extern bool webServerAct;
+    extern bool reposo;
+    extern bool mute;
 
   #endif
 
@@ -514,7 +526,6 @@
     uint8_t prevminutes;
     char  descDomoticz[20];
     int  ledID = 0;
-    bool reposo = false;
     unsigned long standbyTime;
     bool displayOff = false;
     unsigned long lastBlinkPause;
@@ -547,13 +558,6 @@
     int bipKO_melody[] = { NOTE_B5, NOTE_A5, NOTE_G5, NOTE_F5, NOTE_E5, NOTE_D5, NOTE_C5, NOTE_B4, NOTE_A3 };
     const int bipKO_num = sizeof(bipKO_melody)/sizeof(bipKO_melody[0]); // numero de notas en la melodia
     int bipKO_duration = 120;  // duracion de cada tono en mseg.
-
-    #ifdef MUTE
-      bool mute = true;
-    #else
-      bool mute = false;
-    #endif
-
 
   #endif  // __MAIN__
 
@@ -641,7 +645,7 @@
   void resetLeds(void);
   bool saveConfigFile(const char*, Config_parm&);
   bool serialDetect(void);
-  void setEncoderMenu(int);
+  void setEncoderMenu(int menuitems, int currentitem = 0);
   void setEncoderTime(void);
   void setEstado(uint8_t estado, int bnum = 0);
   void setledRGB(void);

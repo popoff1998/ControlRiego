@@ -24,11 +24,10 @@ int setMultibyId(uint16_t id, Config_parm &config)
     if(config.groupConfig[i].id == id) {
       multi.id = &config.groupConfig[i].id;
       multi.size = &config.groupConfig[i].size;
-      //multi.zserie = &config.groupConfig[i].serie[0];
       multi.desc = config.groupConfig[i].desc;
       for (int j=0; j < *multi.size; j++) {
         multi.serie[j] = ZONAS[config.groupConfig[i].serie[j]-1];  //obtiene el id del boton de cada zona (ojo: no viene en el json)
-        multi.zserie[j] = config.groupConfig[i].serie[j];  //obtiene el id de cada zona
+        multi.zserie[j] = config.groupConfig[i].serie[j];  //obtiene el numero de cada zona
         #ifdef EXTRADEBUG 
           Serial.printf("  Zona%d   id: 0x", config.groupConfig[i].serie[j]);
           Serial.println(Boton[config.groupConfig[i].serie[j]-1].id,HEX); //id(boton) asociado a la zona
@@ -60,10 +59,11 @@ void displayGrupo(uint16_t *serie, int serieSize)
 
 void displayLCDGrupo(uint16_t *serieZonas, int serieSize, int line)
 {
+  LOG_DEBUG("recibido serieSize=",serieSize,"line=",line);
   int i,n = 0;
   for(i=0;i<serieSize;i++) {
     n += snprintf (&buff[n], MAXBUFF, "%d-", serieZonas[i]);
-    if (n<0) break; // max 20 char alcanzados
+    if (n >= LCDMAXLEN) break; // max 20 char alcanzados
   }  
   lcd.info(buff,line);
 }

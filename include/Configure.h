@@ -9,6 +9,7 @@ class Configure
     bool _configuringIdx;
     bool _configuringMulti;
     bool _configuringMultiTemp;
+    bool _configuringMenu;
     int _actualIdxIndex;
     int _actualGrupo;
     int _maxItems;
@@ -34,8 +35,9 @@ class Configure
     void configureMultiTemp(void);
     bool configuringMultiTemp(void);
     void configuringMultiTemp_process_end(struct Config_parm&);
-    bool configuring(void);
+    bool statusMenu(void);
     int mostrar_menu(int);
+    void procesaSelectMenu(struct Config_parm&);
     int getActualIdxIndex(void);
     int getActualGrupo(void);
     int get_maxItems(void);

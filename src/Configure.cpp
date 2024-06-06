@@ -6,12 +6,14 @@ Configure::Configure()
   _configuringTime = false;
   _configuringMulti = false;
   _configuringMultiTemp = false;
+  _configuringMenu = false;
   _actualIdxIndex = 0;
   _actualGrupo = 0;
 }
 
 void Configure::menu()
 {
+  _configuringMenu = true;
   _configuringIdx = false;
   _configuringTime = false;
   _configuringMulti = false;
@@ -37,13 +39,12 @@ bool Configure::configuringMulti()
 
 bool Configure::configuringMultiTemp()
 {
-  LOG_DEBUG("_configuringMultiTemp devuelve  >>>>>", _configuringMultiTemp); 
   return _configuringMultiTemp;
 }
 
-bool Configure::configuring()
+bool Configure::statusMenu()
 {
-  return (_configuringIdx | _configuringTime | _configuringMulti | _configuringMultiTemp);
+  return _configuringMenu;
 }
 
 void Configure::configureIdx(int index)
@@ -52,6 +53,7 @@ void Configure::configureIdx(int index)
   _configuringTime = false;
   _configuringMulti = false;
   _configuringMultiTemp = false;
+  _configuringMenu = false;
   _actualIdxIndex = index;
 
   this->configureIdx_process();
@@ -63,6 +65,7 @@ void Configure::configureTime(struct Config_parm& config)
   _configuringIdx = false;
   _configuringMulti = false;
   _configuringMultiTemp = false;
+  _configuringMenu = false;
 
   this->configureTime_process(config);
 }
@@ -74,6 +77,7 @@ void Configure::configureMulti(int grupo)
   _configuringTime = false;
   _configuringIdx = false;
   _configuringMultiTemp = false;
+  _configuringMenu = false;
   _actualGrupo = grupo;
 
   this->configureMulti_process();
@@ -86,6 +90,7 @@ void Configure::configureMultiTemp(void)
   _configuringTime = false;
   _configuringIdx = false;
   _configuringMulti = false;
+  _configuringMenu = false;
   _actualGrupo = _NUMGRUPOS+1;   // grupo temporal: n+1
 
   this->configureMulti_process();
@@ -109,35 +114,6 @@ int Configure::get_currentItem(void)
 int Configure::get_maxItems(void)
 {
   return _maxItems;
-}
-
-int Configure::mostrar_menu(int opcion)
-{
-  String opcionesCF[] = {
-    "BOTONES IDX/MULT.",  // 0 
-    "TIEMPO riego",       // 1  
-    "save DEFAULT",       // 2 
-    "WEBSERVER",          // 3 
-    "WIFI AP",            // 4 
-    "MUTE ON",            // 5 
-    "MUTE OFF"            // 6 
-  };
-  const int MAXOPCIONES = sizeof(opcionesCF)/sizeof(opcionesCF[0]);
-  _currentItem = opcion;
-
-  lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.print("Menu CONFIGURACION:");
-  lcd.setCursor(0,1);
-  lcd.print("->");
-  for (int l=1; l<4; l++) {
-    Serial.printf("linea %d opcion %d \n", l, opcion);
-    lcd.setCursor(3,l);
-    lcd.print(opcionesCF[opcion]);
-    opcion++;
-    if(opcion >= MAXOPCIONES) break; 
-  }
-  return MAXOPCIONES;
 }
 
 // configuramos tiempo riego por defecto
@@ -198,8 +174,8 @@ void Configure::configuringTime_process_end(struct Config_parm &config)
       bipOK();
       delay(MSGDISPLAYMILLIS);
 
+      setEncoderMenu(_maxItems, _currentItem);
       this->menu();  // vuelve a mostrar menu de configuracion
-      setEncoderMenu(_maxItems);
 }
 
 //  salvamos en config y Boton el nuevo IDX de la zona
@@ -219,8 +195,8 @@ void Configure::configuringIdx_process_end(struct Config_parm &config)
       led(Boton[bIndex].led,OFF);
 
       value = savedValue;  // restaura tiempo (en lugar del IDX)
+      setEncoderMenu(_maxItems, _currentItem);
       this->menu();  // vuelve a mostrar menu de configuracion
-      setEncoderMenu(_maxItems);
 }
 
 //  se añade zona pulsada a grupo
@@ -229,12 +205,12 @@ void Configure::configuringMulti_process_update(void)
       int bIndex = bID2bIndex(boton->id);
       int zIndex = bID2zIndex(boton->id);
 
-      if (multi.w_size < 16) {  //max. 16 zonas por grupo
+      if (multi.w_size < ZONASXGRUPO) {  //max. zonas por grupo
         multi.serie[multi.w_size] = boton->id;
         multi.zserie[multi.w_size] = zIndex+1 ;
         multi.w_size = multi.w_size + 1;
 
-        LOG_INFO("[ConF] añadiendo ZONA",zIndex+1,"(",boton->desc,")");
+        LOG_INFO("[ConF] añadiendo ZONA",zIndex+1,"(",boton->desc,") multi.w_size=",multi.w_size);
         led(Boton[bIndex].led,ON);
         displayLCDGrupo(multi.zserie, multi.w_size);
       }
@@ -261,8 +237,8 @@ void Configure::configuringMulti_process_end(struct Config_parm &config)
       }
       ultimosRiegos(HIDE);
       led(Boton[bID2bIndex(*multi.id)].led,OFF);
+      setEncoderMenu(_maxItems, _currentItem);
       this->menu();  // vuelve a mostrar menu de configuracion
-      setEncoderMenu(_maxItems);
 }
 
 // actualizamos config con las zonas introducidas para grupo temporal
@@ -292,6 +268,7 @@ void Configure::exit(struct Config_parm &config)
       _configuringTime = false;
       _configuringMulti = false;
       _configuringMultiTemp = false;
+      _configuringMenu = false;
 
       setEncoderTime();
 
@@ -314,5 +291,91 @@ void Configure::exit(struct Config_parm &config)
       resetLeds();
       LOG_TRACE("[poniendo estado STANDBY]");
       setEstado(STANDBY);
+}
+
+int Configure::mostrar_menu(int opcion)
+{
+  String opcionesCF[] = {
+    "BOTONES IDX/MULT.",  // 0 
+    "TIEMPO riego",       // 1  
+    "save to DEFAULT",    // 2 
+    "WIFI parm (AP)",     // 3 
+    "WEBSERVER",          // 4 
+    "MUTE ON/OFF",        // 5 
+    "load from DEFAULT"   // 6 
+  };
+  const int MAXOPCIONES = sizeof(opcionesCF)/sizeof(opcionesCF[0]);
+  _currentItem = opcion;
+
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Menu Configuracion:");
+  lcd.setCursor(0,1);
+  lcd.print("->");
+  for (int l=1; l<4; l++) {
+    Serial.printf("linea %d opcion %d \n", l, opcion);
+    lcd.setCursor(3,l);
+    lcd.print(opcionesCF[opcion]);
+    opcion++;
+    if(opcion >= MAXOPCIONES) break; 
+  }
+  return MAXOPCIONES;
+}
+
+
+void Configure::procesaSelectMenu(struct Config_parm &config) {
+          boton = NULL; //para que no se procese mas adelante  TODO ¿es necesario?
+
+          switch(this->get_currentItem()) {  // ejecutamos opcion seleccionada del menu
+            case 0 :      //configuramos boton de zona (IDX) o de grupo (zonas que lo componen)
+                    lcd.infoclear("pulse ZONA o GRUPO",1);
+                    lcd.info("a configurar...",2);   
+                    break;
+            case 1 :      //configuramos tiempo por defecto
+                    this->configureTime(config);   
+                    break;
+            case 2 :  // copiamos fichero parametros en fichero default
+                    if (copyConfigFile(parmFile, defaultFile)) {    // parmFile --> defaultFile
+                      LOG_INFO("[ConF] salvado fichero de parametros actuales como DEFAULT");
+                      lcd.infoclear("Save DEFAULT OK", DEFAULTBLINK, BIPOK);
+                      delay(MSGDISPLAYMILLIS); 
+                    }
+                    else BIPKO;  
+                    this->menu();  // vuelve a mostrar menu de configuracion 
+                    break;
+            case 3 :   // activamos AP y portal de configuracion (bloqueante)
+                    LOG_INFO("[ConF] encoderSW + GRUPO3: activamos AP y portal de configuracion");
+                    ledYellow(OFF);
+                    starConfigPortal(config);
+                    ledYellow(ON);
+                    this->menu();  // vuelve a mostrar menu de configuracion
+                    break; 
+  #ifdef WEBSERVER
+            case 4 :  // activamos webserver
+                    setupWS();
+                    break;
+  #endif 
+            case 5 :   // toggle MUTE
+                    mute = !mute;
+                    mute ? lcd.infoclear("     MUTE ON",2) : lcd.infoclear("     MUTE OFF",2);
+                    bip(2);
+                    delay(1000);
+                    this->menu();  // vuelve a mostrar menu de configuracion
+                    break; 
+            case 6 :   // carga parametros por defecto y reinicia
+                    if (copyConfigFile(defaultFile, parmFile)) {    // defaultFile --> parmFile
+                      LOG_WARN("carga parametros por defecto OK");
+                      //señala la carga parametros por defecto OK
+                      lcd.infoclear("load DEFAULT OK", DEFAULTBLINK, BIPOK);
+                      lcd.info(">> RESET en 2 seg <<",3);
+                      delay(2000);
+                      ESP.restart();  // reset ESP32
+                    }
+                    else BIPKO;  
+                    this->menu();  // vuelve a mostrar menu de configuracion
+                    break;
+            default:         
+                    LOG_DEBUG("salimos del CASE del MENU sin realizar accion");
+          }
 }
 
