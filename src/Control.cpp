@@ -417,7 +417,7 @@ void procesaBotonStop(void)
           setMultibyId(0, config);  // apunta estructura multi a grupo temporal en config (n+1) con id = 0
           setEstado(CONFIGURANDO,1);
           boton = NULL;
-          configure->configureMultiTemp();
+          configure->MultiTemp_process_start();
           return;
       }
       else {      // seguro antinenes
@@ -575,8 +575,8 @@ void procesaEstadoConfigurando()
               #endif
               if (n_grupo == 0) return; //error en setup de apuntadores 
               //Configuramos el grupo de multirriego activo
-              configure->configureMulti(n_grupo);
               rotaryEncoder.disable();
+              configure->Multi_process_start(n_grupo);
             }  
             break;
         case bPAUSE:
@@ -589,27 +589,27 @@ void procesaEstadoConfigurando()
             LOG_DEBUG("PAUSE pulsado recibido y estamos configurando algo");
             // si ya estamos configurando algo: PAUSE consolida lo configurado en config
             if(configure->configuringTime()) {
-              configure->configuringTime_process_end(config);  //  salvamos en config el nuevo tiempo por defecto
+              configure->Time_process_end(config);  //  salvamos en config el nuevo tiempo por defecto
               break;
             }
             if(configure->configuringIdx()) {
-              configure->configuringIdx_process_end(config);  //  salvamos en config el nuevo IDX
+              configure->Idx_process_end(config);  //  salvamos en config el nuevo IDX
               break;
             }
             if(configure->configuringMulti()) {
-              configure->configuringMulti_process_end(config);  // actualizamos config con las zonas introducidas
+              configure->Multi_process_end(config);  // actualizamos config con las zonas introducidas
               break;
             }
             if(configure->configuringMultiTemp()) {
-              configure->configuringMultiTemp_process_end(config);  // actualizamos config con las zonas introducidas
+              configure->MultiTemp_process_end(config);  // actualizamos config con las zonas introducidas
             }
             break;
         case bSTOP:
             if(!boton->estado) {    //release STOP
                 if(configure->configuringMultiTemp()) {     
                     if (multi.w_size && saveConfig) {  //solo si se ha guardado alguna zona iniciamos riego grupo temporal
-                        LOG_DEBUG("Activamos riego de grupo TEMPORAL");
                         saveConfig = false;  
+                        LOG_DEBUG("Activamos riego de grupo TEMPORAL");
                         multirriegotemp = true;
                         multirriego = true;
                         multi.actual = 0;
@@ -617,18 +617,18 @@ void procesaEstadoConfigurando()
                         //  para que comience el riego en proximo procesaBoton:
                         boton = &Boton[bID2bIndex(multi.serie[multi.actual])];
                         bip(4);
-                        displayLCDGrupo(multi.zserie, *multi.size, 2);  //  display zonas
+                        displayLCDGrupo(multi.zserie, *multi.size, 2);  //  display zonas a regar
                     }    
                 }
-                configure->exit(config);  // salvamos si procede y salimos de ConF
+                configure->exit(config);  // salvamos parm a fichero si procede y salimos de ConF
             }
             break;
         default:  //procesamos boton de ZONAx
             if (configure->configuringMulti() || configure->configuringMultiTemp()) {  //añadimos zona al multirriego que estamos definiendo
-              configure->configuringMulti_process_update();
+              configure->Multi_process_update();
             }
             if (configure->statusMenu()) {   //si no estamos configurando nada, configuramos el idx del boton
-              configure->configureIdx(bID2bIndex(boton->id));
+              configure->Idx_process_start(bID2bIndex(boton->id));
             }
       }
     }
@@ -1032,7 +1032,7 @@ void procesaEncoder()
       int menuOption = rotaryEncoder.readEncoder();
       if(menuOption == configure->get_currentItem()) return;
       LOG_DEBUG("rotaryEncoder.readEncoder() devuelve menuOption =", menuOption, "currentItem =", configure->get_currentItem());
-      configure->mostrar_menu(menuOption);
+      configure->showMenu(menuOption);
       return;
   }
 
@@ -1044,7 +1044,7 @@ void procesaEncoder()
   if(Estado.estado == CONFIGURANDO && configure->configuringIdx()) {  //encoder ajusta numero IDX
       if (value > 1000) value = 1000;
       if (value <  0) value = 0; //permitimos IDX=0 para desactivar ese boton
-      int bIndex = configure->getActualIdxIndex();
+      int bIndex = configure->get_ActualIdxIndex();
       int currentZona = bID2zIndex(Boton[bIndex].id)+1;
       snprintf(buff, MAXBUFF, "nuevo IDX ZONA%d %d", currentZona, value);
       lcd.info(buff, 4);

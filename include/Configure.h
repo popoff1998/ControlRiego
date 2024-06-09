@@ -14,34 +14,35 @@ class Configure
     int _actualGrupo;
     int _maxItems;
     int _currentItem;
-    void configureTime_process(struct Config_parm&);
-    void configureMulti_process(void);
-    void configureIdx_process(void);
+    void configureTime_display(struct Config_parm&);
+    void configureMulti_display(void);
+    void configureIdx_display(void);
 
   public:
     Configure(void);
     void menu(void);
+    void reset(void);
     void exit(struct Config_parm&);
-    void configureTime(struct Config_parm&);
+    void Time_process_start(struct Config_parm&);
+    void Time_process_end(struct Config_parm&);
+    void Idx_process_start(int);
+    void Idx_process_end(struct Config_parm&);
+    void Multi_process_start(int);
+    void Multi_process_update(void);
+    void Multi_process_end(struct Config_parm&);
+    void MultiTemp_process_start(void);
+    void MultiTemp_process_end(struct Config_parm&);
     bool configuringTime(void);
-    void configuringTime_process_end(struct Config_parm&);
-    void configureIdx(int);
     bool configuringIdx(void);
-    void configuringIdx_process_end(struct Config_parm&);
-    void configureMulti(int);
     bool configuringMulti(void);
-    void configuringMulti_process_update(void);
-    void configuringMulti_process_end(struct Config_parm&);
-    void configureMultiTemp(void);
     bool configuringMultiTemp(void);
-    void configuringMultiTemp_process_end(struct Config_parm&);
     bool statusMenu(void);
-    int mostrar_menu(int);
+    int  showMenu(int);
     void procesaSelectMenu(struct Config_parm&);
-    int getActualIdxIndex(void);
-    int getActualGrupo(void);
-    int get_maxItems(void);
-    int get_currentItem(void);
+    int  get_ActualIdxIndex(void);
+    int  get_ActualGrupo(void);
+    int  get_maxItems(void);
+    int  get_currentItem(void);
 };
 
 #endif

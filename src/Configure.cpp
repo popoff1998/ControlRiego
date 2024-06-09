@@ -2,6 +2,19 @@
 
 Configure::Configure()
 {
+  this->reset();
+}
+
+void Configure::menu()
+{
+  this->reset();
+  _configuringMenu = true;
+  _maxItems = this->showMenu(0);
+  _currentItem = 0;
+}
+
+void Configure::reset()
+{
   _configuringIdx = false;
   _configuringTime = false;
   _configuringMulti = false;
@@ -9,17 +22,6 @@ Configure::Configure()
   _configuringMenu = false;
   _actualIdxIndex = 0;
   _actualGrupo = 0;
-}
-
-void Configure::menu()
-{
-  _configuringMenu = true;
-  _configuringIdx = false;
-  _configuringTime = false;
-  _configuringMulti = false;
-  _configuringMultiTemp = false;
-  _maxItems = this->mostrar_menu(0);
-  _currentItem = 0;
 }
 
 bool Configure::configuringTime(void)
@@ -47,61 +49,54 @@ bool Configure::statusMenu()
   return _configuringMenu;
 }
 
-void Configure::configureIdx(int index)
+//  configuramos IDX asociado al boton de zona
+void Configure::Idx_process_start(int index)
 {
+  this->reset();
   _configuringIdx = true;
-  _configuringTime = false;
-  _configuringMulti = false;
-  _configuringMultiTemp = false;
-  _configuringMenu = false;
   _actualIdxIndex = index;
-
-  this->configureIdx_process();
+  value = boton->idx;
+  setEncoderTime();
+  this->configureIdx_display();
 }
 
-void Configure::configureTime(struct Config_parm& config)
+// configuramos tiempo riego por defecto
+void Configure::Time_process_start(struct Config_parm& config)
 {
+  this->reset();
   _configuringTime = true;
-  _configuringIdx = false;
-  _configuringMulti = false;
-  _configuringMultiTemp = false;
-  _configuringMenu = false;
-
-  this->configureTime_process(config);
+  minutes = config.minutes;
+  seconds = config.seconds;
+  setEncoderTime();
+  this->configureTime_display(config);
 }
 
-//  Configuramos el grupo de multirriego activo
-void Configure::configureMulti(int grupo)
+//  configuramos grupo multirriego
+void Configure::Multi_process_start(int grupo)
 {
+  this->reset();
   _configuringMulti = true;
-  _configuringTime = false;
-  _configuringIdx = false;
-  _configuringMultiTemp = false;
-  _configuringMenu = false;
   _actualGrupo = grupo;
-
-  this->configureMulti_process();
+  multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
+  this->configureMulti_display();
 }
 
-//  Configuramos el grupo de multirriego temporal
-void Configure::configureMultiTemp(void)
+//  configuramos grupo multirriego temporal
+void Configure::MultiTemp_process_start(void)
 {
+  this->reset();
   _configuringMultiTemp = true;
-  _configuringTime = false;
-  _configuringIdx = false;
-  _configuringMulti = false;
-  _configuringMenu = false;
   _actualGrupo = _NUMGRUPOS+1;   // grupo temporal: n+1
-
-  this->configureMulti_process();
+  multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
+  this->configureMulti_display();
 }
 
-int Configure::getActualIdxIndex(void)
+int Configure::get_ActualIdxIndex(void)
 {
   return _actualIdxIndex;
 }
 
-int Configure::getActualGrupo(void)
+int Configure::get_ActualGrupo(void)
 {
   return _actualGrupo;
 }
@@ -116,24 +111,16 @@ int Configure::get_maxItems(void)
   return _maxItems;
 }
 
-// configuramos tiempo riego por defecto
-void Configure::configureTime_process(struct Config_parm &config)    
+void Configure::configureTime_display(struct Config_parm &config)    
 {
-      setEncoderTime();
-      
-      minutes = config.minutes;
-      seconds = config.seconds;
-
       LOG_INFO("configurando tiempo riego por defecto");
       lcd.infoclear("Configurando");
       lcd.info("tiempo riego def.:",2);
       StaticTimeUpdate(REFRESH);
 }              
 
-//  configuramos grupo multirriego
-void Configure::configureMulti_process(void)    
+void Configure::configureMulti_display(void)    
 {
-      multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
 
       LOG_INFO("Configurando: GRUPO",_actualGrupo,"(",multi.desc,")");
       LOG_DEBUG("en configuracion de MULTIRRIEGO, setMultibyId devuelve: Grupo",_actualGrupo,"(",multi.desc,") multi.size=", *multi.size);
@@ -146,12 +133,8 @@ void Configure::configureMulti_process(void)
       if(!_configuringMultiTemp) displayGrupo(multi.serie, *multi.size); // no encendemos leds si grupo TEMPORAL 
 }              
 
-//  configuramos IDX asociado al boton de zona
-void Configure::configureIdx_process(void)
+void Configure::configureIdx_display(void)
 {
-      setEncoderTime();
-      value = boton->idx;
-
       LOG_INFO("[ConF] configurando IDX boton:",boton->desc);
       lcd.infoclear("Configurando");
       snprintf(buff, MAXBUFF, "IDX de:  %s", boton->desc);
@@ -163,7 +146,7 @@ void Configure::configureIdx_process(void)
 }
 
 //  salvamos en config el nuevo tiempo por defecto
-void Configure::configuringTime_process_end(struct Config_parm &config)
+void Configure::Time_process_end(struct Config_parm &config)
 {
       config.minutes = minutes;
       config.seconds = seconds;
@@ -179,7 +162,7 @@ void Configure::configuringTime_process_end(struct Config_parm &config)
 }
 
 //  salvamos en config y Boton el nuevo IDX de la zona
-void Configure::configuringIdx_process_end(struct Config_parm &config)
+void Configure::Idx_process_end(struct Config_parm &config)
 {
       int bIndex = _actualIdxIndex;
       int zIndex = bID2zIndex(Boton[bIndex].id);
@@ -200,7 +183,7 @@ void Configure::configuringIdx_process_end(struct Config_parm &config)
 }
 
 //  se añade zona pulsada a grupo
-void Configure::configuringMulti_process_update(void)
+void Configure::Multi_process_update(void)
 {
       int bIndex = bID2bIndex(boton->id);
       int zIndex = bID2zIndex(boton->id);
@@ -218,7 +201,7 @@ void Configure::configuringMulti_process_update(void)
 }
 
 // actualizamos config con las zonas introducidas
-void Configure::configuringMulti_process_end(struct Config_parm &config)
+void Configure::Multi_process_end(struct Config_parm &config)
 {
       if (multi.w_size) {  //solo si se ha pulsado alguna
         *multi.size = multi.w_size;
@@ -242,7 +225,7 @@ void Configure::configuringMulti_process_end(struct Config_parm &config)
 }
 
 // actualizamos config con las zonas introducidas para grupo temporal
-void Configure::configuringMultiTemp_process_end(struct Config_parm &config)
+void Configure::MultiTemp_process_end(struct Config_parm &config)
 {
       if (multi.w_size) {  //solo si se ha pulsado alguna
         *multi.size = multi.w_size;
@@ -261,14 +244,11 @@ void Configure::configuringMultiTemp_process_end(struct Config_parm &config)
       }
 }
 
+
 //  escritura de parametros a fichero si procede y salimos de ConF
 void Configure::exit(struct Config_parm &config)
 {
-      _configuringIdx = false;
-      _configuringTime = false;
-      _configuringMulti = false;
-      _configuringMultiTemp = false;
-      _configuringMenu = false;
+      this->reset();
 
       setEncoderTime();
 
@@ -293,18 +273,23 @@ void Configure::exit(struct Config_parm &config)
       setEstado(STANDBY);
 }
 
-int Configure::mostrar_menu(int opcion)
+
+int Configure::showMenu(int opcion)
 {
-  String opcionesCF[] = {
-    "BOTONES IDX/MULT.",  // 0 
-    "TIEMPO riego",       // 1  
-    "save to DEFAULT",    // 2 
-    "WIFI parm (AP)",     // 3 
-    "WEBSERVER",          // 4 
-    "MUTE ON/OFF",        // 5 
-    "load from DEFAULT"   // 6 
+  String opcionesMenuConf[] = {
+     /*-----------------*/ 
+      "botones IDX/MULT.",  // 0 
+      "TIEMPO riego",       // 1  
+      "copy to DEFAULT",    // 2 
+      "WIFI parm (AP)",     // 3 
+      "WEBSERVER",          // 4 
+      "MUTE on/off",        // 5 
+      "load from DEFAULT"   // 6 
+     /*-----------------*/ 
   };
-  const int MAXOPCIONES = sizeof(opcionesCF)/sizeof(opcionesCF[0]);
+  opcionesMenuConf[5] = (mute ?  "MUTE OFF" : "MUTE ON");
+
+  const int MAXOPCIONES = sizeof(opcionesMenuConf)/sizeof(opcionesMenuConf[0]);
   _currentItem = opcion;
 
   lcd.clear();
@@ -315,7 +300,7 @@ int Configure::mostrar_menu(int opcion)
   for (int l=1; l<4; l++) {
     Serial.printf("linea %d opcion %d \n", l, opcion);
     lcd.setCursor(3,l);
-    lcd.print(opcionesCF[opcion]);
+    lcd.print(opcionesMenuConf[opcion]);
     opcion++;
     if(opcion >= MAXOPCIONES) break; 
   }
@@ -323,16 +308,18 @@ int Configure::mostrar_menu(int opcion)
 }
 
 
-void Configure::procesaSelectMenu(struct Config_parm &config) {
+// ejecutamos opcion seleccionada del menu
+void Configure::procesaSelectMenu(struct Config_parm &config) 
+{
           boton = NULL; //para que no se procese mas adelante  TODO ¿es necesario?
 
-          switch(this->get_currentItem()) {  // ejecutamos opcion seleccionada del menu
-            case 0 :      //configuramos boton de zona (IDX) o de grupo (zonas que lo componen)
+          switch(this->get_currentItem()) {  
+            case 0 :      //configuramos boton de zona (IDX Domoticz asociado) o de grupo (zonas que lo componen)
                     lcd.infoclear("pulse ZONA o GRUPO",1);
                     lcd.info("a configurar...",2);   
                     break;
-            case 1 :      //configuramos tiempo por defecto
-                    this->configureTime(config);   
+            case 1 :      //configuramos tiempo riego por defecto
+                    this->Time_process_start(config);   
                     break;
             case 2 :  // copiamos fichero parametros en fichero default
                     if (copyConfigFile(parmFile, defaultFile)) {    // parmFile --> defaultFile
@@ -344,14 +331,14 @@ void Configure::procesaSelectMenu(struct Config_parm &config) {
                     this->menu();  // vuelve a mostrar menu de configuracion 
                     break;
             case 3 :   // activamos AP y portal de configuracion (bloqueante)
-                    LOG_INFO("[ConF] encoderSW + GRUPO3: activamos AP y portal de configuracion");
+                    LOG_INFO("[ConF]  activamos AP y portal de configuracion");
                     ledYellow(OFF);
                     starConfigPortal(config);
                     ledYellow(ON);
                     this->menu();  // vuelve a mostrar menu de configuracion
                     break; 
   #ifdef WEBSERVER
-            case 4 :  // activamos webserver
+            case 4 :  // activamos webserver (no bloqueante, pero no respodemos a botones)
                     setupWS();
                     break;
   #endif 
