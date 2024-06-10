@@ -313,16 +313,16 @@ void procesaBotonPause(void)
         else {    //pausa el riego en curso
           setEstado(PAUSE,1);
           tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
-          led(ultimoBoton->led,ON);// y lo deja fijo
-          stopRiego(ultimoBoton->id);
+          led(ultimoBotonZona->led,ON);// y lo deja fijo
+          stopRiego(ultimoBotonZona->id);
           T.PauseTimer();
         }
         break;
       case PAUSE:
         if(simular.ErrorPause) statusError(E2); //simulamos error al salir del PAUSE
-        else initRiego(ultimoBoton->id);        // reanudamos riego que estaba parado 
+        else initRiego(ultimoBotonZona->id);        // reanudamos riego que estaba parado 
         if(Estado.estado == ERROR) { // caso de error al reanudar el riego seguimos en PAUSE y señalamos con blink rapido zona
-          ledID = ultimoBoton->led;
+          ledID = ultimoBotonZona->led;
           tic_parpadeoLedZona.attach(0.2, parpadeoLedZona, ledID);
           LOG_WARN("error al salir de PAUSE errorText :",errorText,"Estado.error :",Estado.error );
           refreshTime();
@@ -332,7 +332,7 @@ void procesaBotonPause(void)
         bip(2);
         T.ResumeTimer();
         tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
-        led(ultimoBoton->led,ON);// y lo deja fijo
+        led(ultimoBotonZona->led,ON);// y lo deja fijo
         lcd.clear(BORRA2H); //por si hubiera msgs de error (caso error al salir del pause previo)
         setEstado(REGANDO);
         break;
@@ -402,13 +402,14 @@ void procesaBotonStop(void)
   if (boton->estado) {  //si hemos PULSADO STOP
     if (Estado.estado == REGANDO || Estado.estado == PAUSE) {
       //De alguna manera esta regando y hay que parar
-      lcd.infoclear("parando riegos", 1, BIP, 6);
+      lcd.infoclear("Parando riegos", 1, BIP, 6);
       T.StopTimer();
-      if (!stopAllRiego()) {   //error en stopAllRiego
+      // paramos riego en curso y todas las zonas
+      if (!stopRiego(ultimoBotonZona->id) || !stopAllRiego()) {   //error al parar riegos
         boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
         return; 
       }
-      lcd.infoclear("detenidos riegos", DEFAULTBLINK, BIP, 0);
+      lcd.infoclear("STOP riegos OK", DEFAULTBLINK, BIP, 0);
       setEstado(STOP);
       resetFlags();
     }
@@ -422,7 +423,7 @@ void procesaBotonStop(void)
       }
       else {      // seguro antinenes
           // apagar leds y parar riegos (por si riego activado externamente)
-          if (!stopAllRiego()) {   //error en stopAllRiego
+          if (!stopAllRiego()) {   //error al parar riegos
             boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
             return; 
           }
@@ -521,7 +522,7 @@ void procesaBotonZona(void)
           fseconds = seconds;
         }
         LOG_DEBUG("Minutos:",minutes,"Segundos:",seconds,"FMinutos:",fminutes,"FSegundos:",fseconds);
-        ultimoBoton = boton;
+        ultimoBotonZona = boton;
         // si tiempo factorizado de riego es 0 o IDX=0, nos saltamos este riego
         if ((fminutes == 0 && fseconds == 0) || boton->idx == 0) {
           setEstado(TERMINANDO);
@@ -659,11 +660,11 @@ void procesaEstadoError(void)
     resetFlags();   //reset flags de status
   }
   if(boton->id == bSTOP) {
-  //Si estamos en ERROR y pulsamos o liberamos STOP, reseteamos, pero antes intentamos parar riegos
+  //Si estamos en ERROR y pulsamos o liberamos STOP, reseteamos
     lcd.infoclear("ERROR+STOP-> Reset..",3);
     LOG_WARN("ERROR + STOP --> Reset.....");
     lowbip(1);
-    if(checkWifi()) stopAllRiego();
+    if(checkWifi() && boton->estado) stopAllRiego(); //si es pulsado STOP intentamos parar riegos
     delay(3000);
     ESP.restart();  
   }
@@ -676,13 +677,13 @@ void procesaEstadoRegando(void)
   if (T.TimeHasChanged()) refreshTime();
   if (tiempoTerminado == 0) setEstado(TERMINANDO);
   else if(flagV && VERIFY && (!NONETWORK || simular.all_simFlags)) { // verificamos periodicamente que el riego sigue activo en Domoticz
-    if(queryStatus(ultimoBoton->idx, (char *)"On")) return;
+    if(queryStatus(ultimoBotonZona->idx, (char *)"On")) return;
     else {
-      ledID = ultimoBoton->led;
+      ledID = ultimoBotonZona->led;
       if(Estado.error == NOERROR) { //riego zona parado: entramos en PAUSE y blink lento zona pausada remotamente 
         T.PauseTimer();
         tic_parpadeoLedZona.attach(0.8, parpadeoLedZona, ledID);
-        LOG_WARN(">>>>>>>>>> procesaEstadoRegando zona:", ultimoBoton->desc, "en PAUSA remota <<<<<<<<");
+        LOG_WARN(">>>>>>>>>> procesaEstadoRegando zona:", ultimoBotonZona->desc, "en PAUSA remota <<<<<<<<");
         Estado.tipo = REMOTO;
         setEstado(PAUSE,1);
       }
@@ -702,10 +703,10 @@ void procesaEstadoTerminando(void)
 {
   bip(5);
   tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
-  stopRiego(ultimoBoton->id);
+  stopRiego(ultimoBotonZona->id);
   if (Estado.estado == ERROR) return; //no continuamos si se ha producido error al parar el riego
   lcd.blinkLCD(DEFAULTBLINK);
-  led(Boton[bID2bIndex(ultimoBoton->id)].led,OFF);
+  led(Boton[bID2bIndex(ultimoBotonZona->id)].led,OFF);
   //Comprobamos si estamos en un multirriego
   if (multirriego) {
     multi.actual++;
@@ -776,13 +777,13 @@ void procesaEstadoStop(void)
 
 void procesaEstadoPause(void) {
   if(flagV && VERIFY && (!NONETWORK || simular.all_simFlags)) {  // verificamos zona sigue OFF en Domoticz periodicamente
-    if(queryStatus(ultimoBoton->idx, (char *)"Off")) return;
+    if(queryStatus(ultimoBotonZona->idx, (char *)"Off")) return;
     else {
       if(Estado.error == NOERROR) { //riego zona activo: salimos del PAUSE y blink lento zona activada remotamente 
         bip(2);
-        ledID = ultimoBoton->led;
+        ledID = ultimoBotonZona->led;
         tic_parpadeoLedZona.attach(0.8, parpadeoLedZona, ledID);
-        LOG_WARN(">>>>>>>>>> procesaEstadoPause zona:", ultimoBoton->desc,"activada REMOTAMENTE <<<<<<<");
+        LOG_WARN(">>>>>>>>>> procesaEstadoPause zona:", ultimoBotonZona->desc,"activada REMOTAMENTE <<<<<<<");
         T.ResumeTimer();
         Estado.tipo = REMOTO;
         setEstado(REGANDO);
@@ -814,20 +815,18 @@ void setEstado(uint8_t estado, int bnum)
   if (Estado.tipo==REMOTO) lcd.print("(R)");
   else lcd.print("   ");
   Estado.tipo = LOCAL;
-  if((estado==REGANDO || estado==TERMINANDO ) && ultimoBoton != NULL) {
-    lcd.infoEstado(nEstado[estado], ultimoBoton->desc); 
+  if((estado==REGANDO || estado==TERMINANDO ) && ultimoBotonZona != NULL) {
+    lcd.infoEstado(nEstado[estado], ultimoBotonZona->desc); 
     return;
   }
   if(estado==PAUSE) {
-    lcd.infoEstado(nEstado[estado], ultimoBoton->desc); 
+    lcd.infoEstado(nEstado[estado], ultimoBotonZona->desc); 
     if(bnum) bip(bnum);
     return;
   }
   if(estado == STANDBY) {
     setEncoderTime();
     if(!multirriego && !multirriegotemp) lcd.infoclear("STANDBY",NOBLINK,BIP,bnum);
-    //if(multirriego) lcd.info(multi.desc, 2);  //  display nombre del grupo multirriego
-    //if(multirriegotemp) displayLCDGrupo(multi.zserie, *multi.size, 2);  //  display zonas
     if (savedValue) value = savedValue;  // para que restaure reloj
     StaticTimeUpdate(REFRESH);
     standbyTime = millis();
@@ -1144,7 +1143,7 @@ bool stopRiego(uint16_t id)
 }
 
 
-//Pone a off todos los leds de riegos y grupos y restablece estado led RGB
+//Pone a off todos los leds de zonas y grupos y restablece estado led RGB
 void resetLeds()
 {
   //Apago los leds de multirriego
@@ -1165,6 +1164,7 @@ void resetLeds()
 //Pone a false diversos flags de estado
 void resetFlags()
 {
+  LOG_TRACE("");
   multirriego = false;
   multirriegotemp = false;
   multiSemaforo = false;
@@ -1184,12 +1184,11 @@ void resetLCD()
   lcd.displayON();
 }
 
-//Pone a off todos los leds de riegos y detiene riegos (solo si la llamamos con true)
+//Pone a off todos los leds de riegos y detiene riegos
 bool stopAllRiego()
 {
   LOG_TRACE("");
   //Apago los leds de multirriego
-  //led(Boton[bID2bIndex(*multi.id)].led,OFF);
   for(unsigned int i=0;i<NUMGRUPOS;i++) { 
     led(Boton[bID2bIndex(GRUPOS[i])].led,OFF);
   }

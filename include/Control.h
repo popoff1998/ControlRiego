@@ -511,7 +511,7 @@
     TimeChangeRule *tcr;
     time_t utc;
     CountUpDownTimer T(DOWN);
-    S_BOTON  *ultimoBoton;
+    S_BOTON  *ultimoBotonZona;
     S_Estado Estado;
     S_simFlags simular; // estructura flags para simular errores
     Configure    *configure;

@@ -190,7 +190,8 @@ void DisplayLCD::infoclear(const char *info, int line) {
 void DisplayLCD::infoclear(const char *info, int dnum, int btype, int bnum) {
     LOG_DEBUG("[LCD]  Recibido: '",info, "'   (blink=",dnum, ") btype=",btype,"bnum=",bnum);
     clear();
-    setCursor(0, 0);
+    if(info=="STOP") setCursor(8,1);
+    else setCursor(0, 0);
     lcdDisp.print(info);
       if (btype == LONGBIP) longbip(bnum);
       if (btype == LOWBIP) lowbip(bnum);
