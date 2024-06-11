@@ -46,7 +46,9 @@ void setup()
   #endif
 
   Serial.begin(115200);
-  //if (!serialDetect()) LOG_SET_LEVEL(DebugLogLevel::LVL_NONE); 
+  #ifdef RELEASE
+      if (!serialDetect()) LOG_SET_LEVEL(DebugLogLevel::LVL_NONE); 
+  #endif
   delay(500);
   PRINTLN("\n\n CONTROL RIEGO V" + String(VERSION) + "    Built on " __DATE__ " at " __TIME__  "\n");
   #ifndef DEBUGLOG_DISABLE_LOG
@@ -1705,6 +1707,22 @@ return buff;
 }
 
 
+  /* On the computer side, everytime you want to start the debugging mode, 
+  simply send a byte over the serial connection during the setup phase and sit back.*/
+  bool serialDetect() {
+    //Wait for four seconds or till data is available on serial, 
+    //whichever occurs first.
+    while(Serial.available()==0 && millis()<4000);
+    //On timeout or availability of data, we come here.
+    if(Serial.available()>0)
+    {
+      //If data is available, we enter here.
+      Serial.println("\n \t SERIAL available"); //Give feedback indicating mode
+      return true;
+    }
+    return false;
+  }
+
 // funciones solo usadas en DEVELOP
 // (es igual, el compilador no las incluye si no son llamadas)
 #ifdef DEVELOP
@@ -1780,22 +1798,6 @@ return buff;
                 simular.all_simFlags = false;
       }
     }
-  }
-
-  /* On the computer side, everytime you want to start the debugging mode, 
-  simply send a byte over the serial connection during the setup phase and sit back.*/
-  bool serialDetect() {
-    //Wait for four seconds or till data is available on serial, 
-    //whichever occurs first.
-    while(Serial.available()==0 && millis()<4000);
-    //On timeout or availability of data, we come here.
-    if(Serial.available()>0)
-    {
-      //If data is available, we enter here.
-      Serial.println("\n \t SERIAL available"); //Give feedback indicating mode
-      return true;
-    }
-    return false;
   }
 
 #endif  

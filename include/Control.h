@@ -198,7 +198,7 @@
     ERROR         ,
   };
   // literales para los estados en el display
-  #define _ESTADOS "STANDBY" , "REGANDO:" , "CONFIGURANDO" , "TERMINANDO" , "PAUSE:" , "STOP" , "ERROR"
+  #define _ESTADOS "STANDBY" , "REGANDO:" , "CONFIGURANDO" , "TERMINANDO" , "PAUSA:" , "STOP" , "ERROR"
 
   enum error_tipos {
     NOERROR       = 0xFF,

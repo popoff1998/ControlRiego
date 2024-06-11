@@ -298,7 +298,7 @@ int Configure::showMenu(int opcion)
   lcd.setCursor(0,1);
   lcd.print("->");
   for (int l=1; l<4; l++) {
-    Serial.printf("linea %d opcion %d \n", l, opcion);
+    LOG_DEBUG("linea ", l, " opcion ", opcion);
     lcd.setCursor(3,l);
     lcd.print(opcionesMenuConf[opcion]);
     opcion++;

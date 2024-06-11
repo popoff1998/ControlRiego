@@ -2,7 +2,12 @@ PENDIENTES
 ==========
 - Boton Pause reflejado en Domoticz (en ambos sentidos)
 - Si estado REGANDO tiempo de riego restante reflejado en Domoticz
-- Migrar a JSON V7 y mas parametros configurables
+- Migrar a JSON V7 
+- Mas valores del programa como parametros en parmlib y configurables :
+	led RGB -> MAXLEDLEVEL y DIMMLEVEL
+	verificacion stauts riego en Domoticz -> VERIFY
+	actualizacion nombres zonas con las del Domoticz -> XNAME
+- display temperatura en STANDBY (sensor propio o externo?)
 
 HECHOS
 ======
@@ -50,13 +55,13 @@ HECHOS
 - adaptacion para ESP32 y expansores I/O MCP23017
 - cambio libreria encoder por una que soporta interrupciones
 - sustitucion display led de 7 segmentos por pantalla LCD de 20 caracteres x 4 lineas (bus I2C)
-- opciones de inicio por pantalla V3.0.1
+- opciones de inicio por pantalla (borrar wifi o cargar parametros defecto) V3.0.1
 - ampliacion a 9 zonas / 4 grupos V3.0.2 (botones PAUSE y STOP conectados a mcpO V3.0.2a)
 - opcion de compilacion para 4 botones de grupos o selector 3 grupos con boton de multirriego V3.0.3
-- modificaciones en los indicadores leds RGB V3.0.3
+- leds de RED y de WIFI fusionados en led STATUS RGB V3.0.3
 - muestra dia/mes al mostrar hora actual. Sincronizacion del time por NTP cada 10 horas V3.0.3
-- Opciones en modo configuracion por menu en pantalla, opciones MUTE V3.0.4
-- pasados procesos de procesaEstadoConfigurando como funciones clase Configure en configure.cpp V3.0.5
+- Opciones en modo configuracion por menu en pantalla, opcion MUTE V3.0.4
 - pseudogrupo riego temporal V3.0.5
+- refactoring  de procesaEstadoConfigurando y clase Configure  V3.0.6
 
 
