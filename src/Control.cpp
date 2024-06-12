@@ -636,7 +636,9 @@ void procesaEstadoConfigurando()
       }
     }
   }
-  else procesaEncoder();
+  else { 
+      webServerAct ? procesaWebServer() : procesaEncoder();
+  }
 };
 
 
@@ -1543,16 +1545,9 @@ void Verificaciones()
       numloops = 0;
       lastMillisLoop = millis();
     }
-    //  Serial.printf( "[CRONO] %d loops en milisegundos: %d \n" , numloops+1, currentMillisLoop);
   #endif
-  #ifdef WEBSERVER
-  if (webServerAct) {
-    procesaWebServer();
-    return;
-  }
-  #endif
-  if (!flagV) return;      //si no activada por Ticker salimos sin hacer nada
-  if (Estado.estado == STANDBY) Serial.print(F("."));
+  if (!flagV || webServerAct) return;      //si no activada por Ticker salimos sin hacer nada
+  if (Estado.estado == STANDBY) LOG_INFO(".");
   if (errorOFF) bip(2);  //recordatorio error grave al parar un riego
   //si estamos en Standby o en Error por falta de conexion verificamos estado actual de la wifi (no en modo NONETWORK)
   if (!NONETWORK && (Estado.estado == STANDBY || (Estado.estado == ERROR && !connected))) {

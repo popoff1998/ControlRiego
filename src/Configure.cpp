@@ -339,7 +339,7 @@ void Configure::procesaSelectMenu(struct Config_parm &config)
                     break; 
   #ifdef WEBSERVER
             case 4 :  // activamos webserver (no bloqueante, pero no respodemos a botones)
-                    setupWS();
+                    connected ? setupWS() : bipKO();
                     break;
   #endif 
             case 5 :   // toggle MUTE

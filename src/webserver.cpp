@@ -1,4 +1,5 @@
 //servidor web para actualizaciones OTA del FW o del filesystem
+// Adaptado de:
 // @file WebServer.ino (GITHUB: arduino-esp32/libraries/WebServer/examples/WebServer/WebServer.ino)
 // @brief Example WebServer implementation using the ESP32 WebServer
 // and most common use cases related to web servers.

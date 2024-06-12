@@ -129,7 +129,8 @@ bool saveConfigFile(const char *p_filename, Config_parm &config)
   #ifdef EXTRADEBUG 
     serializeJsonPretty(doc, Serial); 
   #endif
-  int docsize = serializeJson(doc, file);
+  //int docsize = serializeJson(doc, file);
+  int docsize = serializeJsonPretty(doc, file);
   if (docsize == 0) {
     LOG_ERROR("Failed to write to file");
     return false;
@@ -154,7 +155,7 @@ bool copyConfigFile(const char *fileFrom, const char *fileTo)
   return false;
   }
   // Delete existing file, otherwise the configuration is appended to the file
-  LittleFS.remove(fileTo);
+  if (LittleFS.exists(fileTo)) LittleFS.remove(fileTo);
   File origen = LittleFS.open(fileFrom, "r");
   if (!origen) {
     LOG_ERROR("- failed to open file ",fileFrom);
