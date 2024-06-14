@@ -383,7 +383,7 @@
     uint8_t error;
   } ;
 
-  struct S_timeG {
+  struct S_timeRiego {
     time_t inicio; 
     time_t final; 
   } ;
@@ -519,8 +519,8 @@
     Ticker tic_parpadeoLedError;    //para parpadeo led ERROR (LEDR)
     Ticker tic_parpadeoLedZona;  //para parpadeo led zona de riego
     Ticker tic_verificaciones;   //para verificaciones periodicas
-    time_t lastRiegos[NUMZONAS];
-    S_timeG lastGrupos[NUMGRUPOS];
+    S_timeRiego lastRiegos[NUMZONAS];
+    S_timeRiego lastGrupos[NUMGRUPOS];
     uint factorRiegos[NUMZONAS];
     uint8_t prevseconds;
     uint8_t prevminutes;
@@ -583,11 +583,13 @@
   void endWS(void);
   static const char* errorToString(uint8_t);
   void filesInfo(void);
+  void finalTimeLastRiego(S_timeRiego&, int);
   void flagVerificaciones(void);
   int  getFactor(uint16_t);
   uint16_t getMultiStatus(void);
   String *httpGetDomoticz(String *);
   void setClock(void);
+  void inicioTimeLastRiego(S_timeRiego&, int);
   void initEncoder(void);
   void initFactorRiegos(void);
   void initGPIOs(void);
@@ -656,10 +658,11 @@
   void setupParm(void);
   void setupRedWM(Config_parm&);
   void setupWS(void);
+  void showTimeLastRiego(S_timeRiego&, int);
   void starConfigPortal(Config_parm&);
   void StaticTimeUpdate(bool);
   void statusError(uint8_t);
-  bool stopRiego(uint16_t);
+  bool stopRiego(uint16_t, bool update=true);
   bool stopAllRiego(void);
   bool testButton(uint16_t, bool);
   void timeByFactor(int,uint8_t *,uint8_t *);

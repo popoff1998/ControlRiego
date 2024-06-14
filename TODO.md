@@ -4,9 +4,9 @@ PENDIENTES
 - Si estado REGANDO tiempo de riego restante reflejado en Domoticz
 - Migrar a JSON V7 
 - Mas valores del programa como parametros en parmlib y configurables :
-	led RGB -> MAXLEDLEVEL y DIMMLEVEL
-	verificacion stauts riego en Domoticz -> VERIFY
-	actualizacion nombres zonas con las del Domoticz -> XNAME
+    led RGB -> MAXLEDLEVEL y DIMMLEVEL
+    verificacion stauts riego en Domoticz -> VERIFY
+    actualizacion nombres zonas con las del Domoticz -> XNAME
 - display temperatura en STANDBY (sensor propio o externo?)
 
 HECHOS
@@ -63,5 +63,6 @@ HECHOS
 - Opciones en modo configuracion por menu en pantalla, opcion MUTE V3.0.4
 - pseudogrupo riego temporal V3.0.5
 - refactoring  de procesaEstadoConfigurando y clase Configure  V3.0.6
+- tiempo finalizacion en tabla ultimos riegos zonas. Display al mostrar factor riego de zona V3.0.7
 
 
