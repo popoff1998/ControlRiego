@@ -21,16 +21,16 @@ int setMultibyId(uint16_t id, Config_parm &config)
 
   for(int i=0; i<NUMGRUPOS+1; i++)
   {
-    if(config.groupConfig[i].id == id) {
-      multi.id = &config.groupConfig[i].id;
-      multi.size = &config.groupConfig[i].size;
-      multi.desc = config.groupConfig[i].desc;
+    if(config.group[i].bID == id) {
+      multi.id = &config.group[i].bID;
+      multi.size = &config.group[i].size;
+      multi.desc = config.group[i].desc;
       for (int j=0; j < *multi.size; j++) {
-        multi.serie[j] = ZONAS[config.groupConfig[i].serie[j]-1];  //obtiene el id del boton de cada zona (ojo: no viene en el json)
-        multi.zserie[j] = config.groupConfig[i].serie[j];  //obtiene el numero de cada zona
+        multi.serie[j] = ZONAS[config.group[i].zNumber[j]-1];  //obtiene el id del boton de cada zona (ojo: no viene en el json)
+        multi.zserie[j] = config.group[i].zNumber[j];  //obtiene el numero de cada zona
         #ifdef EXTRADEBUG 
-          Serial.printf("  Zona%d   id: 0x", config.groupConfig[i].serie[j]);
-          Serial.println(Boton[config.groupConfig[i].serie[j]-1].id,HEX); //id(boton) asociado a la zona
+          Serial.printf("  Zona%d   bId: 0x", config.group[i].zNumber[j]);
+          Serial.println(Boton[config.group[i].zNumber[j]-1].bID,HEX); //bId(boton) asociado a la zona
         #endif  
       }
       LOG_DEBUG("[setMultibyId] devuelve GRUPO", i+1);
@@ -71,9 +71,9 @@ void displayLCDGrupo(uint16_t *serieZonas, int serieSize, int line)
 //imprime contenido actual de la estructura multiGroup
 void printMultiGroup(Config_parm &config, int pgrupo)
 {
-  for(int j = 0; j < config.groupConfig[pgrupo].size; j++) {
-    Serial.printf("  Zona%d   id: x", config.groupConfig[pgrupo].serie[j]);
-    Serial.println(Boton[config.groupConfig[pgrupo].serie[j]-1].id,HEX); //id(boton) asociado a la zona
+  for(int j = 0; j < config.group[pgrupo].size; j++) {
+    Serial.printf("  Zona%d   bId: x", config.group[pgrupo].zNumber[j]);
+    Serial.println(Boton[config.group[pgrupo].zNumber[j]-1].bID,HEX); // bId(boton) asociado a la zona
   }
   Serial.println();
 }

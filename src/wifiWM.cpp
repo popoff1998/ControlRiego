@@ -139,6 +139,7 @@ void setupRedWM(Config_parm &config)
     */
   // detenemos parpadeo led AP y borramos -AP- del display (caso de que se hubiera activado antes AP)
   tic_APLed.detach();
+  ledPWM(LEDB,OFF);   // y lo apagamos
   //si no hemos podido conectar y existe una red wifi salvada,reintentamos hasta 20 seg.
   // (para caso corte de corriente)
   if (falloAP && wm.getWiFiIsSaved()) {

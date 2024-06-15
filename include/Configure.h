@@ -25,7 +25,7 @@ class Configure
     void exit(struct Config_parm&);
     void Time_process_start(struct Config_parm&);
     void Time_process_end(struct Config_parm&);
-    void Idx_process_start(int);
+    void Idx_process_start(struct Config_parm&, int);
     void Idx_process_end(struct Config_parm&);
     void Multi_process_start(int);
     void Multi_process_update(void);

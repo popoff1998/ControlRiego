@@ -128,7 +128,6 @@
   #define ROTARY_ENCODER_STEPS 4      // TODO documentar
 
  //----------------  dependientes del HW   ----------------------------------------
-
   #ifdef ESP32
     // GPIOs  I/O usables: 2 4 5 16 17 18 19 21 22 23 25 26 27 32 33  (15/15)
     // GPIOs  I/O los reservo para JTAG: 12 13 14 15
@@ -161,7 +160,6 @@
     #define mcpIN                 0x21  //direccion del MCP23017 para entradas (botones)
 
   #endif
-
  //----------------  fin dependientes del HW   ----------------------------------------
 
 
@@ -246,9 +244,7 @@
       bSTOP       = 0x8000,  // mcpO B3  (OJO conectados a mcpO se integran como bits 15 y 16 de readInputs)
       //          = 0x8000,  // mcpI B7  (NO USAR para inputs)
     };
-    //----------------  dependientes del HW (número, orden)  ----------------------------
       // lista de todos los botones de zonas de riego disponibles:
-      // OJO! el número y orden debe coincidir con las especificadas en Boton[]
     #define _ZONAS  bZONA1 , bZONA2 , bZONA3 , bZONA4 , bZONA5 , bZONA6 , bZONA7 , bZONA8 , bZONA9
       // lista de todos los botones de grupos disponibles:
     #define _GRUPOS bGRUPO1 , bGRUPO2 , bGRUPO3 , bGRUPO4
@@ -280,9 +276,7 @@
       //          = 0x8000,  // mcpI B7  (NO USAR para inputs)
     };
 
-    //----------------  dependientes del HW (número, orden)  ----------------------------
       // lista de todos los botones de zonas de riego disponibles:
-      // OJO! el número y orden debe coincidir con las especificadas en Boton[]
     #define _ZONAS  bZONA1 , bZONA2 , bZONA3 , bZONA4 , bZONA5 , bZONA6 , bZONA7 , bZONA8 , bZONA9
       // lista de todos los botones (selector) de grupos disponibles:
     #define _GRUPOS bGRUPO1 , bGRUPO2 , bGRUPO3 
@@ -294,14 +288,14 @@
 
   //estructura para salvar un grupo
   struct Grupo_parm {
-    uint16_t id;
-    int size;
-    uint16_t serie[16];  // ojo! numero de la zona, no es el boton asociado a ella
+    uint16_t bID;
+    int size;              // cantidad de zonas asociadas al grupo 
+    uint16_t zNumber[16];  // ojo! numero de la zona, no es el boton asociado a ella
     char desc[20];
   } ;
 
   //estructura para salvar parametros de un boton
-  struct Boton_parm {
+  struct Zona_parm {
     char  desc[20];
     uint16_t   idx;
   } ;
@@ -310,14 +304,14 @@
   struct Config_parm {
     uint8_t   initialized=0;
     static const int  n_Zonas = _NUMZONAS; //no modificable por fichero de parámetros (depende HW) 
-    Boton_parm botonConfig[n_Zonas];
+    Zona_parm zona[n_Zonas];
     uint8_t   minutes = DEFAULTMINUTES; 
     uint8_t   seconds = DEFAULTSECONDS;
     char domoticz_ip[40];
     char domoticz_port[6];
     char ntpServer[40];
     static const int  n_Grupos = _NUMGRUPOS;  //no modificable por fichero de parámetros (depende HW)
-    Grupo_parm groupConfig[n_Grupos+1];       // grupo temporal n+1
+    Grupo_parm group[n_Grupos+1];       // grupo temporal n+1
   };
 
   // estructura de un grupo de multirriego 
@@ -368,13 +362,13 @@
   };
 
   struct S_BOTON {
-    uint16_t   id;
+    uint16_t   bID;
     bool   estado;
     bool   ultimo_estado;
     int   led;
     S_bFLAGS  flags;
     char  desc[20];
-    uint16_t   idx;
+    uint16_t   znumber;
   } ;
 
   struct S_Estado {
@@ -400,16 +394,16 @@
   #ifdef __MAIN__
     #ifdef GRP4     // matriz Boton para caso de 9 zonas y 4 botones de grupos multirriego
       S_BOTON Boton [] =  { 
-        //ID,          S   uS  LED          FLAGS                             DESC          IDX
-        {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "ZONA1",       0},
-        {bZONA2 ,     0,  0,  lZONA2 ,     ENABLED | ACTION,                 "ZONA2",       0},
-        {bZONA3    ,  0,  0,  lZONA3    ,  ENABLED | ACTION,                 "ZONA3",       0},
-        {bZONA4    ,  0,  0,  lZONA4    ,  ENABLED | ACTION,                 "ZONA4",       0},
-        {bZONA5    ,  0,  0,  lZONA5    ,  ENABLED | ACTION,                 "ZONA5",       0},
-        {bZONA6 ,     0,  0,  lZONA6 ,     ENABLED | ACTION,                 "ZONA6",       0},
-        {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ZONA7",       0},
-        {bZONA8  ,    0,  0,  lZONA8  ,    ENABLED | ACTION,                 "ZONA8",       0},
-        {bZONA9,      0,  0,  lZONA9  ,    ENABLED | ACTION,                 "ZONA9",       0},
+        //bID         S   uS  LED          FLAGS                             DESC        zNUMBER  
+        {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "ZONA1",       1},
+        {bZONA2 ,     0,  0,  lZONA2 ,     ENABLED | ACTION,                 "ZONA2",       2},
+        {bZONA3    ,  0,  0,  lZONA3    ,  ENABLED | ACTION,                 "ZONA3",       3},
+        {bZONA4    ,  0,  0,  lZONA4    ,  ENABLED | ACTION,                 "ZONA4",       4},
+        {bZONA5    ,  0,  0,  lZONA5    ,  ENABLED | ACTION,                 "ZONA5",       5},
+        {bZONA6 ,     0,  0,  lZONA6 ,     ENABLED | ACTION,                 "ZONA6",       6},
+        {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ZONA7",       7},
+        {bZONA8  ,    0,  0,  lZONA8  ,    ENABLED | ACTION,                 "ZONA8",       8},
+        {bZONA9,      0,  0,  lZONA9  ,    ENABLED | ACTION,                 "ZONA9",       9},
         {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ACTION,                 "GRUPO1",      0},
         {bGRUPO2  ,   0,  0,  lGRUPO2  ,   ENABLED | ACTION,                 "GRUPO2",      0},
         {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ACTION,                 "GRUPO3",      0},
@@ -421,16 +415,16 @@
     
     #ifdef M3GRP     // matriz Boton para caso de 9 zonas, boton multirriego y selector de 3 grupos multirriego
       S_BOTON Boton [] =  { 
-        //ID,          S   uS  LED          FLAGS                             DESC          IDX
-        {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "ZONA1",       0},
-        {bZONA2 ,     0,  0,  lZONA2 ,     ENABLED | ACTION,                 "ZONA2",       0},
-        {bZONA3    ,  0,  0,  lZONA3    ,  ENABLED | ACTION,                 "ZONA3",       0},
-        {bZONA4    ,  0,  0,  lZONA4    ,  ENABLED | ACTION,                 "ZONA4",       0},
-        {bZONA5    ,  0,  0,  lZONA5    ,  ENABLED | ACTION,                 "ZONA5",       0},
-        {bZONA6 ,     0,  0,  lZONA6 ,     ENABLED | ACTION,                 "ZONA6",       0},
-        {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ZONA7",       0},
-        {bZONA8  ,    0,  0,  lZONA8  ,    ENABLED | ACTION,                 "ZONA8",       0},
-        {bZONA9,      0,  0,  lZONA9  ,    ENABLED | ACTION,                 "ZONA9",       0},
+        //bID         S   uS  LED          FLAGS                             DESC         zNUMBER
+        {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "ZONA1",       1},
+        {bZONA2 ,     0,  0,  lZONA2 ,     ENABLED | ACTION,                 "ZONA2",       2},
+        {bZONA3    ,  0,  0,  lZONA3    ,  ENABLED | ACTION,                 "ZONA3",       3},
+        {bZONA4    ,  0,  0,  lZONA4    ,  ENABLED | ACTION,                 "ZONA4",       4},
+        {bZONA5    ,  0,  0,  lZONA5    ,  ENABLED | ACTION,                 "ZONA5",       5},
+        {bZONA6 ,     0,  0,  lZONA6 ,     ENABLED | ACTION,                 "ZONA6",       6},
+        {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ZONA7",       7},
+        {bZONA8  ,    0,  0,  lZONA8  ,    ENABLED | ACTION,                 "ZONA8",       8},
+        {bZONA9,      0,  0,  lZONA9  ,    ENABLED | ACTION,                 "ZONA9",       9},
         {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO1",      0},
         {bGRUPO2  ,   0,  0,  lGRUPO2  ,   ENABLED | ONLYSTATUS | DUAL,      "GRUPO2",      0},
         {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO3",      0},
@@ -538,7 +532,7 @@
     bool timeOK = false;
     bool factorRiegosOK = false;
     bool errorOFF = false;
-    bool VERIFY;
+    bool VERIFY;    // si true verifica periodicamente estado del riego en curso en Domoticz
     bool encoderSW = false;
     char errorText[7];
     unsigned long currentMillisLoop = 0;
@@ -568,7 +562,6 @@
   void bipOK(void);
   void bipKO(void);
   int  bID2bIndex(uint16_t);
-  int  bID2zIndex(uint16_t);
   void blinkPause(void);
   void check(void);
   bool checkWifi(void);
@@ -598,7 +591,7 @@
   void initLCD(void);
   void initLeds(void);
   void initMCP23017 (void);
-  bool initRiego(uint16_t);
+  bool initRiego(void);
   void initWire(void);
   void led(uint8_t,int);
   void ledYellow(int);
@@ -673,5 +666,6 @@
   void wifiClearSignal(uint);
   bool wifiReconnect(void);
   void zeroConfig(Config_parm&);
+  int  zNumber2bIndex(uint16_t);
 
 #endif  // control_h

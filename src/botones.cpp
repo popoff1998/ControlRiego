@@ -252,7 +252,7 @@ S_BOTON *parseInputs(bool read)
   for (i=0;i<NUM_S_BOTON;i++) {
     //Nos saltamos los disabled
     if (!Boton[i].flags.enabled) continue;
-    Boton[i].estado = inputs & Boton[i].id;
+    Boton[i].estado = inputs & Boton[i].bID;
     //Solo si el estado del boton ha cambiado (o tiene habilitado el HOLD) devuelve cual ha sido 
     if ((Boton[i].estado != Boton[i].ultimo_estado) || (Boton[i].estado && Boton[i].flags.hold && !Boton[i].flags.holddisabled))
     {
@@ -260,7 +260,7 @@ S_BOTON *parseInputs(bool read)
       if (Boton[i].estado || Boton[i].flags.dual) {
         #ifdef EXTRADEBUG
           if (!read) Serial.print(F("Cleared: "));
-          Serial.printf("Boton: %s  idx: %d  id: %#X  Estado: %d \n", Boton[i].desc, Boton[i].idx, Boton[i].id, Boton[i].estado);
+          Serial.printf("Boton: %s  id: %#X  Estado: %d \n", Boton[i].desc, Boton[i].bID, Boton[i].estado);
         #endif
         if (read) return &Boton[i]; //si no clear retorna 1er boton que ha cambiado de estado
       }
@@ -269,14 +269,25 @@ S_BOTON *parseInputs(bool read)
   return NULL;
 }
 
+// devuelve la posicion en Boton[] del boton que se le ha pasado (bID)
 int bID2bIndex(uint16_t id)
 {
   for (int i=0;i<NUM_S_BOTON;i++) {
-    if (Boton[i].id == id) return i;
+    if (Boton[i].bID == id) return i;
   }
   return 999;
 }
 
+// devuelve posicion en extructura Boton (bIndex) de la zona pasada (numero de la zona)
+int zNumber2bIndex(uint16_t z)
+{
+  for (int i=0;i<NUM_S_BOTON;i++) {
+    if (Boton[i].znumber == z) return i;
+  }
+  return 999;
+}
+
+/* 
 int bID2zIndex(uint16_t id)
 {
   for (uint i=0;i<NUMZONAS;i++) {
@@ -284,4 +295,4 @@ int bID2zIndex(uint16_t id)
   }
   return 999;
 }
-
+ */

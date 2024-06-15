@@ -36,8 +36,8 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
   }  
   for (JsonObject botones_item : doc["botones"].as<JsonArray>()) {
     int i = botones_item["zona"] | 1; 
-    config.botonConfig[i-1].idx = botones_item["idx"] | 0;
-    strlcpy(config.botonConfig[i-1].desc, botones_item["nombre"] | "", sizeof(config.botonConfig[i-1].desc));
+    config.zona[i-1].idx = botones_item["idx"] | 0;
+    strlcpy(config.zona[i-1].desc, botones_item["nombre"] | "", sizeof(config.zona[i-1].desc));
     i++;
   }
   //--------------  procesa parametro individuales   ----------------------------------------
@@ -54,23 +54,23 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
   //--------------  procesa grupos  ---------------------------------------------------------
   for (JsonObject groups_item : doc["grupos"].as<JsonArray>()) {
     int i = groups_item["grupo"] | 1; // 1, 2, 3
-    config.groupConfig[i-1].id = GRUPOS[i-1];  //obtiene el id del boton de ese grupo (ojo: no viene en el json)
-    config.groupConfig[i-1].size = groups_item["size"] | 1;
-    if (config.groupConfig[i-1].size == 0) {
-      config.groupConfig[i-1].size =1;
+    config.group[i-1].bID = GRUPOS[i-1];  //obtiene el bID del boton de ese grupo (ojo: no viene en el json)
+    config.group[i-1].size = groups_item["size"] | 1;
+    if (config.group[i-1].size == 0) {
+      config.group[i-1].size =1;
       LOG_ERROR("ERROR tamaño del grupo incorrecto, es 0 -> ponemos 1");
     }
-    //Serial.printf("[loadConfigFile] procesando GRUPO%d size=%d id=x%x \n",i,config.groupConfig[i-1].size,config.groupConfig[i-1].id); //DEBUG
-    strlcpy(config.groupConfig[i-1].desc, groups_item["desc"] | "", sizeof(config.groupConfig[i-1].desc)); 
+    //Serial.printf("[loadConfigFile] procesando GRUPO%d size=%d id=x%x \n",i,config.group[i-1].size,config.group[i-1].id); //DEBUG
+    strlcpy(config.group[i-1].desc, groups_item["desc"] | "", sizeof(config.group[i-1].desc)); 
     JsonArray array = groups_item["zonas"].as<JsonArray>();
     int count = array.size();
-    if (count != config.groupConfig[i-1].size) {
+    if (count != config.group[i-1].size) {
       LOG_ERROR("ERROR tamaño del grupo incorrecto");
       return false;
     }  
     int j = 0;
     for(JsonVariant zonas_item_elemento : array) {
-      config.groupConfig[i-1].serie[j] = zonas_item_elemento.as<int>();
+      config.group[i-1].zNumber[j] = zonas_item_elemento.as<int>();
       j++;
     }
     i++;
@@ -104,8 +104,8 @@ bool saveConfigFile(const char *p_filename, Config_parm &config)
   JsonArray array_botones = doc.createNestedArray("botones");
   for (int i=0; i<NUMZONAS; i++) {
     array_botones[i]["zona"]   = i+1;
-    array_botones[i]["idx"]    = config.botonConfig[i].idx;
-    array_botones[i]["nombre"] = config.botonConfig[i].desc;
+    array_botones[i]["idx"]    = config.zona[i].idx;
+    array_botones[i]["nombre"] = config.zona[i].desc;
   }
   //--------------  procesa parametro individuales   ----------------------------------------
   doc["tiempo"]["minutos"]  = config.minutes; 
@@ -118,11 +118,11 @@ bool saveConfigFile(const char *p_filename, Config_parm &config)
   JsonArray array_grupos = doc.createNestedArray("grupos");
   for (int i=0; i<NUMGRUPOS; i++) {
     array_grupos[i]["grupo"]   = i+1;
-    array_grupos[i]["desc"]    = config.groupConfig[i].desc;
-    array_grupos[i]["size"]    = config.groupConfig[i].size;
+    array_grupos[i]["desc"]    = config.group[i].desc;
+    array_grupos[i]["size"]    = config.group[i].size;
     JsonArray array_zonas = array_grupos[i].createNestedArray("zonas");
-    for(int j=0; j<config.groupConfig[i].size; j++) {
-      array_zonas[j] = config.groupConfig[i].serie[j];
+    for(int j=0; j<config.group[i].size; j++) {
+      array_zonas[j] = config.group[i].zNumber[j];
     }  
   }
   // Serialize JSON to file
@@ -184,9 +184,9 @@ bool copyConfigFile(const char *fileFrom, const char *fileTo)
 void zeroConfig(Config_parm &config) {
   LOG_TRACE("");
   for (int j=0; j<config.n_Grupos; j++) {
-    config.groupConfig[j].id = GRUPOS[j];
-    config.groupConfig[j].size = 1;
-    config.groupConfig[j].serie[0]=j+1;
+    config.group[j].bID = GRUPOS[j];
+    config.group[j].size = 1;
+    config.group[j].zNumber[0]=j+1;
   }  
 }
 
@@ -202,7 +202,7 @@ void printParms(Config_parm &config) {
   Serial.printf("\tnumzonas= %d \n", config.n_Zonas);
   Serial.println(F("\tBotones: "));
   for(int i=0; i<config.n_Zonas; i++) {
-    Serial.printf("\t\t Zona%d: IDX=%d (%s) l=%d \n", i+1, config.botonConfig[i].idx, config.botonConfig[i].desc, sizeof(config.botonConfig[i].desc));
+    Serial.printf("\t\t Zona%d: IDX=%d (%s) l=%d \n", i+1, config.zona[i].idx, config.zona[i].desc, sizeof(config.zona[i].desc));
   }
   //--------------  imprime parametro individuales   ----------------------------------------
   Serial.printf("\tminutes= %d seconds= %d \n", config.minutes, config.seconds);
@@ -211,9 +211,9 @@ void printParms(Config_parm &config) {
   Serial.printf("\tnumgroups= %d \n", config.n_Grupos);
   //--------------  imprime array y subarray de grupos  ----------------------------------------------
   for(int i = 0; i < config.n_Grupos; i++) {
-    Serial.printf("\tGrupo%d: size=%d (%s)\n", i+1, config.groupConfig[i].size, config.groupConfig[i].desc);
-    for(int j = 0; j < config.groupConfig[i].size; j++) {
-      Serial.printf("\t\t Zona%d \n", config.groupConfig[i].serie[j]);
+    Serial.printf("\tGrupo%d: size=%d (%s)\n", i+1, config.group[i].size, config.group[i].desc);
+    for(int j = 0; j < config.group[i].size; j++) {
+      Serial.printf("\t\t Zona%d \n", config.group[i].zNumber[j]);
     }
   }
 }

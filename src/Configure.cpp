@@ -50,12 +50,12 @@ bool Configure::statusMenu()
 }
 
 //  configuramos IDX asociado al boton de zona
-void Configure::Idx_process_start(int index)
+void Configure::Idx_process_start(struct Config_parm& config, int index)
 {
   this->reset();
   _configuringIdx = true;
   _actualIdxIndex = index;
-  value = boton->idx;
+  value = config.zona[boton->znumber-1].idx;
   setEncoderTime();
   this->configureIdx_display();
 }
@@ -165,9 +165,9 @@ void Configure::Time_process_end(struct Config_parm &config)
 void Configure::Idx_process_end(struct Config_parm &config)
 {
       int bIndex = _actualIdxIndex;
-      int zIndex = bID2zIndex(Boton[bIndex].id);
-      Boton[bIndex].idx = (uint16_t)value;
-      config.botonConfig[zIndex].idx = (uint16_t)value;
+      int zIndex = Boton[bIndex].znumber-1;
+      //Boton[bIndex].idx = (uint16_t)value;
+      config.zona[zIndex].idx = (uint16_t)value;
       saveConfig = true;
       
       LOG_INFO("Save Zona",zIndex+1,"(",Boton[bIndex].desc,") IDX value:",value);
@@ -185,15 +185,15 @@ void Configure::Idx_process_end(struct Config_parm &config)
 //  se añade zona pulsada a grupo
 void Configure::Multi_process_update(void)
 {
-      int bIndex = bID2bIndex(boton->id);
-      int zIndex = bID2zIndex(boton->id);
+      int bIndex = bID2bIndex(boton->bID);
+      int zNumber = boton->znumber;
 
       if (multi.w_size < ZONASXGRUPO) {  //max. zonas por grupo
-        multi.serie[multi.w_size] = boton->id;
-        multi.zserie[multi.w_size] = zIndex+1 ;
+        multi.serie[multi.w_size] = boton->bID;  // bId de la zona
+        multi.zserie[multi.w_size] = zNumber ;  // numero de la zona
         multi.w_size = multi.w_size + 1;
 
-        LOG_INFO("[ConF] añadiendo ZONA",zIndex+1,"(",boton->desc,") multi.w_size=",multi.w_size);
+        LOG_INFO("[ConF] añadiendo ZONA",zNumber,"(",boton->desc,") multi.w_size=",multi.w_size);
         led(Boton[bIndex].led,ON);
         displayLCDGrupo(multi.zserie, multi.w_size);
       }
@@ -207,7 +207,7 @@ void Configure::Multi_process_end(struct Config_parm &config)
         *multi.size = multi.w_size;
         int g = _actualGrupo;
         for (int i=0; i<multi.w_size; ++i) {
-          config.groupConfig[g-1].serie[i] = bID2zIndex(multi.serie[i])+1;
+          config.group[g-1].zNumber[i] = multi.zserie[i];
         }
         saveConfig = true;
 
@@ -231,7 +231,7 @@ void Configure::MultiTemp_process_end(struct Config_parm &config)
         *multi.size = multi.w_size;
         int g = _actualGrupo;
         for (int i=0; i<multi.w_size; ++i) {
-          config.groupConfig[g-1].serie[i] = bID2zIndex(multi.serie[i])+1;
+          config.group[g-1].zNumber[i] = multi.zserie[i];
         }
         saveConfig = true;  //  solo para indicar que hemos salvado grupo temporal y tenemos que iniciarlo
 
