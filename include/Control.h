@@ -19,7 +19,7 @@
     //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
     #define DEBUGLOG_DEFAULT_LOG_LEVEL_TRACE
     //#define DEBUGLOG_DEFAULT_LOG_LEVEL_INFO
-    #define EXTRADEBUG
+    //#define EXTRADEBUG
     //#define EXTRADEBUG2
     //#define EXTRATRACE
     #define VERBOSE
@@ -311,19 +311,23 @@
     char domoticz_port[6];
     char ntpServer[40];
     static const int  n_Grupos = _NUMGRUPOS;  //no modificable por fichero de parámetros (depende HW)
-    Grupo_parm group[n_Grupos+1];       // grupo temporal n+1
+    Grupo_parm group[n_Grupos+1];       // sitio para grupo temporal n+1
   };
 
   // estructura de un grupo de multirriego 
   // (algunos son pointer al multirriego correspondiente en config *)
   struct S_MULTI {
-    uint16_t *id;        //apuntador al id del boton/selector grupo en estructura config (bGrupo_x)
-    uint16_t serie[16];  //contiene los id de los botones del grupo (bZona_x)
-    uint16_t zserie[16]; //contiene las zonas del grupo (Zona_x)
-    int *size;           //apuntador a config con el tamaño del grupo
-    int w_size;          //variable auxiliar durante ConF
-    int actual;          //variable auxiliar durante un multirriego 
-    char *desc;          //apuntador a config con la descripcion del grupo
+    bool riegoON  = false;  //indicador de multirriego activo
+    bool temporal = false;  //indicador de grupo multirriego es temporal
+    bool semaforo = false;  //indicador de procesar siguiente zona del multirriego
+    uint16_t *id;           //apuntador al id del boton/selector grupo en estructura config (bGrupo_x)
+    uint16_t serie[16];     //contiene los id de los botones del grupo (bZona_x)
+    uint16_t zserie[16];    //contiene las zonas del grupo (Zona_x)
+    //uint16_t (*znumber)[16];    //apuntador a las zonas del grupo en estructura config (Zona_x)
+    int *size;              //apuntador a config con el tamaño del grupo
+    int w_size;             //variable auxiliar durante ConF
+    int actual;             //variable auxiliar durante un multirriego 
+    char *desc;             //apuntador a config con la descripcion del grupo
   } ;
 
   union S_bFLAGS
@@ -437,7 +441,7 @@
     
     int NUM_S_BOTON = sizeof(Boton)/sizeof(Boton[0]);
 
-    S_MULTI multi;  //estructura con variables del multigrupo activo
+    S_MULTI multi;  //estructura con variables del grupo de multirriego activo
     S_initFlags initFlags ;
     bool connected;
     bool NONETWORK;
@@ -523,9 +527,6 @@
     unsigned long standbyTime;
     bool displayOff = false;
     unsigned long lastBlinkPause;
-    bool multirriego = false;
-    bool multirriegotemp = false;
-    bool multiSemaforo = false;
     bool holdPause = false;
     unsigned long countHoldPause;
     bool flagV = OFF;
@@ -618,7 +619,7 @@
   void printMultiGroup(Config_parm&, int);
   void printParms(Config_parm&);
   void procesaBotones(void);
-  bool procesaBotonMultiriego(void);
+  void procesaBotonMultiriego(void);
   void procesaBotonPause(void);
   void procesaBotonStop(void);
   void procesaBotonZona(void);
@@ -645,6 +646,7 @@
   void setEstado(uint8_t estado, int bnum = 0);
   void setledRGB(void);
   int  setMultibyId(uint16_t , Config_parm&);
+  void setMultirriego(int);
   bool setupConfig(const char*);
   void setupEstado(void);
   void setupInit(void);

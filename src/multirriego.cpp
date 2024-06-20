@@ -25,6 +25,7 @@ int setMultibyId(uint16_t id, Config_parm &config)
       multi.id = &config.group[i].bID;
       multi.size = &config.group[i].size;
       multi.desc = config.group[i].desc;
+      //multi.znumber = &config.group[i].zNumber;   //si usasemos pointer a config
       for (int j=0; j < *multi.size; j++) {
         multi.serie[j] = ZONAS[config.group[i].zNumber[j]-1];  //obtiene el id del boton de cada zona (ojo: no viene en el json)
         multi.zserie[j] = config.group[i].zNumber[j];  //obtiene el numero de cada zona
@@ -41,6 +42,32 @@ int setMultibyId(uint16_t id, Config_parm &config)
   statusError(E0); 
   return 0;
 }
+
+
+// prepara el comienzo de un multirriego (normal o temporal)
+void setMultirriego(int n_grupo)
+{
+      bip(4);
+      multi.riegoON = true;
+      multi.actual = 0;
+      multi.semaforo = true;
+      LOG_INFO("MULTIRRIEGO iniciado: ", multi.desc);
+      boton = &Boton[bID2bIndex(multi.serie[multi.actual])];
+      if (!multi.temporal) {
+          led(Boton[bID2bIndex(*multi.id)].led,ON);
+          lcd.info(multi.desc, 2);   //  display nombre grupo
+      }
+      else {
+          displayLCDGrupo(multi.zserie, *multi.size, 2);  //  display zonas a regar  
+      }    
+      #ifdef EXTRADEBUG
+          for(uint i=0;i<NUMZONAS;i++) {
+                LOG_DEBUG("[ULTIMOSRIEGOS] zona:", i+1, "time:",lastRiegos[i].inicio);
+            }
+      #endif
+}
+
+
 
 void displayGrupo(uint16_t *serie, int serieSize)
 {

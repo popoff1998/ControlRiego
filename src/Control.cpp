@@ -132,7 +132,7 @@ void procesaBotones()
   //NOTA: el encoderSW esta en estado HIGH en reposo y en estado LOW cuando esta pulsado
   encoderSW = !digitalRead(ENCBOTON);
   //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multirriego
-  if (multiSemaforo) multiSemaforo = false;  // si multisemaforo, no leemos botones: ya los pasa multirriego
+  if (multi.semaforo) multi.semaforo = false;  // si multisemaforo, no leemos botones: ya los pasa multirriego
   else  boton = parseInputs(READ);  //vemos si algun boton ha cambiado de estado
   // si no se ha pulsado ningun boton salimos
   if(boton == NULL) return;
@@ -157,8 +157,8 @@ void procesaBotones()
       procesaBotonStop();
       break;
     case MULTIRRIEGO:
-      if (!procesaBotonMultiriego()) break;
-      //Aqui no hay break para que comience multirriego por default
+      procesaBotonMultiriego(); 
+      break;
     default:
       procesaBotonZona();
   }
@@ -446,9 +446,9 @@ void procesaBotonStop(void)
 }
 
 
-bool procesaBotonMultiriego(void)
+void procesaBotonMultiriego(void)
 {
-  if (Estado.estado == STANDBY && !multirriego) {
+  if (Estado.estado == STANDBY && !multi.riegoON) {
     int n_grupo;
     #ifdef GRP4
       n_grupo = setMultibyId(boton->bID, config);
@@ -456,7 +456,7 @@ bool procesaBotonMultiriego(void)
     #ifdef M3GRP
       n_grupo = setMultibyId(getMultiStatus(), config);
     #endif
-    if (n_grupo == 0) return false; //error en setup de apuntadores 
+    if (n_grupo == 0) return; //error en setup de apuntadores 
     LOG_DEBUG("en MULTIRRIEGO, setMultibyId devuelve: Grupo", n_grupo,"(",multi.desc,") multi.size=" , *multi.size);
     for (int k=0; k < *multi.size; k++) LOG_DEBUG( "       multi.serie: x" , multi.serie[k]);
     LOG_DEBUG("en MULTIRRIEGO, encoderSW status  :", encoderSW );
@@ -466,32 +466,20 @@ bool procesaBotonMultiriego(void)
       LOG_DEBUG("en MULTIRRIEGO + encoderSW, display de grupo:", multi.desc,"tamaño:", *multi.size );
       snprintf(buff, MAXBUFF, "grupo: %s", multi.desc);
       lcd.infoclear(buff, 1);
+      //displayLCDGrupo(*multi.znumber, *multi.size, 2);  //si usasemos pointer a config
       displayLCDGrupo(multi.zserie, *multi.size, 2);
       showTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1);
       displayGrupo(multi.serie, *multi.size);
       delay(MSGDISPLAYMILLIS*3);
       setEstado(STANDBY);   //para que restaure pantalla
-      return false;    //para que procese el BREAK al volver a procesaBotones         
     }  
     else {
       //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
       //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
-      bip(4);
-      multirriego = true;
-      multi.actual = 0;
-      LOG_INFO("MULTIRRIEGO iniciado: ", multi.desc);
-      led(Boton[bID2bIndex(*multi.id)].led,ON);
-      lcd.info(multi.desc, 2);
-      boton = &Boton[bID2bIndex(multi.serie[multi.actual])];
+      setMultirriego(n_grupo);
       inicioTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1);
-      #ifdef EXTRADEBUG
-          for(uint i=0;i<NUMZONAS;i++) {
-                LOG_DEBUG("[ULTIMOSRIEGOS] zona:", i+1, "time:",lastRiegos[i].inicio);
-            }
-      #endif
     }
   }
-  return true;   //para que continue con el case DEFAULT al volver
 }
 
 
@@ -501,11 +489,11 @@ void procesaBotonZona(void)
   if (zIndex < 0) return; //el boton no es de ZONA o error en la matriz Boton[]
   int bIndex = bID2bIndex(boton->bID); 
   if (Estado.estado == STANDBY) {
-    if (!encoderSW || multirriego) {  //iniciamos el riego correspondiente al boton seleccionado
+    if (!encoderSW || multi.riegoON) {  //iniciamos el riego correspondiente al boton seleccionado
         bip(2);
         //cambia minutes y seconds en funcion del factor de cada sector de riego
         uint8_t fminutes=0,fseconds=0;
-        if(multirriego) {
+        if(multi.riegoON) {
           timeByFactor(factorRiegos[boton->znumber-1],&fminutes,&fseconds);
         }
         else {
@@ -602,15 +590,8 @@ void procesaEstadoConfigurando()
                 if(configure->configuringMultiTemp()) {     
                     if (multi.w_size && saveConfig) {  //solo si se ha guardado alguna zona iniciamos riego grupo temporal
                         saveConfig = false;  
-                        LOG_DEBUG("Activamos riego de grupo TEMPORAL");
-                        multirriegotemp = true;
-                        multirriego = true;
-                        multi.actual = 0;
-                        multiSemaforo = true;
-                        //  para que comience el riego en proximo procesaBoton:
-                        boton = &Boton[bID2bIndex(multi.serie[multi.actual])];
-                        bip(4);
-                        displayLCDGrupo(multi.zserie, *multi.size, 2);  //  display zonas a regar
+                        multi.temporal = true;
+                        setMultirriego(NUMGRUPOS+1);  // grupo temporal n+1
                     }    
                 }
                 configure->exit(config);  // salvamos parm a fichero si procede y salimos de ConF
@@ -702,12 +683,12 @@ void procesaEstadoTerminando(void)
   lcd.blinkLCD(DEFAULTBLINK);
   led(Boton[bID2bIndex(ultimoBotonZona->bID)].led,OFF);
   //Comprobamos si estamos en un multirriego
-  if (multirriego) {
+  if (multi.riegoON) {
     multi.actual++;
     if (multi.actual < *multi.size) {
       //Simular la pulsacion del siguiente boton de la serie de multirriego
       boton = &Boton[bID2bIndex(multi.serie[multi.actual])];
-      multiSemaforo = true;
+      multi.semaforo = true;
     }
     else {
       int n_grupo;
@@ -718,7 +699,7 @@ void procesaEstadoTerminando(void)
         n_grupo = setMultibyId(getMultiStatus(), config);  // posicion del selector multirriego
       #endif
       if (n_grupo == 0) return; //error en setup de apuntadores 
-      if(!multirriegotemp) finalTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1);
+      if(!multi.temporal) finalTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1);
       int msgl = snprintf(buff, MAXBUFF, "%s finalizado", multi.desc);
       lcd.info("multirriego",1);
       lcd.info(buff, 2, msgl);
@@ -817,7 +798,7 @@ void setEstado(uint8_t estado, int bnum)
   }
   if(estado == STANDBY) {
     setEncoderTime();
-    if(!multirriego && !multirriegotemp) lcd.infoclear("STANDBY",NOBLINK,BIP,bnum);
+    if(!multi.riegoON && !multi.temporal) lcd.infoclear("STANDBY",NOBLINK,BIP,bnum);
     if (savedValue) value = savedValue;  // para que restaure reloj
     StaticTimeUpdate(REFRESH);
     standbyTime = millis();
@@ -1192,9 +1173,9 @@ void resetLeds()
 void resetFlags()
 {
   LOG_TRACE("");
-  multirriego = false;
-  multirriegotemp = false;
-  multiSemaforo = false;
+  multi.riegoON = false;
+  multi.temporal = false;
+  multi.semaforo = false;
   errorOFF = false;
   falloAP = false;
   webServerAct = false;
