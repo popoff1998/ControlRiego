@@ -497,10 +497,10 @@ void procesaBotonZona(void)
           timeByFactor(factorRiegos[boton->znumber-1],&fminutes,&fseconds);
         }
         else {
-          fminutes = minutes;
-          fseconds = seconds;
+          fminutes = tm.minutes;
+          fseconds = tm.seconds;
         }
-        LOG_DEBUG("Minutos:",minutes,"Segundos:",seconds,"FMinutos:",fminutes,"FSegundos:",fseconds);
+        LOG_DEBUG("Minutos:",tm.minutes,"Segundos:",tm.seconds,"FMinutos:",fminutes,"FSegundos:",fseconds);
         ultimoBotonZona = boton;
         // si tiempo factorizado de riego es 0 o IDX=0, nos saltamos este riego
         if ((fminutes == 0 && fseconds == 0) || config.zona[(boton->znumber)-1].idx == 0) {
@@ -522,8 +522,8 @@ void procesaBotonZona(void)
         Serial.printf("          boton.index: %d \n", bIndex);
         Serial.printf("          boton(%d).led: %d \n", bIndex, Boton[bIndex].led);
       #endif
-      savedValue = value;
-      value = factorRiegos[zIndex];
+      tm.savedValue = tm.value;
+      tm.value = factorRiegos[zIndex];
       lcd.infoclear("factor riego de ");
       snprintf(buff, MAXBUFF, "%s :  %d", config.zona[boton->znumber-1].desc, factorRiegos[zIndex]);
       lcd.info(buff,2);
@@ -799,7 +799,7 @@ void setEstado(uint8_t estado, int bnum)
   if(estado == STANDBY) {
     setEncoderTime();
     if(!multi.riegoON && !multi.temporal) lcd.infoclear("STANDBY",NOBLINK,BIP,bnum);
-    if (savedValue) value = savedValue;  // para que restaure reloj
+    if (tm.savedValue) tm.value = tm.savedValue;  // para que restaure reloj
     StaticTimeUpdate(REFRESH);
     standbyTime = millis();
     return;
@@ -813,7 +813,7 @@ void setEstado(uint8_t estado, int bnum)
     ledYellow(ON);
     boton = NULL;
     holdPause = false;
-    savedValue = value;  // salvamos tiempo riego en display
+    tm.savedValue = tm.value;  // salvamos tiempo riego en display
     return;
   }
 }
@@ -889,7 +889,7 @@ void initFactorRiegos()
 //Aqui convertimos minutes y seconds por el factorRiegos
 void timeByFactor(int factor,uint8_t *fminutes, uint8_t *fseconds)
 {
-  uint tseconds = (60*minutes) + seconds;
+  uint tseconds = (60*tm.minutes) + tm.seconds;
   //factorizamos
   tseconds = (tseconds*factor)/100;
   //reconvertimos
@@ -1039,46 +1039,46 @@ void procesaEncoder()
 
   int encvalue = rotaryEncoder.encoderChanged();
   if(!encvalue) return; 
-  value = value + encvalue;
+  tm.value = tm.value + encvalue;
   LOG_DEBUG("rotaryEncoder.encoderChanged() devuelve encvalue =", encvalue);
 
   if(Estado.estado == CONFIGURANDO && configure->configuringIdx()) {  //encoder ajusta numero IDX
-      if (value > 1000) value = 1000;
-      if (value <  0) value = 0; //permitimos IDX=0 para desactivar ese boton
+      if (tm.value > 1000) tm.value = 1000;
+      if (tm.value <  0) tm.value = 0; //permitimos IDX=0 para desactivar ese boton
       int bIndex = configure->get_ActualIdxIndex();
       int currentZona = Boton[bIndex].znumber;
-      snprintf(buff, MAXBUFF, "nuevo IDX ZONA%d %d", currentZona, value);
+      snprintf(buff, MAXBUFF, "nuevo IDX ZONA%d %d", currentZona, tm.value);
       lcd.info(buff, 4);
       return;
   }
 
   if (Estado.estado == CONFIGURANDO && !configure->configuringTime()) return;
   //encoder ajusta tiempo:
-  if(seconds == 0 && value>0) {   //Estamos en el rango de minutos
-    if (value > MAXMINUTES)  value = MAXMINUTES;
-    if (value != minutes) {
-      minutes = value;
+  if(tm.seconds == 0 && tm.value>0) {   //Estamos en el rango de minutos
+    if (tm.value > MAXMINUTES)  tm.value = MAXMINUTES;
+    if (tm.value != tm.minutes) {
+      tm.minutes = tm.value;
     } else return;
   }
   else {
     //o bien estamos en el rango de segundos o acabamos de entrar en el
-    if(value<60 && value>=MINSECONDS) {
-      if (value != seconds) {
-        seconds = value;
+    if(tm.value<60 && tm.value>=MINSECONDS) {
+      if (tm.value != tm.seconds) {
+        tm.seconds = tm.value;
       } else return;
     }
-    else if (value >=60) {
-      value = minutes = 1;
-      seconds = 0;
+    else if (tm.value >=60) {
+      tm.value = tm.minutes = 1;
+      tm.seconds = 0;
     }
-    else if(minutes == 1) {
-      value = seconds = 59;
-      minutes = 0;
+    else if(tm.minutes == 1) {
+      tm.value = tm.seconds = 59;
+      tm.minutes = 0;
     }
     else
     {
-      value = seconds = MINSECONDS;
-      minutes = 0;
+      tm.value = tm.seconds = MINSECONDS;
+      tm.minutes = 0;
     }
   }
   if(reposo) reposoOFF();
@@ -1287,14 +1287,14 @@ void blinkPause()
 void StaticTimeUpdate(bool refresh)
 {
   if (Estado.estado == ERROR) return; //para que en caso de estado ERROR no borre el código de error del display
-  if (minutes < MINMINUTES) minutes = MINMINUTES;
-  if (minutes > MAXMINUTES) minutes = MAXMINUTES;
+  if (tm.minutes < MINMINUTES) tm.minutes = MINMINUTES;
+  if (tm.minutes > MAXMINUTES) tm.minutes = MAXMINUTES;
   //solo se actualiza si cambia hora o REFRESH
   if (refresh) lcd.clear(BORRA2H);
-  if(prevseconds != seconds || prevminutes != minutes || refresh) {
-    lcd.displayTime(minutes, seconds); 
-    prevseconds = seconds;
-    prevminutes = minutes;
+  if(prevseconds != tm.seconds || prevminutes != tm.minutes || refresh) {
+    lcd.displayTime(tm.minutes, tm.seconds); 
+    prevseconds = tm.seconds;
+    prevminutes = tm.minutes;
   }
 }
 
@@ -1666,9 +1666,9 @@ bool setupConfig(const char *p_filename)
 
   LOG_INFO("Leyendo fichero parametros", p_filename);
   bool loaded = loadConfigFile(p_filename, config);
-  minutes = config.minutes;
-  seconds = config.seconds;
-  value = ((seconds==0)?minutes:seconds);
+  tm.minutes = config.minutes;
+  tm.seconds = config.seconds;
+  tm.value = ((tm.seconds==0)?tm.minutes:tm.seconds);
   if (loaded) {
     for(int i=0;i<NUMZONAS;i++) {
       //si en config campo desc de la zona esta vacio se copia el de la estructura Boton:

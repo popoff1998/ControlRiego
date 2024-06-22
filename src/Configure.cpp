@@ -55,7 +55,7 @@ void Configure::Idx_process_start(struct Config_parm& config, int index)
   this->reset();
   _configuringIdx = true;
   _actualIdxIndex = index;
-  value = config.zona[boton->znumber-1].idx;
+  tm.value = config.zona[boton->znumber-1].idx;
   setEncoderTime();
   this->configureIdx_display();
 }
@@ -65,8 +65,8 @@ void Configure::Time_process_start(struct Config_parm& config)
 {
   this->reset();
   _configuringTime = true;
-  minutes = config.minutes;
-  seconds = config.seconds;
+  tm.minutes = config.minutes;
+  tm.seconds = config.seconds;
   setEncoderTime();
   this->configureTime_display(config);
 }
@@ -139,7 +139,7 @@ void Configure::configureIdx_display(void)
       lcd.infoclear("Configurando");
       snprintf(buff, MAXBUFF, "IDX de:  %s", boton->desc);
       lcd.info(buff, 2);
-      snprintf(buff, MAXBUFF, "actual %d", value);
+      snprintf(buff, MAXBUFF, "actual %d", tm.value);
       lcd.info(buff, 3);
       
       led(Boton[_actualIdxIndex].led,ON);
@@ -148,11 +148,11 @@ void Configure::configureIdx_display(void)
 //  salvamos en config el nuevo tiempo por defecto
 void Configure::Time_process_end(struct Config_parm &config)
 {
-      config.minutes = minutes;
-      config.seconds = seconds;
+      config.minutes = tm.minutes;
+      config.seconds = tm.seconds;
       saveConfig = true;
 
-      LOG_INFO("Save DEFAULT TIME, minutes:",minutes," secons:",seconds);
+      LOG_INFO("Save DEFAULT TIME, minutes:",tm.minutes," secons:",tm.seconds);
       lcd.info("DEFAULT TIME saved",2);
       bipOK();
       delay(MSGDISPLAYMILLIS);
@@ -166,18 +166,17 @@ void Configure::Idx_process_end(struct Config_parm &config)
 {
       int bIndex = _actualIdxIndex;
       int zIndex = Boton[bIndex].znumber-1;
-      //Boton[bIndex].idx = (uint16_t)value;
-      config.zona[zIndex].idx = (uint16_t)value;
+      config.zona[zIndex].idx = (uint16_t)tm.value;
       saveConfig = true;
       
-      LOG_INFO("Save Zona",zIndex+1,"(",Boton[bIndex].desc,") IDX value:",value);
+      LOG_INFO("Save Zona",zIndex+1,"(",Boton[bIndex].desc,") IDX :",tm.value);
       lcd.info("guardado IDX",2);
       lcd.clear(BORRA2H);
       bipOK();
       delay(MSGDISPLAYMILLIS);  // para que se vea el msg
       led(Boton[bIndex].led,OFF);
 
-      value = savedValue;  // restaura tiempo (en lugar del IDX)
+      tm.value = tm.savedValue;  // restaura tiempo (en lugar del IDX)
       setEncoderMenu(_maxItems, _currentItem);
       this->menu();  // vuelve a mostrar menu de configuracion
 }

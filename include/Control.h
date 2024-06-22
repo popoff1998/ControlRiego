@@ -386,6 +386,13 @@
     time_t final; 
   } ;
 
+  struct S_tm {
+    uint8_t minutes = 0;
+    uint8_t seconds = 0;
+    int  value = 0;
+    int  savedValue = 0;
+  } ;
+
   const uint16_t ZONAS[] = {_ZONAS};
   const uint16_t GRUPOS[]  = {_GRUPOS};
   const int NUMZONAS = sizeof(ZONAS)/sizeof(ZONAS[0]); // numero de zonas (botones riego individual)
@@ -455,11 +462,8 @@
     DisplayLCD lcd(LCD2004_address, 20, 4);  // 20 caracteres x 4 lineas
     char buff[MAXBUFF];
     
-    uint8_t minutes = 0;
-    uint8_t seconds = 0;
-    int  value = 0;
-    int  savedValue = 0;
     S_BOTON  *boton;
+    S_tm tm;
     bool webServerAct = false;
     bool reposo = false;
 
@@ -485,11 +489,8 @@
     extern DisplayLCD lcd;
     extern char buff[];
 
-    extern uint8_t minutes;
-    extern uint8_t seconds;
-    extern int  value;
-    extern int  savedValue;
     extern S_BOTON  *boton;
+    extern S_tm tm;
     extern bool webServerAct;
     extern bool reposo;
     extern bool mute;
