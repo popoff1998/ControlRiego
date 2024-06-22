@@ -79,21 +79,18 @@ void DisplayLCD::clear(int mitad)
 
 void DisplayLCD::setCursor(uint8_t col, uint8_t row)
 {
-  //LOG_TRACE(col,row);
   lcdDisp.setCursor(col, row);
 }
 
 
 void DisplayLCD::displayON()
 {
-  //LOG_TRACE("[LCD] ");
   lcdDisp.display();
   _displayOff = false;
 }
 
 void DisplayLCD::displayOFF()
 {
-  //LOG_TRACE("[LCD] ");
   lcdDisp.noDisplay();
   _displayOff = true;
 }
@@ -110,8 +107,11 @@ void DisplayLCD::print(const char * text) {
 }
 
 void DisplayLCD::print(const String &s) {
-  //LOG_TRACE("[LCD] recibido: '",text,"'");
   lcdDisp.print(s);
+}
+
+void DisplayLCD::print(const int numero) {
+  lcdDisp.print(numero);
 }
 
 /* 

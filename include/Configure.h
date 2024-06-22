@@ -16,7 +16,7 @@ class Configure
     int _currentItem;
     void configureTime_display(struct Config_parm&);
     void configureMulti_display(void);
-    void configureIdx_display(void);
+    void configureIdx_display(struct Config_parm&);
 
   public:
     Configure(void);
@@ -28,7 +28,7 @@ class Configure
     void Idx_process_start(struct Config_parm&, int);
     void Idx_process_end(struct Config_parm&);
     void Multi_process_start(int);
-    void Multi_process_update(void);
+    void Multi_process_update(struct Config_parm&);
     void Multi_process_end(struct Config_parm&);
     void MultiTemp_process_start(void);
     void MultiTemp_process_end(struct Config_parm&);

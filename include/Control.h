@@ -571,7 +571,7 @@
   bool copyConfigFile(const char*, const char*);
   void dimmerLeds(bool);
   void displayGrupo(uint16_t *, int);
-  void displayLCDGrupo(uint16_t *, int, int line=4);
+  void displayLCDGrupo(uint16_t *, int, int line=4, int start=0);
   void displayTimer(uint8_t, uint8_t, uint8_t, uint8_t);
   bool domoticzSwitch(int,char *, int);
   void enciendeLeds(void);

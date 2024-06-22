@@ -57,7 +57,7 @@ void Configure::Idx_process_start(struct Config_parm& config, int index)
   _actualIdxIndex = index;
   tm.value = config.zona[boton->znumber-1].idx;
   setEncoderTime();
-  this->configureIdx_display();
+  this->configureIdx_display(config);
 }
 
 // configuramos tiempo riego por defecto
@@ -133,11 +133,11 @@ void Configure::configureMulti_display(void)
       if(!_configuringMultiTemp) displayGrupo(multi.serie, *multi.size); // no encendemos leds si grupo TEMPORAL 
 }              
 
-void Configure::configureIdx_display(void)
+void Configure::configureIdx_display(struct Config_parm &config)
 {
-      LOG_INFO("[ConF] configurando IDX boton:",boton->desc);
+      LOG_INFO("[ConF] configurando IDX boton:",config.zona[boton->znumber-1].desc);
       lcd.infoclear("Configurando");
-      snprintf(buff, MAXBUFF, "IDX de:  %s", boton->desc);
+      snprintf(buff, MAXBUFF, "IDX de:  %s", config.zona[boton->znumber-1].desc);
       lcd.info(buff, 2);
       snprintf(buff, MAXBUFF, "actual %d", tm.value);
       lcd.info(buff, 3);
@@ -182,7 +182,7 @@ void Configure::Idx_process_end(struct Config_parm &config)
 }
 
 //  se añade zona pulsada a grupo
-void Configure::Multi_process_update(void)
+void Configure::Multi_process_update(struct Config_parm &config)
 {
       int bIndex = bID2bIndex(boton->bID);
       int zNumber = boton->znumber;
@@ -192,7 +192,7 @@ void Configure::Multi_process_update(void)
         multi.zserie[multi.w_size] = zNumber ;  // numero de la zona
         multi.w_size = multi.w_size + 1;
 
-        LOG_INFO("[ConF] añadiendo ZONA",zNumber,"(",boton->desc,") multi.w_size=",multi.w_size);
+        LOG_INFO("[ConF] añadiendo ZONA",zNumber,"(",config.zona[boton->znumber-1].desc,") multi.w_size=",multi.w_size);
         led(Boton[bIndex].led,ON);
         displayLCDGrupo(multi.zserie, multi.w_size);
       }
@@ -296,6 +296,7 @@ int Configure::showMenu(int opcion)
   lcd.print("Menu Configuracion:");
   lcd.setCursor(0,1);
   lcd.print("->");
+  //lcd.print("--" "\x7E");  //  "-->"
   for (int l=1; l<4; l++) {
     LOG_DEBUG("linea ", l, " opcion ", opcion);
     lcd.setCursor(3,l);

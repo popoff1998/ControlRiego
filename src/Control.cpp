@@ -458,7 +458,8 @@ void procesaBotonMultiriego(void)
     #endif
     if (n_grupo == 0) return; //error en setup de apuntadores 
     LOG_DEBUG("en MULTIRRIEGO, setMultibyId devuelve: Grupo", n_grupo,"(",multi.desc,") multi.size=" , *multi.size);
-    for (int k=0; k < *multi.size; k++) LOG_DEBUG( "       multi.serie: x" , multi.serie[k]);
+    for (int k=0; k < *multi.size; k++) LOG_DEBUG( "       multi.serie: x" ,DebugLogBase::HEX, multi.serie[k]);
+    for (int k=0; k < *multi.size; k++) LOG_DEBUG( "       multi.zserie: x" , multi.zserie[k]);
     LOG_DEBUG("en MULTIRRIEGO, encoderSW status  :", encoderSW );
     // si esta pulsado el boton del encoder --> solo hacemos encendido de los leds del grupo
     // y mostramos en el display las zonas que componen el grupo y fecha ultimo riego de este
@@ -518,7 +519,7 @@ void procesaBotonZona(void)
     else {  // mostramos en el display el factor de riego del boton pulsado y fecha ultimo riego
       led(Boton[bIndex].led,ON);
       #ifdef EXTRADEBUG
-        Serial.printf("Boton: %s Factor de riego: %d \n", boton->desc,factorRiegos[zIndex]);
+        Serial.printf("Boton: %s Factor de riego: %d \n", config.zona[boton->znumber-1].desc,factorRiegos[zIndex]);
         Serial.printf("          boton.index: %d \n", bIndex);
         Serial.printf("          boton(%d).led: %d \n", bIndex, Boton[bIndex].led);
       #endif
@@ -599,7 +600,7 @@ void procesaEstadoConfigurando()
             break;
         default:  //procesamos boton de ZONAx
             if (configure->configuringMulti() || configure->configuringMultiTemp()) {  //añadimos zona al multirriego que estamos definiendo
-              configure->Multi_process_update();
+              configure->Multi_process_update(config);
             }
             if (configure->statusMenu()) {   //si no estamos configurando nada, configuramos el idx del boton
               configure->Idx_process_start(config, bID2bIndex(boton->bID));
@@ -685,12 +686,14 @@ void procesaEstadoTerminando(void)
   //Comprobamos si estamos en un multirriego
   if (multi.riegoON) {
     multi.actual++;
-    if (multi.actual < *multi.size) {
+    if (multi.actual < *multi.size) {  // pasamos a regar la siguiente zona del grupo
       //Simular la pulsacion del siguiente boton de la serie de multirriego
       boton = &Boton[bID2bIndex(multi.serie[multi.actual])];
       multi.semaforo = true;
+      //si queremos mostrar en display las zonas que restan por regar del grupo (en lugar de su nombre):
+      displayLCDGrupo(multi.zserie, *multi.size, 2, multi.actual);  //  display zonas quedan por regar
     }
-    else {
+    else {         // señalamos fin del multirriego y actulizamos timestamp de finalizacion
       int n_grupo;
       #ifdef GRP4
         n_grupo = setMultibyId(*multi.id, config);   // ultimo boton de multirriego pulsado
@@ -700,14 +703,14 @@ void procesaEstadoTerminando(void)
       #endif
       if (n_grupo == 0) return; //error en setup de apuntadores 
       if(!multi.temporal) finalTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1);
-      int msgl = snprintf(buff, MAXBUFF, "%s finalizado", multi.desc);
       lcd.info("multirriego",1);
+      int msgl = snprintf(buff, MAXBUFF, "%s finalizado", multi.desc);
       lcd.info(buff, 2, msgl);
       longbip(3);
       resetFlags();
       LOG_INFO("MULTIRRIEGO", multi.desc, "terminado");
       delay(MSGDISPLAYMILLIS*5);
-      lcd.info("", 2);
+      //lcd.info("", 2);
       led(Boton[bID2bIndex(*multi.id)].led,OFF);
     }
   }
@@ -1127,7 +1130,7 @@ bool stopRiego(uint16_t id, bool update)
   int bIndex = bID2bIndex(id);
   int zIndex = Boton[bIndex].znumber-1;
   ledID = Boton[bIndex].led;
-  LOG_DEBUG( "Terminando riego: ", Boton[bIndex].desc);
+  LOG_DEBUG( "Terminando riego: ", config.zona[zIndex].desc);
   domoticzSwitch(config.zona[zIndex].idx, (char *)"Off", DEFAULT_SWITCH_RETRIES);
   if (Estado.estado != ERROR) {
     LOG_INFO( "Terminado OK riego: " , config.zona[zIndex].desc );
