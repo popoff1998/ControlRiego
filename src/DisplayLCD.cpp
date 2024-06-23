@@ -201,6 +201,21 @@ void DisplayLCD::infoclear(const char *info, int dnum, int btype, int bnum) {
     if(dnum) lcd.blinkLCD(dnum);
 }
 
+void DisplayLCD::displayTemp(int temperature) 
+{
+  LOG_DEBUG("temperatura recibida=",temperature,"temp ESP32=",temperatureRead());
+  if(temperatureRead() > MAX_ESP32_TEMP) {   // aviso de temperatura excesiva del ESP32
+    setCursor(14, 0); print("!"); bip(2);
+    setCursor(15, 0); print(temperatureRead());
+  }
+  else {
+    setCursor(15, 0);
+    if (temperature == 999) print("--");
+    else lcdDisp.printf("%2d",temperature);
+  }  
+  setCursor(17, 0); print("\xDF" "C"); // xDF = caracter grado centigrado
+}
+
 void DisplayLCD::displayTime(uint8_t minute, uint8_t second, uint8_t col, uint8_t line) 
 {
   printTwoNumber(minute, col, line);

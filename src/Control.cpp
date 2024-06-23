@@ -801,7 +801,10 @@ void setEstado(uint8_t estado, int bnum)
   }
   if(estado == STANDBY) {
     setEncoderTime();
-    if(!multi.riegoON && !multi.temporal) lcd.infoclear("STANDBY",NOBLINK,BIP,bnum);
+    if(!multi.riegoON && !multi.temporal) {
+      lcd.infoclear("STANDBY",NOBLINK,BIP,bnum);
+      checkTemp();
+    }  
     if (tm.savedValue) tm.value = tm.savedValue;  // para que restaure reloj
     StaticTimeUpdate(REFRESH);
     standbyTime = millis();
@@ -956,6 +959,7 @@ void ultimosRiegos(int modo)
         }
       }
       lcd.infoclear("Hora actual:");
+      //checkTemp();
       if (timeOK) {
         sprintf(buff, " %d", day(t));
         lcd.info(buff,3);
@@ -1554,7 +1558,15 @@ void Verificaciones()
     }
   #endif
   if (!flagV || webServerAct) return;      //si no activada por Ticker salimos sin hacer nada
-  if (Estado.estado == STANDBY) LOG_TRACE(".");
+  if (Estado.estado == STANDBY) {
+     LOG_TRACE(".");
+      if (connected && (!timeOK || millis() > NTPlastUpdate + NTPUPDATEINTERVAL * 60000 )) {
+        setClock();
+        // en cualquier caso, si timeOK, no intentaremos volver a resincronizar hasta que haya pasado otro NTPUPDATEINTERVAL 
+        NTPlastUpdate = millis(); 
+      }
+      checkTemp();  
+  }   
   if (errorOFF) bip(2);  //recordatorio error grave al parar un riego
   //si estamos en Standby o en Error por falta de conexion verificamos estado actual de la wifi (no en modo NONETWORK)
   if (!NONETWORK && (Estado.estado == STANDBY || (Estado.estado == ERROR && !connected))) {
@@ -1575,14 +1587,24 @@ void Verificaciones()
   }
   // si tenemos conexion y no hemos recibido time por NTP o han pasado NTPUPDATEINTERVAL minutos
   // desde la ultima sincronizacion -> actualizamos time del sistema con el del servidor NTP
-  if (connected && (!timeOK || millis() > NTPlastUpdate + NTPUPDATEINTERVAL * 60000 )) {
-    setClock();
-    // en cualquier caso, si timeOK, no intentaremos resincronizar hasta que haya pasado otro NTPUPDATEINTERVAL 
-    NTPlastUpdate = millis(); 
-  }  
   flagV = OFF;
 }
 
+void checkTemp() {
+  #ifdef TEMPLOCAL   // temperatura ambiente del sensor local
+    int err = SimpleDHTErrSuccess;
+    (err = dhtsensor.read(&temperatura, &humedad, NULL)) == SimpleDHTErrSuccess ? tempOK=true : tempOK=false;
+    LOG_DEBUG("err=",err,"tempOK=",tempOK,"temperatura=",temperatura,"humedad=",humedad);
+    if(tempOK) lcd.displayTemp((int)temperatura);
+    else {
+      LOG_ERROR("Read DHT sensor failed, err=",SimpleDHTErrCode(err),",",SimpleDHTErrDuration(err));
+      lcd.displayTemp(999);  // borra temperatura del display 
+    }
+  #else  // temperatura del ESP32
+    temperatura = temperatureRead(); // temperatura del ESP32
+    if(temperatura > MAX_ESP32_TEMP) lcd.displayTemp(temperatura);
+  #endif
+}
 
 /**---------------------------------------------------------------
  * pasa a estado ERROR

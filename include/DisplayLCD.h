@@ -32,6 +32,7 @@
       void setBacklight(bool);	// alias for backlight() and nobacklight()
       void displayON(void);      // muestra texto del display
       void displayOFF(void);     // oculta texto del display
+      void displayTemp(int);
       void displayTime(uint8_t minute, uint8_t second, uint8_t col=LCDBIGCOL, uint8_t line=LCDBIGROW);
       void infoclear(const char *info, int line=1);
       void infoclear(const char *info, int dnum, int btype, int bnum=0);

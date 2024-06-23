@@ -60,6 +60,9 @@
       #include <ESPmDNS.h>
       #include <HTTPUpdateServer.h>
     #endif
+    #ifdef TEMPLOCAL
+      #include <SimpleDHT.h>
+    #endif
   #endif
 
   #include "MCP23017.h"  // expansor E/S MCP23017
@@ -89,7 +92,7 @@
        
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.0.7"
+                            #define VERSION  "3.0.8"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -107,7 +110,7 @@
     #define DEFAULTMINUTES      0
     #define DEFAULTSECONDS      7
   #endif
-  #define STANDBYSECS         15      // tiempo en segundos para pasar a reposo desde standby (apagar pantalla y atenuar leds)
+  #define STANDBYSECS         30      // tiempo en segundos para pasar a reposo desde standby (apagar pantalla y atenuar leds)
   #define NTPUPDATEINTERVAL   600     // tiempo en minutos para resincronizar el reloj del sistema con el servidor NTP
   #define RECONNECTINTERVAL   1       // tiempo en minutos para intentar reconexion a la wifi
   #define DEFAULTBLINK        5       // numero de parpadeos de la pantalla
@@ -121,11 +124,12 @@
   #define VERIFY_INTERVAL     15      // intervalo en segundos entre verificaciones periodicas
   #define DEFAULT_SWITCH_RETRIES 5    // numero de reintentos para parar o encender una zona de riego en el Domoticz
   #define DELAYRETRY          2000    // mseg de retardo entre reintentos
-  #define MAXledLEVEL         255     // nivel maximo leds on y wifi (0 a 255)
-  #define DIMMLEVEL           50      // nivel atenuacion leds on y wifi (0 a 255)
+  #define MAXledLEVEL         255     // nivel maximo leds RGB (0 a 255)
+  #define DIMMLEVEL           50      // nivel atenuacion leds RGB (0 a 255)
   #define I2C_CLOCK_SPEED     400000  // frecuencia del bus I2C en Hz (default 100000)
   #define LCD2004_address     0x27    // direccion bus I2C de la pantalla LCD
   #define ROTARY_ENCODER_STEPS 4      // TODO documentar
+  #define MAX_ESP32_TEMP      70      // max temp. ESP32 para mostrar aviso
 
  //----------------  dependientes del HW   ----------------------------------------
   #ifdef ESP32
@@ -143,6 +147,7 @@
     #define I2C_SDA1              GPIO_NUM_33
     #define I2C_SCL1              GPIO_NUM_32
     #define BUZZER                GPIO_NUM_4
+    #define DHTPIN              GPIO_NUM_18  // ojo debe ser de E/S!
     #define lZONA1                1             // mcpO GPA0
     #define lZONA2                2             // mcpO GPA1
     #define lZONA3                3             // mcpO GPA2
@@ -523,6 +528,8 @@
     uint factorRiegos[NUMZONAS];
     uint8_t prevseconds;
     uint8_t prevminutes;
+    byte temperatura;
+    byte humedad;
     char  descDomoticz[20];
     int  ledID = 0;
     unsigned long standbyTime;
@@ -532,6 +539,7 @@
     unsigned long countHoldPause;
     bool flagV = OFF;
     bool timeOK = false;
+    bool tempOK = false;
     bool factorRiegosOK = false;
     bool errorOFF = false;
     bool VERIFY;    // si true verifica periodicamente estado del riego en curso en Domoticz
@@ -555,6 +563,12 @@
     const int bipKO_num = sizeof(bipKO_melody)/sizeof(bipKO_melody[0]); // numero de notas en la melodia
     int bipKO_duration = 120;  // duracion de cada tono en mseg.
 
+      #if TEMPLOCAL == DHT11
+        SimpleDHT11 dhtsensor(DHTPIN);
+      #elif TEMPLOCAL == DHT22
+        SimpleDHT22 dhtsensor(DHTPIN);
+      #endif
+
   #endif  // __MAIN__
 
   //Funciones (prototipos)
@@ -566,6 +580,7 @@
   int  bID2bIndex(uint16_t);
   void blinkPause(void);
   void check(void);
+  void checkTemp(void);
   bool checkWifi(void);
   void cleanFS(void);
   bool copyConfigFile(const char*, const char*);
