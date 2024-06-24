@@ -147,7 +147,7 @@
     #define I2C_SDA1              GPIO_NUM_33
     #define I2C_SCL1              GPIO_NUM_32
     #define BUZZER                GPIO_NUM_4
-    #define DHTPIN              GPIO_NUM_18  // ojo debe ser de E/S!
+    #define DHTPIN                GPIO_NUM_5    // ojo debe ser de E/S!
     #define lZONA1                1             // mcpO GPA0
     #define lZONA2                2             // mcpO GPA1
     #define lZONA3                3             // mcpO GPA2
@@ -156,7 +156,7 @@
     #define lZONA6                6             // mcpO GPA5
     #define lZONA7                7             // mcpO GPA6
     #define lZONA8                8             // mcpO GPA7
-    #define lZONA9                9             // mcpO GPB0
+    #define lZONA9                9             // mcpO GPB0 
     #define lGRUPO1               13            // mcpO GPB4
     #define lGRUPO2               14            // mcpO GPB5
     #define lGRUPO3               15            // mcpO GPB6
@@ -317,6 +317,8 @@
     char ntpServer[40];
     static const int  n_Grupos = _NUMGRUPOS;  //no modificable por fichero de parámetros (depende HW)
     Grupo_parm group[n_Grupos+1];       // sitio para grupo temporal n+1
+    uint8_t   warnESP32temp = MAX_ESP32_TEMP;  // temperatura ESP32 maxima con aviso 
+    bool mute = OFF;  // sonidos activos
   };
 
   // estructura de un grupo de multirriego 
@@ -468,16 +470,9 @@
     char buff[MAXBUFF];
     
     S_BOTON  *boton;
-    S_tm tm;
+    S_tm tm;          // variables contador de tiempo
     bool webServerAct = false;
     bool reposo = false;
-
-    #ifdef MUTE
-      bool mute = true;
-    #else
-      bool mute = false;
-    #endif
-
 
   #else
     extern S_BOTON Boton [];
@@ -498,7 +493,6 @@
     extern S_tm tm;
     extern bool webServerAct;
     extern bool reposo;
-    extern bool mute;
 
   #endif
 
@@ -659,6 +653,7 @@
   bool serialDetect(void);
   void setEncoderMenu(int menuitems, int currentitem = 0);
   void setEncoderTime(void);
+  void setEncoderRange(int min, int max, int current);
   void setEstado(uint8_t estado, int bnum = 0);
   void setledRGB(void);
   int  setMultibyId(uint16_t , Config_parm&);

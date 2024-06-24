@@ -380,8 +380,7 @@ void procesaBotonPause(void)
         if((millis() - countHoldPause) > HOLDTIME) {
           if(!encoderSW) { //pasamos a modo Configuracion
             setEstado(CONFIGURANDO,1);
-            configure->menu();
-            setEncoderMenu(configure->get_maxItems());
+            configure->menu(config);
             LOG_INFO("Stop + hold PAUSA --> modo ConF()");
           }
           else {   //si esta pulsado encoderSW hacemos un soft reset
@@ -576,6 +575,10 @@ void procesaEstadoConfigurando()
             }
             if(configure->configuringIdx()) {
               configure->Idx_process_end(config);  //  salvamos en config el nuevo IDX
+              break;
+            }
+            if(configure->configuringESPtmpWarn()) {
+              configure->ESPtmpWarn_process_end(config);  //  salvamos en config la nueva temperatura aviso
               break;
             }
             if(configure->configuringMulti()) {
@@ -935,8 +938,16 @@ void setEncoderTime() {
     rotaryEncoder.enable();
 }
 
-void setEncoderMenu(int menuitems, int currentitem) {
+void setEncoderRange(int min, int max, int current) {
     LOG_TRACE("");
+    rotaryEncoder.setBoundaries(min, max, false); //minValue, maxValue, circleValues true|false (when max go to min and vice versa)
+    rotaryEncoder.setEncoderValue(current);
+    rotaryEncoder.setAcceleration(50); // set the value - larger number = more accelearation; 0 or 1 means disabled acceleration
+    rotaryEncoder.enable();
+}
+
+void setEncoderMenu(int menuitems, int currentitem) {
+    LOG_DEBUG("currentitem=",currentitem);
     rotaryEncoder.setBoundaries(0, menuitems-1, true); //minValue, maxValue, circleValues true|false (when max go to min and vice versa)
     rotaryEncoder.setEncoderValue(currentitem);
     rotaryEncoder.disableAcceleration();
@@ -1036,18 +1047,29 @@ void reposoOFF()
 //lee encoder para actualizar el display
 void procesaEncoder()
 {
+
   if(Estado.estado == CONFIGURANDO && configure->statusMenu()) {  //encoder selecciona item menu
       int menuOption = rotaryEncoder.readEncoder();
       if(menuOption == configure->get_currentItem()) return;
       LOG_DEBUG("rotaryEncoder.readEncoder() devuelve menuOption =", menuOption, "currentItem =", configure->get_currentItem());
-      configure->showMenu(menuOption);
+      configure->showMenu(menuOption, config);
+      return;
+  }
+
+  if(Estado.estado == CONFIGURANDO && configure->configuringRange()) {  //encoder ajusta valor entre un rango
+      int readvalue = rotaryEncoder.readEncoder();
+      if(readvalue == tm.value) return;
+      LOG_DEBUG("rotaryEncoder.readEncoder() devuelve readvalue =", readvalue, "tm.value=", tm.value);
+      tm.value = readvalue;
+      snprintf(buff, MAXBUFF, "nueva: %d", tm.value);
+      lcd.info(buff, 4);
       return;
   }
 
   int encvalue = rotaryEncoder.encoderChanged();
   if(!encvalue) return; 
-  tm.value = tm.value + encvalue;
   LOG_DEBUG("rotaryEncoder.encoderChanged() devuelve encvalue =", encvalue);
+  tm.value = tm.value + encvalue;
 
   if(Estado.estado == CONFIGURANDO && configure->configuringIdx()) {  //encoder ajusta numero IDX
       if (tm.value > 1000) tm.value = 1000;
@@ -1218,7 +1240,7 @@ bool stopAllRiego()
 
 //override funcion tone de Tone.cpp para que no suenen bips en caso de MUTE
 void mitone(uint8_t pin, unsigned int frequency, unsigned long duration) {
-  if (mute) return;
+  if (config.mute) return;
   tone(pin, frequency, duration);
 }
 
@@ -1595,14 +1617,14 @@ void checkTemp() {
     int err = SimpleDHTErrSuccess;
     (err = dhtsensor.read(&temperatura, &humedad, NULL)) == SimpleDHTErrSuccess ? tempOK=true : tempOK=false;
     LOG_DEBUG("err=",err,"tempOK=",tempOK,"temperatura=",temperatura,"humedad=",humedad);
-    if(tempOK) lcd.displayTemp((int)temperatura);
+    if(tempOK) lcd.displayTemp((int)temperatura, config.warnESP32temp);
     else {
       LOG_ERROR("Read DHT sensor failed, err=",SimpleDHTErrCode(err),",",SimpleDHTErrDuration(err));
-      lcd.displayTemp(999);  // borra temperatura del display 
+      lcd.displayTemp(999, config.warnESP32temp);  // borra temperatura del display 
     }
   #else  // temperatura del ESP32
     temperatura = temperatureRead(); // temperatura del ESP32
-    if(temperatura > MAX_ESP32_TEMP) lcd.displayTemp(temperatura);
+    if(temperatura > config.warnESP32temp) lcd.displayTemp(temperatura);
   #endif
 }
 
@@ -1701,6 +1723,9 @@ bool setupConfig(const char *p_filename)
         strlcpy(config.zona[i].desc, Boton[zNumber2bIndex(i+1)].desc, sizeof(config.zona[i].desc));
       }  
     }
+    #ifdef MUTE
+      config.mute = true;   // arrnaque con sonidos silenciados
+    #endif
         #ifdef EXTRADEBUG
           printFile(p_filename);
         #endif
@@ -1806,11 +1831,11 @@ return buff;
                 break;
             case 7:
                 Serial.println(F("recibido:   7 - mute ON"));
-                mute = ON;
+                config.mute = ON;
                 break;
             case 8:
                 Serial.println(F("recibido:   8 - mute OFF"));
-                mute = OFF;
+                config.mute = OFF;
                 break;
             case 9:
                 Serial.println(F("recibido:   9 - anular simulacion errores"));

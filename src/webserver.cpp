@@ -115,6 +115,7 @@ void handleSysInfo() {
   result += "  \"freeHeap\": " + String(ESP.getFreeHeap()) + ",\n";
   result += "  \"fsTotalBytes\": " + String(LittleFS.totalBytes()) + ",\n";
   result += "  \"fsUsedBytes\": " + String(LittleFS.usedBytes()) + ",\n";
+  result += "  \"ESP32 temperature\": " + String(temperatureRead()) + "ºC,\n";
   result += "}";
 
   wserver.sendHeader("Cache-Control", "no-cache");

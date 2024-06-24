@@ -7,7 +7,7 @@ PENDIENTES
     led RGB -> MAXLEDLEVEL y DIMMLEVEL
     verificacion stauts riego en Domoticz -> VERIFY
     actualizacion nombres zonas con las del Domoticz -> XNAME
-- display temperatura en STANDBY (sensor propio o externo?)
+- display temperatura en STANDBY (sensor externo)
 
 HECHOS
 ======
@@ -64,5 +64,8 @@ HECHOS
 - pseudogrupo riego temporal V3.0.5
 - refactoring  de procesaEstadoConfigurando y clase Configure  V3.0.6
 - tiempo finalizacion en tabla ultimos riegos zonas. Display al mostrar factor riego de zona V3.0.7
+- en multirriego se muestran en display zonas que restan por regar en lugar de nombre del grupo V3.0.7
+- display temperatura ambiente en STANDBY (sensor propio) V3.0.8
+- aviso temperatura alta ESP32 (configurable) V3.0.8
 
 

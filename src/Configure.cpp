@@ -3,14 +3,17 @@
 Configure::Configure()
 {
   this->reset();
+  _currentItem = 0;
 }
 
-void Configure::menu()
+void Configure::menu(struct Config_parm &config)
 {
   this->reset();
   _configuringMenu = true;
-  _maxItems = this->showMenu(0);
-  _currentItem = 0;
+  _maxItems = this->showMenu(_currentItem, config);
+  setEncoderMenu(_maxItems, _currentItem);
+  LOG_DEBUG("_currentitem=",_currentItem);
+  //_currentItem = 0;
 }
 
 void Configure::reset()
@@ -19,6 +22,7 @@ void Configure::reset()
   _configuringTime = false;
   _configuringMulti = false;
   _configuringMultiTemp = false;
+  _configuringESPtmpWarn = false;
   _configuringMenu = false;
   _actualIdxIndex = 0;
   _actualGrupo = 0;
@@ -42,6 +46,16 @@ bool Configure::configuringMulti()
 bool Configure::configuringMultiTemp()
 {
   return _configuringMultiTemp;
+}
+
+bool Configure::configuringESPtmpWarn()
+{
+  return _configuringESPtmpWarn;
+}
+
+bool Configure::configuringRange()
+{
+  return _configuringESPtmpWarn;
 }
 
 bool Configure::statusMenu()
@@ -89,6 +103,23 @@ void Configure::MultiTemp_process_start(void)
   _actualGrupo = _NUMGRUPOS+1;   // grupo temporal: n+1
   multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
   this->configureMulti_display();
+}
+
+//  configuramos temperatura aviso del ESP32
+void Configure::ESPtmpWarn_process_start(struct Config_parm& config)
+{
+  this->reset();
+  _configuringESPtmpWarn = true;
+  tm.value = config.warnESP32temp;
+  setEncoderRange(40, 99, tm.value);
+
+  LOG_INFO("[ConF] configurando warnESP32temp actual:",config.warnESP32temp);
+  lcd.infoclear("Configurando aviso");
+  snprintf(buff, MAXBUFF, "temperatura ESP32");
+  lcd.info(buff, 2);
+  snprintf(buff, MAXBUFF, "actual: %d", tm.value);
+  lcd.info(buff, 3);
+
 }
 
 int Configure::get_ActualIdxIndex(void)
@@ -157,8 +188,7 @@ void Configure::Time_process_end(struct Config_parm &config)
       bipOK();
       delay(MSGDISPLAYMILLIS);
 
-      setEncoderMenu(_maxItems, _currentItem);
-      this->menu();  // vuelve a mostrar menu de configuracion
+      this->menu(config);  // vuelve a mostrar menu de configuracion
 }
 
 //  salvamos en config y Boton el nuevo IDX de la zona
@@ -177,8 +207,23 @@ void Configure::Idx_process_end(struct Config_parm &config)
       led(Boton[bIndex].led,OFF);
 
       tm.value = tm.savedValue;  // restaura tiempo (en lugar del IDX)
-      setEncoderMenu(_maxItems, _currentItem);
-      this->menu();  // vuelve a mostrar menu de configuracion
+      this->menu(config);  // vuelve a mostrar menu de configuracion
+}
+
+//  salvamos en config la nueva temperatura de aviso
+void Configure::ESPtmpWarn_process_end(struct Config_parm &config)
+{
+      config.warnESP32temp = (uint8_t)tm.value;
+      //saveConfig = true;  pendiente implementar salvado de esta variable a fichero parametros
+      
+      LOG_INFO("Save warnESP32temp:",tm.value);
+      lcd.info("guardada temp. max.",2);
+      lcd.clear(BORRA2H);
+      bipOK();
+      delay(MSGDISPLAYMILLIS);  // para que se vea el msg
+
+      tm.value = tm.savedValue;  // restaura tiempo 
+      this->menu(config);  // vuelve a mostrar menu de configuracion
 }
 
 //  se añade zona pulsada a grupo
@@ -219,8 +264,7 @@ void Configure::Multi_process_end(struct Config_parm &config)
       }
       ultimosRiegos(HIDE);
       led(Boton[bID2bIndex(*multi.id)].led,OFF);
-      setEncoderMenu(_maxItems, _currentItem);
-      this->menu();  // vuelve a mostrar menu de configuracion
+      this->menu(config);  // vuelve a mostrar menu de configuracion
 }
 
 // actualizamos config con las zonas introducidas para grupo temporal
@@ -248,6 +292,7 @@ void Configure::MultiTemp_process_end(struct Config_parm &config)
 void Configure::exit(struct Config_parm &config)
 {
       this->reset();
+      _currentItem = 0;
 
       setEncoderTime();
 
@@ -273,7 +318,7 @@ void Configure::exit(struct Config_parm &config)
 }
 
 
-int Configure::showMenu(int opcion)
+int Configure::showMenu(int opcion, struct Config_parm &config)
 {
   String opcionesMenuConf[] = {
      /*-----------------*/ 
@@ -283,12 +328,17 @@ int Configure::showMenu(int opcion)
       "WIFI parm (AP)",     // 3 
       "WEBSERVER",          // 4 
       "MUTE on/off",        // 5 
-      "load from DEFAULT"   // 6 
+      "load from DEFAULT",  // 6 
+      "ESP32 temp: cc/mm",  // 7 
+      "-----------------"   // 8 
      /*-----------------*/ 
   };
-  opcionesMenuConf[5] = (mute ?  "MUTE OFF" : "MUTE ON");
+  opcionesMenuConf[5] = (config.mute ?  "MUTE OFF" : "MUTE ON");
+  opcionesMenuConf[7] =  "ESP32 temp: " + String((int)temperatureRead()) + "/" + config.warnESP32temp;
+
 
   const int MAXOPCIONES = sizeof(opcionesMenuConf)/sizeof(opcionesMenuConf[0]);
+  LOG_DEBUG("opcion=",opcion,"_currentitem=",_currentItem,"MAXOPCIONES=",MAXOPCIONES);
   _currentItem = opcion;
 
   lcd.clear();
@@ -328,14 +378,14 @@ void Configure::procesaSelectMenu(struct Config_parm &config)
                       delay(MSGDISPLAYMILLIS); 
                     }
                     else BIPKO;  
-                    this->menu();  // vuelve a mostrar menu de configuracion 
+                    this->menu(config);  // vuelve a mostrar menu de configuracion 
                     break;
             case 3 :   // activamos AP y portal de configuracion (bloqueante)
                     LOG_INFO("[ConF]  activamos AP y portal de configuracion");
                     ledYellow(OFF);
                     starConfigPortal(config);
                     ledYellow(ON);
-                    this->menu();  // vuelve a mostrar menu de configuracion
+                    this->menu(config);  // vuelve a mostrar menu de configuracion
                     break; 
   #ifdef WEBSERVER
             case 4 :  // activamos webserver (no bloqueante, pero no respodemos a botones)
@@ -343,11 +393,11 @@ void Configure::procesaSelectMenu(struct Config_parm &config)
                     break;
   #endif 
             case 5 :   // toggle MUTE
-                    mute = !mute;
-                    mute ? lcd.infoclear("     MUTE ON",2) : lcd.infoclear("     MUTE OFF",2);
+                    config.mute = !config.mute;
+                    config.mute ? lcd.infoclear("     MUTE ON",2) : lcd.infoclear("     MUTE OFF",2);
                     bip(2);
                     delay(1000);
-                    this->menu();  // vuelve a mostrar menu de configuracion
+                    this->menu(config);  // vuelve a mostrar menu de configuracion
                     break; 
             case 6 :   // carga parametros por defecto y reinicia
                     if (copyConfigFile(defaultFile, parmFile)) {    // defaultFile --> parmFile
@@ -359,7 +409,10 @@ void Configure::procesaSelectMenu(struct Config_parm &config)
                       ESP.restart();  // reset ESP32
                     }
                     else BIPKO;  
-                    this->menu();  // vuelve a mostrar menu de configuracion
+                    this->menu(config);  // vuelve a mostrar menu de configuracion
+                    break;
+            case 7 :      //configuramos temperatura aviso ESP32
+                    this->ESPtmpWarn_process_start(config);   
                     break;
             default:         
                     LOG_DEBUG("salimos del CASE del MENU sin realizar accion");
