@@ -78,7 +78,7 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
 }
 
 // conexion a la red por medio de WifiManager
-void setupRedWM(Config_parm &config)
+void setupRedWM(Config_parm &config, S_initFlags &initFlags)
 {
   #ifdef DEVELOP
     wm.setDebugOutput(true, WM_DEBUG_DEV);

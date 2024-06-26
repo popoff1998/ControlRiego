@@ -69,7 +69,7 @@ void setup()
   LOG_TRACE("Inicializando Encoder");
   initEncoder();
   LOG_TRACE("Inicializando Configure");
-  configure = new Configure();
+  configure = new Configure(config);   // se pasa por referencia la estructura config al constructor de la clase
   //preparo indicadores de inicializaciones opcionales
   setupInit();
   //setup parametros configuracion
@@ -80,7 +80,7 @@ void setup()
   //Chequeo de perifericos de salida (leds, display, buzzer)
   check();
   //Para la red
-  setupRedWM(config);
+  setupRedWM(config, initFlags);
   if (saveConfig) {
     if (saveConfigFile(parmFile, config))  bipOK();
     else bipKO();
@@ -133,7 +133,7 @@ void procesaBotones()
   encoderSW = !digitalRead(ENCBOTON);
   //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multirriego
   if (multi.semaforo) multi.semaforo = false;  // si multisemaforo, no leemos botones: ya los pasa multirriego
-  else  boton = parseInputs(READ);  //vemos si algun boton ha cambiado de estado
+  else  boton = parseInputs(READ);  // si no, vemos si algun boton ha cambiado de estado
   // si no se ha pulsado ningun boton salimos
   if(boton == NULL) return;
   //Si estamos en reposo pulsar cualquier boton solo nos saca de ese estado
@@ -380,7 +380,7 @@ void procesaBotonPause(void)
         if((millis() - countHoldPause) > HOLDTIME) {
           if(!encoderSW) { //pasamos a modo Configuracion
             setEstado(CONFIGURANDO,1);
-            configure->menu(config);
+            configure->menu();
             LOG_INFO("Stop + hold PAUSA --> modo ConF()");
           }
           else {   //si esta pulsado encoderSW hacemos un soft reset
@@ -564,29 +564,29 @@ void procesaEstadoConfigurando()
             if(!boton->estado) break; //no se procesa el release del PAUSE
             LOG_DEBUG("[MENU] PAUSE pulsado recibido");
             if(configure->statusMenu()) { //estamos en el menu -> procesamos la seleccion
-              configure->procesaSelectMenu(config); 
+              configure->procesaSelectMenu(); 
               break;
             }
             LOG_DEBUG("PAUSE pulsado recibido y estamos configurando algo");
             // si ya estamos configurando algo: PAUSE consolida lo configurado en config
             if(configure->configuringTime()) {
-              configure->Time_process_end(config);  //  salvamos en config el nuevo tiempo por defecto
+              configure->Time_process_end();  //  salvamos en config el nuevo tiempo por defecto
               break;
             }
             if(configure->configuringIdx()) {
-              configure->Idx_process_end(config);  //  salvamos en config el nuevo IDX
+              configure->Idx_process_end();  //  salvamos en config el nuevo IDX
               break;
             }
             if(configure->configuringESPtmpWarn()) {
-              configure->ESPtmpWarn_process_end(config);  //  salvamos en config la nueva temperatura aviso
+              configure->ESPtmpWarn_process_end();  //  salvamos en config la nueva temperatura aviso
               break;
             }
             if(configure->configuringMulti()) {
-              configure->Multi_process_end(config);  // actualizamos config con las zonas introducidas
+              configure->Multi_process_end();  // actualizamos config con las zonas introducidas
               break;
             }
             if(configure->configuringMultiTemp()) {
-              configure->MultiTemp_process_end(config);  // actualizamos config con las zonas introducidas
+              configure->MultiTemp_process_end();  // actualizamos config con las zonas introducidas
             }
             break;
         case bSTOP:
@@ -598,15 +598,15 @@ void procesaEstadoConfigurando()
                         setMultirriego(NUMGRUPOS+1);  // grupo temporal n+1
                     }    
                 }
-                configure->exit(config);  // salvamos parm a fichero si procede y salimos de ConF
+                configure->exit();  // salvamos parm a fichero si procede y salimos de ConF
             }
             break;
         default:  //procesamos boton de ZONAx
             if (configure->configuringMulti() || configure->configuringMultiTemp()) {  //añadimos zona al multirriego que estamos definiendo
-              configure->Multi_process_update(config);
+              configure->Multi_process_update();
             }
             if (configure->statusMenu()) {   //si no estamos configurando nada, configuramos el idx del boton
-              configure->Idx_process_start(config, bID2bIndex(boton->bID));
+              configure->Idx_process_start(bID2bIndex(boton->bID));
             }
       }
     }
@@ -1052,7 +1052,7 @@ void procesaEncoder()
       int menuOption = rotaryEncoder.readEncoder();
       if(menuOption == configure->get_currentItem()) return;
       LOG_DEBUG("rotaryEncoder.readEncoder() devuelve menuOption =", menuOption, "currentItem =", configure->get_currentItem());
-      configure->showMenu(menuOption, config);
+      configure->showMenu(menuOption);
       return;
   }
 

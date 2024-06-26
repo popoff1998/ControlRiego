@@ -1,16 +1,16 @@
 #include "Configure.h"
 
-Configure::Configure()
+Configure::Configure(struct Config_parm &conf) : config(conf)
 {
   this->reset();
   _currentItem = 0;
 }
 
-void Configure::menu(struct Config_parm &config)
+void Configure::menu()
 {
   this->reset();
   _configuringMenu = true;
-  _maxItems = this->showMenu(_currentItem, config);
+  _maxItems = this->showMenu(_currentItem);
   setEncoderMenu(_maxItems, _currentItem);
   LOG_DEBUG("_currentitem=",_currentItem);
   //_currentItem = 0;
@@ -64,25 +64,25 @@ bool Configure::statusMenu()
 }
 
 //  configuramos IDX asociado al boton de zona
-void Configure::Idx_process_start(struct Config_parm& config, int index)
+void Configure::Idx_process_start(int index)
 {
   this->reset();
   _configuringIdx = true;
   _actualIdxIndex = index;
   tm.value = config.zona[boton->znumber-1].idx;
   setEncoderTime();
-  this->configureIdx_display(config);
+  this->configureIdx_display();
 }
 
 // configuramos tiempo riego por defecto
-void Configure::Time_process_start(struct Config_parm& config)
+void Configure::Time_process_start()
 {
   this->reset();
   _configuringTime = true;
   tm.minutes = config.minutes;
   tm.seconds = config.seconds;
   setEncoderTime();
-  this->configureTime_display(config);
+  this->configureTime_display();
 }
 
 //  configuramos grupo multirriego
@@ -106,7 +106,7 @@ void Configure::MultiTemp_process_start(void)
 }
 
 //  configuramos temperatura aviso del ESP32
-void Configure::ESPtmpWarn_process_start(struct Config_parm& config)
+void Configure::ESPtmpWarn_process_start()
 {
   this->reset();
   _configuringESPtmpWarn = true;
@@ -142,7 +142,7 @@ int Configure::get_maxItems(void)
   return _maxItems;
 }
 
-void Configure::configureTime_display(struct Config_parm &config)    
+void Configure::configureTime_display()    
 {
       LOG_INFO("configurando tiempo riego por defecto");
       lcd.infoclear("Configurando");
@@ -164,7 +164,7 @@ void Configure::configureMulti_display(void)
       if(!_configuringMultiTemp) displayGrupo(multi.serie, *multi.size); // no encendemos leds si grupo TEMPORAL 
 }              
 
-void Configure::configureIdx_display(struct Config_parm &config)
+void Configure::configureIdx_display()
 {
       LOG_INFO("[ConF] configurando IDX boton:",config.zona[boton->znumber-1].desc);
       lcd.infoclear("Configurando");
@@ -177,7 +177,7 @@ void Configure::configureIdx_display(struct Config_parm &config)
 }
 
 //  salvamos en config el nuevo tiempo por defecto
-void Configure::Time_process_end(struct Config_parm &config)
+void Configure::Time_process_end()
 {
       config.minutes = tm.minutes;
       config.seconds = tm.seconds;
@@ -188,11 +188,11 @@ void Configure::Time_process_end(struct Config_parm &config)
       bipOK();
       delay(MSGDISPLAYMILLIS);
 
-      this->menu(config);  // vuelve a mostrar menu de configuracion
+      this->menu();  // vuelve a mostrar menu de configuracion
 }
 
 //  salvamos en config y Boton el nuevo IDX de la zona
-void Configure::Idx_process_end(struct Config_parm &config)
+void Configure::Idx_process_end()
 {
       int bIndex = _actualIdxIndex;
       int zIndex = Boton[bIndex].znumber-1;
@@ -207,11 +207,11 @@ void Configure::Idx_process_end(struct Config_parm &config)
       led(Boton[bIndex].led,OFF);
 
       tm.value = tm.savedValue;  // restaura tiempo (en lugar del IDX)
-      this->menu(config);  // vuelve a mostrar menu de configuracion
+      this->menu();  // vuelve a mostrar menu de configuracion
 }
 
 //  salvamos en config la nueva temperatura de aviso
-void Configure::ESPtmpWarn_process_end(struct Config_parm &config)
+void Configure::ESPtmpWarn_process_end()
 {
       config.warnESP32temp = (uint8_t)tm.value;
       //saveConfig = true;  pendiente implementar salvado de esta variable a fichero parametros
@@ -223,11 +223,11 @@ void Configure::ESPtmpWarn_process_end(struct Config_parm &config)
       delay(MSGDISPLAYMILLIS);  // para que se vea el msg
 
       tm.value = tm.savedValue;  // restaura tiempo 
-      this->menu(config);  // vuelve a mostrar menu de configuracion
+      this->menu();  // vuelve a mostrar menu de configuracion
 }
 
 //  se añade zona pulsada a grupo
-void Configure::Multi_process_update(struct Config_parm &config)
+void Configure::Multi_process_update()
 {
       int bIndex = bID2bIndex(boton->bID);
       int zNumber = boton->znumber;
@@ -245,7 +245,7 @@ void Configure::Multi_process_update(struct Config_parm &config)
 }
 
 // actualizamos config con las zonas introducidas
-void Configure::Multi_process_end(struct Config_parm &config)
+void Configure::Multi_process_end()
 {
       if (multi.w_size) {  //solo si se ha pulsado alguna
         *multi.size = multi.w_size;
@@ -264,11 +264,11 @@ void Configure::Multi_process_end(struct Config_parm &config)
       }
       ultimosRiegos(HIDE);
       led(Boton[bID2bIndex(*multi.id)].led,OFF);
-      this->menu(config);  // vuelve a mostrar menu de configuracion
+      this->menu();  // vuelve a mostrar menu de configuracion
 }
 
 // actualizamos config con las zonas introducidas para grupo temporal
-void Configure::MultiTemp_process_end(struct Config_parm &config)
+void Configure::MultiTemp_process_end()
 {
       if (multi.w_size) {  //solo si se ha pulsado alguna
         *multi.size = multi.w_size;
@@ -289,7 +289,7 @@ void Configure::MultiTemp_process_end(struct Config_parm &config)
 
 
 //  escritura de parametros a fichero si procede y salimos de ConF
-void Configure::exit(struct Config_parm &config)
+void Configure::exit()
 {
       this->reset();
       _currentItem = 0;
@@ -318,7 +318,7 @@ void Configure::exit(struct Config_parm &config)
 }
 
 
-int Configure::showMenu(int opcion, struct Config_parm &config)
+int Configure::showMenu(int opcion)
 {
   String opcionesMenuConf[] = {
      /*-----------------*/ 
@@ -359,7 +359,7 @@ int Configure::showMenu(int opcion, struct Config_parm &config)
 
 
 // ejecutamos opcion seleccionada del menu
-void Configure::procesaSelectMenu(struct Config_parm &config) 
+void Configure::procesaSelectMenu() 
 {
           boton = NULL; //para que no se procese mas adelante  TODO ¿es necesario?
 
@@ -369,7 +369,7 @@ void Configure::procesaSelectMenu(struct Config_parm &config)
                     lcd.info("a configurar...",2);   
                     break;
             case 1 :      //configuramos tiempo riego por defecto
-                    this->Time_process_start(config);   
+                    this->Time_process_start();   
                     break;
             case 2 :  // copiamos fichero parametros en fichero default
                     if (copyConfigFile(parmFile, defaultFile)) {    // parmFile --> defaultFile
@@ -378,14 +378,14 @@ void Configure::procesaSelectMenu(struct Config_parm &config)
                       delay(MSGDISPLAYMILLIS); 
                     }
                     else BIPKO;  
-                    this->menu(config);  // vuelve a mostrar menu de configuracion 
+                    this->menu();  // vuelve a mostrar menu de configuracion 
                     break;
             case 3 :   // activamos AP y portal de configuracion (bloqueante)
                     LOG_INFO("[ConF]  activamos AP y portal de configuracion");
                     ledYellow(OFF);
                     starConfigPortal(config);
                     ledYellow(ON);
-                    this->menu(config);  // vuelve a mostrar menu de configuracion
+                    this->menu();  // vuelve a mostrar menu de configuracion
                     break; 
   #ifdef WEBSERVER
             case 4 :  // activamos webserver (no bloqueante, pero no respodemos a botones)
@@ -397,7 +397,7 @@ void Configure::procesaSelectMenu(struct Config_parm &config)
                     config.mute ? lcd.infoclear("     MUTE ON",2) : lcd.infoclear("     MUTE OFF",2);
                     bip(2);
                     delay(1000);
-                    this->menu(config);  // vuelve a mostrar menu de configuracion
+                    this->menu();  // vuelve a mostrar menu de configuracion
                     break; 
             case 6 :   // carga parametros por defecto y reinicia
                     if (copyConfigFile(defaultFile, parmFile)) {    // defaultFile --> parmFile
@@ -409,10 +409,10 @@ void Configure::procesaSelectMenu(struct Config_parm &config)
                       ESP.restart();  // reset ESP32
                     }
                     else BIPKO;  
-                    this->menu(config);  // vuelve a mostrar menu de configuracion
+                    this->menu();  // vuelve a mostrar menu de configuracion
                     break;
             case 7 :      //configuramos temperatura aviso ESP32
-                    this->ESPtmpWarn_process_start(config);   
+                    this->ESPtmpWarn_process_start();   
                     break;
             default:         
                     LOG_DEBUG("salimos del CASE del MENU sin realizar accion");

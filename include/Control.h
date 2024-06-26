@@ -92,7 +92,7 @@
        
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.0.8"
+                            #define VERSION  "3.0.9"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -456,7 +456,6 @@
     int NUM_S_BOTON = sizeof(Boton)/sizeof(Boton[0]);
 
     S_MULTI multi;  //estructura con variables del grupo de multirriego activo
-    S_initFlags initFlags ;
     bool connected;
     bool NONETWORK;
     bool NOWIFI;
@@ -478,7 +477,6 @@
     extern S_BOTON Boton [];
     extern int NUM_S_BOTON;
     extern S_MULTI multi;
-    extern S_initFlags initFlags;
     extern bool connected;
     extern bool NONETWORK;
     extern bool NOWIFI;
@@ -499,6 +497,7 @@
   #ifdef __MAIN__
     //Globales a este módulo
     Config_parm config; //estructura parametros configurables y runtime
+    S_initFlags initFlags ;
     WiFiClient client;
     HTTPClient httpclient;
     WiFiUDP    ntpUDP;
@@ -662,7 +661,7 @@
   void setupEstado(void);
   void setupInit(void);
   void setupParm(void);
-  void setupRedWM(Config_parm&);
+  void setupRedWM(Config_parm&, S_initFlags&);
   void setupWS(void);
   void showTimeLastRiego(S_timeRiego&, int);
   void starConfigPortal(Config_parm&);
