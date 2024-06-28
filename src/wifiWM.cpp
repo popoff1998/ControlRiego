@@ -215,7 +215,7 @@ bool checkWifi() {
   LOG_TRACE("in checkWifi");
   if(WiFi.status() == WL_CONNECTED) {
     tic_WifiLed.detach();  // detenemos su parpadeo por si lo tuviera activo
-    reposo ? analogWrite(LEDG, DIMMLEVEL) : ledPWM(LEDG,ON);  // Encendemos el LED indicador de wifi
+    ledPWM(LEDG,ON);  // Encendemos el LED indicador de wifi
     connected = true;
     return true;
   }

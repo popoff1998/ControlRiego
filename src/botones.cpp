@@ -92,9 +92,9 @@ void apagaLeds()
 
 void enciendeLeds()
 {
-  analogWrite(LEDR, MAXledLEVEL);
-  analogWrite(LEDG, MAXledLEVEL);
-  analogWrite(LEDB, MAXledLEVEL);
+  analogWrite(LEDR, ledlevel());
+  analogWrite(LEDG, ledlevel());
+  analogWrite(LEDB, ledlevel());
   mcpO.writePort(MCP23017Port::A, 0xFF);
   mcpO.writePort(MCP23017Port::B, 0xFF);
   ledStatus = 0xFFFF;
@@ -162,7 +162,7 @@ void parpadeoLedZona(int ledid)
 //activa o desactiva el(los) led(s) indicadores de que estamos en modo configuracion (R+G=Y)
 void ledYellow(int estado)
 {
-  if(estado == ON) ledRGB(ON,ON,OFF);     //  LED AMARILLO
+  if(estado == ON)  ledRGB(ON,ON,OFF);     //  LED AMARILLO
   if(estado == OFF) ledRGB(OFF,OFF,OFF);  //  los apaga para parpadeo
 }
 
@@ -178,7 +178,7 @@ void setledRGB()
 // enciende o apaga un led controlado por PWM
 void ledPWM(uint8_t id,int estado)
 {
-  estado ? analogWrite(id, MAXledLEVEL) : analogWrite(id, 0);
+  estado ? analogWrite(id, ledlevel()) : analogWrite(id, 0);
   switch (id) {
     case LEDR: sLEDR = estado; break;
     case LEDG: sLEDG = estado; break;

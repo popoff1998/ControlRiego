@@ -124,12 +124,13 @@
   #define VERIFY_INTERVAL     15      // intervalo en segundos entre verificaciones periodicas
   #define DEFAULT_SWITCH_RETRIES 5    // numero de reintentos para parar o encender una zona de riego en el Domoticz
   #define DELAYRETRY          2000    // mseg de retardo entre reintentos
-  #define MAXledLEVEL         255     // nivel maximo leds RGB (0 a 255)
+  #define MAXLEDLEVEL         255     // nivel maximo leds RGB (0 a 255)
   #define DIMMLEVEL           50      // nivel atenuacion leds RGB (0 a 255)
   #define I2C_CLOCK_SPEED     400000  // frecuencia del bus I2C en Hz (default 100000)
   #define LCD2004_address     0x27    // direccion bus I2C de la pantalla LCD
   #define ROTARY_ENCODER_STEPS 4      // TODO documentar
   #define MAX_ESP32_TEMP      70      // max temp. ESP32 para mostrar aviso
+  #define TEMP_OFFSET         0       // correccion temperatura sensor local
 
  //----------------  dependientes del HW   ----------------------------------------
   #ifdef ESP32
@@ -317,7 +318,10 @@
     char ntpServer[40];
     static const int  n_Grupos = _NUMGRUPOS;  //no modificable por fichero de parámetros (depende HW)
     Grupo_parm group[n_Grupos+1];       // sitio para grupo temporal n+1
-    uint8_t   warnESP32temp = MAX_ESP32_TEMP;  // temperatura ESP32 maxima con aviso 
+    int   warnESP32temp = MAX_ESP32_TEMP;  // temperatura ESP32 maxima con aviso 
+    int   maxledlevel = MAXLEDLEVEL;       // nivel brillo maximo led RGB 
+    int   dimmlevel = DIMMLEVEL;           // nivel atenuacion led RGB 
+    int   tempOffset = TEMP_OFFSET;        // correccion temperatura sensor local DHTxx 
     bool mute = OFF;  // sonidos activos
   };
 
@@ -456,10 +460,13 @@
     int NUM_S_BOTON = sizeof(Boton)/sizeof(Boton[0]);
 
     S_MULTI multi;  //estructura con variables del grupo de multirriego activo
+    S_BOTON  *boton;
+    S_tm tm;          // variables contador de tiempo
     bool connected;
     bool NONETWORK;
     bool NOWIFI;
     bool falloAP;
+    bool webServerAct = false;
     bool saveConfig = false;
     
     const char *parmFile = "/config_parm.json";       // fichero de parametros activos
@@ -467,30 +474,23 @@
 
     DisplayLCD lcd(LCD2004_address, 20, 4);  // 20 caracteres x 4 lineas
     char buff[MAXBUFF];
-    
-    S_BOTON  *boton;
-    S_tm tm;          // variables contador de tiempo
-    bool webServerAct = false;
-    bool reposo = false;
 
   #else
-    extern S_BOTON Boton [];
     extern int NUM_S_BOTON;
+    extern S_BOTON Boton [];
     extern S_MULTI multi;
+    extern S_BOTON  *boton;
+    extern S_tm tm;
     extern bool connected;
     extern bool NONETWORK;
     extern bool NOWIFI;
     extern bool falloAP;
+    extern bool webServerAct;
     extern bool saveConfig;
     extern const char *parmFile; 
     extern const char *defaultFile;
     extern DisplayLCD lcd;
     extern char buff[];
-
-    extern S_BOTON  *boton;
-    extern S_tm tm;
-    extern bool webServerAct;
-    extern bool reposo;
 
   #endif
 
@@ -527,6 +527,7 @@
     int  ledID = 0;
     unsigned long standbyTime;
     bool displayOff = false;
+    bool reposo = false;
     unsigned long lastBlinkPause;
     bool holdPause = false;
     unsigned long countHoldPause;
@@ -555,13 +556,11 @@
     int bipKO_melody[] = { NOTE_B5, NOTE_A5, NOTE_G5, NOTE_F5, NOTE_E5, NOTE_D5, NOTE_C5, NOTE_B4, NOTE_A3 };
     const int bipKO_num = sizeof(bipKO_melody)/sizeof(bipKO_melody[0]); // numero de notas en la melodia
     int bipKO_duration = 120;  // duracion de cada tono en mseg.
-
-      #if TEMPLOCAL == DHT11
-        SimpleDHT11 dhtsensor(DHTPIN);
-      #elif TEMPLOCAL == DHT22
-        SimpleDHT22 dhtsensor(DHTPIN);
-      #endif
-
+ 
+    #ifdef TEMPLOCAL 
+      TEMPLOCAL dhtsensor(DHTPIN);
+    #endif
+ 
   #endif  // __MAIN__
 
   //Funciones (prototipos)
@@ -655,6 +654,7 @@
   void setEncoderRange(int min, int max, int current);
   void setEstado(uint8_t estado, int bnum = 0);
   void setledRGB(void);
+  int  ledlevel(void);
   int  setMultibyId(uint16_t , Config_parm&);
   void setMultirriego(int);
   bool setupConfig(const char*);

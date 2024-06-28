@@ -50,6 +50,7 @@ void setup()
       if (!serialDetect()) LOG_SET_LEVEL(DebugLogLevel::LVL_NONE); 
   #endif
   delay(500);
+
   PRINTLN("\n\n CONTROL RIEGO V" + String(VERSION) + "    Built on " __DATE__ " at " __TIME__  "\n");
   #ifndef DEBUGLOG_DISABLE_LOG
     PRINTLN("(current log level is", (int)LOG_GET_LEVEL(), ")");
@@ -546,7 +547,7 @@ void procesaEstadoConfigurando()
 
       switch(boton->bID) {
         case MULTIRRIEGO:
-            if (configure->statusMenu()) { //si no estamos configurando nada, configuramos el grupo multirriego
+            if (configure->statusMenu() && configure->get_currentItem()==0) { //si no estamos configurando nada
               int n_grupo;
               #ifdef GRP4
                 n_grupo = setMultibyId(boton->bID, config);
@@ -577,8 +578,8 @@ void procesaEstadoConfigurando()
               configure->Idx_process_end();  //  salvamos en config el nuevo IDX
               break;
             }
-            if(configure->configuringESPtmpWarn()) {
-              configure->ESPtmpWarn_process_end();  //  salvamos en config la nueva temperatura aviso
+            if(configure->configuringRange()) {
+              configure->Range_process_end();  //  salvamos en config nuevo valor brillo maximo led
               break;
             }
             if(configure->configuringMulti()) {
@@ -587,6 +588,7 @@ void procesaEstadoConfigurando()
             }
             if(configure->configuringMultiTemp()) {
               configure->MultiTemp_process_end();  // actualizamos config con las zonas introducidas
+              break;
             }
             break;
         case bSTOP:
@@ -605,8 +607,8 @@ void procesaEstadoConfigurando()
             if (configure->configuringMulti() || configure->configuringMultiTemp()) {  //añadimos zona al multirriego que estamos definiendo
               configure->Multi_process_update();
             }
-            if (configure->statusMenu()) {   //si no estamos configurando nada, configuramos el idx del boton
-              configure->Idx_process_start(bID2bIndex(boton->bID));
+            if (configure->statusMenu() && configure->get_currentItem()==0) {   //si no estamos configurando nada
+              configure->Idx_process_start(bID2bIndex(boton->bID));             // configuramos el idx del boton
             }
       }
     }
@@ -939,16 +941,19 @@ void setEncoderTime() {
 }
 
 void setEncoderRange(int min, int max, int current) {
-    LOG_TRACE("");
-    rotaryEncoder.setBoundaries(min, max, false); //minValue, maxValue, circleValues true|false (when max go to min and vice versa)
+    LOG_DEBUG("min=",min,"max=",max,"current=",current);
+    rotaryEncoder.setBoundaries(min, max, false); //minValue, maxValue, circleValues true|false 
+    // ver issue: https://github.com/igorantolic/ai-esp32-rotary-encoder/issues/78
+    //   (rotaryEncoder.setEncoderValue() offset by one when value is negative #78):
+    if (current < 0 && current > min) current = current - 1 ; //ÑAPA hasta que se arregle
     rotaryEncoder.setEncoderValue(current);
-    rotaryEncoder.setAcceleration(50); // set the value - larger number = more accelearation; 0 or 1 means disabled acceleration
+    rotaryEncoder.setAcceleration(100);
     rotaryEncoder.enable();
 }
 
 void setEncoderMenu(int menuitems, int currentitem) {
     LOG_DEBUG("currentitem=",currentitem);
-    rotaryEncoder.setBoundaries(0, menuitems-1, true); //minValue, maxValue, circleValues true|false (when max go to min and vice versa)
+    rotaryEncoder.setBoundaries(0, menuitems-1, true); //minValue, maxValue, circleValues true|false
     rotaryEncoder.setEncoderValue(currentitem);
     rotaryEncoder.disableAcceleration();
     rotaryEncoder.enable();
@@ -1018,18 +1023,18 @@ void showTimeLastRiego(S_timeRiego &timeRiego, int index)
 }
 
 
-//atenua LEDG y LEDB
+// ON/OFF atenuacion LEDG y LEDB
 void dimmerLeds(bool status)
 {
   if(status) {
     LOG_TRACE("leds atenuados ");
-    if(connected) analogWrite(LEDG, DIMMLEVEL);
-    if(NONETWORK) analogWrite(LEDB, DIMMLEVEL);
+    if(connected) analogWrite(LEDG, config.dimmlevel);
+    if(NONETWORK) analogWrite(LEDB, config.dimmlevel);
   }
   else {
     LOG_TRACE("leds brillo normal ");
-    if(connected) analogWrite(LEDG, MAXledLEVEL);
-    if(NONETWORK) analogWrite(LEDB, MAXledLEVEL);
+    if(connected) analogWrite(LEDG, config.maxledlevel);
+    if(NONETWORK) analogWrite(LEDB, config.maxledlevel);
   }  
 }
 
@@ -1049,7 +1054,7 @@ void procesaEncoder()
 {
 
   if(Estado.estado == CONFIGURANDO && configure->statusMenu()) {  //encoder selecciona item menu
-      int menuOption = rotaryEncoder.readEncoder();
+      int menuOption = rotaryEncoder.readEncoder();  //devuelve valor actual del encoder (se haya movido o no)
       if(menuOption == configure->get_currentItem()) return;
       LOG_DEBUG("rotaryEncoder.readEncoder() devuelve menuOption =", menuOption, "currentItem =", configure->get_currentItem());
       configure->showMenu(menuOption);
@@ -1057,26 +1062,26 @@ void procesaEncoder()
   }
 
   if(Estado.estado == CONFIGURANDO && configure->configuringRange()) {  //encoder ajusta valor entre un rango
-      int readvalue = rotaryEncoder.readEncoder();
+      int readvalue = rotaryEncoder.readEncoder();  //devuelve valor actual del encoder (se haya movido o no)
       if(readvalue == tm.value) return;
       LOG_DEBUG("rotaryEncoder.readEncoder() devuelve readvalue =", readvalue, "tm.value=", tm.value);
       tm.value = readvalue;
-      snprintf(buff, MAXBUFF, "nueva: %d", tm.value);
+      snprintf(buff, MAXBUFF, " nuevo:  %d", tm.value);
       lcd.info(buff, 4);
       return;
   }
 
-  int encvalue = rotaryEncoder.encoderChanged();
+  int encvalue = rotaryEncoder.encoderChanged();  //devuelve cuanto y en que sentido se ha movido el encoder
   if(!encvalue) return; 
   LOG_DEBUG("rotaryEncoder.encoderChanged() devuelve encvalue =", encvalue);
   tm.value = tm.value + encvalue;
 
   if(Estado.estado == CONFIGURANDO && configure->configuringIdx()) {  //encoder ajusta numero IDX
-      if (tm.value > 1000) tm.value = 1000;
+      if (tm.value > 999) tm.value = 999;
       if (tm.value <  0) tm.value = 0; //permitimos IDX=0 para desactivar ese boton
       int bIndex = configure->get_ActualIdxIndex();
       int currentZona = Boton[bIndex].znumber;
-      snprintf(buff, MAXBUFF, "nuevo IDX ZONA%d %d", currentZona, tm.value);
+      snprintf(buff, MAXBUFF, " nuevo IDX ZONA%d %d", currentZona, tm.value);
       lcd.info(buff, 4);
       return;
   }
@@ -1195,6 +1200,11 @@ void resetLeds()
   //restablece led RGB
   tic_parpadeoLedError.detach(); //por si estuviera parpadeando
   setledRGB();
+}
+
+int  ledlevel()
+{
+  return (reposo ? config.dimmlevel : config.maxledlevel);
 }
 
 
@@ -1617,14 +1627,14 @@ void checkTemp() {
     int err = SimpleDHTErrSuccess;
     (err = dhtsensor.read(&temperatura, &humedad, NULL)) == SimpleDHTErrSuccess ? tempOK=true : tempOK=false;
     LOG_DEBUG("err=",err,"tempOK=",tempOK,"temperatura=",temperatura,"humedad=",humedad);
-    if(tempOK) lcd.displayTemp((int)temperatura, config.warnESP32temp);
+    if(tempOK) lcd.displayTemp((int)temperatura+config.tempOffset, config.warnESP32temp);
     else {
       LOG_ERROR("Read DHT sensor failed, err=",SimpleDHTErrCode(err),",",SimpleDHTErrDuration(err));
       lcd.displayTemp(999, config.warnESP32temp);  // borra temperatura del display 
     }
   #else  // temperatura del ESP32
     temperatura = temperatureRead(); // temperatura del ESP32
-    if(temperatura > config.warnESP32temp) lcd.displayTemp(temperatura);
+    if(temperatura > config.warnESP32temp) lcd.displayTemp(temperatura, config.warnESP32temp);
   #endif
 }
 

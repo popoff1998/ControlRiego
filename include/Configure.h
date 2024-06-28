@@ -6,31 +6,38 @@ class Configure
 {
   private:
     struct Config_parm &config;
-    bool _configuringTime;
-    bool _configuringIdx;
-    bool _configuringMulti;
-    bool _configuringMultiTemp;
-    bool _configuringESPtmpWarn;
-    bool _configuringMenu;
     int _actualIdxIndex;
     int _actualGrupo;
     int _maxItems;
     int _currentItem;
-    void configureTime_display(void);
+    int *configValuep;
+    union {
+      uint8_t all_configureflags;
+      struct { uint8_t
+          _configuringTime        : 1,
+          _configuringIdx         : 1,
+          _configuringMulti       : 1,
+          _configuringMultiTemp   : 1,
+          _configuringRange       : 1,
+          _configuringMenu        : 1,
+          spare0                  : 1,
+          spare1                  : 1;
+      };
+    };
     void configureMulti_display(void);
-    void configureIdx_display(void);
+
 
   public:
     Configure(struct Config_parm&);
-    void menu(void);
+    void menu(int item=-1);
     void reset(void);
     void exit(void);
-    void Time_process_start(void);
-    void Time_process_end(void);
     void Idx_process_start(int);
     void Idx_process_end(void);
-    void ESPtmpWarn_process_start(void);
-    void ESPtmpWarn_process_end(void);
+    void Time_process_start(void);
+    void Time_process_end(void);
+    void Range_process_start(int, int);
+    void Range_process_end(void);
     void Multi_process_start(int);
     void Multi_process_update(void);
     void Multi_process_end(void);
@@ -40,7 +47,6 @@ class Configure
     bool configuringIdx(void);
     bool configuringMulti(void);
     bool configuringMultiTemp(void);
-    bool configuringESPtmpWarn(void);
     bool configuringRange(void);
     bool statusMenu(void);
     int  showMenu(int);
