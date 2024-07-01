@@ -40,26 +40,16 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
     strlcpy(config.zona[i-1].desc, botones_item["nombre"] | "", sizeof(config.zona[i-1].desc));
     i++;
   }
-  //--------------  procesa parametro individuales   ----------------------------------------
-  config.minutes = doc["tiempo"]["minutos"] | 0; // 0
-  config.seconds = doc["tiempo"]["segundos"] | 10; // 10
-  strlcpy(config.domoticz_ip, doc["domoticz"]["ip"] | "", sizeof(config.domoticz_ip));
-  strlcpy(config.domoticz_port, doc["domoticz"]["port"] | "", sizeof(config.domoticz_port));
-  strlcpy(config.ntpServer, doc["ntpServer"] | "", sizeof(config.ntpServer));
+  //--------------  procesa grupos  ---------------------------------------------------------
   int numgroups = doc["numgroups"] | 1;
   if (numgroups != config.n_Grupos) {
     LOG_ERROR("ERROR numero de grupos incorrecto");
     return false;
   }  
-  //--------------  procesa grupos  ---------------------------------------------------------
   for (JsonObject groups_item : doc["grupos"].as<JsonArray>()) {
     int i = groups_item["grupo"] | 1; // 1, 2, 3
     config.group[i-1].bID = GRUPOS[i-1];  //obtiene el bID del boton de ese grupo (ojo: no viene en el json)
-    config.group[i-1].size = groups_item["size"] | 1;
-    if (config.group[i-1].size == 0) {
-      config.group[i-1].size =1;
-      LOG_ERROR("ERROR tamaño del grupo incorrecto, es 0 -> ponemos 1");
-    }
+    config.group[i-1].size = groups_item["size"] | 0;
     //Serial.printf("[loadConfigFile] procesando GRUPO%d size=%d id=x%x \n",i,config.group[i-1].size,config.group[i-1].id); //DEBUG
     strlcpy(config.group[i-1].desc, groups_item["desc"] | "", sizeof(config.group[i-1].desc)); 
     JsonArray array = groups_item["zonas"].as<JsonArray>();
@@ -76,6 +66,18 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
     i++;
   config.initialized = 1; //solo marcamos como init config si pasa por este bucle
   }
+  //--------------  procesa parametro individuales   ----------------------------------------
+  config.minutes = doc["tiempo"]["minutos"] | 0; // 0
+  config.seconds = doc["tiempo"]["segundos"] | 10; // 10
+  strlcpy(config.domoticz_ip, doc["domoticz"]["ip"] | "", sizeof(config.domoticz_ip));
+  strlcpy(config.domoticz_port, doc["domoticz"]["port"] | "", sizeof(config.domoticz_port));
+  strlcpy(config.ntpServer, doc["ntpServer"] | "", sizeof(config.ntpServer));
+  config.warnESP32temp = doc["warnESP32temp"] | MAX_ESP32_TEMP; 
+  config.maxledlevel = doc["ledRGB"]["maxledlevel"] | MAXLEDLEVEL; 
+  config.dimmlevel = doc["ledRGB"]["dimmlevel"] | DIMMLEVEL; 
+  config.tempOffset = doc["tempOffset"] | TEMP_OFFSET; 
+  config.mute = doc["mute"] | false; 
+  //-------------------------------------------------------------------------------------------
   file.close();
   LittleFS.end();
   if (config.initialized) return true;
@@ -107,12 +109,6 @@ bool saveConfigFile(const char *p_filename, Config_parm &config)
     array_botones[i]["idx"]    = config.zona[i].idx;
     array_botones[i]["nombre"] = config.zona[i].desc;
   }
-  //--------------  procesa parametro individuales   ----------------------------------------
-  doc["tiempo"]["minutos"]  = config.minutes; 
-  doc["tiempo"]["segundos"] = config.seconds;
-  doc["domoticz"]["ip"]     = config.domoticz_ip;
-  doc["domoticz"]["port"]   = config.domoticz_port;
-  doc["ntpServer"]          = config.ntpServer;
   //--------------  procesa grupos  ---------------------------------------------------------
   doc["numgroups"]          = NUMGRUPOS;
   JsonArray array_grupos = doc.createNestedArray("grupos");
@@ -125,6 +121,18 @@ bool saveConfigFile(const char *p_filename, Config_parm &config)
       array_zonas[j] = config.group[i].zNumber[j];
     }  
   }
+  //--------------  procesa parametro individuales   ----------------------------------------
+  doc["tiempo"]["minutos"]  = config.minutes; 
+  doc["tiempo"]["segundos"] = config.seconds;
+  doc["domoticz"]["ip"]     = config.domoticz_ip;
+  doc["domoticz"]["port"]   = config.domoticz_port;
+  doc["ntpServer"]          = config.ntpServer;
+  doc["warnESP32temp"]      = config.warnESP32temp; 
+  doc["ledRGB"]["maxledlevel"]  = config.maxledlevel; 
+  doc["ledRGB"]["dimmlevel"]    = config.dimmlevel; 
+  doc["tempOffset"]         = config.tempOffset; 
+  doc["mute"]               = config.mute;
+
   // Serialize JSON to file
   #ifdef EXTRADEBUG 
     serializeJsonPretty(doc, Serial); 
@@ -185,8 +193,9 @@ void zeroConfig(Config_parm &config) {
   LOG_TRACE("");
   for (int j=0; j<config.n_Grupos; j++) {
     config.group[j].bID = GRUPOS[j];
-    config.group[j].size = 1;
-    config.group[j].zNumber[0]=j+1;
+    config.group[j].size = 0;
+    // config.group[j].size = 1;
+    // config.group[j].zNumber[0]=j+1;
   }  
 }
 
@@ -204,18 +213,24 @@ void printParms(Config_parm &config) {
   for(int i=0; i<config.n_Zonas; i++) {
     Serial.printf("\t\t Zona%d: IDX=%d (%s) l=%d \n", i+1, config.zona[i].idx, config.zona[i].desc, sizeof(config.zona[i].desc));
   }
-  //--------------  imprime parametro individuales   ----------------------------------------
-  Serial.printf("\tminutes= %d seconds= %d \n", config.minutes, config.seconds);
-  Serial.printf("\tdomoticz_ip= %s domoticz_port= %s \n", config.domoticz_ip, config.domoticz_port);
-  Serial.printf("\tntpServer= %s \n", config.ntpServer);
-  Serial.printf("\tnumgroups= %d \n", config.n_Grupos);
   //--------------  imprime array y subarray de grupos  ----------------------------------------------
+  Serial.printf("\tnumgroups= %d \n", config.n_Grupos);
   for(int i = 0; i < config.n_Grupos; i++) {
     Serial.printf("\tGrupo%d: size=%d (%s)\n", i+1, config.group[i].size, config.group[i].desc);
     for(int j = 0; j < config.group[i].size; j++) {
       Serial.printf("\t\t Zona%d \n", config.group[i].zNumber[j]);
     }
   }
+  //--------------  imprime parametro conexion   ----------------------------------------
+  Serial.printf("\tdomoticz_ip= %s / domoticz_port= %s \n", config.domoticz_ip, config.domoticz_port);
+  Serial.printf("\tntpServer= %s \n", config.ntpServer);
+  //--------------  imprime parametro individuales   ----------------------------------------
+  Serial.printf("\tminutes= %d / seconds= %d \n", config.minutes, config.seconds);
+  Serial.printf("\twarnESP32temp= %d \n", config.warnESP32temp);
+  Serial.printf("\tmaxledlevel= %d / dimmlevel= %d \n", config.maxledlevel, config.dimmlevel);
+  Serial.printf("\ttempOffset= %d \n", config.tempOffset);
+  Serial.printf("\tmute= %d \n", config.mute);
+  Serial.println("----------------------------------------------------------------");
 }
 
 void filesInfo() 

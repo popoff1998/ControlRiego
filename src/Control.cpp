@@ -477,8 +477,7 @@ void procesaBotonMultiriego(void)
     else {
       //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
       //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
-      setMultirriego(n_grupo);
-      inicioTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1);
+      if(setMultirriego(n_grupo)) inicioTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1);
     }
   }
 }
@@ -1578,16 +1577,7 @@ void Verificaciones()
     leeSerial();  // para ver si simulamos algun tipo de error
   #endif
   #ifdef DEBUGloops
-    if (numloops < 10000) {
-      ++numloops;
-      currentMillisLoop = millis();
-    }
-    else {
-      currentMillisLoop = currentMillisLoop - lastMillisLoop;
-      Serial.printf( "[CRONO] %d loops en milisegundos: %d \n" , numloops, currentMillisLoop);
-      numloops = 0;
-      lastMillisLoop = millis();
-    }
+    debugloops();
   #endif
   if (!flagV || webServerAct) return;      //si no activada por Ticker salimos sin hacer nada
   if (Estado.estado == STANDBY) {
@@ -1717,8 +1707,9 @@ bool setupConfig(const char *p_filename)
   //init grupo temporal n+1  
   LOG_INFO("Init grupo temporal (GRUPO", _NUMGRUPOS+1,")");
   config.group[_NUMGRUPOS].bID = 0;     // id del boton de grupo ficticio
-  config.group[_NUMGRUPOS].size = 1;
-  config.group[_NUMGRUPOS].zNumber[0]=1; // numero de zona ficticia ???
+  config.group[_NUMGRUPOS].size = 0;
+  //config.group[_NUMGRUPOS].size = 1;
+  //config.group[_NUMGRUPOS].zNumber[0]=1; // numero de zona ficticia ???
   sprintf(config.group[_NUMGRUPOS].desc, "TEMPORAL"); 
 
   LOG_INFO("Leyendo fichero parametros", p_filename);
@@ -1734,7 +1725,7 @@ bool setupConfig(const char *p_filename)
       }  
     }
     #ifdef MUTE
-      config.mute = true;   // arrnaque con sonidos silenciados
+      config.mute = true;   // arranque con sonidos silenciados
     #endif
         #ifdef EXTRADEBUG
           printFile(p_filename);
@@ -1852,6 +1843,20 @@ return buff;
                 timeOK = true;                         
                 simular.all_simFlags = false;
       }
+    }
+  }
+
+  void debugloops()
+  {
+    if (numloops < 10000) {
+      ++numloops;
+      currentMillisLoop = millis();
+    }
+    else {
+      currentMillisLoop = currentMillisLoop - lastMillisLoop;
+      Serial.printf( "[CRONO] %d loops en milisegundos: %d \n" , numloops, currentMillisLoop);
+      numloops = 0;
+      lastMillisLoop = millis();
     }
   }
 

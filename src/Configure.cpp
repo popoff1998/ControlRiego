@@ -140,7 +140,7 @@ void Configure::Range_process_start(int min, int max)
 void Configure::Range_process_end()
 {
       *configValuep = tm.value;
-      //saveConfig = true;  pendiente implementar salvado de esta variable a fichero parametros
+      saveConfig = true;
       
       LOG_INFO("Save new value:", *configValuep);
       lcd.info("guardado nuevo valor",2);
@@ -376,6 +376,7 @@ void Configure::procesaSelectMenu()
                 config.mute ? lcd.infoclear("     MUTE ON",2) : lcd.infoclear("     MUTE OFF",2);
                 bip(2);
                 delay(MSGDISPLAYMILLIS);
+                saveConfig = true;
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break; 
         case 6 :   // carga parametros por defecto y reinicia

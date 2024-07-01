@@ -19,7 +19,7 @@
     //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
     #define DEBUGLOG_DEFAULT_LOG_LEVEL_TRACE
     //#define DEBUGLOG_DEFAULT_LOG_LEVEL_INFO
-    //#define EXTRADEBUG
+    #define EXTRADEBUG
     //#define EXTRADEBUG2
     //#define EXTRATRACE
     #define VERBOSE
@@ -576,6 +576,7 @@
   bool checkWifi(void);
   void cleanFS(void);
   bool copyConfigFile(const char*, const char*);
+  void debugloops(void);
   void dimmerLeds(bool);
   void displayGrupo(uint16_t *, int);
   void displayLCDGrupo(uint16_t *, int, int line=4, int start=0);
@@ -656,7 +657,7 @@
   void setledRGB(void);
   int  ledlevel(void);
   int  setMultibyId(uint16_t , Config_parm&);
-  void setMultirriego(int);
+  bool setMultirriego(int);
   bool setupConfig(const char*);
   void setupEstado(void);
   void setupInit(void);

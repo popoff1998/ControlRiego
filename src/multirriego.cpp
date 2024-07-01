@@ -45,35 +45,43 @@ int setMultibyId(uint16_t id, Config_parm &config)
 
 
 // prepara el comienzo de un multirriego (normal o temporal)
-void setMultirriego(int n_grupo)
+bool setMultirriego(int n_grupo)
 {
       bip(4);
-      multi.riegoON = true;
-      multi.actual = 0;
-      multi.semaforo = true;
-      LOG_INFO("MULTIRRIEGO iniciado: ", multi.desc);
-      boton = &Boton[bID2bIndex(multi.serie[multi.actual])];
-      if (!multi.temporal) {
-          led(Boton[bID2bIndex(*multi.id)].led,ON);
-          //lcd.info(multi.desc, 2);   //  display nombre grupo
+      displayLCDGrupo(multi.zserie, *multi.size, 2);  //  display zonas a regar o vacio
+      if(*multi.size > 0) {    // si grupo tiene zonas definidas
+          multi.riegoON = true;
+          multi.actual = 0;
+          multi.semaforo = true;
+          LOG_INFO("MULTIRRIEGO iniciado: ", multi.desc);
+          boton = &Boton[bID2bIndex(multi.serie[multi.actual])];
+          if (!multi.temporal) {
+              led(Boton[bID2bIndex(*multi.id)].led,ON);
+          }
+          return true;
       }
-      displayLCDGrupo(multi.zserie, *multi.size, 2);  //  display zonas a regar  
+      else {
+          delay(MSGDISPLAYMILLIS);
+          lcd.info("",2);   //borra msg de <VACIO>
+          return false;
+      }      
 }
-
 
 
 void displayGrupo(uint16_t *serie, int serieSize)
 {
   led(Boton[bID2bIndex(*multi.id)].led,ON);
   int i;
-  for(i=0;i<serieSize;i++) {
-    led(Boton[bID2bIndex(serie[i])].led,ON);
-    delay(300);
-    bip(i+1);
-    delay(100*(i+1));
-    led(Boton[bID2bIndex(serie[i])].led,OFF);
-    delay(100);
-  }
+  if(serieSize > 0) {
+      for(i=0;i<serieSize;i++) {
+        led(Boton[bID2bIndex(serie[i])].led,ON);
+        delay(300);
+        bip(i+1);
+        delay(100*(i+1));
+        led(Boton[bID2bIndex(serie[i])].led,OFF);
+        delay(100);
+      }
+  }    
   led(Boton[bID2bIndex(*multi.id)].led,OFF);
 }
 
@@ -81,12 +89,15 @@ void displayLCDGrupo(uint16_t *serieZonas, int serieSize, int line, int start)
 {
   LOG_DEBUG("recibido serieSize=",serieSize,"line=",line,"start=",start);
   int i,n = 0;
-  for(i=start; i<serieSize; i++) {
-    if(i == serieSize-1) n += snprintf (&buff[n], MAXBUFF, "%d", serieZonas[i]);
-    else n += snprintf (&buff[n], MAXBUFF, "%d-", serieZonas[i]);
-    if (n >= LCDMAXLEN) break; // max 20 char alcanzados
-  }  
-  lcd.info(buff,line);
+  if(serieSize > 0) {
+      for(i=start; i<serieSize; i++) {
+        if(i == serieSize-1) n += snprintf (&buff[n], MAXBUFF, "%d", serieZonas[i]);
+        else n += snprintf (&buff[n], MAXBUFF, "%d-", serieZonas[i]);
+        if (n >= LCDMAXLEN) break; // max 20 char alcanzados
+      } 
+      lcd.info(buff,line);
+  }
+  else lcd.info("  < VACIO >",line);
 }
 
 //imprime contenido actual de la estructura multiGroup
