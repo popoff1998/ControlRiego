@@ -354,7 +354,7 @@ void Configure::procesaSelectMenu()
         case 2 :  // copiamos fichero parametros en fichero default
                 if (copyConfigFile(parmFile, defaultFile)) {    // parmFile --> defaultFile
                   LOG_INFO("[ConF] salvado fichero de parametros actuales como DEFAULT");
-                  lcd.infoclear("Save DEFAULT OK", DEFAULTBLINK, BIPOK);
+                  lcd.infoclear("Save to DEFAULT OK", DEFAULTBLINK, BIPOK);
                   delay(config.msgdisplaymillis); 
                 }
                 else BIPKO;  

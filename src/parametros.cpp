@@ -14,20 +14,19 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
     return false;
   }
   size_t size = file.size();
-  if (size > 2048) {
+  if (size > 4096) {
     LOG_ERROR("Config file size is too large");
     return false;
   }
   LOG_INFO("\t tamaño de", p_filename, "-->", size, "bytes");
 
-  DynamicJsonDocument doc(3072);
+  JsonDocument doc;
   DeserializationError error = deserializeJson(doc, file);
 
   if (error) {
     LOG_ERROR("\t  deserializeJson() failed: ", error.f_str());
     return false;
   }
-  Serial.printf("\t memoria usada por el jsondoc: (%d) \n" , doc.memoryUsage());  //TODO ¿eliminar msg?
   //--------------  procesa botones (IDX)  --------------------------------------------------
   int numzonas = doc["numzonas"] | 0; // carga 0 si no viene este elemento
   if (numzonas != config.n_Zonas) {
@@ -47,17 +46,12 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
     return false;
   }  
   for (JsonObject groups_item : doc["grupos"].as<JsonArray>()) {
-    int i = groups_item["grupo"] | 1; // 1, 2, 3
+    int i = groups_item["grupo"] | 1;
     config.group[i-1].bID = GRUPOS[i-1];  //obtiene el bID del boton de ese grupo (ojo: no viene en el json)
-    config.group[i-1].size = groups_item["size"] | 0;
-    //Serial.printf("[loadConfigFile] procesando GRUPO%d size=%d id=x%x \n",i,config.group[i-1].size,config.group[i-1].id); //DEBUG
     strlcpy(config.group[i-1].desc, groups_item["desc"] | "", sizeof(config.group[i-1].desc)); 
     JsonArray array = groups_item["zonas"].as<JsonArray>();
     int count = array.size();
-    if (count != config.group[i-1].size) {
-      LOG_ERROR("ERROR tamaño del grupo incorrecto");
-      return false;
-    }  
+    config.group[i-1].size = count;  //tamaño del grupo 
     int j = 0;
     for(JsonVariant zonas_item_elemento : array) {
       config.group[i-1].zNumber[j] = zonas_item_elemento.as<int>();
@@ -67,8 +61,8 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
   config.initialized = 1; //solo marcamos como init config si pasa por este bucle
   }
   //--------------  procesa parametro individuales   ----------------------------------------
-  config.minutes = doc["tiempo"]["minutos"] | 0; // 0
-  config.seconds = doc["tiempo"]["segundos"] | 10; // 10
+  config.minutes = doc["tiempo"]["minutos"] | DEFAULTMINUTES;
+  config.seconds = doc["tiempo"]["segundos"] | DEFAULTSECONDS;
   strlcpy(config.domoticz_ip, doc["domoticz"]["ip"] | "", sizeof(config.domoticz_ip));
   strlcpy(config.domoticz_port, doc["domoticz"]["port"] | "", sizeof(config.domoticz_port));
   strlcpy(config.ntpServer, doc["ntpServer"] | "", sizeof(config.ntpServer));
@@ -100,11 +94,11 @@ bool saveConfigFile(const char *p_filename, Config_parm &config)
     LOG_ERROR("Failed to open file for writing");
     return false;
   }
-  DynamicJsonDocument doc(3072);
+  JsonDocument doc;
   //--------------  procesa botones (IDX)  --------------------------------------------------
   doc["numzonas"] = NUMZONAS;
   doc["botones"].as<JsonArray>();
-  JsonArray array_botones = doc.createNestedArray("botones");
+  JsonArray array_botones = doc["botones"].to<JsonArray>();
   for (int i=0; i<NUMZONAS; i++) {
     array_botones[i]["zona"]   = i+1;
     array_botones[i]["idx"]    = config.zona[i].idx;
@@ -112,12 +106,11 @@ bool saveConfigFile(const char *p_filename, Config_parm &config)
   }
   //--------------  procesa grupos  ---------------------------------------------------------
   doc["numgroups"]          = NUMGRUPOS;
-  JsonArray array_grupos = doc.createNestedArray("grupos");
+  JsonArray array_grupos = doc["grupos"].to<JsonArray>();
   for (int i=0; i<NUMGRUPOS; i++) {
     array_grupos[i]["grupo"]   = i+1;
     array_grupos[i]["desc"]    = config.group[i].desc;
-    array_grupos[i]["size"]    = config.group[i].size;
-    JsonArray array_zonas = array_grupos[i].createNestedArray("zonas");
+    JsonArray array_zonas = array_grupos[i]["zonas"].to<JsonArray>();
     for(int j=0; j<config.group[i].size; j++) {
       array_zonas[j] = config.group[i].zNumber[j];
     }  
@@ -132,7 +125,7 @@ bool saveConfigFile(const char *p_filename, Config_parm &config)
   doc["ledRGB"]["maxledlevel"]  = config.maxledlevel; 
   doc["ledRGB"]["dimmlevel"]    = config.dimmlevel; 
   doc["tempOffset"]         = config.tempOffset; 
-  doc["msgdisplaymillis"]         = config.msgdisplaymillis; 
+  doc["msgdisplaymillis"]   = config.msgdisplaymillis; 
   doc["mute"]               = config.mute;
 
   // Serialize JSON to file
@@ -146,7 +139,6 @@ bool saveConfigFile(const char *p_filename, Config_parm &config)
     return false;
   }
   else LOG_DEBUG("    tamaño del jsondoc: (",docsize,")");
-  LOG_DEBUG("    memoria usada por el jsondoc: (",doc.memoryUsage(),")");
   file.close();
   LittleFS.end();
   #ifdef EXTRADEBUG
@@ -196,8 +188,6 @@ void zeroConfig(Config_parm &config) {
   for (int j=0; j<config.n_Grupos; j++) {
     config.group[j].bID = GRUPOS[j];
     config.group[j].size = 0;
-    // config.group[j].size = 1;
-    // config.group[j].zNumber[0]=j+1;
   }  
 }
 

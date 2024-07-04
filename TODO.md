@@ -2,7 +2,6 @@ PENDIENTES
 ==========
 - Boton Pause reflejado en Domoticz (en ambos sentidos)
 - Si estado REGANDO tiempo de riego restante reflejado en Domoticz
-- Migrar a JSON V7 
 - Mas valores del programa como parametros configurables? ( y consolidacion en fichero de parametros):
     verificacion stauts riego en Domoticz -> VERIFY
     actualizacion nombres zonas con las del Domoticz -> XNAME
@@ -67,5 +66,6 @@ HECHOS
 - display temperatura ambiente en STANDBY (sensor propio) V3.0.8
 - aviso temperatura alta ESP32 (configurable) V3.0.8
 - más parametros configurables: MAXLEDLEVEL y DIMMLEVEL (led RGB), TEMP_OFFSET, MSGDISPLAYMILLIS V3.0.9
+- migrado a Json V7. Eliminado parm tamaño del grupo del fichero de configuracion V3.0.10
 
 
