@@ -84,7 +84,7 @@ void Configure::Idx_process_end()
       lcd.info("guardado IDX",2);
       lcd.clear(BORRA2H);
       bipOK();
-      delay(MSGDISPLAYMILLIS);  // para que se vea el msg
+      delay(config.msgdisplaymillis);  // para que se vea el msg
       led(Boton[bIndex].led,OFF);
 
       tm.value = tm.savedValue;  // restaura tiempo (en lugar del IDX)
@@ -116,18 +116,18 @@ void Configure::Time_process_end()
       LOG_INFO("Save DEFAULT TIME, minutes:",tm.minutes," secons:",tm.seconds);
       lcd.info("DEFAULT TIME saved",2);
       bipOK();
-      delay(MSGDISPLAYMILLIS);
+      delay(config.msgdisplaymillis);
 
       this->menu();  // vuelve a mostrar menu de configuracion
 }
 
 //  configuramos Range
-void Configure::Range_process_start(int min, int max)
+void Configure::Range_process_start(int min, int max, int aceleracion)
 {
       this->reset();
       _configuringRange = true;
       tm.value = *configValuep;
-      setEncoderRange(min, max, tm.value);
+      setEncoderRange(min, max, tm.value, aceleracion);
 
       LOG_INFO("[ConF] configurando RANGO, valor actual:",tm.value);
       lcd.infoclear("Configurando");
@@ -146,7 +146,7 @@ void Configure::Range_process_end()
       lcd.info("guardado nuevo valor",2);
       lcd.clear(BORRA2H);
       bipOK();
-      delay(MSGDISPLAYMILLIS);  // para que se vea el msg
+      delay(config.msgdisplaymillis);  // para que se vea el msg
 
       tm.value = tm.savedValue;  // restaura tiempo 
       this->menu();  // vuelve a mostrar menu de configuracion
@@ -220,7 +220,7 @@ void Configure::Multi_process_end()
         bipOK();
         lcd.info("guardado GRUPO",2);
         lcd.clear(BORRA2H);
-        delay(MSGDISPLAYMILLIS);
+        delay(config.msgdisplaymillis);
       }
       ultimosRiegos(HIDE);
       led(Boton[bID2bIndex(*multi.id)].led,OFF);
@@ -278,7 +278,7 @@ void Configure::exit()
         LOG_INFO("saveConfig=true  --> salvando parametros a fichero");
         if (saveConfigFile(parmFile, config)) {
           lcd.infoclear("SAVED parameters", DEFAULTBLINK, BIPOK);
-          delay(MSGDISPLAYMILLIS);
+          delay(config.msgdisplaymillis);
         }  
         saveConfig = false;
       }
@@ -309,6 +309,7 @@ int Configure::showMenu(int opcion)
           "LED atenuacion",     // 8 
           "LED maximo brillo",  // 9 
           "correccion TEMP.",   // 10 
+          "tiempo MENSAJES",    // 11
           "-----------------"   // - 
         /*-----------------*/ 
       };
@@ -354,7 +355,7 @@ void Configure::procesaSelectMenu()
                 if (copyConfigFile(parmFile, defaultFile)) {    // parmFile --> defaultFile
                   LOG_INFO("[ConF] salvado fichero de parametros actuales como DEFAULT");
                   lcd.infoclear("Save DEFAULT OK", DEFAULTBLINK, BIPOK);
-                  delay(MSGDISPLAYMILLIS); 
+                  delay(config.msgdisplaymillis); 
                 }
                 else BIPKO;  
                 this->menu();  // vuelve a mostrar menu de configuracion 
@@ -368,14 +369,14 @@ void Configure::procesaSelectMenu()
                 break; 
   #ifdef WEBSERVER
         case 4 :  // activamos webserver (no bloqueante, pero no respodemos a botones)
-                connected ? setupWS() : bipKO();
+                connected ? setupWS(config) : bipKO();
                 break;
   #endif 
         case 5 :   // toggle MUTE
                 config.mute = !config.mute;
                 config.mute ? lcd.infoclear("     MUTE ON",2) : lcd.infoclear("     MUTE OFF",2);
                 bip(2);
-                delay(MSGDISPLAYMILLIS);
+                delay(config.msgdisplaymillis);
                 saveConfig = true;
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break; 
@@ -410,6 +411,11 @@ void Configure::procesaSelectMenu()
                 snprintf(buff, MAXBUFF, "OFFSET temperatura");
                 configValuep = &config.tempOffset;  
                 this->Range_process_start(-5, 5);   
+                break;
+        case 11 :     //configuramos tiempo que se muestran los mensajes (en milisegundos)
+                snprintf(buff, MAXBUFF, "TIEMPO mensajes (ms)");
+                configValuep = &config.msgdisplaymillis;  
+                this->Range_process_start(1000, 4000, 500);   
                 break;
         default:         
                 LOG_DEBUG("salimos del CASE del MENU sin realizar accion");

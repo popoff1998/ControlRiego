@@ -36,7 +36,7 @@ class Configure
     void Idx_process_end(void);
     void Time_process_start(void);
     void Time_process_end(void);
-    void Range_process_start(int, int);
+    void Range_process_start(int, int, int=100);
     void Range_process_end(void);
     void Multi_process_start(int);
     void Multi_process_update(void);

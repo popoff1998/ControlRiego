@@ -76,6 +76,7 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
   config.maxledlevel = doc["ledRGB"]["maxledlevel"] | MAXLEDLEVEL; 
   config.dimmlevel = doc["ledRGB"]["dimmlevel"] | DIMMLEVEL; 
   config.tempOffset = doc["tempOffset"] | TEMP_OFFSET; 
+  config.msgdisplaymillis = doc["msgdisplaymillis"] | MSGDISPLAYMILLIS; 
   config.mute = doc["mute"] | false; 
   //-------------------------------------------------------------------------------------------
   file.close();
@@ -131,6 +132,7 @@ bool saveConfigFile(const char *p_filename, Config_parm &config)
   doc["ledRGB"]["maxledlevel"]  = config.maxledlevel; 
   doc["ledRGB"]["dimmlevel"]    = config.dimmlevel; 
   doc["tempOffset"]         = config.tempOffset; 
+  doc["msgdisplaymillis"]         = config.msgdisplaymillis; 
   doc["mute"]               = config.mute;
 
   // Serialize JSON to file
@@ -229,6 +231,7 @@ void printParms(Config_parm &config) {
   Serial.printf("\twarnESP32temp= %d \n", config.warnESP32temp);
   Serial.printf("\tmaxledlevel= %d / dimmlevel= %d \n", config.maxledlevel, config.dimmlevel);
   Serial.printf("\ttempOffset= %d \n", config.tempOffset);
+  Serial.printf("\tmsgdisplaymillis= %d \n", config.msgdisplaymillis);
   Serial.printf("\tmute= %d \n", config.mute);
   Serial.println("----------------------------------------------------------------");
 }

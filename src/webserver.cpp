@@ -288,7 +288,7 @@ protected:
    }
 
 
-   void setupWS()
+   void setupWS(Config_parm &config)
    {
       if (!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)) LOG_ERROR("could not mount the filesystem...");
       if (!MDNS.begin(HOSTNAME)) LOG_ERROR("Error iniciando mDNS");
@@ -308,7 +308,7 @@ protected:
       lcd.info(buff, 3);
       snprintf(buff, MAXBUFF, "%s:%d" , WiFi.localIP().toString(), WSPORT);
       lcd.info(buff,4);
-      delay(MSGDISPLAYMILLIS);
+      delay(config.msgdisplaymillis);
    }
 
    void procesaWebServer()

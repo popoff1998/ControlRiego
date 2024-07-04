@@ -45,7 +45,7 @@ int setMultibyId(uint16_t id, Config_parm &config)
 
 
 // prepara el comienzo de un multirriego (normal o temporal)
-bool setMultirriego(int n_grupo)
+bool setMultirriego(int n_grupo, Config_parm &config)
 {
       bip(4);
       displayLCDGrupo(multi.zserie, *multi.size, 2);  //  display zonas a regar o vacio
@@ -61,7 +61,7 @@ bool setMultirriego(int n_grupo)
           return true;
       }
       else {
-          delay(MSGDISPLAYMILLIS);
+          delay(config.msgdisplaymillis);
           lcd.info("",2);   //borra msg de <VACIO>
           return false;
       }      

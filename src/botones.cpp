@@ -287,6 +287,15 @@ int zNumber2bIndex(uint16_t z)
   return 999;
 }
 
+//rellena campo zNumber (numero de zona) en Boton[] segun el orden de estos en ZONAS[]
+void setzNumber()
+{
+  for (uint i=0;i<NUMZONAS;i++) {
+    Boton[bID2bIndex(ZONAS[i])].znumber = i+1 ;
+  }
+}
+
+
 /* 
 int bID2zIndex(uint16_t id)
 {

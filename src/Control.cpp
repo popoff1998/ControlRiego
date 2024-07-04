@@ -33,7 +33,7 @@ void setup()
                 VERIFY=true; 
   #endif
   #ifdef DEVELOP
-                NONETWORK=false;
+                NONETWORK=true;
                 VERIFY=true; 
   #endif
   #ifdef DEMO
@@ -208,16 +208,13 @@ void setupEstado()
   Estado.tipo = LOCAL;
   //Deshabilitamos el hold de Pause
   Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
-  //inicializamos apuntador estructura multi (posicion del selector multirriego):
-  //if(!setMultibyId(getMultiStatus(), config) || !config.initialized) {
   // Verificamos que se han cargado parametros de configuracion correctamente  
   if(!config.initialized) {
-    statusError(E0);  //no se ha podido cargar parámetros de ficheros -> señalamos el error
+    statusError(E0);  //no se ha podido cargar parámetros desde ficheros -> señalamos el error
   return;
   }
   // Si estamos en modo NONETWORK pasamos a STANDBY (o STOP si esta pulsado) aunque no exista conexión wifi o estemos en ERROR
   if (NONETWORK) {
-    //if (Boton[bID2bIndex(bSTOP)].estado) {
     if (testButton(bSTOP,ON))  setEstado(STOP,1);
     else setEstado(STANDBY,2);
     return;
@@ -362,7 +359,7 @@ void procesaBotonPause(void)
           }
           else {    // muestra hora y ultimos riegos
             ultimosRiegos(SHOW);
-            delay(3000);
+            delay(config.msgdisplaymillis*3);
             ultimosRiegos(HIDE);
             LOG_TRACE("[poniendo estado STANDBY]");
             setEstado(STANDBY);  // para restaurar pantalla
@@ -387,7 +384,7 @@ void procesaBotonPause(void)
           else {   //si esta pulsado encoderSW hacemos un soft reset
             LOG_WARN("Stop + encoderSW + PAUSA --> Reset.....");
             lcd.infoclear(">>  REINICIANDO  <<", NOBLINK, LOWBIP, 1);
-            delay(MSGDISPLAYMILLIS);
+            delay(config.msgdisplaymillis);
             ESP.restart();  // reset ESP32
           }
         }
@@ -471,13 +468,13 @@ void procesaBotonMultiriego(void)
       displayLCDGrupo(multi.zserie, *multi.size, 2);
       showTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1);
       displayGrupo(multi.serie, *multi.size);
-      delay(MSGDISPLAYMILLIS*3);
+      delay(config.msgdisplaymillis*3);
       setEstado(STANDBY);   //para que restaure pantalla
     }  
     else {
       //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
       //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
-      if(setMultirriego(n_grupo)) inicioTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1);
+      if(setMultirriego(n_grupo, config)) inicioTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1);
     }
   }
 }
@@ -528,7 +525,7 @@ void procesaBotonZona(void)
       snprintf(buff, MAXBUFF, "%s :  %d", config.zona[boton->znumber-1].desc, factorRiegos[zIndex]);
       lcd.info(buff,2);
       showTimeLastRiego(lastRiegos[zIndex], zIndex);
-      delay(2*MSGDISPLAYMILLIS);
+      delay(config.msgdisplaymillis*3);
       led(Boton[bIndex].led,OFF);
       //value = savedValue;  // para que restaure reloj
       LOG_TRACE("[poniendo estado STANDBY]");
@@ -596,7 +593,7 @@ void procesaEstadoConfigurando()
                     if (multi.w_size && saveConfig) {  //solo si se ha guardado alguna zona iniciamos riego grupo temporal
                         saveConfig = false;  
                         multi.temporal = true;
-                        setMultirriego(NUMGRUPOS+1);  // grupo temporal n+1
+                        setMultirriego(NUMGRUPOS+1, config);  // grupo temporal n+1
                     }    
                 }
                 configure->exit();  // salvamos parm a fichero si procede y salimos de ConF
@@ -713,7 +710,7 @@ void procesaEstadoTerminando(void)
       longbip(3);
       resetFlags();
       LOG_INFO("MULTIRRIEGO", multi.desc, "terminado");
-      delay(MSGDISPLAYMILLIS*5);
+      delay(config.msgdisplaymillis*3);
       //lcd.info("", 2);
       led(Boton[bID2bIndex(*multi.id)].led,OFF);
     }
@@ -939,14 +936,14 @@ void setEncoderTime() {
     rotaryEncoder.enable();
 }
 
-void setEncoderRange(int min, int max, int current) {
+void setEncoderRange(int min, int max, int current, int aceleracion) {
     LOG_DEBUG("min=",min,"max=",max,"current=",current);
     rotaryEncoder.setBoundaries(min, max, false); //minValue, maxValue, circleValues true|false 
     // ver issue: https://github.com/igorantolic/ai-esp32-rotary-encoder/issues/78
     //   (rotaryEncoder.setEncoderValue() offset by one when value is negative #78):
     if (current < 0 && current > min) current = current - 1 ; //ÑAPA hasta que se arregle
     rotaryEncoder.setEncoderValue(current);
-    rotaryEncoder.setAcceleration(100);
+    rotaryEncoder.setAcceleration(aceleracion);
     rotaryEncoder.enable();
 }
 
@@ -1683,7 +1680,7 @@ void setupParm()
       LOG_WARN("carga parametros por defecto OK");
       //señala la carga parametros por defecto OK
       lcd.infoclear("load DEFAULT parm OK", DEFAULTBLINK, BIPOK);
-      delay(MSGDISPLAYMILLIS);
+      delay(config.msgdisplaymillis);
     }  
     else LOG_ERROR(" **  [ERROR] cargando parametros por defecto");
   }
@@ -1708,10 +1705,11 @@ bool setupConfig(const char *p_filename)
   LOG_INFO("Init grupo temporal (GRUPO", _NUMGRUPOS+1,")");
   config.group[_NUMGRUPOS].bID = 0;     // id del boton de grupo ficticio
   config.group[_NUMGRUPOS].size = 0;
-  //config.group[_NUMGRUPOS].size = 1;
-  //config.group[_NUMGRUPOS].zNumber[0]=1; // numero de zona ficticia ???
   sprintf(config.group[_NUMGRUPOS].desc, "TEMPORAL"); 
 
+  //init campo zNumber de Boton[]
+  setzNumber();
+  
   LOG_INFO("Leyendo fichero parametros", p_filename);
   bool loaded = loadConfigFile(p_filename, config);
   tm.minutes = config.minutes;

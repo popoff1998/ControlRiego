@@ -137,8 +137,8 @@
     // GPIOs  I/O usables: 2 4 5 16 17 18 19 21 22 23 25 26 27 32 33  (15/15)
     // GPIOs  I/O los reservo para JTAG: 12 13 14 15
     // GPIOs  I usables: 34 35 36 39 (4/4)  (ojo no tienen pullup/pulldown interno, requieren resistencia externa)
-    #define ENCDT                 GPIO_NUM_17
     #define ENCCLK                GPIO_NUM_16
+    #define ENCDT                 GPIO_NUM_17
     #define ENCBOTON              GPIO_NUM_34   // conectado a GPIO solo INPUT (no se trata por Encoder, se hace por programa)
     #define LEDR                  GPIO_NUM_27  
     #define LEDG                  GPIO_NUM_26 
@@ -148,7 +148,7 @@
     #define I2C_SDA1              GPIO_NUM_33
     #define I2C_SCL1              GPIO_NUM_32
     #define BUZZER                GPIO_NUM_4
-    #define DHTPIN                GPIO_NUM_5    // ojo debe ser de E/S!
+    #define DHTPIN                GPIO_NUM_23    // ojo debe ser de E/S!
     #define lZONA1                1             // mcpO GPA0
     #define lZONA2                2             // mcpO GPA1
     #define lZONA3                3             // mcpO GPA2
@@ -250,9 +250,9 @@
       bSTOP       = 0x8000,  // mcpO B3  (OJO conectados a mcpO se integran como bits 15 y 16 de readInputs)
       //          = 0x8000,  // mcpI B7  (NO USAR para inputs)
     };
-      // lista de todos los botones de zonas de riego disponibles:
+      // lista de todos los botones de zonas de riego disponibles (el orden define la zona):
     #define _ZONAS  bZONA1 , bZONA2 , bZONA3 , bZONA4 , bZONA5 , bZONA6 , bZONA7 , bZONA8 , bZONA9
-      // lista de todos los botones de grupos disponibles:
+      // lista de todos los botones de grupos disponibles (el orden define el grupo):
     #define _GRUPOS bGRUPO1 , bGRUPO2 , bGRUPO3 , bGRUPO4
     #define _NUMZONAS            9  // numero de zonas (botones riego individual)
     #define _NUMGRUPOS           4  // numero de grupos multirriego
@@ -282,9 +282,9 @@
       //          = 0x8000,  // mcpI B7  (NO USAR para inputs)
     };
 
-      // lista de todos los botones de zonas de riego disponibles:
+      // lista de todos los botones de zonas de riego disponibles (el orden define la zona):
     #define _ZONAS  bZONA1 , bZONA2 , bZONA3 , bZONA4 , bZONA5 , bZONA6 , bZONA7 , bZONA8 , bZONA9
-      // lista de todos los botones (selector) de grupos disponibles:
+      // lista de todos los botones (selector) de grupos disponibles (el orden define el grupo):
     #define _GRUPOS bGRUPO1 , bGRUPO2 , bGRUPO3 
     #define _NUMZONAS            9  // numero de zonas (botones riego individual)
     #define _NUMGRUPOS           3  // numero de grupos multirriego
@@ -322,6 +322,7 @@
     int   maxledlevel = MAXLEDLEVEL;       // nivel brillo maximo led RGB 
     int   dimmlevel = DIMMLEVEL;           // nivel atenuacion led RGB 
     int   tempOffset = TEMP_OFFSET;        // correccion temperatura sensor local DHTxx 
+    int   msgdisplaymillis = MSGDISPLAYMILLIS;        // tiempo que se muestran mensajes (mseg.) 
     bool mute = OFF;  // sonidos activos
   };
 
@@ -417,15 +418,15 @@
     #ifdef GRP4     // matriz Boton para caso de 9 zonas y 4 botones de grupos multirriego
       S_BOTON Boton [] =  { 
         //bID         S   uS  LED          FLAGS                             DESC        zNUMBER  
-        {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "ZONA1",       1},
-        {bZONA2 ,     0,  0,  lZONA2 ,     ENABLED | ACTION,                 "ZONA2",       2},
-        {bZONA3    ,  0,  0,  lZONA3    ,  ENABLED | ACTION,                 "ZONA3",       3},
-        {bZONA4    ,  0,  0,  lZONA4    ,  ENABLED | ACTION,                 "ZONA4",       4},
-        {bZONA5    ,  0,  0,  lZONA5    ,  ENABLED | ACTION,                 "ZONA5",       5},
-        {bZONA6 ,     0,  0,  lZONA6 ,     ENABLED | ACTION,                 "ZONA6",       6},
-        {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ZONA7",       7},
-        {bZONA8  ,    0,  0,  lZONA8  ,    ENABLED | ACTION,                 "ZONA8",       8},
-        {bZONA9,      0,  0,  lZONA9  ,    ENABLED | ACTION,                 "ZONA9",       9},
+        {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "ZONA1",       0},
+        {bZONA2 ,     0,  0,  lZONA2 ,     ENABLED | ACTION,                 "ZONA2",       0},
+        {bZONA3    ,  0,  0,  lZONA3    ,  ENABLED | ACTION,                 "ZONA3",       0},
+        {bZONA4    ,  0,  0,  lZONA4    ,  ENABLED | ACTION,                 "ZONA4",       0},
+        {bZONA5    ,  0,  0,  lZONA5    ,  ENABLED | ACTION,                 "ZONA5",       0},
+        {bZONA6 ,     0,  0,  lZONA6 ,     ENABLED | ACTION,                 "ZONA6",       0},
+        {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ZONA7",       0},
+        {bZONA8  ,    0,  0,  lZONA8  ,    ENABLED | ACTION,                 "ZONA8",       0},
+        {bZONA9,      0,  0,  lZONA9  ,    ENABLED | ACTION,                 "ZONA9",       0},
         {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ACTION,                 "GRUPO1",      0},
         {bGRUPO2  ,   0,  0,  lGRUPO2  ,   ENABLED | ACTION,                 "GRUPO2",      0},
         {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ACTION,                 "GRUPO3",      0},
@@ -438,15 +439,15 @@
     #ifdef M3GRP     // matriz Boton para caso de 9 zonas, boton multirriego y selector de 3 grupos multirriego
       S_BOTON Boton [] =  { 
         //bID         S   uS  LED          FLAGS                             DESC         zNUMBER
-        {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "ZONA1",       1},
-        {bZONA2 ,     0,  0,  lZONA2 ,     ENABLED | ACTION,                 "ZONA2",       2},
-        {bZONA3    ,  0,  0,  lZONA3    ,  ENABLED | ACTION,                 "ZONA3",       3},
-        {bZONA4    ,  0,  0,  lZONA4    ,  ENABLED | ACTION,                 "ZONA4",       4},
-        {bZONA5    ,  0,  0,  lZONA5    ,  ENABLED | ACTION,                 "ZONA5",       5},
-        {bZONA6 ,     0,  0,  lZONA6 ,     ENABLED | ACTION,                 "ZONA6",       6},
-        {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ZONA7",       7},
-        {bZONA8  ,    0,  0,  lZONA8  ,    ENABLED | ACTION,                 "ZONA8",       8},
-        {bZONA9,      0,  0,  lZONA9  ,    ENABLED | ACTION,                 "ZONA9",       9},
+        {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "ZONA1",       0},
+        {bZONA2 ,     0,  0,  lZONA2 ,     ENABLED | ACTION,                 "ZONA2",       0},
+        {bZONA3    ,  0,  0,  lZONA3    ,  ENABLED | ACTION,                 "ZONA3",       0},
+        {bZONA4    ,  0,  0,  lZONA4    ,  ENABLED | ACTION,                 "ZONA4",       0},
+        {bZONA5    ,  0,  0,  lZONA5    ,  ENABLED | ACTION,                 "ZONA5",       0},
+        {bZONA6 ,     0,  0,  lZONA6 ,     ENABLED | ACTION,                 "ZONA6",       0},
+        {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ZONA7",       0},
+        {bZONA8  ,    0,  0,  lZONA8  ,    ENABLED | ACTION,                 "ZONA8",       0},
+        {bZONA9,      0,  0,  lZONA9  ,    ENABLED | ACTION,                 "ZONA9",       0},
         {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO1",      0},
         {bGRUPO2  ,   0,  0,  lGRUPO2  ,   ENABLED | ONLYSTATUS | DUAL,      "GRUPO2",      0},
         {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO3",      0},
@@ -512,7 +513,7 @@
     S_Estado Estado;
     S_simFlags simular; // estructura flags para simular errores
     Configure    *configure;
-    AiEsp32RotaryEncoder rotaryEncoder(ENCCLK,ENCDT,-1, -1, ROTARY_ENCODER_STEPS);
+    AiEsp32RotaryEncoder rotaryEncoder(ENCDT,ENCCLK,-1, -1, ROTARY_ENCODER_STEPS);
     Ticker tic_parpadeoLedError;    //para parpadeo led ERROR (LEDR)
     Ticker tic_parpadeoLedZona;  //para parpadeo led zona de riego
     Ticker tic_verificaciones;   //para verificaciones periodicas
@@ -652,18 +653,19 @@
   bool serialDetect(void);
   void setEncoderMenu(int menuitems, int currentitem = 0);
   void setEncoderTime(void);
-  void setEncoderRange(int min, int max, int current);
+  void setEncoderRange(int , int , int , int);
   void setEstado(uint8_t estado, int bnum = 0);
   void setledRGB(void);
   int  ledlevel(void);
   int  setMultibyId(uint16_t , Config_parm&);
-  bool setMultirriego(int);
+  bool setMultirriego(int, Config_parm&);
   bool setupConfig(const char*);
   void setupEstado(void);
   void setupInit(void);
   void setupParm(void);
   void setupRedWM(Config_parm&, S_initFlags&);
-  void setupWS(void);
+  void setupWS(Config_parm&);
+  void setzNumber(void);
   void showTimeLastRiego(S_timeRiego&, int);
   void starConfigPortal(Config_parm&);
   void StaticTimeUpdate(bool);
