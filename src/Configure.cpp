@@ -205,9 +205,9 @@ void Configure::Multi_process_update()
 }
 
 // actualizamos config con las zonas introducidas
-void Configure::Multi_process_end()
+void Configure::Multi_process_end(bool clear)
 {
-      if (multi.w_size) {  //solo si se ha pulsado alguna
+      if (multi.w_size && !clear) {  //solo si se ha pulsado alguna
         *multi.size = multi.w_size;
         int g = _actualGrupo;
         for (int i=0; i<multi.w_size; ++i) {
@@ -221,6 +221,17 @@ void Configure::Multi_process_end()
         lcd.info("guardado GRUPO",2);
         lcd.clear(BORRA2H);
         delay(config.msgdisplaymillis);
+      }
+      else if(clear) {   //se borra contenido del grupo
+        *multi.size = 0;
+        saveConfig = true;
+
+        LOG_INFO("borrado GRUPO",_actualGrupo,"tamaño:",*multi.size,"(",multi.desc,")");
+        bipOK();
+        lcd.info("vaciado GRUPO",2);
+        lcd.clear(BORRA2H);
+        delay(config.msgdisplaymillis);
+
       }
       ultimosRiegos(HIDE);
       led(Boton[bID2bIndex(*multi.id)].led,OFF);

@@ -579,7 +579,7 @@ void procesaEstadoConfigurando()
               break;
             }
             if(configure->configuringMulti()) {
-              configure->Multi_process_end();  // actualizamos config con las zonas introducidas
+              configure->Multi_process_end(encoderSW);  // actualizamos config con las zonas introducidas
               break;
             }
             if(configure->configuringMultiTemp()) {
@@ -1418,7 +1418,7 @@ int getFactor(uint16_t idx)
   */
   // ojo el ArduinoJson Assistant recomienda usar char* en vez de String (gasta menos memoria)
   char* response_pointer = &response[0];
-  DynamicJsonDocument jsondoc(2048);
+  JsonDocument jsondoc;
   DeserializationError error = deserializeJson(jsondoc, response_pointer);
   if (error) {
     LOG_ERROR(" ** [ERROR] deserializeJson() failed: ", error.f_str());
@@ -1491,7 +1491,7 @@ bool queryStatus(uint16_t idx, char *status)
   }
   // ya tenemos en response el JSON, lo procesamos
   char* response_pointer = &response[0];
-  DynamicJsonDocument jsondoc(2048);
+  JsonDocument jsondoc;
   DeserializationError error = deserializeJson(jsondoc, response_pointer);
   if (error) {
     LOG_ERROR(" **  [ERROR] deserializeJson() failed: ", error.f_str());
@@ -1775,9 +1775,9 @@ return buff;
   {
       Serial.println(F("TRACE: in printMulti"));
       if(multi.id == NULL) return;  // evita guru meditation si no se ha apuntado a ningun grupo
-      Serial.printf("MULTI Boton_id x%x: size=%d (%s)\n", *multi.id, *multi.size, multi.desc);
+      Serial.printf("MULTI Boton_id x%04x: size=%d (%s)\n", *multi.id, *multi.size, multi.desc);
       for(int j = 0; j < *multi.size; j++) {
-        Serial.printf("  Zona  id: x%x \n", multi.serie[j]);
+        Serial.printf("  Zona  id: x%04x \n", multi.serie[j]);
       }
     Serial.println();
   }

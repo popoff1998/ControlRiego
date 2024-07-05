@@ -40,7 +40,7 @@ class Configure
     void Range_process_end(void);
     void Multi_process_start(int);
     void Multi_process_update(void);
-    void Multi_process_end(void);
+    void Multi_process_end(bool);
     void MultiTemp_process_start(void);
     void MultiTemp_process_end(void);
     bool configuringTime(void);
