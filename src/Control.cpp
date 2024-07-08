@@ -1272,7 +1272,7 @@ void lowbip(int veces)
 {
   LOG_TRACE("LOWBIP ", veces);
   for (int i=0; i<veces;i++) {
-    mitone(BUZZER, NOTE_A4, 500);
+    mitone(BUZZER, NOTE_A5, 200);
     mitone(BUZZER, 0, 100);
   }
 }
@@ -1416,12 +1416,11 @@ int getFactor(uint16_t idx)
      Ante cualquier problema (no de error) devolvemos 100% para no factorizar ese riego,
      sin error si VERIFY=false o Err2 si VERIFY=true
   */
-  // ojo el ArduinoJson Assistant recomienda usar char* en vez de String (gasta menos memoria)
   char* response_pointer = &response[0];
   JsonDocument jsondoc;
   DeserializationError error = deserializeJson(jsondoc, response_pointer);
   if (error) {
-    LOG_ERROR(" ** [ERROR] deserializeJson() failed: ", error.f_str());
+    LOG_ERROR(" ** [ERROR] deserializeJson() failed: ", error.c_str());
     if(!VERIFY) return 100;
     else {
       statusError(E2);  //TODO ¿deberiamos devolver E3?
@@ -1494,7 +1493,7 @@ bool queryStatus(uint16_t idx, char *status)
   JsonDocument jsondoc;
   DeserializationError error = deserializeJson(jsondoc, response_pointer);
   if (error) {
-    LOG_ERROR(" **  [ERROR] deserializeJson() failed: ", error.f_str());
+    LOG_ERROR(" **  [ERROR] deserializeJson() failed: ", error.c_str());
     Estado.error=E2;  
     return false;
   }
@@ -1686,6 +1685,8 @@ void setupParm()
   }
   if (!setupConfig(parmFile)) {
     LOG_ERROR(" ** [ERROR] Leyendo fichero parametros " , parmFile);
+    lcd.infoclear("DEFAULT parm loaded");
+    delay(MSGDISPLAYMILLIS*3);
     if (!setupConfig(defaultFile)) {
       LOG_ERROR(" ** [ERROR] Leyendo fichero parametros ", defaultFile);
     }
@@ -1702,13 +1703,15 @@ void setupParm()
 bool setupConfig(const char *p_filename) 
 {
   //init grupo temporal n+1  
-  LOG_INFO("Init grupo temporal (GRUPO", _NUMGRUPOS+1,")");
-  config.group[_NUMGRUPOS].bID = 0;     // id del boton de grupo ficticio
-  config.group[_NUMGRUPOS].size = 0;
-  sprintf(config.group[_NUMGRUPOS].desc, "TEMPORAL"); 
+  LOG_INFO("Init grupo temporal (GRUPO", NUMGRUPOS+1,")");
+  config.group[NUMGRUPOS].bID = 0;     // id del boton de grupo ficticio
+  config.group[NUMGRUPOS].size = 0;
+  sprintf(config.group[NUMGRUPOS].desc, "TEMPORAL"); 
 
   //init campo zNumber de Boton[]
   setzNumber();
+  //init campo bID de grupos en config
+  setbIDgrupos(config);
   
   LOG_INFO("Leyendo fichero parametros", p_filename);
   bool loaded = loadConfigFile(p_filename, config);
@@ -1720,6 +1723,12 @@ bool setupConfig(const char *p_filename)
       //si en config campo desc de la zona esta vacio se copia el de la estructura Boton:
       if(strlen(config.zona[i].desc) == 0) {
         strlcpy(config.zona[i].desc, Boton[zNumber2bIndex(i+1)].desc, sizeof(config.zona[i].desc));
+      }  
+    }
+    for(int i=0;i<NUMGRUPOS;i++) {
+      //si en config campo desc del grupo esta vacio se copia el de la estructura Boton:
+      if(strlen(config.group[i].desc) == 0) {
+        strlcpy(config.group[i].desc, Boton[bID2bIndex(GRUPOS[i])].desc, sizeof(config.group[i].desc));
       }  
     }
     #ifdef MUTE

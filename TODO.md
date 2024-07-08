@@ -67,5 +67,5 @@ HECHOS
 - aviso temperatura alta ESP32 (configurable) V3.0.8
 - más parametros configurables: MAXLEDLEVEL y DIMMLEVEL (led RGB), TEMP_OFFSET, MSGDISPLAYMILLIS V3.0.9
 - migrado a Json V7. Eliminado parm tamaño del grupo del fichero de configuracion V3.0.10
-
+- simplificacion y tratamiento errores del fichero de configuracion V3.0.11
 

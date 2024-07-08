@@ -167,7 +167,7 @@ void Configure::MultiTemp_process_start(void)
 {
       this->reset();
       _configuringMultiTemp = true;
-      _actualGrupo = _NUMGRUPOS+1;   // grupo temporal: n+1
+      _actualGrupo = NUMGRUPOS+1;   // grupo temporal: n+1
       multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
       this->configureMulti_display();
 }

@@ -295,6 +295,14 @@ void setzNumber()
   }
 }
 
+//rellena campo zNumber (numero de zona) en Boton[] segun el orden de estos en ZONAS[]
+void setbIDgrupos(Config_parm &config)
+{
+  for (uint i=0;i<NUMGRUPOS;i++) {
+      config.group[i].bID = GRUPOS[i];  //obtiene el bID del boton de ese grupo (ojo: no viene en el json)
+  }
+}
+
 
 /* 
 int bID2zIndex(uint16_t id)

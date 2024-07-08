@@ -47,6 +47,7 @@
   #include <Timezone.h>
   #include <AiEsp32RotaryEncoder.h>
   #include <CountUpDownTimer.h>
+  #define ARDUINOJSON_ENABLE_COMMENTS 1
   #include <ArduinoJson.h>
   #include <Ticker.h>
   #include <LittleFS.h>
@@ -92,7 +93,7 @@
        
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.0.10"
+                            #define VERSION  "3.0.11"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -201,8 +202,10 @@
     STOP          ,
     ERROR         ,
   };
+
   // literales para los estados en el display
   #define _ESTADOS "STANDBY" , "REGANDO:" , "CONFIGURANDO" , "TERMINANDO" , "PAUSA:" , "STOP" , "ERROR"
+  const char nEstado[][15] = {_ESTADOS};
 
   enum error_tipos {
     NOERROR       = 0xFF,
@@ -254,8 +257,6 @@
     #define _ZONAS  bZONA1 , bZONA2 , bZONA3 , bZONA4 , bZONA5 , bZONA6 , bZONA7 , bZONA8 , bZONA9
       // lista de todos los botones de grupos disponibles (el orden define el grupo):
     #define _GRUPOS bGRUPO1 , bGRUPO2 , bGRUPO3 , bGRUPO4
-    #define _NUMZONAS            9  // numero de zonas (botones riego individual)
-    #define _NUMGRUPOS           4  // numero de grupos multirriego
   //----------------  fin dependientes del HW   ----------------------------------------
     #define ZONASXGRUPO          9  // maximo de zonas en un grupo multirriego (9 para coja en pantalla, max. 16)
 
@@ -286,61 +287,14 @@
     #define _ZONAS  bZONA1 , bZONA2 , bZONA3 , bZONA4 , bZONA5 , bZONA6 , bZONA7 , bZONA8 , bZONA9
       // lista de todos los botones (selector) de grupos disponibles (el orden define el grupo):
     #define _GRUPOS bGRUPO1 , bGRUPO2 , bGRUPO3 
-    #define _NUMZONAS            9  // numero de zonas (botones riego individual)
-    #define _NUMGRUPOS           3  // numero de grupos multirriego
   //----------------  fin dependientes del HW   ----------------------------------------
     #define ZONASXGRUPO          9  // maximo de zonas en un grupo multirriego (9 para coja en pantalla, max. 16)
   #endif
 
-  //estructura para salvar un grupo
-  struct Grupo_parm {
-    uint16_t bID;
-    int size;              // cantidad de zonas asociadas al grupo 
-    uint16_t zNumber[16];  // ojo! numero de la zona, no es el boton asociado a ella
-    char desc[20];
-  } ;
-
-  //estructura para salvar parametros de un boton
-  struct Zona_parm {
-    char  desc[20];
-    uint16_t   idx;
-  } ;
-
-  //estructura para parametros configurables
-  struct Config_parm {
-    uint8_t   initialized=0;
-    static const int  n_Zonas = _NUMZONAS; //no modificable por fichero de parámetros (depende HW) 
-    Zona_parm zona[n_Zonas];
-    uint8_t   minutes = DEFAULTMINUTES; 
-    uint8_t   seconds = DEFAULTSECONDS;
-    char domoticz_ip[40];
-    char domoticz_port[6];
-    char ntpServer[40];
-    static const int  n_Grupos = _NUMGRUPOS;  //no modificable por fichero de parámetros (depende HW)
-    Grupo_parm group[n_Grupos+1];       // sitio para grupo temporal n+1
-    int   warnESP32temp = MAX_ESP32_TEMP;  // temperatura ESP32 maxima con aviso 
-    int   maxledlevel = MAXLEDLEVEL;       // nivel brillo maximo led RGB 
-    int   dimmlevel = DIMMLEVEL;           // nivel atenuacion led RGB 
-    int   tempOffset = TEMP_OFFSET;        // correccion temperatura sensor local DHTxx 
-    int   msgdisplaymillis = MSGDISPLAYMILLIS;        // tiempo que se muestran mensajes (mseg.) 
-    bool mute = OFF;  // sonidos activos
-  };
-
-  // estructura de un grupo de multirriego 
-  // (algunos son pointer al multirriego correspondiente en config *)
-  struct S_MULTI {
-    bool riegoON  = false;  //indicador de multirriego activo
-    bool temporal = false;  //indicador de grupo multirriego es temporal
-    bool semaforo = false;  //indicador de procesar siguiente zona del multirriego
-    uint16_t *id;           //apuntador al id del boton/selector grupo en estructura config (bGrupo_x)
-    uint16_t serie[16];     //contiene los id de los botones del grupo (bZona_x)
-    uint16_t zserie[16];    //contiene las zonas del grupo (Zona_x)
-    //uint16_t (*znumber)[16];    //apuntador a las zonas del grupo en estructura config (Zona_x)
-    int *size;              //apuntador a config con el tamaño del grupo
-    int w_size;             //variable auxiliar durante ConF
-    int actual;             //variable auxiliar durante un multirriego 
-    char *desc;             //apuntador a config con la descripcion del grupo
-  } ;
+  const uint16_t ZONAS[] = {_ZONAS};
+  const uint16_t GRUPOS[]  = {_GRUPOS};
+  const int NUMZONAS = sizeof(ZONAS)/sizeof(ZONAS[0]); // numero de zonas (botones riego individual)
+  const int NUMGRUPOS = sizeof(GRUPOS)/sizeof(GRUPOS[0]); // numero de grupos multirriego
 
   union S_bFLAGS
   {
@@ -405,11 +359,56 @@
     int  savedValue = 0;
   } ;
 
-  const uint16_t ZONAS[] = {_ZONAS};
-  const uint16_t GRUPOS[]  = {_GRUPOS};
-  const int NUMZONAS = sizeof(ZONAS)/sizeof(ZONAS[0]); // numero de zonas (botones riego individual)
-  const int NUMGRUPOS = sizeof(GRUPOS)/sizeof(GRUPOS[0]); // numero de grupos multirriego
-  const char nEstado[][15] = {_ESTADOS};
+
+  //estructura para salvar un grupo
+  struct Grupo_parm {
+    uint16_t bID;          // boton del grupo
+    int size;              // cantidad de zonas asociadas al grupo 
+    uint16_t zNumber[16];  // ojo! numero de las zonas, no es el boton asociado a ellas
+    char desc[20];
+  } ;
+
+  //estructura para salvar parametros de un boton
+  struct Zona_parm {
+    char  desc[20];
+    uint16_t   idx;        // IDX de la zona en Domoticz
+  } ;
+
+  //estructura para parametros configurables
+  struct Config_parm {
+    uint8_t   initialized=0;
+    static const int  n_Zonas = NUMZONAS; //no modificable por fichero de parámetros (depende HW) 
+    Zona_parm zona[n_Zonas];
+    static const int  n_Grupos = NUMGRUPOS;  //no modificable por fichero de parámetros (depende HW)
+    Grupo_parm group[n_Grupos+1];       // +1 para sitio para grupo temporal n+1
+    char domoticz_ip[40];
+    char domoticz_port[6];
+    char ntpServer[40];
+    uint8_t   minutes = DEFAULTMINUTES; 
+    uint8_t   seconds = DEFAULTSECONDS;
+    int   warnESP32temp = MAX_ESP32_TEMP;       // temperatura ESP32 maxima con aviso 
+    int   maxledlevel = MAXLEDLEVEL;            // nivel brillo maximo led RGB 
+    int   dimmlevel = DIMMLEVEL;                // nivel atenuacion led RGB 
+    int   tempOffset = TEMP_OFFSET;             // correccion temperatura sensor local DHTxx 
+    int   msgdisplaymillis = MSGDISPLAYMILLIS;  // tiempo que se muestran mensajes (mseg.) 
+    bool mute = OFF;                            // sonidos activos
+  };
+
+  // estructura del multirriego activo 
+  // (algunos son pointer al multirriego correspondiente en config *)
+  struct S_MULTI {
+    bool riegoON  = false;  //indicador de multirriego activo
+    bool temporal = false;  //indicador de grupo multirriego es temporal
+    bool semaforo = false;  //indicador de procesar siguiente zona del multirriego
+    uint16_t *id;           //apuntador al id del boton/selector grupo en estructura config (bGrupo_x)
+    uint16_t serie[16];     //contiene los id de los botones del grupo (bZona_x)
+    uint16_t zserie[16];    //contiene las zonas del grupo (Zona_x)
+    //uint16_t (*znumber)[16];    //apuntador a las zonas del grupo en estructura config (Zona_x)
+    int *size;              //apuntador a config con el tamaño del grupo
+    int w_size;             //variable auxiliar durante ConF
+    int actual;             //variable auxiliar durante un multirriego 
+    char *desc;             //apuntador a config con la descripcion del grupo
+  } ;
 
   const char MESES[][12] = {"Ene.", "Feb.", "Mar.", "Abr.", "May.", "Jun.", "Jul.", "Ago.", "Sep.", "Oct.", "Nov.", "Dic."};
 
@@ -651,6 +650,7 @@
   void resetLeds(void);
   bool saveConfigFile(const char*, Config_parm&);
   bool serialDetect(void);
+  void setbIDgrupos(Config_parm&);
   void setEncoderMenu(int menuitems, int currentitem = 0);
   void setEncoderTime(void);
   void setEncoderRange(int , int , int , int);

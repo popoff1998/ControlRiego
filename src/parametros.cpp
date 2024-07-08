@@ -24,41 +24,49 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
   DeserializationError error = deserializeJson(doc, file);
 
   if (error) {
-    LOG_ERROR("\t  deserializeJson() failed: ", error.f_str());
+    LOG_ERROR("\t  deserializeJson() failed: ", error.c_str());
     return false;
   }
+  LOG_TRACE("procesa botones");
   //--------------  procesa botones (IDX)  --------------------------------------------------
-  int numzonas = doc["numzonas"] | 0; // carga 0 si no viene este elemento
-  if (numzonas != config.n_Zonas) {
-    LOG_ERROR("ERROR numero de zonas incorrecto");
-    return false;
-  }  
-  for (JsonObject botones_item : doc["botones"].as<JsonArray>()) {
-    int i = botones_item["zona"] | 1; 
-    config.zona[i-1].idx = botones_item["idx"] | 0;
-    strlcpy(config.zona[i-1].desc, botones_item["nombre"] | "", sizeof(config.zona[i-1].desc));
-    i++;
+  for (JsonObject botones : doc["botones"].as<JsonArray>()) {
+      int numzonas = botones.size(); // cantidad de zonas que vienen definidas en el fichero
+      int i = botones["zona"] | 1;   // numero de la zona definida
+      if (numzonas > NUMZONAS || i > NUMZONAS || i <= 0) {
+        LOG_ERROR("ERROR cantidad de zonas o numero de la zona incorrecta. Mayor que:", NUMZONAS);
+        return false;
+      }  
+      config.zona[i-1].idx = botones["idx"] | 0;
+      strlcpy(config.zona[i-1].desc, botones["nombre"] | "", sizeof(config.zona[i-1].desc));
+      i++;
   }
+  LOG_TRACE("procesa grupos");
   //--------------  procesa grupos  ---------------------------------------------------------
-  int numgroups = doc["numgroups"] | 1;
-  if (numgroups != config.n_Grupos) {
-    LOG_ERROR("ERROR numero de grupos incorrecto");
-    return false;
-  }  
-  for (JsonObject groups_item : doc["grupos"].as<JsonArray>()) {
-    int i = groups_item["grupo"] | 1;
-    config.group[i-1].bID = GRUPOS[i-1];  //obtiene el bID del boton de ese grupo (ojo: no viene en el json)
-    strlcpy(config.group[i-1].desc, groups_item["desc"] | "", sizeof(config.group[i-1].desc)); 
-    JsonArray array = groups_item["zonas"].as<JsonArray>();
-    int count = array.size();
-    config.group[i-1].size = count;  //tamaño del grupo 
-    int j = 0;
-    for(JsonVariant zonas_item_elemento : array) {
-      config.group[i-1].zNumber[j] = zonas_item_elemento.as<int>();
-      j++;
-    }
-    i++;
-  config.initialized = 1; //solo marcamos como init config si pasa por este bucle
+  for (JsonObject grupos : doc["grupos"].as<JsonArray>()) {
+      int numgroups = grupos.size(); // cantidad de grupos que vienen definidas en el fichero
+      int i = grupos["grupo"] | 1;   // numero del grupo definido
+      if (numgroups > NUMGRUPOS || i > NUMGRUPOS || i <= 0) {
+        LOG_ERROR("ERROR cantidad de grupos o numero del grupo incorrecto. Mayor que:", NUMGRUPOS);
+        LOG_TRACE("check numgroups", numgroups,"i=",i);
+        return false;
+      }  
+      strlcpy(config.group[i-1].desc, grupos["desc"] | "", sizeof(config.group[i-1].desc)); 
+      JsonArray zonas = grupos["zonas"].as<JsonArray>();
+      int count = zonas.size();
+      if (count > ZONASXGRUPO) {
+        LOG_ERROR("ERROR zonas en el grupo", i,"mayor que:", ZONASXGRUPO);
+        LOG_TRACE("check count zonas", count,"i=",i);
+        return false;
+      }  
+      config.group[i-1].size = count;  //tamaño del grupo 
+      int j = 0;
+      for(JsonVariant zonas_item_elemento : zonas) {
+        config.group[i-1].zNumber[j] = zonas_item_elemento;
+        j++;
+      }
+      i++;
+      LOG_TRACE("config initialized");
+      config.initialized = 1; //solo marcamos como init config si pasa por este bucle
   }
   //--------------  procesa parametro individuales   ----------------------------------------
   config.minutes = doc["tiempo"]["minutos"] | DEFAULTMINUTES;
@@ -96,23 +104,22 @@ bool saveConfigFile(const char *p_filename, Config_parm &config)
   }
   JsonDocument doc;
   //--------------  procesa botones (IDX)  --------------------------------------------------
-  doc["numzonas"] = NUMZONAS;
   doc["botones"].as<JsonArray>();
-  JsonArray array_botones = doc["botones"].to<JsonArray>();
+  JsonArray botones = doc["botones"].to<JsonArray>();
   for (int i=0; i<NUMZONAS; i++) {
-    array_botones[i]["zona"]   = i+1;
-    array_botones[i]["idx"]    = config.zona[i].idx;
-    array_botones[i]["nombre"] = config.zona[i].desc;
+    botones[i]["zona"]   = i+1;
+    botones[i]["idx"]    = config.zona[i].idx;
+    botones[i]["nombre"] = config.zona[i].desc;
   }
   //--------------  procesa grupos  ---------------------------------------------------------
-  doc["numgroups"]          = NUMGRUPOS;
-  JsonArray array_grupos = doc["grupos"].to<JsonArray>();
+  JsonArray grupos = doc["grupos"].to<JsonArray>();
   for (int i=0; i<NUMGRUPOS; i++) {
-    array_grupos[i]["grupo"]   = i+1;
-    array_grupos[i]["desc"]    = config.group[i].desc;
-    JsonArray array_zonas = array_grupos[i]["zonas"].to<JsonArray>();
+    grupos[i]["grupo"]   = i+1;
+    grupos[i]["desc"]    = config.group[i].desc;
+    JsonArray zonas = grupos[i]["zonas"].to<JsonArray>();
     for(int j=0; j<config.group[i].size; j++) {
-      array_zonas[j] = config.group[i].zNumber[j];
+      //zonas[j] = config.group[i].zNumber[j];  // otra forma de hacer lo mismo
+      zonas.add(config.group[i].zNumber[j]);
     }  
   }
   //--------------  procesa parametro individuales   ----------------------------------------

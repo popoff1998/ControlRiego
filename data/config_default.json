@@ -1,5 +1,4 @@
 {
-  "numzonas": 9,	
   "botones": [
     {
       "zona": 1,
@@ -47,7 +46,6 @@
       "nombre": "ZONA9"
     }
   ],
-  "numgroups": 4,
   "grupos": [
     {
       "grupo": 1,
