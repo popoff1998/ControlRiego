@@ -295,7 +295,7 @@ void setzNumber()
   }
 }
 
-//rellena campo zNumber (numero de zona) en Boton[] segun el orden de estos en ZONAS[]
+//rellena campo bID (boton asociado) en config segun el orden de estos en GRUPOS[]
 void setbIDgrupos(Config_parm &config)
 {
   for (uint i=0;i<NUMGRUPOS;i++) {

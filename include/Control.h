@@ -521,8 +521,6 @@
     uint factorRiegos[NUMZONAS];
     uint8_t prevseconds;
     uint8_t prevminutes;
-    byte temperatura;
-    byte humedad;
     char  descDomoticz[20];
     int  ledID = 0;
     unsigned long standbyTime;

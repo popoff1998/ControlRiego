@@ -197,7 +197,7 @@ void Configure::Multi_process_update()
         multi.zserie[multi.w_size] = zNumber ;  // numero de la zona
         multi.w_size = multi.w_size + 1;
 
-        LOG_INFO("[ConF] añadiendo ZONA",zNumber,"(",config.zona[boton->znumber-1].desc,") multi.w_size=",multi.w_size);
+        LOG_INFO("[ConF] añadiendo ZONA",zNumber,"(",config.zona[zNumber-1].desc,") multi.w_size=",multi.w_size);
         led(Boton[bIndex].led,ON);
         displayLCDGrupo(multi.zserie, multi.w_size);
       }

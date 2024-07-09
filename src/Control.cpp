@@ -1609,12 +1609,16 @@ void Verificaciones()
 }
 
 void checkTemp() {
+    float temperatura;
+    float humedad;
   #ifdef TEMPLOCAL   // temperatura ambiente del sensor local
     int err = SimpleDHTErrSuccess;
-    (err = dhtsensor.read(&temperatura, &humedad, NULL)) == SimpleDHTErrSuccess ? tempOK=true : tempOK=false;
+    (err = dhtsensor.read2(&temperatura, &humedad, NULL)) == SimpleDHTErrSuccess ? tempOK=true : tempOK=false;
     LOG_DEBUG("err=",err,"tempOK=",tempOK,"temperatura=",temperatura,"humedad=",humedad);
-    if(tempOK) lcd.displayTemp((int)temperatura+config.tempOffset, config.warnESP32temp);
+    int temp_round = (temperatura < 0 ? (temperatura - 0.5) : (temperatura + 0.5)); //redondeo al entero mas cercano
+    if(tempOK) lcd.displayTemp(temp_round+config.tempOffset, config.warnESP32temp);
     else {
+      LOG_INFO("err=",err,"tempOK=",tempOK,"temperatura=",temperatura,"humedad=",humedad);
       LOG_ERROR("Read DHT sensor failed, err=",SimpleDHTErrCode(err),",",SimpleDHTErrDuration(err));
       lcd.displayTemp(999, config.warnESP32temp);  // borra temperatura del display 
     }
