@@ -62,7 +62,8 @@
       #include <HTTPUpdateServer.h>
     #endif
     #ifdef TEMPLOCAL
-      #include <SimpleDHT.h>
+      #include <Adafruit_Sensor.h>
+      #include <DHT.h>
     #endif
   #endif
 
@@ -93,7 +94,7 @@
        
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.0.11"
+                            #define VERSION  "3.0.12"
   //-------------------------------------------------------------------------------------
 
   #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -556,7 +557,7 @@
     int bipKO_duration = 120;  // duracion de cada tono en mseg.
  
     #ifdef TEMPLOCAL 
-      TEMPLOCAL dhtsensor(DHTPIN);
+      DHT dht(DHTPIN, TEMPLOCAL);
     #endif
  
   #endif  // __MAIN__
