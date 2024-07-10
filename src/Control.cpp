@@ -1617,10 +1617,13 @@ void checkTemp() {
   #ifdef TEMPLOCAL   // temperatura ambiente del sensor local
     temperatura = dht.readTemperature();
     humedad = dht.readHumidity();
+    //float temp_sense = dht.computeHeatIndex(false); // false para calculo en grados centigrados
     (isnan(temperatura) || isnan(humedad)) ? tempOK=false : tempOK=true;
     LOG_DEBUG("tempOK=",tempOK,"temperatura=",temperatura,"humedad=",humedad);
+    temperatura = temperatura + ((float)config.tempOffset/2); // offset correccion de medio en medio grado
+    LOG_DEBUG("temp OFFSET=",config.tempOffset,"temperatura corregida=",temperatura);
     int temp_round = (temperatura < 0 ? (temperatura - 0.5) : (temperatura + 0.5)); //redondeo al entero mas cercano
-    if(tempOK) lcd.displayTemp(temp_round+config.tempOffset, config.warnESP32temp);
+    if(tempOK) lcd.displayTemp(temp_round, config.warnESP32temp);
     else {
       LOG_ERROR("Read DHT sensor failed, err=");
       lcd.displayTemp(999, config.warnESP32temp);  // borra temperatura del display 

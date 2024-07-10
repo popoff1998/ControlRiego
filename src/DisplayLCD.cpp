@@ -48,6 +48,10 @@ void DisplayLCD::initLCD() {
   print("Ardomo Aqua");
   setCursor(0, 2);
   print("Inicializando");
+  #ifdef DEVELOP
+    setCursor(0, 3);
+    print("(dev)");
+  #endif
   int longitud = strlen(VERSION);
   setCursor(LCDMAXLEN-(longitud+1), 3);
   print("v" VERSION);
@@ -209,9 +213,9 @@ void DisplayLCD::displayTemp(int temperature, int warnESP32temp)
     setCursor(15, 0); print(temperatureRead());
   }
   else {
-    setCursor(15, 0);
-    if (temperature == 999) print("--");
-    else lcdDisp.printf("%2d",temperature);
+    setCursor(14, 0);
+    if (temperature == 999) print(" --");
+    else lcdDisp.printf(" %2d",temperature);
   }  
   setCursor(17, 0); print("\xDF" "C"); // xDF = caracter grado centigrado
 }

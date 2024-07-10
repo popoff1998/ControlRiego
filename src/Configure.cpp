@@ -419,7 +419,7 @@ void Configure::procesaSelectMenu()
                 this->Range_process_start(config.dimmlevel, 255);   
                 break;
         case 10 :     //configuramos correccion temperatura mostrada
-                snprintf(buff, MAXBUFF, "OFFSET temperatura");
+                snprintf(buff, MAXBUFF, "OFFSET temp (*0.5)");
                 configValuep = &config.tempOffset;  
                 this->Range_process_start(-5, 5);   
                 break;
