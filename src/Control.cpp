@@ -81,6 +81,7 @@ void setup()
   //Chequeo de perifericos de salida (leds, display, buzzer)
   check();
   //Para la red
+  delay(1000);
   setupRedWM(config, initFlags);
   if (saveConfig) {
     if (saveConfigFile(parmFile, config))  bipOK();
@@ -477,7 +478,7 @@ void procesaBotonMultiriego(void)
     else {
       //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
       //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
-      if(setMultirriego(n_grupo, config)) inicioTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1);
+      if(setMultirriego(config)) inicioTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1);
     }
   }
 }
@@ -555,7 +556,7 @@ void procesaEstadoConfigurando()
                 n_grupo = setMultibyId(getMultiStatus(), config);
               #endif
               if (n_grupo == 0) return; //error en setup de apuntadores 
-              //Configuramos el grupo de multirriego activo
+              //Configuramos el grupo de multirriego apuntado en multi
               rotaryEncoder.disable();
               configure->Multi_process_start(n_grupo);
             }  
@@ -596,7 +597,7 @@ void procesaEstadoConfigurando()
                     if (multi.w_size && saveConfig) {  //solo si se ha guardado alguna zona iniciamos riego grupo temporal
                         saveConfig = false;  
                         multi.temporal = true;
-                        setMultirriego(NUMGRUPOS+1, config);  // grupo temporal n+1
+                        setMultirriego(config); 
                     }    
                 }
                 configure->exit();  // salvamos parm a fichero si procede y salimos de ConF
@@ -698,15 +699,7 @@ void procesaEstadoTerminando(void)
       displayLCDGrupo(multi.zserie, *multi.size, 2, multi.actual);  //  display zonas quedan por regar
     }
     else {         // señalamos fin del multirriego y actulizamos timestamp de finalizacion
-      int n_grupo;
-      #ifdef GRP4
-        n_grupo = setMultibyId(*multi.id, config);   // ultimo boton de multirriego pulsado
-      #endif
-      #ifdef M3GRP
-        n_grupo = setMultibyId(getMultiStatus(), config);  // posicion del selector multirriego
-      #endif
-      if (n_grupo == 0) return; //error en setup de apuntadores 
-      if(!multi.temporal) finalTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1);
+      if(!multi.temporal) finalTimeLastRiego(lastGrupos[multi.ngrupo-1], multi.ngrupo-1);
       lcd.info("multirriego",1);
       int msgl = snprintf(buff, MAXBUFF, "%s finalizado", multi.desc);
       lcd.info(buff, 2, msgl);
@@ -725,7 +718,6 @@ void procesaEstadoTerminando(void)
 
 void procesaEstadoStandby(void)
 {
-  //Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
   //Apagamos el display si ha pasado el lapso
   if (reposo) standbyTime = millis();
   else {

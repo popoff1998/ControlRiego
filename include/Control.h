@@ -401,6 +401,7 @@
     bool riegoON  = false;  //indicador de multirriego activo
     bool temporal = false;  //indicador de grupo multirriego es temporal
     bool semaforo = false;  //indicador de procesar siguiente zona del multirriego
+    int ngrupo;             // numero del grupo al que apunta
     uint16_t *id;           //apuntador al id del boton/selector grupo en estructura config (bGrupo_x)
     uint16_t serie[16];     //contiene los id de los botones del grupo (bZona_x)
     uint16_t zserie[16];    //contiene las zonas del grupo (Zona_x)
@@ -657,7 +658,7 @@
   void setledRGB(void);
   int  ledlevel(void);
   int  setMultibyId(uint16_t , Config_parm&);
-  bool setMultirriego(int, Config_parm&);
+  bool setMultirriego(Config_parm&);
   bool setupConfig(const char*);
   void setupEstado(void);
   void setupInit(void);

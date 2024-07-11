@@ -25,6 +25,7 @@ int setMultibyId(uint16_t id, Config_parm &config)
       multi.id = &config.group[i].bID;
       multi.size = &config.group[i].size;
       multi.desc = config.group[i].desc;
+      multi.ngrupo = i+1;
       //multi.znumber = &config.group[i].zNumber;   //si usasemos pointer a config
       for (int j=0; j < *multi.size; j++) {
         multi.serie[j] = ZONAS[config.group[i].zNumber[j]-1];  //obtiene el id del boton de cada zona (ojo: no viene en el json)
@@ -46,7 +47,7 @@ int setMultibyId(uint16_t id, Config_parm &config)
 
 
 // prepara el comienzo de un multirriego (normal o temporal)
-bool setMultirriego(int n_grupo, Config_parm &config)
+bool setMultirriego(Config_parm &config)
 {
       bip(4);
       displayLCDGrupo(multi.zserie, *multi.size, 2);  //  display zonas a regar o vacio
