@@ -211,13 +211,13 @@ void starConfigPortal(Config_parm &config)
 }
 
 // verificacion estado de la conexion wifi
-bool checkWifi() {
+int checkWifi(bool level) {
   LOG_TRACE("in checkWifi");
   if(WiFi.status() == WL_CONNECTED) {
     tic_WifiLed.detach();  // detenemos su parpadeo por si lo tuviera activo
     ledPWM(LEDG,ON);  // Encendemos el LED indicador de wifi
     connected = true;
-    return true;
+    return level==true ? wm.getRSSIasQuality(WiFi.RSSI()) : true; // devuelve nivel señal wifi si level es true 
   }
   else {
     LOG_ERROR(" ** [ERROR] No estamos conectados a la wifi");

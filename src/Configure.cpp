@@ -308,7 +308,7 @@ void Configure::exit()
 int Configure::showMenu(int opcion)
 {
       String opcionesMenuConf[] = {
-        /*-----------------*/ 
+         /*-----------------*/ 
           "botones IDX/MULT.",  // 0  (fijo)
           "TIEMPO riego",       // 1  
           "copy to DEFAULT",    // 2 
@@ -321,11 +321,13 @@ int Configure::showMenu(int opcion)
           "LED maximo brillo",  // 9 
           "correccion TEMP.",   // 10 
           "tiempo MENSAJES",    // 11
+          "NIVEL wifi on/off",  // 12
           "-----------------"   // - 
-        /*-----------------*/ 
+         /*-----------------*/ 
       };
       opcionesMenuConf[5] = (config.mute ?  "MUTE ON->OFF" : "MUTE OFF->ON");
       opcionesMenuConf[7] =  "ESP32 temp: " + String((int)temperatureRead()) + "/" + config.warnESP32temp;
+      opcionesMenuConf[12] = (config.showwifilevel ?  "NIVEL wifi-> OFF" : "NIVEL wifi-> ON");
 
 
       const int MAXOPCIONES = sizeof(opcionesMenuConf)/sizeof(opcionesMenuConf[0]);
@@ -428,6 +430,14 @@ void Configure::procesaSelectMenu()
                 configValuep = &config.msgdisplaymillis;  
                 this->Range_process_start(1000, 4000, 500);   
                 break;
+        case 12 :   // toggle display nivel señal wifi
+                config.showwifilevel = !config.showwifilevel;
+                config.showwifilevel ? lcd.infoclear("show wifi level ON",2) : lcd.infoclear("show wifi level OFF",2);
+                bip(2);
+                delay(config.msgdisplaymillis);
+                saveConfig = true;
+                this->menu();  // vuelve a mostrar menu de configuracion
+                break; 
         default:         
                 LOG_DEBUG("salimos del CASE del MENU sin realizar accion");
       }

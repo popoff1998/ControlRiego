@@ -902,6 +902,7 @@ void timeByFactor(int factor,uint8_t *fminutes, uint8_t *fseconds)
 
 void setClock()
 {
+  LOG_TRACE("");
   if (timeClient.update()) {
     NTPlastUpdate = millis();
     setTime(timeClient.getEpochTime());  // set reloj del sistema con el time recibido por NTP
@@ -912,7 +913,6 @@ void setClock()
    else {  // si se recibio al menos una vez anteriormente consideramos valida la hora del sistema
      if (timeOK) LOG_WARN("no se ha recibido time por NTP desde",(millis()-NTPlastUpdate)/60000,"minutos");
      else LOG_WARN(">>> NO TIME SET by NTP <<<");
-     // timeOK = false; 
    }
 }
 
@@ -1573,17 +1573,29 @@ void Verificaciones()
   if (!flagV || webServerAct) return;      //si no activada por Ticker salimos sin hacer nada
   if (Estado.estado == STANDBY) {
      LOG_TRACE(".");
+      // si tenemos conexion y no hemos recibido time por NTP o han pasado NTPUPDATEINTERVAL minutos
+      // desde la ultima sincronizacion -> actualizamos time del sistema con el del servidor NTP
       if (connected && (!timeOK || millis() > NTPlastUpdate + NTPUPDATEINTERVAL * 60000 )) {
         setClock();
         // en cualquier caso, si timeOK, no intentaremos volver a resincronizar hasta que haya pasado otro NTPUPDATEINTERVAL 
         NTPlastUpdate = millis(); 
       }
-      checkTemp();  
+      checkTemp();  // muestra temperatura ambiente en standby
   }   
   if (errorOFF) bip(2);  //recordatorio error grave al parar un riego
   //si estamos en Standby o en Error por falta de conexion verificamos estado actual de la wifi (no en modo NONETWORK)
-  if (!NONETWORK && (Estado.estado == STANDBY || (Estado.estado == ERROR && !connected))) {
-    if (checkWifi() && Estado.estado!=STANDBY) setEstado(STANDBY,1); 
+  if ((!NONETWORK || connected) && (Estado.estado == STANDBY || (Estado.estado == ERROR && !connected))) {
+    int wifilevel = checkWifi(config.showwifilevel); // conectado a wifi?
+    if(wifilevel) {
+      if (Estado.estado!=STANDBY) setEstado(STANDBY,1); 
+      if (config.showwifilevel) {
+         LOG_DEBUG("showwifilevel=",config.showwifilevel,"wifilevel=",wifilevel);
+         if(wifilevel==100) wifilevel=99; 
+         lcd.setCursor(0,3);
+         snprintf(buff,MAXBUFF,"%02d%%",wifilevel);
+         lcd.print(buff); 
+      }
+    }
     if(!connected && millis() > lastmillisReconnect + RECONNECTINTERVAL * 60000) {   //si no estamos conectados a la wifi, intentamos reconexion
       LOG_WARN("INTENTANDO RECONEXION WIFI");
       //WiFi.reconnect();
@@ -1598,8 +1610,6 @@ void Verificaciones()
       initFactorRiegos(); //esta funcion ya dejara el estado correspondiente
     }
   }
-  // si tenemos conexion y no hemos recibido time por NTP o han pasado NTPUPDATEINTERVAL minutos
-  // desde la ultima sincronizacion -> actualizamos time del sistema con el del servidor NTP
   flagV = OFF;
 }
 

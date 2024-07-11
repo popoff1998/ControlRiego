@@ -131,7 +131,7 @@
   #define I2C_CLOCK_SPEED     400000  // frecuencia del bus I2C en Hz (default 100000)
   #define LCD2004_address     0x27    // direccion bus I2C de la pantalla LCD
   #define ROTARY_ENCODER_STEPS 4      // TODO documentar
-  #define MAX_ESP32_TEMP      70      // max temp. ESP32 para mostrar aviso
+  #define MAX_ESP32_TEMP      80      // max temp. ESP32 para mostrar aviso (con wifi funciona mal)
   #define TEMP_OFFSET         0       // correccion temperatura sensor local
 
  //----------------  dependientes del HW   ----------------------------------------
@@ -393,6 +393,7 @@
     int   tempOffset = TEMP_OFFSET;             // correccion temperatura sensor local DHTxx 
     int   msgdisplaymillis = MSGDISPLAYMILLIS;  // tiempo que se muestran mensajes (mseg.) 
     bool mute = OFF;                            // sonidos activos
+    bool showwifilevel = OFF;                   // muestra en standby nivel de la señal wifi
   };
 
   // estructura del multirriego activo 
@@ -573,7 +574,7 @@
   void blinkPause(void);
   void check(void);
   void checkTemp(void);
-  bool checkWifi(void);
+  int  checkWifi(bool level=false);
   void cleanFS(void);
   bool copyConfigFile(const char*, const char*);
   void debugloops(void);

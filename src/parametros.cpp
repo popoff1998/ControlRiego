@@ -80,6 +80,7 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
   config.tempOffset = doc["tempOffset"] | TEMP_OFFSET; 
   config.msgdisplaymillis = doc["msgdisplaymillis"] | MSGDISPLAYMILLIS; 
   config.mute = doc["mute"] | false; 
+  config.showwifilevel = doc["showwifilevel"] | false; 
   //-------------------------------------------------------------------------------------------
   file.close();
   LittleFS.end();
@@ -134,6 +135,7 @@ bool saveConfigFile(const char *p_filename, Config_parm &config)
   doc["tempOffset"]         = config.tempOffset; 
   doc["msgdisplaymillis"]   = config.msgdisplaymillis; 
   doc["mute"]               = config.mute;
+  doc["showwifilevel"]      = config.showwifilevel;
 
   // Serialize JSON to file
   #ifdef EXTRADEBUG 
@@ -230,6 +232,7 @@ void printParms(Config_parm &config) {
   Serial.printf("\ttempOffset= %d \n", config.tempOffset);
   Serial.printf("\tmsgdisplaymillis= %d \n", config.msgdisplaymillis);
   Serial.printf("\tmute= %d \n", config.mute);
+  Serial.printf("\tshowwifilevel= %d \n", config.showwifilevel);
   Serial.println("----------------------------------------------------------------");
 }
 
