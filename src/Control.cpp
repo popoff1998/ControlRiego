@@ -100,6 +100,7 @@ void setup()
   initFactorRiegos();
   //Estado final en funcion de la conexion
   setupEstado();
+  if(Estado.error==NOERROR) bipOK();
   //Llamo a parseInputs CLEAR para eliminar prepulsaciones antes del bucle loop
   parseInputs(CLEAR);
   //lanzamos supervision periodica estado cada VERIFY_INTERVAL seg.
@@ -352,6 +353,7 @@ void procesaBotonPause(void)
                 lcd.clear();
                 if (!checkWifi()) wifiReconnect();
                 initFactorRiegos();
+                setupEstado();
                 if(VERIFY && Estado.estado != ERROR) stopAllRiego(); //verificamos operativa OFF para los IDX's 
             }
             else {
@@ -862,7 +864,7 @@ void initFactorRiegos()
     factorRiegos[i] = factorR;
     if (strlen(descDomoticz)) {
       // si xNAME true, actualizamos en config la DESCRIPCION con la recibida del Domoticz (campo Name)
-      if (xNAME) {
+      if (config.xname) {
         strlcpy(config.zona[i].desc, descDomoticz, sizeof(config.zona[i].desc));
         //strlcpy(Boton[bIndex].desc, descDomoticz, sizeof(Boton[bIndex].desc));
         LOG_INFO("\t descripcion ZONA", i+1, "actualizada en config");
@@ -1608,6 +1610,7 @@ void Verificaciones()
       LOG_INFO("Wifi conectada despues Setup, leemos factor riegos");
       falloAP = false;
       initFactorRiegos(); //esta funcion ya dejara el estado correspondiente
+      setupEstado();
     }
   }
   flagV = OFF;

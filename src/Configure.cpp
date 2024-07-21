@@ -141,7 +141,8 @@ void Configure::Range_process_end()
 {
       *configValuep = tm.value;
       saveConfig = true;
-      
+      ledYellow(ON);
+
       LOG_INFO("Save new value:", *configValuep);
       lcd.info("guardado nuevo valor",2);
       lcd.clear(BORRA2H);
@@ -322,12 +323,14 @@ int Configure::showMenu(int opcion)
           "correccion TEMP.",   // 10 
           "tiempo MENSAJES",    // 11
           "NIVEL wifi on/off",  // 12
+          "XNAME on/off",       // 13
           "-----------------"   // - 
          /*-----------------*/ 
       };
-      opcionesMenuConf[5] = (config.mute ?  "MUTE ON->OFF" : "MUTE OFF->ON");
+      opcionesMenuConf[5] = (config.mute ?  "MUTE: ON" : "MUTE: OFF");
       opcionesMenuConf[7] =  "ESP32 temp: " + String((int)temperatureRead()) + "/" + config.warnESP32temp;
-      opcionesMenuConf[12] = (config.showwifilevel ?  "NIVEL wifi-> OFF" : "NIVEL wifi-> ON");
+      opcionesMenuConf[12] = (config.showwifilevel ?  "NIVEL wifi: ON" : "NIVEL wifi: OFF");
+      opcionesMenuConf[13] = (config.xname ?  "XNAME: ON" : "XNAME: OFF");
 
 
       const int MAXOPCIONES = sizeof(opcionesMenuConf)/sizeof(opcionesMenuConf[0]);
@@ -387,9 +390,9 @@ void Configure::procesaSelectMenu()
   #endif 
         case 5 :   // toggle MUTE
                 config.mute = !config.mute;
-                config.mute ? lcd.infoclear("     MUTE ON",2) : lcd.infoclear("     MUTE OFF",2);
+                //config.mute ? lcd.infoclear("     MUTE ON",2) : lcd.infoclear("     MUTE OFF",2);
                 bip(2);
-                delay(config.msgdisplaymillis);
+                //delay(config.msgdisplaymillis);
                 saveConfig = true;
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break; 
@@ -432,12 +435,20 @@ void Configure::procesaSelectMenu()
                 break;
         case 12 :   // toggle display nivel señal wifi
                 config.showwifilevel = !config.showwifilevel;
-                config.showwifilevel ? lcd.infoclear("show wifi level ON",2) : lcd.infoclear("show wifi level OFF",2);
+                //config.showwifilevel ? lcd.infoclear("show wifi level ON",2) : lcd.infoclear("show wifi level OFF",2);
                 bip(2);
-                delay(config.msgdisplaymillis);
+                //delay(config.msgdisplaymillis);
                 saveConfig = true;
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break; 
+        case 13 :   // toggle actualizar nombres zonas con los del Domoticz
+                config.xname = !config.xname;
+                //config.xname ? lcd.infoclear("show XNAME ON",2) : lcd.infoclear("show XNAME OFF",2);
+                bip(2);
+                //delay(config.msgdisplaymillis);
+                saveConfig = true;
+                this->menu();  // vuelve a mostrar menu de configuracion
+                break;
         default:         
                 LOG_DEBUG("salimos del CASE del MENU sin realizar accion");
       }

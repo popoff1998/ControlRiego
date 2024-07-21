@@ -94,10 +94,10 @@
        
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.0.12"
+                            #define VERSION  "3.1-RC1"
   //-------------------------------------------------------------------------------------
 
-  #define xNAME true //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
+  #define xNAME false //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
 
   //Comportamiento General
   #ifdef RELEASE
@@ -394,6 +394,7 @@
     int   msgdisplaymillis = MSGDISPLAYMILLIS;  // tiempo que se muestran mensajes (mseg.) 
     bool mute = OFF;                            // sonidos activos
     bool showwifilevel = OFF;                   // muestra en standby nivel de la señal wifi
+    bool xname = xNAME;                         // actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
   };
 
   // estructura del multirriego activo 

@@ -81,6 +81,7 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
   config.msgdisplaymillis = doc["msgdisplaymillis"] | MSGDISPLAYMILLIS; 
   config.mute = doc["mute"] | false; 
   config.showwifilevel = doc["showwifilevel"] | false; 
+  config.xname = doc["xname"] | false;
   //-------------------------------------------------------------------------------------------
   file.close();
   LittleFS.end();
@@ -136,6 +137,7 @@ bool saveConfigFile(const char *p_filename, Config_parm &config)
   doc["msgdisplaymillis"]   = config.msgdisplaymillis; 
   doc["mute"]               = config.mute;
   doc["showwifilevel"]      = config.showwifilevel;
+  doc["xname"]              = config.xname;
 
   // Serialize JSON to file
   #ifdef EXTRADEBUG 
