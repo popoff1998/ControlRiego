@@ -302,13 +302,14 @@ protected:
       LOG_INFO("[WS] HTTPUpdateServer ready!");
       Serial.printf("[WS]    --> Open http://%s.local:%d%s in your browser and login with username '%s' and password '%s'\n\n", WiFi.getHostname(), WSPORT, update_path, update_username, update_password);
       TRACE2("hostname=%s\n", WiFi.getHostname());
+      TRACE2("IP=%s\n", WiFi.localIP().toString());
       LOG_INFO("[ConF][WS] activado webserver para actualizaciones OTA de SW o filesystem");
       lcd.infoclear("OTA Webserver act", DEFAULTBLINK, BIPOK);
       snprintf(buff, MAXBUFF, "\"%s.local:%d\"", WiFi.getHostname(), WSPORT);
       lcd.info(buff, 3);
       snprintf(buff, MAXBUFF, "%s:%d" , WiFi.localIP().toString(), WSPORT);
       lcd.info(buff,4);
-      delay(config.msgdisplaymillis);
+      //delay(config.msgdisplaymillis);
    }
 
    void procesaWebServer()

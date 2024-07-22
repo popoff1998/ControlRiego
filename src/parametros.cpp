@@ -235,6 +235,7 @@ void printParms(Config_parm &config) {
   Serial.printf("\tmsgdisplaymillis= %d \n", config.msgdisplaymillis);
   Serial.printf("\tmute= %d \n", config.mute);
   Serial.printf("\tshowwifilevel= %d \n", config.showwifilevel);
+  Serial.printf("\txname= %d \n", config.xname);
   Serial.println("----------------------------------------------------------------");
 }
 

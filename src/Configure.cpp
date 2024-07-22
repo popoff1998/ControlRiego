@@ -325,10 +325,15 @@ int Configure::showMenu(int opcion)
           "NIVEL wifi on/off",  // 12
           "XNAME on/off",       // 13
           "-----------------"   // - 
-         /*-----------------*/ 
+         /*-------17--------*/ 
       };
+      //opcionesMenuConf[1] =  "dflt TIME: " + String(config.minutes) + ":" + String(config.seconds);
       opcionesMenuConf[5] = (config.mute ?  "MUTE: ON" : "MUTE: OFF");
-      opcionesMenuConf[7] =  "ESP32 temp: " + String((int)temperatureRead()) + "/" + config.warnESP32temp;
+      opcionesMenuConf[7] =  "ESP32 temp: " + String((int)temperatureRead()) + "/" + String(config.warnESP32temp);
+      opcionesMenuConf[8] =  "led DIMM lvl: " + String(config.dimmlevel);
+      opcionesMenuConf[9] =  "led MAX lvl: " + String(config.maxledlevel);
+      opcionesMenuConf[10] =  "TEMP adj.: " + String((float)config.tempOffset/2);
+      opcionesMenuConf[11] =  "MSG time: " + String(config.msgdisplaymillis);
       opcionesMenuConf[12] = (config.showwifilevel ?  "NIVEL wifi: ON" : "NIVEL wifi: OFF");
       opcionesMenuConf[13] = (config.xname ?  "XNAME: ON" : "XNAME: OFF");
 

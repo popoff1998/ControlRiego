@@ -100,7 +100,7 @@ void setup()
   initFactorRiegos();
   //Estado final en funcion de la conexion
   setupEstado();
-  if(Estado.error==NOERROR) bipOK();
+  if(Estado.estado==STANDBY) bipOK();
   //Llamo a parseInputs CLEAR para eliminar prepulsaciones antes del bucle loop
   parseInputs(CLEAR);
   //lanzamos supervision periodica estado cada VERIFY_INTERVAL seg.
