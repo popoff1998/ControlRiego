@@ -1385,6 +1385,7 @@ int getFactor(uint16_t idx)
   // si el IDX es 0 devolvemos 0 sin procesarlo (boton no asignado)
   if(idx == 0) return 0;
   factorRiegosOK = false;
+  strcpy(descDomoticz, "");
   if(!checkWifi()) {
     if(NONETWORK) return 999; //si estamos en modo NONETWORK devolvemos 999 y no damos error
     else {
@@ -1435,10 +1436,8 @@ int getFactor(uint16_t idx)
       return 100;
     }
   }
-  #ifdef xNAME
-    //extraemos la DESCRIPCION para ese boton en Domoticz del json (campo Name)
-    strlcpy(descDomoticz, jsondoc["result"][0]["Name"] | "", sizeof(descDomoticz));
-  #endif  
+  //extraemos la DESCRIPCION para ese boton en Domoticz del json (campo Name)
+  strlcpy(descDomoticz, jsondoc["result"][0]["Name"] | "", sizeof(descDomoticz));
   //si hemos leido correctamente (numero, campo vacio o solo con comentarios)
   //consideramos leido OK el factor riego. En los dos ultimos casos se
   //devuelve valor por defecto 100.
