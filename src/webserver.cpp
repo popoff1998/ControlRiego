@@ -307,9 +307,9 @@ protected:
       lcd.infoclear("OTA Webserver act", DEFAULTBLINK, BIPOK);
       snprintf(buff, MAXBUFF, "\"%s.local:%d\"", WiFi.getHostname(), WSPORT);
       lcd.info(buff, 3);
-      IPAddress ip = WiFi.localIP();
-      //int msgl = snprintf(buff, MAXBUFF, "%s:%d" , WiFi.localIP().toString(), WSPORT);
-      int msgl = snprintf(buff, MAXBUFF, "%d.%d.%d.%d:%d", ip[0], ip[1], ip[2], ip[3], WSPORT);
+      int msgl = snprintf(buff, MAXBUFF, "%s:%d" , WiFi.localIP().toString().c_str(), WSPORT);
+      // IPAddress ip = WiFi.localIP();
+      // int msgl = snprintf(buff, MAXBUFF, "%d.%d.%d.%d:%d", ip[0], ip[1], ip[2], ip[3], WSPORT);
       lcd.info(buff, 4, msgl);
    }
 

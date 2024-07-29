@@ -415,7 +415,7 @@ void procesaBotonStop(void)
         return; 
       }
       lcd.infoclear("STOP riegos OK", DEFAULTBLINK, BIP, 0);
-      setEstado(STOP);
+      setEstado(STOP,1);
       resetFlags();
     }
     if (Estado.estado == STANDBY) { //Lo hemos pulsado en standby
@@ -428,10 +428,13 @@ void procesaBotonStop(void)
       }
       else {      // seguro antinenes
           // apagar leds y parar riegos (por si riego activado externamente)
+          reposoOFF();
+          lcd.infoclear("Parando riegos", 1, BIP, 6);
           if (!stopAllRiego()) {   //error al parar riegos
             boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
             return; 
           }
+          lcd.infoclear("STOP riegos OK", DEFAULTBLINK, BIP, 0);
           setEstado(STOP,1);
           reposo = true; //pasamos directamente a reposo
           dimmerLeds(ON);
