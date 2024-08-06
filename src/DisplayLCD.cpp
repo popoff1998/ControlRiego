@@ -48,6 +48,10 @@ void DisplayLCD::initLCD() {
   print("Ardomo Aqua");
   setCursor(0, 2);
   print("Inicializando");
+  #ifdef DEVELOP
+    setCursor(0, 3);
+    print("(dev)");
+  #endif
   int longitud = strlen(VERSION);
   setCursor(LCDMAXLEN-(longitud+1), 3);
   print("v" VERSION);
@@ -79,21 +83,18 @@ void DisplayLCD::clear(int mitad)
 
 void DisplayLCD::setCursor(uint8_t col, uint8_t row)
 {
-  //LOG_TRACE(col,row);
   lcdDisp.setCursor(col, row);
 }
 
 
 void DisplayLCD::displayON()
 {
-  //LOG_TRACE("[LCD] ");
   lcdDisp.display();
   _displayOff = false;
 }
 
 void DisplayLCD::displayOFF()
 {
-  //LOG_TRACE("[LCD] ");
   lcdDisp.noDisplay();
   _displayOff = true;
 }
@@ -107,6 +108,14 @@ void DisplayLCD::setBacklight(bool value)				// alias for backlight() and noback
 void DisplayLCD::print(const char * text) {
   LOG_TRACE("[LCD] recibido: '",text,"'");
   lcdDisp.print(text);
+}
+
+void DisplayLCD::print(const String &s) {
+  lcdDisp.print(s);
+}
+
+void DisplayLCD::print(const int numero) {
+  lcdDisp.print(numero);
 }
 
 /* 
@@ -140,21 +149,30 @@ void DisplayLCD::blinkLCD(int veces) //parpadea contenido actual de la pantalla 
 
 void DisplayLCD::infoEstado(const char *estado, const char *zona) {
     LOG_DEBUG("[LCD]  Recibido: ", estado, zona);
-    //displayON();   // por si estuviera noDisplay por PAUSE
     setCursor(0, 0);
     lcdDisp.print(_blankline);
     setCursor(0, 0);
     lcdDisp.print(estado);
     setCursor(11, 0);
-    lcdDisp.print(zona);
+    int size = strlen(zona);
+    char infocut[10];
+    if(size>9) {
+      LOG_DEBUG("* zona recibido de longitud =",size);
+      strlcpy(infocut, zona, sizeof(infocut)); 
+      LOG_DEBUG("* nombre zona (infocut) acortado a =",infocut);
+      lcdDisp.print(infocut);
+    }
+    else lcdDisp.print(zona);  
+    //lcdDisp.print(zona);  
 }    
 
 // muestra info (hasta un maximo de 20 caracteres) en la linea pasada (1, 2 ,3 o 4)
 void DisplayLCD::info(const char* info, int line) {
     int size = strlen(info);
     char infocut[MAXBUFF];
-    if(size>MAXBUFF) {
-      strlcpy(infocut, info, MAXBUFF); 
+    if(size>MAXBUFF-1) {
+      LOG_DEBUG("*info recibido de longitud =",size);
+      strlcpy(infocut, info, sizeof(infocut)); 
       lcd.info(infocut, line, size);
     }  
     else lcd.info(info, line, size);
@@ -185,16 +203,30 @@ void DisplayLCD::infoclear(const char *info, int line) {
 void DisplayLCD::infoclear(const char *info, int dnum, int btype, int bnum) {
     LOG_DEBUG("[LCD]  Recibido: '",info, "'   (blink=",dnum, ") btype=",btype,"bnum=",bnum);
     clear();
-    //String texto = info;
-    //if(texto=="StoP" || texto=="STOP") setCursor(7,1);
-    //else setCursor(0, 0);
-    setCursor(0, 0);
+    if(info=="STOP") setCursor(8,1);
+    else setCursor(0, 0);
     lcdDisp.print(info);
       if (btype == LONGBIP) longbip(bnum);
+      if (btype == LOWBIP) lowbip(bnum);
       if (btype == BIP) bip(bnum);
       if (btype == BIPOK) bipOK();
       if (btype == BIPKO) bipKO();
     if(dnum) lcd.blinkLCD(dnum);
+}
+
+void DisplayLCD::displayTemp(int temperature, int warnESP32temp) 
+{
+  LOG_DEBUG("temperatura recibida=",temperature,"temp ESP32=",temperatureRead());
+  if(temperatureRead() > warnESP32temp) {   // aviso de temperatura excesiva del ESP32
+    setCursor(14, 0); print("!"); bip(2);
+    setCursor(15, 0); print(temperatureRead());
+  }
+  else {
+    setCursor(14, 0);
+    if (temperature == 999) print(" --");
+    else lcdDisp.printf(" %2d",temperature);
+  }  
+  setCursor(17, 0); print("\xDF" "C"); // xDF = caracter grado centigrado
 }
 
 void DisplayLCD::displayTime(uint8_t minute, uint8_t second, uint8_t col, uint8_t line) 

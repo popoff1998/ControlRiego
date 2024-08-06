@@ -1,5 +1,4 @@
 {
-  "numzonas": 8,	
   "botones": [
     {
       "zona": 1,
@@ -36,41 +35,42 @@
       "idx": 0,
       "nombre": "ZONA7"
     },
-	{
+    {
       "zona": 8,
       "idx": 0,
       "nombre": "ZONA8"
+    },
+	{
+      "zona": 9,
+      "idx": 0,
+      "nombre": "ZONA9"
     }
-
   ],
-  "tiempo" : {
-    "minutos": 0,
-    "segundos": 10
-    },
-  "domoticz" : {	
-    "ip": "192.168.xxx.xxx",
-    "port": "xxxx"
-    },
-  "ntpServer": "es.pool.ntp.org",
-  "numgroups": 3,
   "grupos": [
     {
       "grupo": 1,
       "desc": "GRUPO1",
-      "size": 1,
       "zonas": [1]
     },
     {
       "grupo": 2,
       "desc": "GRUPO2",
-      "size": 1,
       "zonas": [2]
     },
     {
       "grupo": 3,
       "desc": "GRUPO3",
-      "size": 1,
       "zonas": [3]
+    },
+    {
+      "grupo": 4,
+      "desc": "GRUPO4",
+      "zonas": [4]
     }
-  ]  
+  ],  
+  "domoticz" : {	
+    "ip": "192.168.xxx.xxx",
+    "port": "xxxx"
+    },
+  "ntpServer": "es.pool.ntp.org"
 }

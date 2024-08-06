@@ -1,7 +1,10 @@
 PENDIENTES
 ==========
 - boton Pause reflejado en Domoticz (en ambos sentidos)
-- Si estado REGANDO tiempo de riego restante reflejado en Domoticz
+- webserver: opcion descarga fichero parametros a PC
+- display temperatura en STANDBY (sensor externo)
+- Menu configuracion: rangos ajustables sobre linea del menu
+- añadido/ baja zonas durante el riego (¿como grupo temporal?)
 
 HECHOS
 ======
@@ -49,4 +52,21 @@ HECHOS
 - adaptacion para ESP32 y expansores I/O MCP23017
 - cambio libreria encoder por una que soporta interrupciones
 - sustitucion display led de 7 segmentos por pantalla LCD de 20 caracteres x 4 lineas (bus I2C)
+- opciones de inicio por pantalla (borrar wifi o cargar parametros defecto) V3.1
+- ampliacion a 9 zonas / 4 grupos V3.0.2 (botones PAUSE y STOP conectados a mcpO ) V3.1
+- opcion de compilacion para 4 botones de grupos o selector 3 grupos con boton de multirriego V3.1
+- leds de RED y de WIFI fusionados en led STATUS RGB V3.1
+- muestra dia/mes al mostrar hora actual. Sincronizacion del time por NTP cada 10 horas V3.1
+- Opciones en modo configuracion por menu en pantalla, opcion MUTE V3.1
+- pseudogrupo riego temporal V3.1
+- refactoring  de procesaEstadoConfigurando y clase Configure  V3.1
+- tiempo finalizacion en tabla ultimos riegos zonas. Display al mostrar factor riego de zona V3.1
+- en multirriego se muestran en display zonas que restan por regar en lugar de nombre del grupo V3.1
+- display temperatura ambiente en STANDBY (sensor propio) V3.1
+- aviso temperatura alta ESP32 (configurable) V3.1
+- más parametros configurables: MAXLEDLEVEL y DIMMLEVEL (led RGB), TEMP_OFFSET, MSGDISPLAYMILLIS V3.1
+- migrado a Json V7. Eliminado parm tamaño del grupo del fichero de configuracion V3.1
+- configurando grupo, enc+pause vacia grupo V3.1
+- simplificacion y tratamiento errores del fichero de configuracion V3.1
+- mas parametros configurables: display nivel señal wifi, XNAME V3.1
 
