@@ -1396,7 +1396,7 @@ int getFactor(uint16_t idx)
       return 100;
     }
   }
-  char JSONMSG[200]="/json.htm?type=devices&rid=%d";
+  char JSONMSG[200]="/json.htm?type=command&param=getdevices&rid=%d";
   char message[250];
   sprintf(message,JSONMSG,idx);
   String response = httpGetDomoticz(message);
@@ -1464,7 +1464,7 @@ float getTemperatureDomoticz(uint16_t idx)
   // si el IDX es 0 devolvemos 999 sin procesarlo (sensor no asignado)
   if(idx == 0) return 999;
   if(!checkWifi()) return 999; //si no hay conexion devolvemos 999 y no damos error
-  char JSONMSG[200]="/json.htm?type=devices&rid=%d";
+  char JSONMSG[200]="/json.htm?type=command&param=getdevices&rid=%d";
   char message[250];
   sprintf(message,JSONMSG,idx);
   String response = httpGetDomoticz(message);
@@ -1518,7 +1518,7 @@ bool queryStatus(uint16_t idx, char *status)
       return false;
     }
   }
-  char JSONMSG[200]="/json.htm?type=devices&rid=%d";
+  char JSONMSG[200]="/json.htm?type=command&param=getdevices&rid=%d";
   char message[250];
   sprintf(message,JSONMSG,idx);
   String response = httpGetDomoticz(message);
