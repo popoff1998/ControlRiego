@@ -361,6 +361,7 @@ void procesaBotonPause(void)
                 LOG_INFO("encoderSW+PAUSE pasamos a modo NONETWORK (DEMO)");
                 bip(2);
                 ledPWM(LEDB,ON);
+                displayDemo();
             }
           }
           else {    // muestra hora y ultimos riegos
@@ -708,8 +709,9 @@ void procesaEstadoTerminando(void)
       lcd.info("multirriego",1);
       int msgl = snprintf(buff, MAXBUFF, "%s finalizado", multi.desc);
       lcd.info(buff, 2, msgl);
-      longbip(3);
       resetFlags();
+      //longbip(3);
+      bipFIN(3);
       LOG_INFO("MULTIRRIEGO", multi.desc, "terminado");
       delay(config.msgdisplaymillis*3);
       //lcd.info("", 2);
@@ -792,7 +794,8 @@ void setEstado(uint8_t estado, int bnum)
   else lcd.print("   ");
   Estado.tipo = LOCAL;
   if((estado==REGANDO || estado==TERMINANDO ) && ultimoBotonZona != NULL) {
-    lcd.infoEstado(nEstado[estado], config.zona[ultimoBotonZona->znumber-1].desc); 
+    lcd.infoEstado(nEstado[estado], config.zona[ultimoBotonZona->znumber-1].desc);
+    if(NONETWORK) displayDemo(); 
     return;
   }
   if(estado==PAUSE) {
@@ -808,6 +811,7 @@ void setEstado(uint8_t estado, int bnum)
     }  
     if (tm.savedValue) tm.value = tm.savedValue;  // para que restaure reloj
     StaticTimeUpdate(REFRESH);
+    if(NONETWORK) displayDemo();
     standbyTime = millis();
     return;
   }
@@ -1263,7 +1267,7 @@ void longbip(int veces)
 {
   LOG_TRACE("LONGBIP ", veces);
   for (int i=0; i<veces;i++) {
-    mitone(BUZZER, NOTE_A6, 750);
+    mitone(BUZZER, NOTE_A5, 750);
     mitone(BUZZER, 0, 100);
   }
 }
@@ -1293,6 +1297,15 @@ void bipKO() {
   for (int thisNote = 0; thisNote < bipKO_num; thisNote++) {
     beep(bipKO_melody[thisNote], bipKO_duration);
   }
+}
+
+void bipFIN(int veces) {
+  for (int i=0; i<veces;i++) {
+    LOG_TRACE("bipFIN bipFIN_num=", bipFIN_num);
+    for (int thisNote = 0; thisNote < bipFIN_num; thisNote++) {
+      beep(bipFIN_melody[thisNote], bipFIN_duration);
+    }
+  }  
 }
 
 void blinkPause()
@@ -1691,6 +1704,11 @@ void showTemp() {
       LOG_ERROR("Read temperature sensor failed");
       lcd.displayTemp(999, config.warnESP32temp);  // borra temperatura del display 
     }
+}
+
+void displayDemo () {
+    lcd.setCursor(0,2);
+    lcd.print("(DEMO)"); 
 }
 
 /**---------------------------------------------------------------

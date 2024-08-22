@@ -115,7 +115,7 @@
   #define STANDBYSECS         30      // tiempo en segundos para pasar a reposo desde standby (apagar pantalla y atenuar leds)
   #define NTPUPDATEINTERVAL   600     // tiempo en minutos para resincronizar el reloj del sistema con el servidor NTP
   #define RECONNECTINTERVAL   1       // tiempo en minutos para intentar reconexion a la wifi
-  #define DEFAULTBLINK        5       // numero de parpadeos de la pantalla
+  #define DEFAULTBLINK        4       // numero de parpadeos de la pantalla
   #define DEFAULTBLINKMILLIS  500     // mseg entre parpadeo de la pantalla
   #define MSGDISPLAYMILLIS    1000    // mseg se mantienen mensajes informativos
   #define MINMINUTES          0       // minimo de minutos ajustables en el temporizador
@@ -193,6 +193,7 @@
     BIP,
     BIPOK,
     BIPKO,
+    BIPFIN,
   };
 
   enum _estados {
@@ -562,6 +563,11 @@
     const int bipKO_num = sizeof(bipKO_melody)/sizeof(bipKO_melody[0]); // numero de notas en la melodia
     int bipKO_duration = 120;  // duracion de cada tono en mseg.
  
+    // bipFIN notes in the melody:
+    int bipFIN_melody[] = { NOTE_C6, NOTE_E6, NOTE_G6, NOTE_F6, NOTE_G6, NOTE_B6, NOTE_C7 };
+    const int bipFIN_num = sizeof(bipFIN_melody)/sizeof(bipFIN_melody[0]); // numero de notas en la melodia
+    int bipFIN_duration = 60;  // duracion de cada tono en mseg.
+ 
     #ifdef TEMPLOCAL 
       DHT dht(DHTPIN, TEMPLOCAL);
     #endif
@@ -574,6 +580,7 @@
   void bip(int);
   void bipOK(void);
   void bipKO(void);
+  void bipFIN(int);
   int  bID2bIndex(uint16_t);
   void blinkPause(void);
   void check(void);
@@ -583,6 +590,7 @@
   bool copyConfigFile(const char*, const char*);
   void debugloops(void);
   void dimmerLeds(bool);
+  void displayDemo(void);
   void displayGrupo(uint16_t *, int);
   void displayLCDGrupo(uint16_t *, int, int line=4, int start=0);
   void displayTimer(uint8_t, uint8_t, uint8_t, uint8_t);

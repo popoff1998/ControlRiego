@@ -211,6 +211,7 @@ void DisplayLCD::infoclear(const char *info, int dnum, int btype, int bnum) {
       if (btype == BIP) bip(bnum);
       if (btype == BIPOK) bipOK();
       if (btype == BIPKO) bipKO();
+      if (btype == BIPFIN) bipFIN(bnum);
     if(dnum) lcd.blinkLCD(dnum);
 }
 

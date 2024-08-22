@@ -2,7 +2,6 @@ PENDIENTES
 ==========
 - boton Pause reflejado en Domoticz (en ambos sentidos)
 - webserver: opcion descarga fichero parametros a PC
-- display temperatura en STANDBY (sensor externo)
 - Menu configuracion: rangos ajustables sobre linea del menu
 - añadido/ baja zonas durante el riego (¿como grupo temporal?)
 
@@ -69,4 +68,8 @@ HECHOS
 - configurando grupo, enc+pause vacia grupo V3.1
 - simplificacion y tratamiento errores del fichero de configuracion V3.1
 - mas parametros configurables: display nivel señal wifi, XNAME V3.1
+- display temperatura sensor remoto en STANDBY (sensor externo Domoticz) V3.1.1
+- nuevo formato mandato comunicacion con Domoticz v3.1.1
+- indicacion modo demo (NONETWORK) en pantalla V3.1.1
+
 
