@@ -94,7 +94,7 @@
        
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.1"
+                            #define VERSION  "3.1.1"
   //-------------------------------------------------------------------------------------
 
   #define xNAME false //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -132,7 +132,8 @@
   #define LCD2004_address     0x27    // direccion bus I2C de la pantalla LCD
   #define ROTARY_ENCODER_STEPS 4      // TODO documentar
   #define MAX_ESP32_TEMP      80      // max temp. ESP32 para mostrar aviso (con wifi funciona mal)
-  #define TEMP_OFFSET         0       // correccion temperatura sensor local
+  #define TEMP_OFFSET         0       // correccion temperatura sensor local o remoto
+  #define TEMP_DATA_REMOTE    0       // fuente del dato de temperatura 0=remota/1=local
 
  //----------------  dependientes del HW   ----------------------------------------
   #ifdef ESP32
@@ -391,6 +392,8 @@
     int   maxledlevel = MAXLEDLEVEL;            // nivel brillo maximo led RGB 
     int   dimmlevel = DIMMLEVEL;                // nivel atenuacion led RGB 
     int   tempOffset = TEMP_OFFSET;             // correccion temperatura sensor local DHTxx 
+    int   tempRemote = TEMP_DATA_REMOTE;        // si true obtiene temperatura via Domoticz
+    int   tempRemoteIdx = 0;                    // IDX del sensor remoto en Domoticz
     int   msgdisplaymillis = MSGDISPLAYMILLIS;  // tiempo que se muestran mensajes (mseg.) 
     bool mute = OFF;                            // sonidos activos
     bool showwifilevel = OFF;                   // muestra en standby nivel de la señal wifi
@@ -574,7 +577,7 @@
   int  bID2bIndex(uint16_t);
   void blinkPause(void);
   void check(void);
-  void checkTemp(void);
+  void showTemp(void);
   int  checkWifi(bool level=false);
   void cleanFS(void);
   bool copyConfigFile(const char*, const char*);
@@ -591,6 +594,7 @@
   void finalTimeLastRiego(S_timeRiego&, int);
   void flagVerificaciones(void);
   int  getFactor(uint16_t);
+  float getTemperatureDomoticz(uint16_t);
   uint16_t getMultiStatus(void);
   String *httpGetDomoticz(String *);
   void setClock(void);
@@ -645,6 +649,7 @@
   void procesaEstadoPause(void);
   void procesaWebServer(void);
   bool queryStatus(uint16_t, char *);
+  float readTemp();
   void refreshTime(void);
   void reposoOFF(void);
   void resetFlags(void);

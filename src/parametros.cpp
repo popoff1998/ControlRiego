@@ -78,6 +78,8 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
   config.maxledlevel = doc["ledRGB"]["maxledlevel"] | MAXLEDLEVEL; 
   config.dimmlevel = doc["ledRGB"]["dimmlevel"] | DIMMLEVEL; 
   config.tempOffset = doc["tempOffset"] | TEMP_OFFSET; 
+  config.tempRemote = doc["tempRemote"] | TEMP_DATA_REMOTE; 
+  config.tempRemoteIdx = doc["tempRemoteIdx"] | 0; 
   config.msgdisplaymillis = doc["msgdisplaymillis"] | MSGDISPLAYMILLIS; 
   config.mute = doc["mute"] | false; 
   config.showwifilevel = doc["showwifilevel"] | false; 
@@ -133,7 +135,9 @@ bool saveConfigFile(const char *p_filename, Config_parm &config)
   doc["warnESP32temp"]      = config.warnESP32temp; 
   doc["ledRGB"]["maxledlevel"]  = config.maxledlevel; 
   doc["ledRGB"]["dimmlevel"]    = config.dimmlevel; 
-  doc["tempOffset"]         = config.tempOffset; 
+  doc["tempOffset"]         = config.tempOffset;
+  doc["tempRemote"]         = config.tempRemote; 
+  doc["tempRemoteIdx"]      = config.tempRemoteIdx; 
   doc["msgdisplaymillis"]   = config.msgdisplaymillis; 
   doc["mute"]               = config.mute;
   doc["showwifilevel"]      = config.showwifilevel;

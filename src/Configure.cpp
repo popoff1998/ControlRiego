@@ -321,9 +321,11 @@ int Configure::showMenu(int opcion)
           "LED atenuacion",     // 8 
           "LED maximo brillo",  // 9 
           "correccion TEMP.",   // 10 
-          "tiempo MENSAJES",    // 11
-          "NIVEL wifi on/off",  // 12
-          "XNAME on/off",       // 13
+          "TEMP local/remota",  // 11 
+          "remote TEMP IDX",    // 12 
+          "tiempo MENSAJES",    // 13
+          "NIVEL wifi on/off",  // 14
+          "XNAME on/off",       // 15
           "-----------------"   // - 
          /*-------17--------*/ 
       };
@@ -333,9 +335,11 @@ int Configure::showMenu(int opcion)
       opcionesMenuConf[8] =  "led DIMM lvl: " + String(config.dimmlevel);
       opcionesMenuConf[9] =  "led MAX lvl: " + String(config.maxledlevel);
       opcionesMenuConf[10] =  "TEMP adj.: " + String((float)config.tempOffset/2);
-      opcionesMenuConf[11] =  "MSG time: " + String(config.msgdisplaymillis);
-      opcionesMenuConf[12] = (config.showwifilevel ?  "NIVEL wifi: ON" : "NIVEL wifi: OFF");
-      opcionesMenuConf[13] = (config.xname ?  "XNAME: ON" : "XNAME: OFF");
+      opcionesMenuConf[11] = (config.tempRemote ?  "TEMP: REM. " : "TEMP: LOCAL ") + (readTemp()==999 ? "--" : String(readTemp()));
+      opcionesMenuConf[12] =  "rem TEMP IDX:" + String(config.tempRemoteIdx);
+      opcionesMenuConf[13] =  "MSG time: " + String(config.msgdisplaymillis);
+      opcionesMenuConf[14] = (config.showwifilevel ?  "NIVEL wifi: ON" : "NIVEL wifi: OFF");
+      opcionesMenuConf[15] = (config.xname ?  "XNAME: ON" : "XNAME: OFF");
 
 
       const int MAXOPCIONES = sizeof(opcionesMenuConf)/sizeof(opcionesMenuConf[0]);
@@ -433,12 +437,29 @@ void Configure::procesaSelectMenu()
                 configValuep = &config.tempOffset;  
                 this->Range_process_start(-5, 5);   
                 break;
-        case 11 :     //configuramos tiempo que se muestran los mensajes (en milisegundos)
+        case 11 :   // toggle temperatura mostrada (sensor local o remoto)
+                config.tempRemote = !config.tempRemote;
+                if(readTemp()==999) { // si no esta disponible no dejamos cambiar
+                  config.tempRemote = !config.tempRemote;
+                  bipKO();
+                }
+                else {
+                  bip(2);
+                  saveConfig = true;
+                }
+                this->menu();  // vuelve a mostrar menu de configuracion
+                break; 
+        case 12 :     //configuramos IDX del sensor de temperatura remoto en el Domotiz
+                snprintf(buff, MAXBUFF, "IDX sensor temp ext.");
+                configValuep = &config.tempRemoteIdx;  
+                this->Range_process_start(0, 999, 100); // 0 = no definido  
+                break;
+        case 13 :     //configuramos tiempo que se muestran los mensajes (en milisegundos)
                 snprintf(buff, MAXBUFF, "TIEMPO mensajes (ms)");
                 configValuep = &config.msgdisplaymillis;  
                 this->Range_process_start(1000, 4000, 500);   
                 break;
-        case 12 :   // toggle display nivel señal wifi
+        case 14 :   // toggle display nivel señal wifi
                 config.showwifilevel = !config.showwifilevel;
                 //config.showwifilevel ? lcd.infoclear("show wifi level ON",2) : lcd.infoclear("show wifi level OFF",2);
                 bip(2);
@@ -446,7 +467,7 @@ void Configure::procesaSelectMenu()
                 saveConfig = true;
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break; 
-        case 13 :   // toggle actualizar nombres zonas con los del Domoticz
+        case 15 :   // toggle actualizar nombres zonas con los del Domoticz
                 config.xname = !config.xname;
                 //config.xname ? lcd.infoclear("show XNAME ON",2) : lcd.infoclear("show XNAME OFF",2);
                 bip(2);

@@ -804,7 +804,7 @@ void setEstado(uint8_t estado, int bnum)
     setEncoderTime();
     if(!multi.riegoON && !multi.temporal) {
       lcd.infoclear("STANDBY",NOBLINK,BIP,bnum);
-      checkTemp();
+      showTemp();
     }  
     if (tm.savedValue) tm.value = tm.savedValue;  // para que restaure reloj
     StaticTimeUpdate(REFRESH);
@@ -1454,6 +1454,49 @@ int getFactor(uint16_t idx)
   return (int)factor;
 }
 
+
+/**---------------------------------------------------------------
+ * lee datos de temperatura y humedad del sensor definido en Domoticz
+ */
+float getTemperatureDomoticz(uint16_t idx)
+{
+  LOG_TRACE("sensor temp IDX: ", idx);
+  // si el IDX es 0 devolvemos 999 sin procesarlo (sensor no asignado)
+  if(idx == 0) return 999;
+  if(!checkWifi()) return 999; //si no hay conexion devolvemos 999 y no damos error
+  char JSONMSG[200]="/json.htm?type=devices&rid=%d";
+  char message[250];
+  sprintf(message,JSONMSG,idx);
+  String response = httpGetDomoticz(message);
+  //procesamos la respuesta para ver si se ha producido error:
+  if (response.startsWith("Err")) {
+    LOG_WARN("getTemperatureDomoticz IDX: ", idx, " [HTTP] GET... failed\n");
+    return 999;
+  }
+  /* Teoricamente ya tenemos en response el JSON, lo procesamos
+     Si el IDX no existe Domoticz no devuelve error, asi que hay que controlarlo
+  */
+  char* response_pointer = &response[0];
+  JsonDocument jsondoc;
+  DeserializationError error = deserializeJson(jsondoc, response_pointer);
+  if (error) {
+    LOG_ERROR(" ** [ERROR] deserializeJson() failed: ", error.c_str());
+    return 999;
+  }
+  //Tenemos que controlar para que no resetee en caso de no haber leido por un rid malo
+  const char *datastr = jsondoc["result"][0]["Data"];
+  if(datastr == NULL) {
+    //El rid (idx) no esta definido en el Domoticz
+    LOG_WARN("El idx", idx, " no se ha podido leer del JSON");
+    return 999;
+  }
+  else LOG_INFO(datastr);
+  //devolvemos la temperatura del sensor en Domoticz del json (campo Temp)
+  float temp = jsondoc["result"][0]["Temp"] | 999.00; // si no existe devuel 999 (float)
+  LOG_INFO("devuelve temperatura =",temp);
+  return temp;
+}
+
 /**---------------------------------------------------------------
  * verifica status de la zona coincide con el pasado, devolviendo true en ese caso
  */
@@ -1584,7 +1627,7 @@ void Verificaciones()
         // en cualquier caso, si timeOK, no intentaremos volver a resincronizar hasta que haya pasado otro NTPUPDATEINTERVAL 
         NTPlastUpdate = millis(); 
       }
-      checkTemp();  // muestra temperatura ambiente en standby
+      showTemp();  // muestra temperatura ambiente en standby
   }   
   if (errorOFF) bip(2);  //recordatorio error grave al parar un riego
   //si estamos en Standby o en Error por falta de conexion verificamos estado actual de la wifi (no en modo NONETWORK)
@@ -1618,27 +1661,36 @@ void Verificaciones()
   flagV = OFF;
 }
 
-void checkTemp() {
+float readTemp() {
     float temperatura;
     float humedad;
-  #ifdef TEMPLOCAL   // temperatura ambiente del sensor local
-    temperatura = dht.readTemperature();
-    humedad = dht.readHumidity();
-    //float temp_sense = dht.computeHeatIndex(false); // false para calculo en grados centigrados
-    (isnan(temperatura) || isnan(humedad)) ? tempOK=false : tempOK=true;
-    LOG_DEBUG("tempOK=",tempOK,"temperatura=",temperatura,"humedad=",humedad);
+    tempOK=false;
+    if(config.tempRemote) {
+      temperatura = getTemperatureDomoticz(config.tempRemoteIdx);
+      temperatura == 999 ? tempOK=false : tempOK=true;
+    }
+    else {
+      #ifdef TEMPLOCAL   // temperatura ambiente del sensor local
+        temperatura = dht.readTemperature();
+        humedad = dht.readHumidity();
+        //float temp_sense = dht.computeHeatIndex(false); // false para calculo en grados centigrados
+        (isnan(temperatura) || isnan(humedad)) ? tempOK=false : tempOK=true;
+      #endif
+    }
+    return temperatura;  
+}
+
+void showTemp() {
+    float temperatura = readTemp();
+    LOG_DEBUG("tempOK=",tempOK,"temperatura=",temperatura);
     temperatura = temperatura + ((float)config.tempOffset/2); // offset correccion de medio en medio grado
     LOG_DEBUG("temp OFFSET=",config.tempOffset,"temperatura corregida=",temperatura);
     int temp_round = (temperatura < 0 ? (temperatura - 0.5) : (temperatura + 0.5)); //redondeo al entero mas cercano
     if(tempOK) lcd.displayTemp(temp_round, config.warnESP32temp);
     else {
-      LOG_ERROR("Read DHT sensor failed, err=");
+      LOG_ERROR("Read temperature sensor failed");
       lcd.displayTemp(999, config.warnESP32temp);  // borra temperatura del display 
     }
-  #else  // temperatura del ESP32
-    temperatura = temperatureRead(); // temperatura del ESP32
-    if(temperatura > config.warnESP32temp) lcd.displayTemp(temperatura, config.warnESP32temp);
-  #endif
 }
 
 /**---------------------------------------------------------------
