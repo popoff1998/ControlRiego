@@ -663,10 +663,12 @@ void procesaEstadoRegando(void)
   int tiempoTerminado = T.Timer();
   if (T.TimeHasChanged()) refreshTime();
   if (tiempoTerminado == 0) setEstado(TERMINANDO);
-  else if(flagV && VERIFY && (!NONETWORK || simular.all_simFlags)) { // verificamos periodicamente que el riego sigue activo en Domoticz
+  // verificamos periodicamente que el riego sigue activo en Domoticz
+  else if(flagV && VERIFY && (!NONETWORK || simular.all_simFlags)) { 
+    ledID = ultimoBotonZona->led;
+    tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
     if(queryStatus(config.zona[ultimoBotonZona->znumber-1].idx, (char *)"On")) return;
     else {
-      ledID = ultimoBotonZona->led;
       if(Estado.error == NOERROR) { //riego zona parado: entramos en PAUSE y blink lento zona pausada remotamente 
         T.PauseTimer();
         tic_parpadeoLedZona.attach(0.8, parpadeoLedZona, ledID);
@@ -674,12 +676,14 @@ void procesaEstadoRegando(void)
         Estado.tipo = REMOTO;
         setEstado(PAUSE,1);
       }
-      else {
-        statusError(Estado.error); // si no hemos podido verificar estado, señalamos el error
-        tic_parpadeoLedError.attach(0.2,parpadeoLedError);
+      else {  // si no hemos podido verificar estado, señalamos zona blink rapido y continuamos
+        //statusError(Estado.error);
+        //tic_parpadeoLedError.attach(0.2,parpadeoLedError);
+        //errorOFF = true;  // recordatorio error
         tic_parpadeoLedZona.attach(0.4, parpadeoLedZona, ledID);
-        errorOFF = true;  // recordatorio error
-        LOG_ERROR("** SE HA DEVUELTO ERROR");
+        Estado.error = NOERROR; // si no hemos podido verificar estado, ignoramos el error
+        bip(2);
+        LOG_ERROR("** SE HA DEVUELTO ERROR al verificar estado riego");
       }  
     }
   }
