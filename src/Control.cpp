@@ -1891,7 +1891,7 @@ return buff;
       // lee cadena de entrada
       String inputSerial = Serial.readString();
       int inputNumber = inputSerial.toInt();
-      if ((!inputNumber || inputNumber>6) && inputNumber != 9) {
+      if (!inputNumber) {
           Serial.println(F("Teclee: "));
           Serial.println(F("   1 - simular error NTP"));
           Serial.println(F("   2 - simular error apagar riego"));
@@ -1899,8 +1899,6 @@ return buff;
           Serial.println(F("   4 - simular EV no esta ON en Domoticz"));
           Serial.println(F("   5 - simular EV no esta OFF en Domoticz"));
           Serial.println(F("   6 - simular error al salir del PAUSE"));
-          Serial.println(F("   7 - MUTE ON"));
-          Serial.println(F("   8 - MUTE OFF"));
           Serial.println(F("   9 - anular simulacion errores"));
       }
       switch (inputNumber) {
@@ -1927,14 +1925,6 @@ return buff;
             case 6:
                 Serial.println(F("recibido:   6 - simular error al salir del PAUSE"));
                 simular.ErrorPause = true;
-                break;
-            case 7:
-                Serial.println(F("recibido:   7 - mute ON"));
-                config.mute = ON;
-                break;
-            case 8:
-                Serial.println(F("recibido:   8 - mute OFF"));
-                config.mute = OFF;
                 break;
             case 9:
                 Serial.println(F("recibido:   9 - anular simulacion errores"));
