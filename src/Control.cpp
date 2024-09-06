@@ -666,7 +666,8 @@ void procesaEstadoRegando(void)
   // verificamos periodicamente que el riego sigue activo en Domoticz
   else if(flagV && VERIFY && (!NONETWORK || simular.all_simFlags)) { 
     ledID = ultimoBotonZona->led;
-    tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
+    tic_parpadeoLedZona.detach(); //detiene posible parpadeo led zona
+    led(ledID,ON);                //y lo dejamos fijo
     if(queryStatus(config.zona[ultimoBotonZona->znumber-1].idx, (char *)"On")) return;
     else {
       if(Estado.error == NOERROR) { //riego zona parado: entramos en PAUSE y blink lento zona pausada remotamente 
@@ -1395,6 +1396,16 @@ String httpGetDomoticz(String message)
   return response;
 }
 
+/**---------------------------------------------------------------
+ * devuelve json con informacion del dispositivo con el idx pasado
+ */
+String deviceInfo(int idx)
+{
+  char JSONMSG[200]="/json.htm?type=command&param=getdevices&rid=%d";
+  char message[250];
+  sprintf(message,JSONMSG,idx);
+  return httpGetDomoticz(message);
+}
 
 /**---------------------------------------------------------------
  * lee factor de riego del Domoticz, almacenado en campo comentarios
@@ -1413,10 +1424,7 @@ int getFactor(uint16_t idx)
       return 100;
     }
   }
-  char JSONMSG[200]="/json.htm?type=command&param=getdevices&rid=%d";
-  char message[250];
-  sprintf(message,JSONMSG,idx);
-  String response = httpGetDomoticz(message);
+  String response = deviceInfo(idx);
   //procesamos la respuesta para ver si se ha producido error:
   if (response.startsWith("Err")) {
     if (NONETWORK) {  //si estamos en modo NONETWORK devolvemos 999 y no damos error
@@ -1481,10 +1489,7 @@ float getTemperatureDomoticz(uint16_t idx)
   // si el IDX es 0 devolvemos 999 sin procesarlo (sensor no asignado)
   if(idx == 0) return 999;
   if(!checkWifi()) return 999; //si no hay conexion devolvemos 999 y no damos error
-  char JSONMSG[200]="/json.htm?type=command&param=getdevices&rid=%d";
-  char message[250];
-  sprintf(message,JSONMSG,idx);
-  String response = httpGetDomoticz(message);
+  String response = deviceInfo(idx);
   //procesamos la respuesta para ver si se ha producido error:
   if (response.startsWith("Err")) {
     LOG_WARN("getTemperatureDomoticz IDX: ", idx, " [HTTP] GET... failed\n");
@@ -1535,10 +1540,7 @@ bool queryStatus(uint16_t idx, char *status)
       return false;
     }
   }
-  char JSONMSG[200]="/json.htm?type=command&param=getdevices&rid=%d";
-  char message[250];
-  sprintf(message,JSONMSG,idx);
-  String response = httpGetDomoticz(message);
+  String response = deviceInfo(idx);
   //procesamos la respuesta para ver si se ha producido error:
   if (response.startsWith("Err")) {
     if (NONETWORK) return true;  //si estamos en modo NONETWORK devolvemos true y no damos error
