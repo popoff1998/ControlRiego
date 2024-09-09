@@ -326,6 +326,7 @@ int Configure::showMenu(int opcion)
           "tiempo MENSAJES",    // 13
           "NIVEL wifi on/off",  // 14
           "XNAME on/off",       // 15
+          "VERIFY on/off",      // 16
           "-----------------"   // - 
          /*-------17--------*/ 
       };
@@ -340,6 +341,7 @@ int Configure::showMenu(int opcion)
       opcionesMenuConf[13] =  "MSG time: " + String(config.msgdisplaymillis);
       opcionesMenuConf[14] = (config.showwifilevel ?  "NIVEL wifi: ON" : "NIVEL wifi: OFF");
       opcionesMenuConf[15] = (config.xname ?  "XNAME: ON" : "XNAME: OFF");
+      opcionesMenuConf[16] = (config.verify ?  "VERIFY: ON" : "VERIFY: OFF");
 
 
       const int MAXOPCIONES = sizeof(opcionesMenuConf)/sizeof(opcionesMenuConf[0]);
@@ -461,17 +463,19 @@ void Configure::procesaSelectMenu()
                 break;
         case 14 :   // toggle display nivel señal wifi
                 config.showwifilevel = !config.showwifilevel;
-                //config.showwifilevel ? lcd.infoclear("show wifi level ON",2) : lcd.infoclear("show wifi level OFF",2);
                 bip(2);
-                //delay(config.msgdisplaymillis);
                 saveConfig = true;
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break; 
         case 15 :   // toggle actualizar nombres zonas con los del Domoticz
                 config.xname = !config.xname;
-                //config.xname ? lcd.infoclear("show XNAME ON",2) : lcd.infoclear("show XNAME OFF",2);
                 bip(2);
-                //delay(config.msgdisplaymillis);
+                saveConfig = true;
+                this->menu();  // vuelve a mostrar menu de configuracion
+                break;
+        case 16 :   // toggle verificar estado dispositivo en el Domoticz
+                config.verify = !config.verify;
+                bip(2);
                 saveConfig = true;
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break;

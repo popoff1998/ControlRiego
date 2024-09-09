@@ -30,15 +30,9 @@ void setup()
 {
   #ifdef RELEASE
                 NONETWORK=false; 
-                VERIFY=true; 
   #endif
   #ifdef DEVELOP
                 NONETWORK=true;
-                VERIFY=true; 
-  #endif
-  #ifdef DEMO
-                NONETWORK=true;
-                VERIFY=false;
   #endif
   #ifdef noWIFI
                 NONETWORK=true;
@@ -606,6 +600,7 @@ void procesaEstadoConfigurando()
                         setMultirriego(config); 
                     }    
                 }
+                VERIFY = config.verify;
                 configure->exit();  // salvamos parm a fichero si procede y salimos de ConF
             }
             break;
@@ -1785,6 +1780,8 @@ void setupParm()
     }
   }
   if (!config.initialized) zeroConfig(config);  //init config con zero-config
+  else VERIFY = config.verify; 
+
   #ifdef VERBOSE
     if (config.initialized) Serial.print(F("Parametros cargados, "));
     else Serial.print(F("Parametros zero-config, "));

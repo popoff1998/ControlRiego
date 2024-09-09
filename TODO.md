@@ -71,5 +71,6 @@ HECHOS
 - display temperatura sensor remoto en STANDBY (sensor externo Domoticz) V3.1.1
 - nuevo formato mandato comunicacion con Domoticz v3.1.1
 - indicacion modo demo (NONETWORK) en pantalla V3.1.1
+- parametro VERIFY (chequeo estado dispositivo en Domoticz) configurable V3.1.2
 
 

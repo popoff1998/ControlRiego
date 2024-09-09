@@ -94,7 +94,7 @@
        
 
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.1.1"
+                            #define VERSION  "3.1.2"
   //-------------------------------------------------------------------------------------
 
   #define xNAME false //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -399,6 +399,7 @@
     bool mute = OFF;                            // sonidos activos
     bool showwifilevel = OFF;                   // muestra en standby nivel de la señal wifi
     bool xname = xNAME;                         // actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
+    bool verify;                                // verifica estado dispositivo en el Domoticz
   };
 
   // estructura del multirriego activo 
@@ -542,7 +543,7 @@
     bool tempOK = false;
     bool factorRiegosOK = false;
     bool errorOFF = false;
-    bool VERIFY;    // si true verifica periodicamente estado del riego en curso en Domoticz
+    bool VERIFY = true;    // si true verifica periodicamente estado del riego en curso en Domoticz
     bool encoderSW = false;
     char errorText[7];
     unsigned long currentMillisLoop = 0;
