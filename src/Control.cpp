@@ -975,7 +975,6 @@ void ultimosRiegos(int modo)
         }
       }
       lcd.infoclear("Hora actual:");
-      //checkTemp();
       if (timeOK) {
         sprintf(buff, " %d", day(t));
         lcd.info(buff,3);
@@ -1697,10 +1696,12 @@ float readTemp() {
 void showTemp() {
     float temperatura = readTemp();
     LOG_DEBUG("tempOK=",tempOK,"temperatura=",temperatura);
-    temperatura = temperatura + ((float)config.tempOffset/2); // offset correccion de medio en medio grado
-    LOG_DEBUG("temp OFFSET=",config.tempOffset,"temperatura corregida=",temperatura);
-    int temp_round = (temperatura < 0 ? (temperatura - 0.5) : (temperatura + 0.5)); //redondeo al entero mas cercano
-    if(tempOK) lcd.displayTemp(temp_round, config.warnESP32temp);
+    if(tempOK) {
+      temperatura = temperatura + ((float)config.tempOffset/2); // offset correccion de medio en medio grado
+      LOG_DEBUG("temp OFFSET=",config.tempOffset,"temperatura corregida=",temperatura);
+      int temp_round = (temperatura < 0 ? (temperatura - 0.5) : (temperatura + 0.5)); //redondeo al entero mas cercano
+      lcd.displayTemp(temp_round, config.warnESP32temp);
+    }  
     else {
       LOG_ERROR("Read temperature sensor failed");
       lcd.displayTemp(999, config.warnESP32temp);  // borra temperatura del display 
