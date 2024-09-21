@@ -903,6 +903,7 @@ void timeByFactor(int factor,uint8_t *fminutes, uint8_t *fseconds)
   uint tseconds = (60*tm.minutes) + tm.seconds;
   //factorizamos
   tseconds = (tseconds*factor)/100;
+  if (tseconds > 59*60) tseconds = 59*60; //limitamos tiempo maximo factorizado a 59 minutos
   //reconvertimos
   *fminutes = tseconds/60;
   *fseconds = tseconds%60;
