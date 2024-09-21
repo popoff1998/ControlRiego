@@ -536,6 +536,18 @@ void procesaBotonZona(void)
       setEstado(STANDBY);
     }
   }
+  // si config.dynamic=true se permite añadir/eliminar zonas durante un riego individual o multirriego temporal
+  // TODO PREGUNTA: sería conveniente que solo se pudiese hacer una vez pausado? (Estado.estado==PAUSE)
+  if (Estado.estado == REGANDO && config.dynamic) {
+    // NOTA: la zona pulsada no puede coincidir con la actualmente en riego, se ignora en ese caso
+    if (ultimoBotonZona->bID != boton->bID) {
+      procesaDynamic();
+      // reflejar cambio en el display
+      displayLCDGrupo(multi.zserie, *multi.size, 2, multi.actual);  //  display zonas quedan por regar
+    }
+    else bipKO();  
+    boton = NULL; // borrar boton pulsado
+  }
 }
 
 
@@ -771,6 +783,57 @@ void procesaEstadoPause(void) {
   }
 }
 
+
+/**---------------------------------------------------------------
+ * Si config.dynamic = true , se admite una vez iniciado un riego de zona individual 
+ * o multirriego temporal el poder añadir/eliminar más zonas para regar. 
+ * Para ello se pasa este riego a multirriego temporal si no lo fuera ya.
+ * OJO: en el caso de riego en curso de zona individual, este no se ha factorizado. Si se factorizaran los añadidos.
+ * Tonin. Propuesta mejora software:
+ *  En un riego individual, si se pulsa otro botón, queda programado como siguiente riego, 
+ *  si se pulsa otro pues también. (Los programados se quedan con el led parpadeante.) --> aparecen en pantalla 
+ *  (La frecuencia de parpadeo puede corresponder al orden en el que entrarán.) 
+ *  Si se pulsa uno de los programados se quita de la cola de riegos (y tiene que recalcular la frecuencia de parpadeo.)
+ */
+void procesaDynamic(void)
+{
+  // NOTA: si llegamos aquí, la zona pulsada NO coincide con la actualmente en riego (zona actual)
+  if (!multi.riegoON) { //si no estamos en multirriego (normal o temporal) --> estamos en riego de zona individual:
+    // pasar riego actual a multirriego temporal que incluya zona actual en riego y zona pulsada,
+    setMultibyId(0, config);  // apunta estructura multi a grupo temporal en config (n+1) con id = 0
+    multi.riegoON = true;
+    multi.temporal = true;
+    multi.actual=0;
+    multi.serie[0] = ultimoBotonZona->bID;  // bId de la zona actual como primera de la lista
+    multi.zserie[0] = ultimoBotonZona->znumber;  // numero de la zona actual como primera de la lista
+    multi.w_size = 1; //indice zona de la lista donde añadir la nueva zona (1 a ZONASXGRUPO-1)
+  }
+  else if(multi.temporal) { // ya estamos en multirriego temporal (generado dinamico o lanzado directo)
+    int n;
+    for(n=multi.actual; n<*multi.size; n++) { // recorremos la lista de zonas a ver si existe ya
+      if(multi.zserie[n] == boton->znumber) { // zona pulsada ya existe en la lista 
+        for(n; n<*multi.size; n++) {          //  --> la eliminamos de esta
+          multi.zserie[n] = multi.zserie[n+1];
+          multi.serie[n] = multi.serie[n+1];
+        }
+        *multi.size = n;
+        bip(2);
+        return;
+      }
+    } 
+    // SI zona pulsada NO existe en la lista --> añadirla al final
+     multi.w_size = n+1; //indice zona de la lista donde añadir la nueva zona (1 a ZONASXGRUPO-1)
+  }  
+  if (multi.w_size < ZONASXGRUPO) {  //max. zonas por grupo
+    multi.serie[multi.w_size] = boton->bID;  // bId de la zona pulsada
+    multi.zserie[multi.w_size] = boton->znumber;  // numero de la zona pulsada
+    *multi.size = multi.w_size + 1;
+    bip(1);
+  }    
+  // y continuar con riego zona actual
+  multi.semaforo = false;
+  return;
+}  
 
 /**---------------------------------------------------------------
  * Pone estado pasado y sus indicadores opcionales

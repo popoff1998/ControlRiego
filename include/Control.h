@@ -400,6 +400,7 @@
     bool showwifilevel = OFF;                   // muestra en standby nivel de la señal wifi
     bool xname = xNAME;                         // actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
     bool verify;                                // verifica estado dispositivo en el Domoticz
+    bool dynamic = false;                       // si true permite añadir/eliminar zonas durante el riego
   };
 
   // estructura del multirriego activo 
@@ -647,6 +648,7 @@
   void procesaBotonPause(void);
   void procesaBotonStop(void);
   void procesaBotonZona(void);
+  void procesaDynamic(void);
   void procesaEncoder(void);
   void procesaEstados(void);
   void procesaEstadoConfigurando(void);
