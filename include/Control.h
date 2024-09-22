@@ -408,6 +408,7 @@
   struct S_MULTI {
     bool riegoON  = false;  //indicador de multirriego activo
     bool temporal = false;  //indicador de grupo multirriego es temporal
+    bool dynamic  = false;  //indicador de grupo multirriego es dinámico a partir de un riego de zona individual
     bool semaforo = false;  //indicador de procesar siguiente zona del multirriego
     int ngrupo;             // numero del grupo al que apunta
     uint16_t *id;           //apuntador al id del boton/selector grupo en estructura config (bGrupo_x)

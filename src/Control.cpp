@@ -494,7 +494,7 @@ void procesaBotonZona(void)
         bip(2);
         //cambia minutes y seconds en funcion del factor de cada sector de riego
         uint8_t fminutes=0,fseconds=0;
-        if(multi.riegoON) {
+        if(multi.riegoON && !multi.dynamic) {
           timeByFactor(factorRiegos[boton->znumber-1],&fminutes,&fseconds);
         }
         else {
@@ -788,12 +788,14 @@ void procesaEstadoPause(void) {
  * Si config.dynamic = true , se admite una vez iniciado un riego de zona individual 
  * o multirriego temporal el poder añadir/eliminar más zonas para regar. 
  * Para ello se pasa este riego a multirriego temporal si no lo fuera ya.
- * OJO: en el caso de riego en curso de zona individual, este no se ha factorizado. Si se factorizaran los añadidos.
  * Tonin. Propuesta mejora software:
  *  En un riego individual, si se pulsa otro botón, queda programado como siguiente riego, 
  *  si se pulsa otro pues también. (Los programados se quedan con el led parpadeante.) --> aparecen en pantalla 
  *  (La frecuencia de parpadeo puede corresponder al orden en el que entrarán.) 
  *  Si se pulsa uno de los programados se quita de la cola de riegos (y tiene que recalcular la frecuencia de parpadeo.)
+ * Tomase: en el caso de riego en curso de zona individual, este no se ha factorizado y no se factorizaran los añadidos.
+ *  Si lo que se modifica dinamicamente es un multirriego temporal lanzado al principio si se factorizan todas las zonas
+ *  iniciales y añadidas.
  */
 void procesaDynamic(void)
 {
@@ -803,6 +805,7 @@ void procesaDynamic(void)
     setMultibyId(0, config);  // apunta estructura multi a grupo temporal en config (n+1) con id = 0
     multi.riegoON = true;
     multi.temporal = true;
+    multi.dynamic  = true;
     multi.actual=0;
     multi.serie[0] = ultimoBotonZona->bID;  // bId de la zona actual como primera de la lista
     multi.zserie[0] = ultimoBotonZona->znumber;  // numero de la zona actual como primera de la lista
@@ -1274,11 +1277,12 @@ int  ledlevel()
 void resetFlags()
 {
   LOG_TRACE("");
-  multi.riegoON = false;
+  multi.riegoON  = false;
   multi.temporal = false;
+  multi.dynamic  = false;
   multi.semaforo = false;
   errorOFF = false;
-  falloAP = false;
+  falloAP  = false;
   webServerAct = false;
   simular.all_simFlags = false;
 }
