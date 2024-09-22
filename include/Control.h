@@ -649,7 +649,7 @@
   void procesaBotonPause(void);
   void procesaBotonStop(void);
   void procesaBotonZona(void);
-  void procesaDynamic(void);
+  bool procesaDynamic(void);
   void procesaEncoder(void);
   void procesaEstados(void);
   void procesaEstadoConfigurando(void);
