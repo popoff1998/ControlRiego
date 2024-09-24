@@ -494,7 +494,7 @@ void procesaBotonZona(void)
         bip(2);
         //cambia minutes y seconds en funcion del factor de cada sector de riego
         uint8_t fminutes=0,fseconds=0;
-        if(multi.riegoON) {
+        if(multi.riegoON && !multi.dynamic) {
           timeByFactor(factorRiegos[boton->znumber-1],&fminutes,&fseconds);
         }
         else {
@@ -535,6 +535,18 @@ void procesaBotonZona(void)
       LOG_TRACE("[poniendo estado STANDBY]");
       setEstado(STANDBY);
     }
+  }
+  // si config.dynamic=true se permite añadir/eliminar zonas durante un riego individual o multirriego temporal
+  // TODO PREGUNTA: sería conveniente que solo se pudiese hacer una vez pausado?
+  if ((Estado.estado == REGANDO || Estado.estado==PAUSE) && config.dynamic) {
+    // NOTA: la zona pulsada no puede coincidir con la actualmente en riego, se ignora en ese caso
+    if (ultimoBotonZona->bID != boton->bID) {
+      // procesar cambio dinamico y reflejarlo en el display
+      if (procesaDynamic()) displayLCDGrupo(multi.zserie, *multi.size, 2, multi.actual);
+      LOG_DEBUG("MULTI dynamic:",multi.dynamic,"actual:",multi.actual,"size:",*multi.size,"zona:",boton->znumber);
+    }
+    else bipKO();  
+    boton = NULL; // borrar boton pulsado
   }
 }
 
@@ -597,6 +609,7 @@ void procesaEstadoConfigurando()
                     if (multi.w_size && saveConfig) {  //solo si se ha guardado alguna zona iniciamos riego grupo temporal
                         saveConfig = false;  
                         multi.temporal = true;
+                        multi.dynamic  = false;
                         setMultirriego(config); 
                     }    
                 }
@@ -770,6 +783,55 @@ void procesaEstadoPause(void) {
     }
   }
 }
+
+
+/**---------------------------------------------------------------
+ * Si config.dynamic = true , se admite una vez iniciado un riego de zona individual 
+ * o multirriego temporal el poder añadir/eliminar más zonas para regar. 
+ * Para ello se pasa este riego a multirriego temporal si no lo fuera ya.
+ * Si la zona no está en el grupo se añade al final, si existe se elimina de este.
+ * En el caso de riego en curso de zona individual, este no se ha factorizado y no se factorizaran los añadidos.
+ * Si lo que se modifica dinamicamente es un multirriego temporal lanzado al principio 
+ * si se factorizan todas las zonas iniciales y añadidas.
+ */
+bool procesaDynamic(void)
+{
+  // NOTA: si llegamos aquí, la zona pulsada NO coincide con la actualmente en riego (zona actual)
+  if (!multi.riegoON) { //si estamos en riego de zona individual -> la pasamos a multirriego temporal
+    setMultibyId(0, config);  // apunta estructura multi a grupo temporal en config (n+1) con id = 0
+    multi.riegoON = true;
+    multi.temporal = true;
+    multi.dynamic  = true;  // marcamos como dinamico para no factorizarlo
+    multi.semaforo = false;
+    multi.actual=0;
+    multi.serie[0] = ultimoBotonZona->bID;  // bId de la zona actual como primera de la lista
+    multi.zserie[0] = ultimoBotonZona->znumber;  // numero de la zona actual como primera de la lista
+    *multi.size = 1;  
+  }
+  if(!multi.temporal) return false;  //estamos en multirriego de grupo --> zona ignorada
+  LOG_DEBUG("MULTI dynamic:",multi.dynamic,"actual:",multi.actual,"size:",*multi.size,"zona:",boton->znumber);
+  // ya estamos en multirriego temporal (generado dinamico o lanzado directo)
+  int n;
+  for(n=multi.actual; n<*multi.size; n++) { // recorremos la lista de zonas a ver si existe ya
+    if(multi.zserie[n] == boton->znumber) { // zona pulsada ya existe en la lista 
+      for(n; n<*multi.size; n++) {          //  --> la eliminamos de esta
+        multi.zserie[n] = multi.zserie[n+1];
+        multi.serie[n] = multi.serie[n+1];
+      }
+      *multi.size = n;
+      bip(2); return true; //zona eliminada
+    }
+  } 
+  // la zona pulsada no existe en la lista --> añadirla al final
+  multi.w_size = n+1; //indice zona de la lista donde añadir la nueva zona (1 a ZONASXGRUPO-1)
+  if (multi.w_size < ZONASXGRUPO) {  //añadimos zona al final de la lista si hay sitio
+    multi.serie[multi.w_size] = boton->bID;  // bId de la zona pulsada
+    multi.zserie[multi.w_size] = boton->znumber;  // numero de la zona pulsada
+    *multi.size = multi.w_size + 1;
+    bip(1); return true; //zona añadida
+  }
+  else return false; //no hay sitio --> zona ignorada   
+}  
 
 
 /**---------------------------------------------------------------
@@ -1212,11 +1274,12 @@ int  ledlevel()
 void resetFlags()
 {
   LOG_TRACE("");
-  multi.riegoON = false;
+  multi.riegoON  = false;
   multi.temporal = false;
+  multi.dynamic  = false;
   multi.semaforo = false;
   errorOFF = false;
-  falloAP = false;
+  falloAP  = false;
   webServerAct = false;
   simular.all_simFlags = false;
 }

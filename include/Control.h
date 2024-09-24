@@ -400,6 +400,7 @@
     bool showwifilevel = OFF;                   // muestra en standby nivel de la señal wifi
     bool xname = xNAME;                         // actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
     bool verify;                                // verifica estado dispositivo en el Domoticz
+    bool dynamic = false;                       // si true permite añadir/eliminar zonas durante el riego
   };
 
   // estructura del multirriego activo 
@@ -407,6 +408,7 @@
   struct S_MULTI {
     bool riegoON  = false;  //indicador de multirriego activo
     bool temporal = false;  //indicador de grupo multirriego es temporal
+    bool dynamic  = false;  //indicador de grupo multirriego es dinámico a partir de un riego de zona individual
     bool semaforo = false;  //indicador de procesar siguiente zona del multirriego
     int ngrupo;             // numero del grupo al que apunta
     uint16_t *id;           //apuntador al id del boton/selector grupo en estructura config (bGrupo_x)
@@ -647,6 +649,7 @@
   void procesaBotonPause(void);
   void procesaBotonStop(void);
   void procesaBotonZona(void);
+  bool procesaDynamic(void);
   void procesaEncoder(void);
   void procesaEstados(void);
   void procesaEstadoConfigurando(void);
