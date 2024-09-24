@@ -244,14 +244,14 @@ void Configure::MultiTemp_process_end()
 {
       if (multi.w_size) {  //solo si se ha pulsado alguna
         *multi.size = multi.w_size;
-        int g = _actualGrupo;
-        for (int i=0; i<multi.w_size; ++i) {
-          config.group[g-1].zNumber[i] = multi.zserie[i];
-        }
+        //int g = _actualGrupo;
+        // for (int i=0; i<multi.w_size; ++i) {
+        //   config.group[g-1].zNumber[i] = multi.zserie[i];
+        // }
         saveConfig = true;  //  solo para indicar que hemos salvado grupo temporal y tenemos que iniciarlo
 
-        LOG_INFO("SAVE config grupo TEMPORAL : GRUPO",g,"tamaño:",*multi.size,"(",multi.desc,")");
-        printMultiGroup(config, g-1);
+        LOG_INFO("SAVE config grupo TEMPORAL : GRUPO",_actualGrupo,"tamaño:",*multi.size,"(",multi.desc,")");
+        printMultiGroup(config, _actualGrupo-1);
         bipOK();
         lcd.info("  >> libere STOP <<",1);
         lcd.info("para comenzar riego",2);
