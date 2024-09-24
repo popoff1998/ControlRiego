@@ -97,12 +97,10 @@
                             #define VERSION  "3.1.2"
   //-------------------------------------------------------------------------------------
 
-  #define xNAME false //actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
-
   //Comportamiento General
   #ifdef RELEASE
-    #define DEFAULTMINUTES      10
-    #define DEFAULTSECONDS      0
+    #define DEFAULTMINUTES      10    // * tiempo de riego por defecto (minutos)
+    #define DEFAULTSECONDS      0     // * tiempo de riego por defecto (segundos)
   #endif
   #ifdef DEVELOP
     #define DEFAULTMINUTES      0
@@ -117,7 +115,7 @@
   #define RECONNECTINTERVAL   1       // tiempo en minutos para intentar reconexion a la wifi
   #define DEFAULTBLINK        4       // numero de parpadeos de la pantalla
   #define DEFAULTBLINKMILLIS  500     // mseg entre parpadeo de la pantalla
-  #define MSGDISPLAYMILLIS    1000    // mseg se mantienen mensajes informativos
+  #define MSGDISPLAYMILLIS    1000    // * mseg se mantienen mensajes informativos
   #define MINMINUTES          0       // minimo de minutos ajustables en el temporizador
   #define MAXMINUTES          59      // corte automatico de seguridad a los 60 min. en los arduinos
   #define MINSECONDS          5       // minimo de segundos ajustables en el temporizador
@@ -126,14 +124,15 @@
   #define VERIFY_INTERVAL     15      // intervalo en segundos entre verificaciones periodicas
   #define DEFAULT_SWITCH_RETRIES 5    // numero de reintentos para parar o encender una zona de riego en el Domoticz
   #define DELAYRETRY          2000    // mseg de retardo entre reintentos
-  #define MAXLEDLEVEL         255     // nivel maximo leds RGB (0 a 255)
-  #define DIMMLEVEL           50      // nivel atenuacion leds RGB (0 a 255)
+  #define MAXLEDLEVEL         255     // * nivel maximo leds RGB (0 a 255)
+  #define DIMMLEVEL           50      // * nivel atenuacion leds RGB (0 a 255)
   #define I2C_CLOCK_SPEED     400000  // frecuencia del bus I2C en Hz (default 100000)
   #define LCD2004_address     0x27    // direccion bus I2C de la pantalla LCD
   #define ROTARY_ENCODER_STEPS 4      // TODO documentar
-  #define MAX_ESP32_TEMP      80      // max temp. ESP32 para mostrar aviso (con wifi funciona mal)
-  #define TEMP_OFFSET         0       // correccion temperatura sensor local o remoto
-  #define TEMP_DATA_REMOTE    0       // fuente del dato de temperatura 0=remota/1=local
+  #define MAX_ESP32_TEMP      80      // * max temp. ESP32 para mostrar aviso (con wifi funciona mal)
+  #define TEMP_OFFSET         0       // * correccion temperatura sensor local o remoto
+  #define TEMP_DATA_REMOTE    0       // * fuente del dato de temperatura 0=remota/1=local
+                                      // "*" = configurables
 
  //----------------  dependientes del HW   ----------------------------------------
   #ifdef ESP32
@@ -389,16 +388,16 @@
     char ntpServer[40];
     uint8_t   minutes = DEFAULTMINUTES; 
     uint8_t   seconds = DEFAULTSECONDS;
-    int   warnESP32temp = MAX_ESP32_TEMP;       // temperatura ESP32 maxima con aviso 
-    int   maxledlevel = MAXLEDLEVEL;            // nivel brillo maximo led RGB 
-    int   dimmlevel = DIMMLEVEL;                // nivel atenuacion led RGB 
-    int   tempOffset = TEMP_OFFSET;             // correccion temperatura sensor local DHTxx 
-    int   tempRemote = TEMP_DATA_REMOTE;        // si true obtiene temperatura via Domoticz
-    int   tempRemoteIdx = 0;                    // IDX del sensor remoto en Domoticz
-    int   msgdisplaymillis = MSGDISPLAYMILLIS;  // tiempo que se muestran mensajes (mseg.) 
+    int  warnESP32temp = MAX_ESP32_TEMP;        // temperatura ESP32 maxima con aviso 
+    int  maxledlevel = MAXLEDLEVEL;             // nivel brillo maximo led RGB 
+    int  dimmlevel = DIMMLEVEL;                 // nivel atenuacion led RGB 
+    int  tempOffset = TEMP_OFFSET;              // correccion temperatura sensor local DHTxx 
+    int  tempRemote = TEMP_DATA_REMOTE;         // si true obtiene temperatura via Domoticz
+    int  tempRemoteIdx = 0;                     // IDX del sensor remoto en Domoticz
+    int  msgdisplaymillis = MSGDISPLAYMILLIS;   // tiempo que se muestran mensajes (mseg.) 
     bool mute = OFF;                            // sonidos activos
     bool showwifilevel = OFF;                   // muestra en standby nivel de la señal wifi
-    bool xname = xNAME;                         // actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
+    bool xname = false;                         // actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
     bool verify;                                // verifica estado dispositivo en el Domoticz
     bool dynamic = false;                       // si true permite añadir/eliminar zonas durante el riego
   };

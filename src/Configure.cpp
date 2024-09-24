@@ -327,6 +327,7 @@ int Configure::showMenu(int opcion)
           "NIVEL wifi on/off",  // 14
           "XNAME on/off",       // 15
           "VERIFY on/off",      // 16
+          "DYNAMIC on/off",     // 17
           "-----------------"   // - 
          /*-------17--------*/ 
       };
@@ -342,6 +343,7 @@ int Configure::showMenu(int opcion)
       opcionesMenuConf[14] = (config.showwifilevel ?  "NIVEL wifi: ON" : "NIVEL wifi: OFF");
       opcionesMenuConf[15] = (config.xname ?  "XNAME: ON" : "XNAME: OFF");
       opcionesMenuConf[16] = (config.verify ?  "VERIFY: ON" : "VERIFY: OFF");
+      opcionesMenuConf[17] = (config.dynamic ?  "DYNAMIC: ON" : "DYNAMIC: OFF");
 
 
       const int MAXOPCIONES = sizeof(opcionesMenuConf)/sizeof(opcionesMenuConf[0]);
@@ -401,9 +403,7 @@ void Configure::procesaSelectMenu()
   #endif 
         case 5 :   // toggle MUTE
                 config.mute = !config.mute;
-                //config.mute ? lcd.infoclear("     MUTE ON",2) : lcd.infoclear("     MUTE OFF",2);
                 bip(2);
-                //delay(config.msgdisplaymillis);
                 saveConfig = true;
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break; 
@@ -475,6 +475,12 @@ void Configure::procesaSelectMenu()
                 break;
         case 16 :   // toggle verificar estado dispositivo en el Domoticz
                 config.verify = !config.verify;
+                bip(2);
+                saveConfig = true;
+                this->menu();  // vuelve a mostrar menu de configuracion
+                break;
+        case 17 :   // toggle añadido/borrado dinamico de zonas durante el riego
+                config.dynamic = !config.dynamic;
                 bip(2);
                 saveConfig = true;
                 this->menu();  // vuelve a mostrar menu de configuracion

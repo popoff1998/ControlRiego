@@ -85,6 +85,7 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
   config.showwifilevel = doc["showwifilevel"] | false; 
   config.xname = doc["xname"] | false;
   config.verify = doc["verify"] | true;
+  config.dynamic = doc["dynamic"] | false;
   //-------------------------------------------------------------------------------------------
   file.close();
   LittleFS.end();
@@ -144,6 +145,7 @@ bool saveConfigFile(const char *p_filename, Config_parm &config)
   doc["showwifilevel"]      = config.showwifilevel;
   doc["xname"]              = config.xname;
   doc["verify"]             = config.verify;
+  doc["dynamic"]            = config.dynamic;
 
   // Serialize JSON to file
   #ifdef EXTRADEBUG 
@@ -243,6 +245,7 @@ void printParms(Config_parm &config) {
   Serial.printf("\tshowwifilevel= %d \n", config.showwifilevel);
   Serial.printf("\txname= %d \n", config.xname);
   Serial.printf("\tverify= %d \n", config.verify);
+  Serial.printf("\tdynamic= %d \n", config.dynamic);
   Serial.println("----------------------------------------------------------------");
 }
 
