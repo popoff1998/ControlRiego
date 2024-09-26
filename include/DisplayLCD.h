@@ -29,6 +29,7 @@
       void print(const String &s);
       void print(int);
       void setCursor(uint8_t, uint8_t);
+      void setCursorBlink(uint8_t, uint8_t);
       void setBacklight(bool);	// alias for backlight() and nobacklight()
       void displayON(void);      // muestra texto del display
       void displayOFF(void);     // oculta texto del display
