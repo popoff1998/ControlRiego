@@ -2,8 +2,8 @@ PENDIENTES
 ==========
 - boton Pause reflejado en Domoticz (en ambos sentidos)
 - webserver: opcion descarga fichero parametros a PC
+- webserver: ficheros en subdirectorio
 - Menu configuracion: rangos ajustables sobre linea del menu
-- añadido/ baja zonas durante el riego (¿como grupo temporal?)
 
 HECHOS
 ======
@@ -72,5 +72,6 @@ HECHOS
 - nuevo formato mandato comunicacion con Domoticz v3.1.1
 - indicacion modo demo (NONETWORK) en pantalla V3.1.1
 - parametro VERIFY (chequeo estado dispositivo en Domoticz) configurable V3.1.2
+- si parametro dynamic=true añadido/baja zonas durante el riego V3.2b.0
 
 
