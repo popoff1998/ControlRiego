@@ -143,8 +143,11 @@ void Configure::Range_process_start(int min, int max, int aceleracion)
 void Configure::Range_process_update()
 {
       lcd.print(tm.value); lcd.print("     "); //TODO: posiblemente haya que borrar primero lo que pueda ocupar ese rango en pantalla
-      //otra opcion:
       
+      //otra opcion:
+      // snprintf(buff, MAXBUFF-1, "%s%d        ", _currenItemText, tm.value);
+      // lcd.setCursor(1,1); lcd.print(buff);
+
       lcd.setCursorBlink(1,_data_pos[_currentItem]);
 }
 
@@ -355,6 +358,8 @@ int Configure::showMenu(int opcion)
       const int MAXOPCIONES = sizeof(opcionesMenuConf)/sizeof(opcionesMenuConf[0]);
       for(int r=0; r<MAXOPCIONES; r++) {
         _data_pos[r] = strlen(opcionesMenuConf[r].c_str());
+        // ¿otra opcion?:
+        _data_pos[r] = opcionesMenuConf[r].length();
         LOG_DEBUG("menuitem",r,"longitud",_data_pos[r]);
       }
 
@@ -375,6 +380,8 @@ int Configure::showMenu(int opcion)
 
       LOG_DEBUG("opcion=",opcion,"_currentitem=",_currentItem,"MAXOPCIONES=",MAXOPCIONES);
       _currentItem = opcion;
+      snprintf(_currenItemText,18,"%s",opcionesMenuConf[_currentItem].c_str());
+      LOG_DEBUG("_currentitem=",_currentItem,"_currenItemText=",_currenItemText);
 
       lcd.clear();
       lcd.setCursor(0,0);

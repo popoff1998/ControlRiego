@@ -12,6 +12,7 @@ class Configure
     int _currentItem;
     int *configValuep;
     int _data_pos[16];
+    char _currenItemText[18];
     union {
       uint8_t all_configureflags;
       struct { uint8_t
