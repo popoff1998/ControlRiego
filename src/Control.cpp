@@ -535,6 +535,7 @@ void procesaBotonZona(void)
       LOG_TRACE("[poniendo estado STANDBY]");
       setEstado(STANDBY);
     }
+    return;
   }
   // si config.dynamic=true se permite añadir/eliminar zonas durante un riego individual o multirriego temporal
   // TODO PREGUNTA: sería conveniente que solo se pudiese hacer una vez pausado?
@@ -545,7 +546,8 @@ void procesaBotonZona(void)
       if (procesaDynamic()) displayLCDGrupo(multi.zserie, *multi.size, 2, multi.actual);
       LOG_DEBUG("MULTI dynamic:",multi.dynamic,"actual:",multi.actual,"size:",*multi.size,"zona:",boton->znumber);
     }
-    else bipKO();  
+    
+    else {bipKO(); LOG_DEBUG("[DYNAMIC] zona pulsada:",boton->znumber," es = a zona actual:",ultimoBotonZona->znumber);} 
     boton = NULL; // borrar boton pulsado
   }
 }
@@ -809,25 +811,28 @@ bool procesaDynamic(void)
     *multi.size = 1;  
   }
   if(!multi.temporal) return false;  //estamos en multirriego de grupo --> zona ignorada
-  LOG_DEBUG("MULTI dynamic:",multi.dynamic,"actual:",multi.actual,"size:",*multi.size,"zona:",boton->znumber);
+  LOG_DEBUG("[RECIBE] MULTI dynamic:",multi.dynamic,"actual:",multi.actual,"size:",*multi.size,"zona:",boton->znumber);
   // ya estamos en multirriego temporal (generado dinamico o lanzado directo)
   int n;
   for(n=multi.actual; n<*multi.size; n++) { // recorremos la lista de zonas a ver si existe ya
     if(multi.zserie[n] == boton->znumber) { // zona pulsada ya existe en la lista 
+      LOG_DEBUG("[vamos a ELIMINAR] n=",n,"actual:",multi.actual,"zona:",boton->znumber,"size:",*multi.size);
       for(n; n<*multi.size; n++) {          //  --> la eliminamos de esta
         multi.zserie[n] = multi.zserie[n+1];
         multi.serie[n] = multi.serie[n+1];
       }
-      *multi.size = n;
+      *multi.size = n-1;
+      LOG_DEBUG("[ELIMINA] n=",n,"actual:",multi.actual,"size:",*multi.size,"zona:",boton->znumber);
       bip(2); return true; //zona eliminada
     }
   } 
   // la zona pulsada no existe en la lista --> añadirla al final
-  multi.w_size = n+1; //indice zona de la lista donde añadir la nueva zona (1 a ZONASXGRUPO-1)
+  multi.w_size = n; //indice zona de la lista donde añadir la nueva zona (1 a ZONASXGRUPO-1)
   if (multi.w_size < ZONASXGRUPO) {  //añadimos zona al final de la lista si hay sitio
     multi.serie[multi.w_size] = boton->bID;  // bId de la zona pulsada
     multi.zserie[multi.w_size] = boton->znumber;  // numero de la zona pulsada
     *multi.size = multi.w_size + 1;
+    LOG_DEBUG("[AÑADE] n=",n,"actual:",multi.actual,"size:",*multi.size,"zona:",boton->znumber);
     bip(1); return true; //zona añadida
   }
   else return false; //no hay sitio --> zona ignorada   
