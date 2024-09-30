@@ -178,6 +178,8 @@
   #define HIDE 0
   #define READ 1
   #define CLEAR 0
+  #define FULL 1
+  #define RESTO 0
   #define REFRESH 1
   #define UPDATE 0
   #define NOBLINK 0
@@ -594,7 +596,8 @@
   void dimmerLeds(bool);
   void displayDemo(void);
   void displayGrupo(uint16_t *, int);
-  void displayLCDGrupo(uint16_t *, int, int line=4, int start=0);
+  void displayLCDGrupo(bool, int line=4);
+  void displayLCDGrupo(uint16_t *, int, int , int );
   void displayTimer(uint8_t, uint8_t, uint8_t, uint8_t);
   bool domoticzSwitch(int,char *, int);
   void enciendeLeds(void);

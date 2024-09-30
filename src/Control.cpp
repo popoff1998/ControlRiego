@@ -468,8 +468,7 @@ void procesaBotonMultiriego(void)
       LOG_DEBUG("en MULTIRRIEGO + encoderSW, display de grupo:", multi.desc,"tamaño:", *multi.size );
       snprintf(buff, MAXBUFF, "grupo: %s", multi.desc);
       lcd.infoclear(buff, 1);
-      //displayLCDGrupo(*multi.znumber, *multi.size, 2);  //si usasemos pointer a config
-      displayLCDGrupo(multi.zserie, *multi.size, 2);
+      displayLCDGrupo(FULL, 2);
       showTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1);
       displayGrupo(multi.serie, *multi.size);
       delay(config.msgdisplaymillis*3);
@@ -543,7 +542,7 @@ void procesaBotonZona(void)
     // NOTA: la zona pulsada no puede coincidir con la actualmente en riego, se ignora en ese caso
     if (ultimoBotonZona->bID != boton->bID) {
       // procesar cambio dinamico y reflejarlo en el display
-      if (procesaDynamic()) displayLCDGrupo(multi.zserie, *multi.size, 2, multi.actual);
+      if (procesaDynamic()) displayLCDGrupo(RESTO, 2);
       LOG_DEBUG("MULTI dynamic:",multi.dynamic,"actual:",multi.actual,"size:",*multi.size,"zona:",boton->znumber);
     }
     
@@ -715,8 +714,8 @@ void procesaEstadoTerminando(void)
       //Simular la pulsacion del siguiente boton de la serie de multirriego
       boton = &Boton[bID2bIndex(multi.serie[multi.actual])];
       multi.semaforo = true;
-      //si queremos mostrar en display las zonas que restan por regar del grupo (en lugar de su nombre):
-      displayLCDGrupo(multi.zserie, *multi.size, 2, multi.actual);  //  display zonas quedan por regar
+      //muestra en pantalla las zonas que restan por regar del grupo (excluida la zona en curso):
+      displayLCDGrupo(RESTO, 2);  //  display zonas quedan por regar
     }
     else {         // señalamos fin del multirriego y actulizamos timestamp de finalizacion
       if(!multi.temporal) finalTimeLastRiego(lastGrupos[multi.ngrupo-1], multi.ngrupo-1);
@@ -728,7 +727,6 @@ void procesaEstadoTerminando(void)
       bipFIN(3);
       LOG_INFO("MULTIRRIEGO", multi.desc, "terminado");
       delay(config.msgdisplaymillis*3);
-      //lcd.info("", 2);
       led(Boton[bID2bIndex(*multi.id)].led,OFF);
     }
   }

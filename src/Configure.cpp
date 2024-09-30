@@ -101,6 +101,7 @@ void Configure::Time_process_start()
       setEncoderTime();
 
       lcd.setCursorBlink(_data_pos[_currentItem],1);
+      bip(1);
 }              
 
 //  actualizamos en menu tiempo por defecto modificado
@@ -211,7 +212,7 @@ void Configure::Multi_process_update()
 
         LOG_INFO("[ConF] añadiendo ZONA",zNumber,"(",config.zona[zNumber-1].desc,") multi.w_size=",multi.w_size);
         led(Boton[bIndex].led,ON);
-        displayLCDGrupo(multi.zserie, multi.w_size);
+        displayLCDGrupo(multi.zserie, multi.w_size,4,0);
       }
       else bipKO();  
 }
