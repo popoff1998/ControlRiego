@@ -1183,7 +1183,7 @@ void procesaEncoder()
     }
   }
   if(reposo) reposoOFF();
-  StaticTimeUpdate(UPDATE);
+  configure->configuringTime() ? configure->Time_process_update() : StaticTimeUpdate(UPDATE);
   standbyTime = millis();
 }
 

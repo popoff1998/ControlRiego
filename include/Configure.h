@@ -38,6 +38,7 @@ class Configure
     void Idx_process_start(int);
     void Idx_process_end(void);
     void Time_process_start(void);
+    void Time_process_update(void);
     void Time_process_end(void);
     void Range_process_start(int min, int max, int aceleracion=100, int rangefactor=100);
     void Range_process_update(void);

@@ -100,11 +100,17 @@ void Configure::Time_process_start()
       tm.seconds = config.seconds;
       setEncoderTime();
 
-      LOG_INFO("configurando tiempo riego por defecto");
-      lcd.infoclear("Configurando");
-      lcd.info("tiempo riego def.:",2);
-      StaticTimeUpdate(REFRESH);
+      lcd.setCursorBlink(_data_pos[_currentItem],1);
 }              
+
+//  actualizamos en menu tiempo por defecto modificado
+void Configure::Time_process_update()
+{
+      LOG_INFO("DEFAULT TIME, minutes:",tm.minutes," secons:",tm.seconds);
+      sprintf(buff, "%02d:%02d",tm.minutes,tm.seconds); 
+      lcd.print(buff);
+      lcd.setCursorBlink(_data_pos[_currentItem],1);
+}
 
 //  salvamos en config el nuevo tiempo por defecto
 void Configure::Time_process_end()
@@ -114,9 +120,8 @@ void Configure::Time_process_end()
       saveConfig = true;
 
       LOG_INFO("Save DEFAULT TIME, minutes:",tm.minutes," secons:",tm.seconds);
-      lcd.info("DEFAULT TIME saved",2);
+      lcd.setCursor(0,0);  // solo para anular visibilidad y parpadeo del cursor
       bipOK();
-      delay(config.msgdisplaymillis);
 
       this->menu();  // vuelve a mostrar menu de configuracion
 }
@@ -350,7 +355,8 @@ int Configure::showMenu(int opcion)
         LOG_DEBUG("menuitem",r,"longitud",_data_pos[r]-3,"data_pos",_data_pos[r]);
       }
 
-      opcionesMenuConf[1]  =  "dflt TIME: " + String(config.minutes) + ":" + String(config.seconds);
+      sprintf(buff, "%02d:%02d",config.minutes,config.seconds);
+      opcionesMenuConf[1]  =  opcionesMenuConf[1] + buff;
       opcionesMenuConf[5]  = (config.mute ?  "MUTE: ON" : "MUTE: OFF");
       opcionesMenuConf[7]  =  "ESP32 temp: " + String((int)temperatureRead()) + "/" + String(config.warnESP32temp);
       opcionesMenuConf[8]  =  opcionesMenuConf[8] + String(config.dimmlevel);
