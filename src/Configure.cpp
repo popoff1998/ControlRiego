@@ -122,18 +122,27 @@ void Configure::Time_process_end()
 }
 
 //  configuramos Range
-void Configure::Range_process_start(int min, int max, int aceleracion)
+void Configure::Range_process_start(int min, int max, int aceleracion, int rangefactor)
 {
       this->reset();
       _configuringRange = true;
+      _rangeFactor = rangefactor;
       tm.value = *configValuep;
       setEncoderRange(min, max, tm.value, aceleracion);
 
-      LOG_INFO("[ConF] configurando RANGO, valor actual:",tm.value);
-      lcd.infoclear("Configurando");
-      lcd.info(buff, 2);
-      snprintf(buff, MAXBUFF, " actual: %d", tm.value);
-      lcd.info(buff, 3);
+      LOG_DEBUG("[ConF] configurando RANGO Item:",_currentItem, "valor actual:",tm.value,"_data_pos:",_data_pos[_currentItem]);
+      LOG_DEBUG("[ConF]                    rangefactor:",_rangeFactor);
+      lcd.setCursorBlink(_data_pos[_currentItem],1);
+      bip(1);
+}
+
+// actualizamos rango en pantalla
+void Configure::Range_process_update()
+{
+      LOG_DEBUG("[ConF] rangefactor:",_rangeFactor,"multiplicador:",(float)_rangeFactor/100,"resultado=",tm.value*((float)_rangeFactor/100));
+      snprintf(buff, MAXBUFF-_data_pos[_currentItem], "%g        ", (float)tm.value*((float)_rangeFactor/100));
+      lcd.print(buff);
+      lcd.setCursorBlink(_data_pos[_currentItem],1);
 }
 
 //  salvamos en config la nueva Range
@@ -141,13 +150,10 @@ void Configure::Range_process_end()
 {
       *configValuep = tm.value;
       saveConfig = true;
-      ledYellow(ON);
 
       LOG_INFO("Save new value:", *configValuep);
-      lcd.info("guardado nuevo valor",2);
-      lcd.clear(BORRA2H);
+      lcd.setCursor(0,0);  // solo para anular visibilidad y parpadeo del cursor
       bipOK();
-      delay(config.msgdisplaymillis);  // para que se vea el msg
 
       tm.value = tm.savedValue;  // restaura tiempo 
       this->menu();  // vuelve a mostrar menu de configuracion
@@ -274,6 +280,11 @@ int Configure::get_currentItem(void)
   return _currentItem;
 }
 
+int Configure::get_datapos(void)
+{
+  return _data_pos[_currentItem];
+}
+
 int Configure::get_maxItems(void)
 {
   return _maxItems;
@@ -311,44 +322,54 @@ int Configure::showMenu(int opcion)
       String opcionesMenuConf[] = {
          /*-----------------*/ 
           "botones IDX/MULT.",  // 0  (fijo)
-          "TIEMPO riego",       // 1  
+          "dflt TIME: ",        // 1  
           "copy to DEFAULT",    // 2 
           "WIFI parm (AP)",     // 3 
           "WEBSERVER",          // 4 
-          "MUTE on/off",        // 5 
+          "MUTE: ",             // 5 
           "load from DEFAULT",  // 6 
-          "ESP32 temp: cc/mm",  // 7 
-          "LED atenuacion",     // 8 
-          "LED maximo brillo",  // 9 
-          "correccion TEMP.",   // 10 
-          "TEMP local/remota",  // 11 
-          "remote TEMP IDX",    // 12 
-          "tiempo MENSAJES",    // 13
-          "NIVEL wifi on/off",  // 14
-          "XNAME on/off",       // 15
-          "VERIFY on/off",      // 16
-          "DYNAMIC on/off",     // 17
+          "ESP32 temp: xx/",    // 7 
+          "led DIMM lvl: ",     // 8 
+          "led MAX lvl: ",      // 9 
+          "TEMP adj.: ",        // 10 
+          "TEMP:       ",       // 11 
+          "rem TEMP IDX: ",     // 12 
+          "MSG time: ",         // 13
+          "NIVEL wifi: ",       // 14
+          "XNAME: ",            // 15
+          "VERIFY: ",           // 16
+          "DYNAMIC: ",          // 17
           "-----------------"   // - 
          /*-------17--------*/ 
       };
-      //opcionesMenuConf[1] =  "dflt TIME: " + String(config.minutes) + ":" + String(config.seconds);
-      opcionesMenuConf[5] = (config.mute ?  "MUTE: ON" : "MUTE: OFF");
-      opcionesMenuConf[7] =  "ESP32 temp: " + String((int)temperatureRead()) + "/" + String(config.warnESP32temp);
-      opcionesMenuConf[8] =  "led DIMM lvl: " + String(config.dimmlevel);
-      opcionesMenuConf[9] =  "led MAX lvl: " + String(config.maxledlevel);
-      opcionesMenuConf[10] =  "TEMP adj.: " + String((float)config.tempOffset/2);
-      opcionesMenuConf[11] = (config.tempRemote ?  "TEMP: REM. " : "TEMP: LOCAL ") + (readTemp()==999 ? "--" : String(readTemp()));
-      opcionesMenuConf[12] =  "rem TEMP IDX:" + String(config.tempRemoteIdx);
-      opcionesMenuConf[13] =  "MSG time: " + String(config.msgdisplaymillis);
+
+      const int MAXOPCIONES = sizeof(opcionesMenuConf)/sizeof(opcionesMenuConf[0]);
+      for(int r=0; r<MAXOPCIONES; r++) {
+        _data_pos[r] = opcionesMenuConf[r].length() + 3;
+        //_data_pos[r] = strlen(opcionesMenuConf[r].c_str()) + 3; // otra opcion
+        LOG_DEBUG("menuitem",r,"longitud",_data_pos[r]-3,"data_pos",_data_pos[r]);
+      }
+
+      opcionesMenuConf[1]  =  "dflt TIME: " + String(config.minutes) + ":" + String(config.seconds);
+      opcionesMenuConf[5]  = (config.mute ?  "MUTE: ON" : "MUTE: OFF");
+      opcionesMenuConf[7]  =  "ESP32 temp: " + String((int)temperatureRead()) + "/" + String(config.warnESP32temp);
+      opcionesMenuConf[8]  =  opcionesMenuConf[8] + String(config.dimmlevel);
+      opcionesMenuConf[9]  =  opcionesMenuConf[9] + String(config.maxledlevel);
+      sprintf(buff, "%g", (float)config.tempOffset/2); //elimina ceros decimales al final
+      opcionesMenuConf[10] =  opcionesMenuConf[10] + buff;
+      opcionesMenuConf[11] = (config.tempRemote ?  "TEMP: REM.  " : "TEMP: LOCAL ") + (readTemp()==999 ? "--" : String(readTemp()));
+      opcionesMenuConf[12] =  opcionesMenuConf[12] + String(config.tempRemoteIdx);
+      opcionesMenuConf[13] =  opcionesMenuConf[13] + String(config.msgdisplaymillis);
       opcionesMenuConf[14] = (config.showwifilevel ?  "NIVEL wifi: ON" : "NIVEL wifi: OFF");
       opcionesMenuConf[15] = (config.xname ?  "XNAME: ON" : "XNAME: OFF");
       opcionesMenuConf[16] = (config.verify ?  "VERIFY: ON" : "VERIFY: OFF");
       opcionesMenuConf[17] = (config.dynamic ?  "DYNAMIC: ON" : "DYNAMIC: OFF");
 
 
-      const int MAXOPCIONES = sizeof(opcionesMenuConf)/sizeof(opcionesMenuConf[0]);
       LOG_DEBUG("opcion=",opcion,"_currentitem=",_currentItem,"MAXOPCIONES=",MAXOPCIONES);
       _currentItem = opcion;
+      snprintf(_currenItemText,18,"%s",opcionesMenuConf[_currentItem].c_str());
+      LOG_DEBUG("_currentitem=",_currentItem,"_currenItemText=",_currenItemText);
 
       lcd.clear();
       lcd.setCursor(0,0);
@@ -420,24 +441,20 @@ void Configure::procesaSelectMenu()
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break;
         case 7 :      //configuramos temperatura aviso ESP32
-                snprintf(buff, MAXBUFF, "max. temp. ESP32");
                 configValuep = &config.warnESP32temp;  
                 this->Range_process_start(40, 99);   
                 break;
         case 8 :      //configuramos nivel atenuacion led STATUS (RGB)
-                snprintf(buff, MAXBUFF, "atenuacion LED");
                 configValuep = &config.dimmlevel;  
                 this->Range_process_start(10, config.maxledlevel);   
                 break;
         case 9 :      //configuramos nivel maximo brillo led STATUS (RGB)
-                snprintf(buff, MAXBUFF, "brillo maximo LED");
                 configValuep = &config.maxledlevel;  
                 this->Range_process_start(config.dimmlevel, 255);   
                 break;
         case 10 :     //configuramos correccion temperatura mostrada
-                snprintf(buff, MAXBUFF, "OFFSET temp (*0.5)");
                 configValuep = &config.tempOffset;  
-                this->Range_process_start(-5, 5);   
+                this->Range_process_start(-5, 5, 100, 50);   
                 break;
         case 11 :   // toggle temperatura mostrada (sensor local o remoto)
                 config.tempRemote = !config.tempRemote;
@@ -452,12 +469,10 @@ void Configure::procesaSelectMenu()
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break; 
         case 12 :     //configuramos IDX del sensor de temperatura remoto en el Domotiz
-                snprintf(buff, MAXBUFF, "IDX sensor temp ext.");
                 configValuep = &config.tempRemoteIdx;  
                 this->Range_process_start(0, 999, 100); // 0 = no definido  
                 break;
         case 13 :     //configuramos tiempo que se muestran los mensajes (en milisegundos)
-                snprintf(buff, MAXBUFF, "TIEMPO mensajes (ms)");
                 configValuep = &config.msgdisplaymillis;  
                 this->Range_process_start(1000, 4000, 500);   
                 break;

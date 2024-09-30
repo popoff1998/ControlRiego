@@ -84,6 +84,16 @@ void DisplayLCD::clear(int mitad)
 void DisplayLCD::setCursor(uint8_t col, uint8_t row)
 {
   lcdDisp.setCursor(col, row);
+  lcdDisp.noBlink();
+  lcdDisp.noCursor();
+}
+
+
+void DisplayLCD::setCursorBlink(uint8_t col, uint8_t row)
+{
+  lcdDisp.setCursor(col, row);
+  lcdDisp.blink();
+  //lcdDisp.cursor();
 }
 
 

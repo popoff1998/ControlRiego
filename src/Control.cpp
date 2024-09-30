@@ -593,7 +593,7 @@ void procesaEstadoConfigurando()
               break;
             }
             if(configure->configuringRange()) {
-              configure->Range_process_end();  //  salvamos en config nuevo valor brillo maximo led
+              configure->Range_process_end();  //  salvamos en config nuevo valor del parametro
               break;
             }
             if(configure->configuringMulti()) {
@@ -601,7 +601,7 @@ void procesaEstadoConfigurando()
               break;
             }
             if(configure->configuringMultiTemp()) {
-              configure->MultiTemp_process_end();  // actualizamos config con las zonas introducidas
+              configure->MultiTemp_process_end();  // preparamos lanzamiento multirriego temporal
               break;
             }
             break;
@@ -610,13 +610,12 @@ void procesaEstadoConfigurando()
                 if(configure->configuringMultiTemp()) {     
                     if (multi.w_size && saveConfig) {  //solo si se ha guardado alguna zona iniciamos riego grupo temporal
                         saveConfig = false;  
-                        multi.temporal = true;
-                        multi.dynamic  = false;
                         setMultirriego(config); 
+                        multi.temporal = true;
                     }    
                 }
                 VERIFY = config.verify;
-                configure->exit();  // salvamos parm a fichero si procede y salimos de ConF
+                configure->exit();  // salvamos parametros a fichero si procede y salimos de ConF
             }
             break;
         default:  //procesamos boton de ZONAx
@@ -1133,8 +1132,9 @@ void procesaEncoder()
       if(readvalue == tm.value) return;
       LOG_DEBUG("rotaryEncoder.readEncoder() devuelve readvalue =", readvalue, "tm.value=", tm.value);
       tm.value = readvalue;
-      snprintf(buff, MAXBUFF, " nuevo:  %d", tm.value);
-      lcd.info(buff, 4);
+      configure->Range_process_update();
+      // snprintf(buff, MAXBUFF, " nuevo:  %d", tm.value);
+      // lcd.info(buff, 4);
       return;
   }
 

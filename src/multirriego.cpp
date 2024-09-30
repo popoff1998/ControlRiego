@@ -12,8 +12,8 @@
   }
 #endif
 
-//asigna en multi valores o apuntadores de/a config del grupo cuyo id se recibe
-// y devuelve el numero del grupo (1,2,3) , 0 en caso de que no exista
+// Asigna en multi valores o apuntadores de/a config del grupo cuyo bId(boton) se recibe
+// y devuelve el numero del grupo (1...NUMGRUPOS+1) , 0 en caso de que no exista
 int setMultibyId(uint16_t id, Config_parm &config)
 {
   LOG_DEBUG("[setMultibyId] recibe id= 0x",DebugLogBase::HEX,id);
@@ -26,10 +26,9 @@ int setMultibyId(uint16_t id, Config_parm &config)
       multi.size = &config.group[i].size;
       multi.desc = config.group[i].desc;
       multi.ngrupo = i+1;
-      //multi.znumber = &config.group[i].zNumber;   //si usasemos pointer a config
       for (int j=0; j < *multi.size; j++) {
         multi.serie[j] = ZONAS[config.group[i].zNumber[j]-1];  //obtiene el id del boton de cada zona (ojo: no viene en el json)
-        multi.zserie[j] = config.group[i].zNumber[j];  //obtiene el numero de cada zona
+        multi.zserie[j] = config.group[i].zNumber[j];  //copia el numero de cada zona desde config
         #ifdef EXTRADEBUG 
           Serial.printf("  Zona%d   ", config.group[i].zNumber[j]);
           Serial.printf("bId: x%04x \n",multi.serie[j]); // bId(boton) asociado a la zona
@@ -53,13 +52,12 @@ bool setMultirriego(Config_parm &config)
       displayLCDGrupo(multi.zserie, *multi.size, 2);  //  display zonas a regar o vacio
       if(*multi.size > 0) {    // si grupo tiene zonas definidas
           multi.riegoON = true;
+          multi.dynamic  = false;
           multi.actual = 0;
           multi.semaforo = true;
           LOG_INFO("MULTIRRIEGO iniciado: ", multi.desc);
-          boton = &Boton[bID2bIndex(multi.serie[multi.actual])];
-          if (!multi.temporal) {
-              led(Boton[bID2bIndex(*multi.id)].led,ON);
-          }
+          boton = &Boton[bID2bIndex(multi.serie[multi.actual])]; // simula pulsacion boton primera zona del grupo
+          if (!multi.temporal) led(Boton[bID2bIndex(*multi.id)].led,ON); // enciende led del grupo pulsado
           return true;
       }
       else {

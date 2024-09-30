@@ -10,7 +10,10 @@ class Configure
     int _actualGrupo;
     int _maxItems;
     int _currentItem;
+    int _rangeFactor;
     int *configValuep;
+    int _data_pos[16];
+    char _currenItemText[18];
     union {
       uint8_t all_configureflags;
       struct { uint8_t
@@ -36,7 +39,8 @@ class Configure
     void Idx_process_end(void);
     void Time_process_start(void);
     void Time_process_end(void);
-    void Range_process_start(int, int, int=100);
+    void Range_process_start(int min, int max, int aceleracion=100, int rangefactor=100);
+    void Range_process_update(void);
     void Range_process_end(void);
     void Multi_process_start(int);
     void Multi_process_update(void);
@@ -55,6 +59,7 @@ class Configure
     int  get_ActualGrupo(void);
     int  get_maxItems(void);
     int  get_currentItem(void);
+    int  get_datapos(void);
 };
 
 #endif
