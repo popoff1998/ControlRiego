@@ -57,11 +57,11 @@ bool setMultirriego(Config_parm &config)
           LOG_INFO("MULTIRRIEGO iniciado: ", multi.desc);
           boton = &Boton[bID2bIndex(multi.serie[multi.actual])]; // simula pulsacion boton primera zona del grupo
           if (!multi.temporal) led(Boton[bID2bIndex(*multi.id)].led,ON); // enciende led del grupo pulsado
-          displayLCDGrupo(RESTO,2);  //  display zonas a regar o vacio
+          displayLCDGrupo(RESTO,2);  //  display zonas a regar
           return true;
       }
       else {
-          lcd.info("  < VACIO >",2);
+          lcd.info("  < VACIO >",2);  //muestra mensaje de grupo vacio
           delay(config.msgdisplaymillis);
           lcd.info("",2);   //borra msg de <VACIO>
           return false;
@@ -106,7 +106,6 @@ void displayLCDGrupo(uint16_t *serieZonas, int serieSize, int line, int start)
       } 
       lcd.info(buff,line);
   }
-  //else lcd.info("  < VACIO >",line);
 }
 
 //imprime contenido actual de la estructura multiGroup

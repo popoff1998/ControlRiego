@@ -12,7 +12,7 @@ class Configure
     int _currentItem;
     int _rangeFactor;
     int *configValuep;
-    int _data_pos[16];
+    int _data_pos[25];  //OJO valido hasta 25 items en el menu
     char _currenItemText[18];
     union {
       uint8_t all_configureflags;

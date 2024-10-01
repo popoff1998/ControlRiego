@@ -537,8 +537,9 @@ void procesaBotonZona(void)
     return;
   }
   // si config.dynamic=true se permite añadir/eliminar zonas durante un riego individual o multirriego temporal
+  // no durante un multirriego de grupo normal.
   // TODO PREGUNTA: sería conveniente que solo se pudiese hacer una vez pausado?
-  if ((Estado.estado == REGANDO || Estado.estado==PAUSE) && config.dynamic) {
+  if ((Estado.estado == REGANDO || Estado.estado==PAUSE) && config.dynamic && (multi.riegoON == multi.temporal)) {
     // NOTA: la zona pulsada no puede coincidir con la actualmente en riego, se ignora en ese caso
     if (ultimoBotonZona->bID != boton->bID) {
       // procesar cambio dinamico y reflejarlo en el display
@@ -686,9 +687,6 @@ void procesaEstadoRegando(void)
         setEstado(PAUSE,1);
       }
       else {  // si no hemos podido verificar estado, señalamos zona blink rapido y continuamos
-        //statusError(Estado.error);
-        //tic_parpadeoLedError.attach(0.2,parpadeoLedError);
-        //errorOFF = true;  // recordatorio error
         tic_parpadeoLedZona.attach(0.4, parpadeoLedZona, ledID);
         Estado.error = NOERROR; // si no hemos podido verificar estado, ignoramos el error
         bip(2);
@@ -860,6 +858,8 @@ void setEstado(uint8_t estado, int bnum)
   if((estado==REGANDO || estado==TERMINANDO ) && ultimoBotonZona != NULL) {
     lcd.infoEstado(nEstado[estado], config.zona[ultimoBotonZona->znumber-1].desc);
     if(NONETWORK) displayDemo(); 
+    if(multi.dynamic) displayNoFactorizado();
+      else if(multi.temporal) displayMultiTemporal(); 
     return;
   }
   if(estado==PAUSE) {
@@ -899,6 +899,7 @@ void setEstado(uint8_t estado, int bnum)
  */
 void check(void)
 {
+  apagaLeds();
   #ifndef noCHECK
     initLeds();
   #endif
@@ -1775,9 +1776,19 @@ void showTemp() {
     }
 }
 
-void displayDemo () {
+void displayDemo() {
     lcd.setCursor(0,2);
     lcd.print("(DEMO)"); 
+}
+
+void displayNoFactorizado() {
+    lcd.setCursor(1,3);
+    lcd.print("-NF-"); 
+}
+
+void displayMultiTemporal() {
+    lcd.setCursor(0,3);
+    lcd.print("*Mtemp"); 
 }
 
 /**---------------------------------------------------------------

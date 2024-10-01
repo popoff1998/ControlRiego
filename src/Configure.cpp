@@ -346,14 +346,16 @@ int Configure::showMenu(int opcion)
           "VERIFY: ",           // 16
           "DYNAMIC: ",          // 17
           "-----------------"   // - 
-         /*-------17--------*/ 
+         /*<------17------->*/ 
       };
 
       const int MAXOPCIONES = sizeof(opcionesMenuConf)/sizeof(opcionesMenuConf[0]);
+      LOG_DEBUG("sizeof Total",sizeof(opcionesMenuConf),"sizeof [0]",sizeof(opcionesMenuConf[0]));
       for(int r=0; r<MAXOPCIONES; r++) {
         _data_pos[r] = opcionesMenuConf[r].length() + 3;
         //_data_pos[r] = strlen(opcionesMenuConf[r].c_str()) + 3; // otra opcion
         LOG_DEBUG("menuitem",r,"longitud",_data_pos[r]-3,"data_pos",_data_pos[r]);
+        LOG_DEBUG("menuitem",r,"sizeof",sizeof(opcionesMenuConf[r]));
       }
 
       sprintf(buff, "%02d:%02d",config.minutes,config.seconds);
@@ -362,7 +364,7 @@ int Configure::showMenu(int opcion)
       opcionesMenuConf[7]  =  "ESP32 temp: " + String((int)temperatureRead()) + "/" + String(config.warnESP32temp);
       opcionesMenuConf[8]  =  opcionesMenuConf[8] + String(config.dimmlevel);
       opcionesMenuConf[9]  =  opcionesMenuConf[9] + String(config.maxledlevel);
-      sprintf(buff, "%g", (float)config.tempOffset/2); //elimina ceros decimales al final
+      sprintf(buff, "%+g", (float)config.tempOffset/2); //elimina ceros decimales al final y pone + si positivo
       opcionesMenuConf[10] =  opcionesMenuConf[10] + buff;
       opcionesMenuConf[11] = (config.tempRemote ?  "TEMP: REM.  " : "TEMP: LOCAL ") + (readTemp()==999 ? "--" : String(readTemp()));
       opcionesMenuConf[12] =  opcionesMenuConf[12] + String(config.tempRemoteIdx);

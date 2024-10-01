@@ -91,8 +91,9 @@
   #ifndef clean_FS
     #define clean_FS false
   #endif
-       
 
+  #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0]))
+       
   //-------------------------------------------------------------------------------------
                             #define VERSION  "3.2b.1"
   //-------------------------------------------------------------------------------------
@@ -407,10 +408,10 @@
   // estructura del multirriego activo 
   // (algunos son pointer al multirriego correspondiente en config *)
   struct S_MULTI {
-    bool riegoON  = false;  //indicador de multirriego activo
-    bool temporal = false;  //indicador de grupo multirriego es temporal
-    bool dynamic  = false;  //indicador de grupo multirriego es dinámico a partir de un riego de zona individual
-    bool semaforo = false;  //indicador de procesar siguiente zona del multirriego
+    bool riegoON  = false;  // multirriego activo
+    bool temporal = false;  // grupo multirriego es temporal
+    bool dynamic  = false;  // grupo multirriego es dinámico (a partir de un riego de zona individual, no factorizado)
+    bool semaforo = false;  // procesar siguiente zona del multirriego
     int ngrupo;             // numero del grupo al que apunta
     uint16_t *id;           //apuntador al id del boton/selector grupo en estructura config (bGrupo_x)
     uint16_t serie[16];     //contiene los id de los botones del grupo (bZona_x)
@@ -598,6 +599,8 @@
   void displayGrupo(uint16_t *, int);
   void displayLCDGrupo(bool, int line=4);
   void displayLCDGrupo(uint16_t *, int, int , int );
+  void displayMultiTemporal(void);
+  void displayNoFactorizado(void);
   void displayTimer(uint8_t, uint8_t, uint8_t, uint8_t);
   bool domoticzSwitch(int,char *, int);
   void enciendeLeds(void);
