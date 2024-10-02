@@ -227,7 +227,7 @@ void DisplayLCD::infoclear(const char *info, int dnum, int btype, int bnum) {
 
 void DisplayLCD::displayTemp(int temperature, int warnESP32temp) 
 {
-  LOG_DEBUG("temperatura recibida=",temperature,"temp ESP32=",temperatureRead());
+  LOG_TRACE("temperatura recibida=",temperature,"temp ESP32=",temperatureRead());
   if(temperatureRead() > warnESP32temp) {   // aviso de temperatura excesiva del ESP32
     setCursor(14, 0); print("!"); bip(2);
     setCursor(15, 0); print(temperatureRead());

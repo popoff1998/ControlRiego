@@ -539,6 +539,7 @@ void procesaBotonZona(void)
   // si config.dynamic=true se permite añadir/eliminar zonas durante un riego individual o multirriego temporal
   // no durante un multirriego de grupo normal.
   // TODO PREGUNTA: sería conveniente que solo se pudiese hacer una vez pausado?
+  // TODO PREGUNTA: permitir eliminar (terminar riego) de la zona en curso ?
   if ((Estado.estado == REGANDO || Estado.estado==PAUSE) && config.dynamic && (multi.riegoON == multi.temporal)) {
     // NOTA: la zona pulsada no puede coincidir con la actualmente en riego, se ignora en ese caso
     if (ultimoBotonZona->bID != boton->bID) {
@@ -547,7 +548,8 @@ void procesaBotonZona(void)
       LOG_DEBUG("MULTI dynamic:",multi.dynamic,"actual:",multi.actual,"size:",*multi.size,"zona:",boton->znumber);
     }
     
-    else {bipKO(); LOG_DEBUG("[DYNAMIC] zona pulsada:",boton->znumber," es = a zona actual:",ultimoBotonZona->znumber);} 
+    //else {bipKO(); LOG_DEBUG("[DYNAMIC] zona pulsada:",boton->znumber," es = a zona actual:",ultimoBotonZona->znumber);}
+    else { setEstado(TERMINANDO); LOG_INFO("dynamic true: terminamos riego de zona en curso"); }
     boton = NULL; // borrar boton pulsado
   }
 }
@@ -1132,8 +1134,6 @@ void procesaEncoder()
       LOG_DEBUG("rotaryEncoder.readEncoder() devuelve readvalue =", readvalue, "tm.value=", tm.value);
       tm.value = readvalue;
       configure->Range_process_update();
-      // snprintf(buff, MAXBUFF, " nuevo:  %d", tm.value);
-      // lcd.info(buff, 4);
       return;
   }
 
@@ -1763,10 +1763,10 @@ float readTemp() {
 
 void showTemp() {
     float temperatura = readTemp();
-    LOG_DEBUG("tempOK=",tempOK,"temperatura=",temperatura);
+    LOG_TRACE("tempOK=",tempOK,"temperatura=",temperatura);
     if(tempOK) {
       temperatura = temperatura + ((float)config.tempOffset/2); // offset correccion de medio en medio grado
-      LOG_DEBUG("temp OFFSET=",config.tempOffset,"temperatura corregida=",temperatura);
+      LOG_TRACE("temp OFFSET=",config.tempOffset,"temperatura corregida=",temperatura);
       int temp_round = (temperatura < 0 ? (temperatura - 0.5) : (temperatura + 0.5)); //redondeo al entero mas cercano
       lcd.displayTemp(temp_round, config.warnESP32temp);
     }  
