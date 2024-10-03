@@ -36,6 +36,7 @@ class Configure
     void reset(void);
     void exit(void);
     void Idx_process_start(int);
+    void Idx_process_update(void);
     void Idx_process_end(void);
     void Time_process_start(void);
     void Time_process_update(void);

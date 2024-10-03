@@ -72,6 +72,15 @@ void Configure::Idx_process_start(int index)
       led(Boton[_actualIdxIndex].led,ON);
 }
 
+//  actualizamos en pantalla el nuevo IDX de la zona
+void Configure::Idx_process_update()
+{     
+      int bIndex = _actualIdxIndex;
+      int currentZona = Boton[bIndex].znumber;
+      snprintf(buff, MAXBUFF, " nuevo IDX ZONA%d %d", currentZona, tm.value);
+      lcd.info(buff, 4);
+}  
+
 //  salvamos en config y Boton el nuevo IDX de la zona
 void Configure::Idx_process_end()
 {

@@ -1140,20 +1140,22 @@ void procesaEncoder()
       if(readvalue == tm.value) return;
       LOG_DEBUG("rotaryEncoder.readEncoder() devuelve readvalue =", readvalue, "tm.value=", tm.value);
       tm.value = readvalue;
-      int bIndex = configure->get_ActualIdxIndex();
-      int currentZona = Boton[bIndex].znumber;
-      snprintf(buff, MAXBUFF, " nuevo IDX ZONA%d %d", currentZona, tm.value);
-      lcd.info(buff, 4);
+      configure->Idx_process_update();
       return;
   }
 
+  if (Estado.estado == CONFIGURANDO && !configure->configuringTime()) return;
+  
+  //* Ajuste de tiempo de riego en STANDBY o CONFIGURANDO tiempo de riego por defecto
+  // encoder ajusta tiempo (mm:ss) de MINSECONDS a MAXMINUTES
+  // en segundos hasta 59 y a partir de ahí en minutos enteros
+  // por lo tanto uno de los dos (mm o ss) debe ser 0.
+  // tm.value recoge el valor del campo distinto de 00 que se ajusta  
   int encvalue = rotaryEncoder.encoderChanged();  //devuelve cuanto y en que sentido se ha movido el encoder
   if(!encvalue) return; 
   LOG_DEBUG("rotaryEncoder.encoderChanged() devuelve encvalue =", encvalue);
   tm.value = tm.value + encvalue;
 
-  if (Estado.estado == CONFIGURANDO && !configure->configuringTime()) return;
-  //encoder ajusta tiempo:
   if(tm.seconds == 0 && tm.value>0) {   //Estamos en el rango de minutos
     if (tm.value > MAXMINUTES)  tm.value = MAXMINUTES;
     if (tm.value != tm.minutes) {
