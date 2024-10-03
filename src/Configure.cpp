@@ -60,7 +60,7 @@ void Configure::Idx_process_start(int index)
       _configuringIdx = true;
       _actualIdxIndex = index;
       tm.value = config.zona[boton->znumber-1].idx;
-      setEncoderTime();
+      setEncoderRange(0, 99, tm.value, 100);
 
       LOG_INFO("[ConF] configurando IDX boton:",config.zona[boton->znumber-1].desc);
       lcd.infoclear("Configurando");
@@ -87,7 +87,7 @@ void Configure::Idx_process_end()
       delay(config.msgdisplaymillis);  // para que se vea el msg
       led(Boton[bIndex].led,OFF);
 
-      tm.value = tm.savedValue;  // restaura tiempo (en lugar del IDX)
+      tmvalue();  // restaura tiempo (en lugar del IDX)
       this->menu(0);  // vuelve a mostrar menu de configuracion, primera linea
 }
 
@@ -159,9 +159,9 @@ void Configure::Range_process_end()
 
       LOG_INFO("Save new value:", *configValuep);
       lcd.setCursor(0,0);  // solo para anular visibilidad y parpadeo del cursor
+      ledYellow(ON);  // para actualizar ya brillo led status por si se hubiera cambiado
       bipOK();
 
-      tm.value = tm.savedValue;  // restaura tiempo 
       this->menu();  // vuelve a mostrar menu de configuracion
 }
 

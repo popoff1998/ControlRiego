@@ -17,9 +17,9 @@
   */
   #ifdef DEVELOP
     //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
-    #define DEBUGLOG_DEFAULT_LOG_LEVEL_TRACE
-    //#define DEBUGLOG_DEFAULT_LOG_LEVEL_INFO
-    #define EXTRADEBUG
+    //#define DEBUGLOG_DEFAULT_LOG_LEVEL_TRACE
+    #define DEBUGLOG_DEFAULT_LOG_LEVEL_DEBUG
+    //#define EXTRADEBUG
     //#define EXTRADEBUG2
     //#define EXTRATRACE
     #define VERBOSE
@@ -361,7 +361,8 @@
     uint8_t minutes = 0;
     uint8_t seconds = 0;
     int  value = 0;
-    int  savedValue = 0;
+    uint8_t savedMinutes = 0;
+    uint8_t savedSeconds = 0;
   } ;
 
 
@@ -698,6 +699,7 @@
   bool stopAllRiego(void);
   bool testButton(uint16_t, bool);
   void timeByFactor(int,uint8_t *,uint8_t *);
+  int  tmvalue(void);
   String TS2Date(time_t);
   String TS2Hour(time_t);
   void ultimosRiegos(int);

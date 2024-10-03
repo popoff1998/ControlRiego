@@ -522,8 +522,6 @@ void procesaBotonZona(void)
         Serial.printf("          boton.index: %d \n", bIndex);
         Serial.printf("          boton(%d).led: %d \n", bIndex, Boton[bIndex].led);
       #endif
-      tm.savedValue = tm.value;
-      tm.value = factorRiegos[zIndex];
       lcd.infoclear("factor riego de ");
       snprintf(buff, MAXBUFF, "%s :  %d", config.zona[boton->znumber-1].desc, factorRiegos[zIndex]);
       lcd.info(buff,2);
@@ -870,13 +868,12 @@ void setEstado(uint8_t estado, int bnum)
     return;
   }
   if(estado == STANDBY) {
-    setEncoderTime();
     if(!multi.riegoON && !multi.temporal) {
       lcd.infoclear("STANDBY",NOBLINK,BIP,bnum);
       showTemp();
     }  
-    if (tm.savedValue) tm.value = tm.savedValue;  // para que restaure reloj
     StaticTimeUpdate(REFRESH);
+    setEncoderTime();
     if(NONETWORK) displayDemo();
     standbyTime = millis();
     return;
@@ -890,7 +887,6 @@ void setEstado(uint8_t estado, int bnum)
     ledYellow(ON);
     boton = NULL;
     holdPause = false;
-    tm.savedValue = tm.value;  // salvamos tiempo riego en display
     return;
   }
 }
@@ -1006,6 +1002,8 @@ void setEncoderTime() {
     rotaryEncoder.setEncoderValue(500);
     rotaryEncoder.setAcceleration(50); // set the value - larger number = more accelearation; 0 or 1 means disabled acceleration
     rotaryEncoder.enable();
+    tmvalue(); //set valor tm.value para ajustar tiempo con procesaencoder
+
 }
 
 void setEncoderRange(int min, int max, int current, int aceleracion) {
@@ -1137,20 +1135,22 @@ void procesaEncoder()
       return;
   }
 
-  int encvalue = rotaryEncoder.encoderChanged();  //devuelve cuanto y en que sentido se ha movido el encoder
-  if(!encvalue) return; 
-  LOG_DEBUG("rotaryEncoder.encoderChanged() devuelve encvalue =", encvalue);
-  tm.value = tm.value + encvalue;
-
   if(Estado.estado == CONFIGURANDO && configure->configuringIdx()) {  //encoder ajusta numero IDX
-      if (tm.value > 999) tm.value = 999;
-      if (tm.value <  0) tm.value = 0; //permitimos IDX=0 para desactivar ese boton
+      int readvalue = rotaryEncoder.readEncoder();  //devuelve valor actual del encoder (se haya movido o no)
+      if(readvalue == tm.value) return;
+      LOG_DEBUG("rotaryEncoder.readEncoder() devuelve readvalue =", readvalue, "tm.value=", tm.value);
+      tm.value = readvalue;
       int bIndex = configure->get_ActualIdxIndex();
       int currentZona = Boton[bIndex].znumber;
       snprintf(buff, MAXBUFF, " nuevo IDX ZONA%d %d", currentZona, tm.value);
       lcd.info(buff, 4);
       return;
   }
+
+  int encvalue = rotaryEncoder.encoderChanged();  //devuelve cuanto y en que sentido se ha movido el encoder
+  if(!encvalue) return; 
+  LOG_DEBUG("rotaryEncoder.encoderChanged() devuelve encvalue =", encvalue);
+  tm.value = tm.value + encvalue;
 
   if (Estado.estado == CONFIGURANDO && !configure->configuringTime()) return;
   //encoder ajusta tiempo:
@@ -1422,6 +1422,11 @@ void refreshTime()
 
 }
 
+int tmvalue()
+{
+  tm.value = ((tm.seconds==0)?tm.minutes:tm.seconds);
+  return tm.value;
+}
 
 /**---------------------------------------------------------------
  * Comunicacion con Domoticz usando httpGet
@@ -1886,7 +1891,7 @@ bool setupConfig(const char *p_filename)
   bool loaded = loadConfigFile(p_filename, config);
   tm.minutes = config.minutes;
   tm.seconds = config.seconds;
-  tm.value = ((tm.seconds==0)?tm.minutes:tm.seconds);
+  tmvalue();
   if (loaded) {
     for(int i=0;i<NUMZONAS;i++) {
       //si en config campo desc de la zona esta vacio se copia el de la estructura Boton:
