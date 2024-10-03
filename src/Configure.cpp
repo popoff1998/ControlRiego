@@ -4,6 +4,7 @@ Configure::Configure(struct Config_parm &conf) : config(conf)
 {
       this->reset();
       _currentItem = 0;
+      _data_pos_valid = false;
 }
 
 void Configure::menu(int item)
@@ -341,15 +342,15 @@ int Configure::showMenu(int opcion)
           "copy to DEFAULT",    // 2 
           "WIFI parm (AP)",     // 3 
           "WEBSERVER",          // 4 
-          "MUTE: ",             // 5 
-          "load from DEFAULT",  // 6 
-          "ESP32 temp: xx/",    // 7 
-          "led DIMM lvl: ",     // 8 
-          "led MAX lvl: ",      // 9 
-          "TEMP adj.: ",        // 10 
-          "TEMP:       ",       // 11 
-          "rem TEMP IDX: ",     // 12 
-          "MSG time: ",         // 13
+          "load from DEFAULT",  // 5
+          "ESP32 temp: xx/",    // 6
+          "led DIMM lvl: ",     // 7
+          "led MAX lvl: ",      // 8
+          "TEMP adj.: ",        // 9
+          "TEMP:       ",       // 10
+          "rem TEMP IDX: ",     // 11
+          "MSG time: ",         // 12
+          "MUTE: ",             // 13
           "NIVEL wifi: ",       // 14
           "XNAME: ",            // 15
           "VERIFY: ",           // 16
@@ -360,28 +361,31 @@ int Configure::showMenu(int opcion)
 
       const int MAXOPCIONES = sizeof(opcionesMenuConf)/sizeof(opcionesMenuConf[0]);
       LOG_DEBUG("sizeof Total",sizeof(opcionesMenuConf),"sizeof [0]",sizeof(opcionesMenuConf[0]));
-      for(int r=0; r<MAXOPCIONES; r++) {
-        _data_pos[r] = opcionesMenuConf[r].length() + 3;
-        //_data_pos[r] = strlen(opcionesMenuConf[r].c_str()) + 3; // otra opcion
-        LOG_DEBUG("menuitem",r,"longitud",_data_pos[r]-3,"data_pos",_data_pos[r]);
-        LOG_DEBUG("menuitem",r,"sizeof",sizeof(opcionesMenuConf[r]));
-      }
+      if(!_data_pos_valid) {
+          for(int r=0; r<MAXOPCIONES; r++) {
+            _data_pos[r] = opcionesMenuConf[r].length() + 3;
+            //_data_pos[r] = strlen(opcionesMenuConf[r].c_str()) + 3; // otra opcion
+            LOG_DEBUG("menuitem",r,"longitud",_data_pos[r]-3,"data_pos",_data_pos[r]);
+            LOG_DEBUG("menuitem",r,"sizeof",sizeof(opcionesMenuConf[r]));
+          }
+          _data_pos_valid = true;
+      }    
 
       sprintf(buff, "%02d:%02d",config.minutes,config.seconds);
-      opcionesMenuConf[1]  =  opcionesMenuConf[1] + buff;
-      opcionesMenuConf[5]  = (config.mute ?  "MUTE: ON" : "MUTE: OFF");
-      opcionesMenuConf[7]  =  "ESP32 temp: " + String((int)temperatureRead()) + "/" + String(config.warnESP32temp);
-      opcionesMenuConf[8]  =  opcionesMenuConf[8] + String(config.dimmlevel);
-      opcionesMenuConf[9]  =  opcionesMenuConf[9] + String(config.maxledlevel);
+      opcionesMenuConf[1]  += buff;
+      opcionesMenuConf[6]  =  "ESP32 temp: " + String((int)temperatureRead()) + "/" + String(config.warnESP32temp);
+      opcionesMenuConf[7]  += String(config.dimmlevel);
+      opcionesMenuConf[8]  += String(config.maxledlevel);
       sprintf(buff, "%+g", (float)config.tempOffset/2); //elimina ceros decimales al final y pone + si positivo
-      opcionesMenuConf[10] =  opcionesMenuConf[10] + buff;
-      opcionesMenuConf[11] = (config.tempRemote ?  "TEMP: REM.  " : "TEMP: LOCAL ") + (readTemp()==999 ? "--" : String(readTemp()));
-      opcionesMenuConf[12] =  opcionesMenuConf[12] + String(config.tempRemoteIdx);
-      opcionesMenuConf[13] =  opcionesMenuConf[13] + String(config.msgdisplaymillis);
-      opcionesMenuConf[14] = (config.showwifilevel ?  "NIVEL wifi: ON" : "NIVEL wifi: OFF");
-      opcionesMenuConf[15] = (config.xname ?  "XNAME: ON" : "XNAME: OFF");
-      opcionesMenuConf[16] = (config.verify ?  "VERIFY: ON" : "VERIFY: OFF");
-      opcionesMenuConf[17] = (config.dynamic ?  "DYNAMIC: ON" : "DYNAMIC: OFF");
+      opcionesMenuConf[9]  += buff;
+      opcionesMenuConf[10] = (config.tempRemote ?  "TEMP: REM.  " : "TEMP: LOCAL ") + (readTemp()==999 ? "--" : String(readTemp()));
+      opcionesMenuConf[11] += String(config.tempRemoteIdx);
+      opcionesMenuConf[12] += String(config.msgdisplaymillis);
+      opcionesMenuConf[13] += (config.mute ?          "ON" : "OFF");
+      opcionesMenuConf[14] += (config.showwifilevel ? "ON" : "OFF");
+      opcionesMenuConf[15] += (config.xname ?         "ON" : "OFF");
+      opcionesMenuConf[16] += (config.verify ?        "ON" : "OFF");
+      opcionesMenuConf[17] += (config.dynamic ?       "ON" : "OFF");
 
 
       LOG_DEBUG("opcion=",opcion,"_currentitem=",_currentItem,"MAXOPCIONES=",MAXOPCIONES);
@@ -440,13 +444,7 @@ void Configure::procesaSelectMenu()
                 connected ? setupWS(config) : bipKO();
                 break;
   #endif 
-        case 5 :   // toggle MUTE
-                config.mute = !config.mute;
-                bip(2);
-                saveConfig = true;
-                this->menu();  // vuelve a mostrar menu de configuracion
-                break; 
-        case 6 :   // carga parametros por defecto y reinicia
+        case 5 :   // carga parametros por defecto y reinicia
                 if (copyConfigFile(defaultFile, parmFile)) {    // defaultFile --> parmFile
                   LOG_WARN("carga parametros por defecto OK");
                   //señala la carga parametros por defecto OK
@@ -458,23 +456,23 @@ void Configure::procesaSelectMenu()
                 else BIPKO;  
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break;
-        case 7 :      //configuramos temperatura aviso ESP32
+        case 6 :      //configuramos temperatura aviso ESP32
                 configValuep = &config.warnESP32temp;  
                 this->Range_process_start(40, 99);   
                 break;
-        case 8 :      //configuramos nivel atenuacion led STATUS (RGB)
+        case 7 :      //configuramos nivel atenuacion led STATUS (RGB)
                 configValuep = &config.dimmlevel;  
                 this->Range_process_start(10, config.maxledlevel);   
                 break;
-        case 9 :      //configuramos nivel maximo brillo led STATUS (RGB)
+        case 8 :      //configuramos nivel maximo brillo led STATUS (RGB)
                 configValuep = &config.maxledlevel;  
                 this->Range_process_start(config.dimmlevel, 255);   
                 break;
-        case 10 :     //configuramos correccion temperatura mostrada
+        case 9 :     //configuramos correccion temperatura mostrada
                 configValuep = &config.tempOffset;  
                 this->Range_process_start(-5, 5, 100, 50);   
                 break;
-        case 11 :   // toggle temperatura mostrada (sensor local o remoto)
+        case 10 :   // toggle temperatura mostrada (sensor local o remoto)
                 config.tempRemote = !config.tempRemote;
                 if(readTemp()==999) { // si no esta disponible no dejamos cambiar
                   config.tempRemote = !config.tempRemote;
@@ -486,14 +484,20 @@ void Configure::procesaSelectMenu()
                 }
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break; 
-        case 12 :     //configuramos IDX del sensor de temperatura remoto en el Domotiz
+        case 11 :     //configuramos IDX del sensor de temperatura remoto en el Domotiz
                 configValuep = &config.tempRemoteIdx;  
                 this->Range_process_start(0, 999, 100); // 0 = no definido  
                 break;
-        case 13 :     //configuramos tiempo que se muestran los mensajes (en milisegundos)
+        case 12 :     //configuramos tiempo que se muestran los mensajes (en milisegundos)
                 configValuep = &config.msgdisplaymillis;  
                 this->Range_process_start(1000, 4000, 500);   
                 break;
+        case 13 :   // toggle MUTE
+                config.mute = !config.mute;
+                bip(2);
+                saveConfig = true;
+                this->menu();  // vuelve a mostrar menu de configuracion
+                break; 
         case 14 :   // toggle display nivel señal wifi
                 config.showwifilevel = !config.showwifilevel;
                 bip(2);
