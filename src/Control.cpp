@@ -629,7 +629,7 @@ void procesaEstadoConfigurando()
     }
   }
   else { 
-      webServerAct ? procesaWebServer() : procesaEncoder();
+      webServerAct ? procesaWebServer() : procesaEncoderConfig();
   }
 };
 
@@ -746,7 +746,7 @@ void procesaEstadoStandby(void)
     }
   }
   if (reposo & encoderSW) reposoOFF(); // pulsar boton del encoder saca del reposo
-  procesaEncoder();
+  procesaEncoderClock();
 };
 
 
@@ -1114,11 +1114,11 @@ void reposoOFF()
 }
 
 
-//lee encoder para actualizar el display
-void procesaEncoder()
+//lee encoder para actualizar parametro configuracion
+void procesaEncoderConfig()
 {
 
-  if(Estado.estado == CONFIGURANDO && configure->statusMenu()) {  //encoder selecciona item menu
+  if(configure->statusMenu()) {  //encoder selecciona item menu
       int menuOption = rotaryEncoder.readEncoder();  //devuelve valor actual del encoder (se haya movido o no)
       if(menuOption == configure->get_currentItem()) return;
       LOG_DEBUG("rotaryEncoder.readEncoder() devuelve menuOption =", menuOption, "currentItem =", configure->get_currentItem());
@@ -1126,7 +1126,7 @@ void procesaEncoder()
       return;
   }
 
-  if(Estado.estado == CONFIGURANDO && configure->configuringRange()) {  //encoder ajusta valor entre un rango
+  if(configure->configuringRange()) {  //encoder ajusta valor entre un rango
       int readvalue = rotaryEncoder.readEncoder();  //devuelve valor actual del encoder (se haya movido o no)
       if(readvalue == tm.value) return;
       LOG_DEBUG("rotaryEncoder.readEncoder() devuelve readvalue =", readvalue, "tm.value=", tm.value);
@@ -1135,7 +1135,7 @@ void procesaEncoder()
       return;
   }
 
-  if(Estado.estado == CONFIGURANDO && configure->configuringIdx()) {  //encoder ajusta numero IDX
+  if(configure->configuringIdx()) {  //encoder ajusta numero IDX
       int readvalue = rotaryEncoder.readEncoder();  //devuelve valor actual del encoder (se haya movido o no)
       if(readvalue == tm.value) return;
       LOG_DEBUG("rotaryEncoder.readEncoder() devuelve readvalue =", readvalue, "tm.value=", tm.value);
@@ -1144,8 +1144,12 @@ void procesaEncoder()
       return;
   }
 
-  if (Estado.estado == CONFIGURANDO && !configure->configuringTime()) return;
+  if (configure->configuringTime()) procesaEncoderClock(); //encoder ajusta tiempo de riego por defecto
+}
   
+//lee encoder para actualizar el clock
+void procesaEncoderClock()
+{
   //* Ajuste de tiempo de riego en STANDBY o CONFIGURANDO tiempo de riego por defecto
   // encoder ajusta tiempo (mm:ss) de MINSECONDS a MAXMINUTES
   // en segundos hasta 59 y a partir de ahí en minutos enteros

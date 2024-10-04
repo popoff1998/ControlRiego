@@ -400,7 +400,7 @@ int Configure::showMenu(int opcion)
       lcd.print("->");
       //lcd.print("--" "\x7E");  //  "-->"
       for (int l=1; l<4; l++) {
-        LOG_DEBUG("linea ", l, " opcion ", opcion);
+        LOG_TRACE("linea ", l, " opcion ", opcion);
         lcd.setCursor(3,l);
         lcd.print(opcionesMenuConf[opcion]);
         opcion++;

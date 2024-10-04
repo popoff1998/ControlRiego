@@ -95,7 +95,7 @@
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0]))
        
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.2b.1"
+                            #define VERSION  "3.2b.2"
   //-------------------------------------------------------------------------------------
 
   //Comportamiento General
@@ -656,7 +656,8 @@
   void procesaBotonStop(void);
   void procesaBotonZona(void);
   bool procesaDynamic(void);
-  void procesaEncoder(void);
+  void procesaEncoderClock(void);
+  void procesaEncoderConfig(void);
   void procesaEstados(void);
   void procesaEstadoConfigurando(void);
   void procesaEstadoError(void);
