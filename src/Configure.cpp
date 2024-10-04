@@ -339,10 +339,10 @@ int Configure::showMenu(int opcion)
          /*-----------------*/ 
           "botones IDX/MULT.",  // 0  (fijo)
           "dflt TIME: ",        // 1  
-          "copy to DEFAULT",    // 2 
+          "copy to BACKUP",     // 2 
           "WIFI parm (AP)",     // 3 
           "WEBSERVER",          // 4 
-          "load from DEFAULT",  // 5
+          "load from BACKUP",   // 5
           "ESP32 temp: xx/",    // 6
           "led DIMM lvl: ",     // 7
           "led MAX lvl: ",      // 8
@@ -423,10 +423,10 @@ void Configure::procesaSelectMenu()
         case 1 :      //configuramos tiempo riego por defecto
                 this->Time_process_start();   
                 break;
-        case 2 :  // copiamos fichero parametros en fichero default
-                if (copyConfigFile(parmFile, defaultFile)) {    // parmFile --> defaultFile
-                  LOG_INFO("[ConF] salvado fichero de parametros actuales como DEFAULT");
-                  lcd.infoclear("Save to DEFAULT OK", DEFAULTBLINK, BIPOK);
+        case 2 :  // copiamos fichero parametros en fichero backup
+                if (copyConfigFile(parmFile, backupParmFile)) {    // parmFile --> backupParmFile
+                  LOG_INFO("[ConF] salvado fichero de parametros actuales como BACKUP");
+                  lcd.infoclear("Save to BACKUP OK", DEFAULTBLINK, BIPOK);
                   delay(config.msgdisplaymillis); 
                 }
                 else BIPKO;  
@@ -445,10 +445,10 @@ void Configure::procesaSelectMenu()
                 break;
   #endif 
         case 5 :   // carga parametros por defecto y reinicia
-                if (copyConfigFile(defaultFile, parmFile)) {    // defaultFile --> parmFile
+                if (copyConfigFile(backupParmFile, parmFile)) {    // backupParmFile --> parmFile
                   LOG_WARN("carga parametros por defecto OK");
                   //señala la carga parametros por defecto OK
-                  lcd.infoclear("load DEFAULT OK", DEFAULTBLINK, BIPOK);
+                  lcd.infoclear("load BACKUP OK", DEFAULTBLINK, BIPOK);
                   lcd.info(">> RESET en 2 seg <<",3);
                   delay(2000);
                   ESP.restart();  // reset ESP32

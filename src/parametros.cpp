@@ -14,11 +14,15 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
     return false;
   }
   size_t size = file.size();
+  LOG_INFO("\t tamaño de", p_filename, "-->", size, "bytes");
   if (size > 4096) {
     LOG_ERROR("Config file size is too large");
     return false;
   }
-  LOG_INFO("\t tamaño de", p_filename, "-->", size, "bytes");
+
+  #ifdef EXTRADEBUG
+    printFile(p_filename);
+  #endif
 
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, file);
@@ -27,8 +31,8 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
     LOG_ERROR("\t  deserializeJson() failed: ", error.c_str());
     return false;
   }
-  LOG_TRACE("procesa botones");
-  //--------------  procesa botones (IDX)  --------------------------------------------------
+  LOG_TRACE("procesa zonas");
+  //--------------  procesa botones zona (IDX)  --------------------------------------------------
   for (JsonObject botones : doc["botones"].as<JsonArray>()) {
       int numzonas = botones.size(); // cantidad de zonas que vienen definidas en el fichero
       int i = botones["zona"] | 1;   // numero de la zona definida
@@ -68,6 +72,7 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
       LOG_TRACE("config initialized");
       config.initialized = 1; //solo marcamos como init config si pasa por este bucle
   }
+  LOG_TRACE("procesa resto de parametros");
   //--------------  procesa parametro individuales   ----------------------------------------
   config.minutes = doc["tiempo"]["minutos"] | DEFAULTMINUTES;
   config.seconds = doc["tiempo"]["segundos"] | DEFAULTSECONDS;
@@ -89,8 +94,8 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
   //-------------------------------------------------------------------------------------------
   file.close();
   LittleFS.end();
-  if (config.initialized) return true;
-  else return false;
+  if (!config.initialized) return false;
+  return true;
 }
 
 bool saveConfigFile(const char *p_filename, Config_parm &config)
@@ -175,14 +180,15 @@ bool copyConfigFile(const char *fileFrom, const char *fileTo)
   LOG_ERROR("An Error has occurred while mounting LittleFS");
   return false;
   }
-  // Delete existing file, otherwise the configuration is appended to the file
-  if (LittleFS.exists(fileTo)) LittleFS.remove(fileTo);
   File origen = LittleFS.open(fileFrom, "r");
   if (!origen) {
     LOG_ERROR("- failed to open file ",fileFrom);
     return false;
   }
   else{
+    // Delete existing file, otherwise the configuration is appended to the file
+    LOG_DEBUG("borrando file destino",fileTo);
+    if (LittleFS.exists(fileTo)) LittleFS.remove(fileTo);
     LOG_INFO("copiando",fileFrom,"en",fileTo);
     File destino = LittleFS.open(fileTo, "w+");
     if(!destino){
@@ -199,6 +205,19 @@ bool copyConfigFile(const char *fileFrom, const char *fileTo)
     LittleFS.end();  
     return true;
   } 
+}
+
+//borrado de los ficheros de parametros y backup para resetear la configuracion
+bool deleteParmFiles()
+{
+  LOG_TRACE("in deleteParmFiles");
+  if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)) {
+  LOG_ERROR("An Error has occurred while mounting LittleFS");
+  return false;
+  }
+  if (LittleFS.exists(parmFile)) LittleFS.remove(parmFile);
+  if (LittleFS.exists(backupParmFile)) LittleFS.remove(backupParmFile);
+  return true;
 }
 
 //init minimo de config para evitar fallos en caso de no poder cargar parametros de ficheros
@@ -240,6 +259,8 @@ void printParms(Config_parm &config) {
   Serial.printf("\twarnESP32temp= %d \n", config.warnESP32temp);
   Serial.printf("\tmaxledlevel= %d / dimmlevel= %d \n", config.maxledlevel, config.dimmlevel);
   Serial.printf("\ttempOffset= %d \n", config.tempOffset);
+  Serial.printf("\ttemp (0 LOCAL / 1 REMOTE)= %d \n", config.tempRemote);
+  Serial.printf("\ttempRemoteIdx= %d \n", config.tempRemoteIdx);
   Serial.printf("\tmsgdisplaymillis= %d \n", config.msgdisplaymillis);
   Serial.printf("\tmute= %d \n", config.mute);
   Serial.printf("\tshowwifilevel= %d \n", config.showwifilevel);

@@ -234,7 +234,7 @@ void setupEstado()
    * Verificamos si STOP y encoderSW esta pulsado (estado OFF) en el arranque,
    * en ese caso se muestra pantalla de opciones.
    * Pulsando entonces:
-   *    - boton Grupo1 --> cargamos los parametros del fichero de configuracion por defecto
+   *    - boton Grupo1 --> borramos ficheros de parametros : reset a valores por defecto
    *    - boton Grupo3 --> borramos red wifi almacenada en el ESP32
    *    - liberando boton de STOP  --> salimos sin hacer nada y continua la inicializacion
    */
@@ -246,7 +246,7 @@ void setupEstado()
     if (!digitalRead(ENCBOTON) && testButton(bSTOP,ON)) {
       LOG_TRACE("en opciones setupInit");
       lcd.infoclear("       Pulse:");
-      lcd.info("grupo1 >load DEFAULT",2);
+      lcd.info("grupo1 >RESET parm",2);
       lcd.info("grupo3 >erase WIFI",3);
       lcd.info("EXIT -> release STOP",4);
       while (1) {
@@ -258,11 +258,22 @@ void setupEstado()
         
         if (boton->bID == bGRUPO1) 
         {
-          initFlags.initParm = true;
-          LOG_WARN("pulsado GRUPO1  --> flag de load default PARM true");
-          lcd.infoclear("load default PARM",1,BIPOK);
-          loadDefaultSignal(6);
-          break;
+          if(initFlags.preinitParm)
+          {
+              initFlags.initParm = true;
+              LOG_WARN("repulsado GRUPO1  --> flag de reset/erase PARM true");
+              lcd.infoclear("RESET/ERASE PARM",1);
+              deleteParmSignal(6);
+              break;
+          }    
+          else
+          {
+              initFlags.preinitParm = true;
+              LOG_WARN("pulsado GRUPO1  --> pedida confirmacion");
+              lcd.infoclear(">>RESET/ERASE PARM<<",1);
+              lcd.info(" confirme con GRUPO1",3);
+              lcd.info(" CANCEL release STOP",4);
+          }    
         }
         if (boton->bID == bGRUPO3) 
         {
@@ -286,8 +297,8 @@ void setupEstado()
     if (!digitalRead(ENCBOTON)) {
       if (testButton(bGRUPO1,ON)) {
         initFlags.initParm = true;
-        LOG_WARN("encoderSW pulsado y multirriego en GRUPO1  --> flag de load default PARM true");
-        loadDefaultSignal(6);
+        LOG_WARN("encoderSW pulsado y multirriego en GRUPO1  --> flag de load BACKUP PARM true");
+        deleteParmSignal(6);
       }
       if (testButton(bGRUPO3,ON)) {
         initFlags.initWifi = true;
@@ -932,6 +943,7 @@ void initFactorRiegos()
       break;
     }
     factorRiegos[i] = factorR;
+    LOG_TRACE("zona",i+1,"factor asignado=",factorR);
     if (strlen(descDomoticz)) {
       // si xNAME true, actualizamos en config la DESCRIPCION con la recibida del Domoticz (campo Name)
       if (config.xname) {
@@ -1486,8 +1498,7 @@ String deviceInfo(int idx)
 int getFactor(uint16_t idx)
 {
   LOG_TRACE("");
-  // si el IDX es 0 devolvemos 0 sin procesarlo (boton no asignado)
-  if(idx == 0) return 0;
+  if(idx == 0) return 100; //si el IDX es 0 devolvemos 100 sin procesarlo (boton no asignado)
   factorRiegosOK = false;
   strcpy(descDomoticz, "");
   if(!checkWifi()) {
@@ -1847,30 +1858,29 @@ void setupParm()
   LOG_TRACE("");
   if(clean_FS) cleanFS();
   #ifdef DEVELOP
+    Serial.printf( "\n initParm= %d \n", initFlags.initParm );
     filesInfo();
-    Serial.printf( "initParm= %d \n", initFlags.initParm );
   #endif
   if( initFlags.initParm) {
-    LOG_WARN(">>>>>>>>>>>>>>  cargando parametros por defecto  <<<<<<<<<<<<<<");
-    bool bRC = copyConfigFile(defaultFile, parmFile); // defaultFile --> parmFile
+    LOG_WARN(">>>>>>>>>>>>>>  borrando ficheros de parámetros  <<<<<<<<<<<<<<");
+    bool bRC = deleteParmFiles();
     if(bRC) {
-      LOG_WARN("carga parametros por defecto OK");
-      //señala la carga parametros por defecto OK
-      lcd.infoclear("load DEFAULT parm OK", DEFAULTBLINK, BIPOK);
+      LOG_WARN("borrado ficheros de parámetros OK");
+      //señala el borrado ficheros de parámetros OK (parm y backup)
+      lcd.infoclear("RESET/ERASE parm OK",1,BIPOK);
       delay(config.msgdisplaymillis);
     }  
-    else LOG_ERROR(" **  [ERROR] cargando parametros por defecto");
+    else LOG_ERROR(" **  [ERROR] en borrado ficheros de parámetros");
   }
-  if (!setupConfig(parmFile)) {
+  if (!loadConfigFile(parmFile, config)) {
     LOG_ERROR(" ** [ERROR] Leyendo fichero parametros " , parmFile);
-    lcd.infoclear("DEFAULT parm loaded");
-    delay(MSGDISPLAYMILLIS*3);
-    if (!setupConfig(defaultFile)) {
-      LOG_ERROR(" ** [ERROR] Leyendo fichero parametros ", defaultFile);
-    }
+    if (loadConfigFile(backupParmFile, config)) {lcd.infoclear("BACKUP parm loaded");delay(MSGDISPLAYMILLIS*3);}
+    else LOG_ERROR(" ** [ERROR] Leyendo fichero parametros backup ", backupParmFile);
   }
   if (!config.initialized) zeroConfig(config);  //init config con zero-config
   else VERIFY = config.verify; 
+
+  setupConfig(); //una vez cargados parametros, completa campos de config y boton
 
   #ifdef VERBOSE
     if (config.initialized) Serial.print(F("Parametros cargados, "));
@@ -1879,48 +1889,38 @@ void setupParm()
   #endif
 }
 
-
-bool setupConfig(const char *p_filename) 
+//Completa campos de config y boton
+void setupConfig() 
 {
   //init grupo temporal n+1  
-  LOG_INFO("Init grupo temporal (GRUPO", NUMGRUPOS+1,")");
   config.group[NUMGRUPOS].bID = 0;     // id del boton de grupo ficticio
   config.group[NUMGRUPOS].size = 0;
   sprintf(config.group[NUMGRUPOS].desc, "TEMPORAL"); 
+  LOG_TRACE("Init grupo temporal (GRUPO", NUMGRUPOS+1,")");
 
   //init campo zNumber de Boton[]
   setzNumber();
   //init campo bID de grupos en config
   setbIDgrupos(config);
   
-  LOG_INFO("Leyendo fichero parametros", p_filename);
-  bool loaded = loadConfigFile(p_filename, config);
   tm.minutes = config.minutes;
   tm.seconds = config.seconds;
   tmvalue();
-  if (loaded) {
-    for(int i=0;i<NUMZONAS;i++) {
-      //si en config campo desc de la zona esta vacio se copia el de la estructura Boton:
-      if(strlen(config.zona[i].desc) == 0) {
-        strlcpy(config.zona[i].desc, Boton[zNumber2bIndex(i+1)].desc, sizeof(config.zona[i].desc));
-      }  
-    }
-    for(int i=0;i<NUMGRUPOS;i++) {
-      //si en config campo desc del grupo esta vacio se copia el de la estructura Boton:
-      if(strlen(config.group[i].desc) == 0) {
-        strlcpy(config.group[i].desc, Boton[bID2bIndex(GRUPOS[i])].desc, sizeof(config.group[i].desc));
-      }  
-    }
-    #ifdef MUTE
-      config.mute = true;   // arranque con sonidos silenciados
-    #endif
-        #ifdef EXTRADEBUG
-          printFile(p_filename);
-        #endif
-    return true;
-  }  
-  LOG_ERROR(" ** [ERROR] parámetros de configuración no cargados");
-  return false;
+  for(int i=0;i<NUMZONAS;i++) {
+    //si en config campo desc de la zona esta vacio se copia el de la estructura Boton:
+    if(strlen(config.zona[i].desc) == 0) {
+      strlcpy(config.zona[i].desc, Boton[zNumber2bIndex(i+1)].desc, sizeof(config.zona[i].desc));
+    }  
+  }
+  for(int i=0;i<NUMGRUPOS;i++) {
+    //si en config campo desc del grupo esta vacio se copia el de la estructura Boton:
+    if(strlen(config.group[i].desc) == 0) {
+      strlcpy(config.group[i].desc, Boton[bID2bIndex(GRUPOS[i])].desc, sizeof(config.group[i].desc));
+    }  
+  }
+  #ifdef MUTE
+    config.mute = true;   // arranque con sonidos silenciados
+  #endif
 }
 
 // convierte timestamp a fecha hora

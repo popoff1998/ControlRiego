@@ -106,9 +106,9 @@ void ledRGB(int  R, int G, int B)
   ledPWM(LEDB,B);
 }
 
-void loadDefaultSignal(uint veces)
+void deleteParmSignal(uint veces)
 {
-  LOG_TRACE("in loadDefaultSignal");
+  LOG_TRACE("in deleteParmSignal");
   uint i;
   for(i=0;i<veces;i++) {
     ledRGB(ON,OFF,OFF);

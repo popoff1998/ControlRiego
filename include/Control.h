@@ -318,7 +318,8 @@
   };
 
   struct S_initFlags     {
-    uint8_t initParm    : 1,
+    uint8_t preinitParm   : 1,
+            initParm      : 1,
             initWifi      : 1,
             spare1        : 1;
   };
@@ -374,7 +375,7 @@
     char desc[20];
   } ;
 
-  //estructura para salvar parametros de un boton
+  //estructura para salvar parametros de una zona
   struct Zona_parm {
     char  desc[20];
     uint16_t   idx;        // IDX de la zona en Domoticz
@@ -383,15 +384,15 @@
   //estructura para parametros configurables
   struct Config_parm {
     uint8_t   initialized=0;
-    static const int  n_Zonas = NUMZONAS; //no modificable por fichero de parámetros (depende HW) 
+    static const int  n_Zonas = NUMZONAS;    //no modificable por fichero de parámetros (depende HW) 
     Zona_parm zona[n_Zonas];
     static const int  n_Grupos = NUMGRUPOS;  //no modificable por fichero de parámetros (depende HW)
-    Grupo_parm group[n_Grupos+1];       // +1 para sitio para grupo temporal n+1
+    Grupo_parm group[n_Grupos+1];            // +1 para sitio para grupo temporal n+1
     char domoticz_ip[40];
     char domoticz_port[6];
-    char ntpServer[40];
-    uint8_t   minutes = DEFAULTMINUTES; 
-    uint8_t   seconds = DEFAULTSECONDS;
+    char ntpServer[40] = "es.pool.ntp.org";
+    uint8_t   minutes = DEFAULTMINUTES;         // tiempo de riego por defecto
+    uint8_t   seconds = DEFAULTSECONDS;         // tiempo de riego por defecto
     int  warnESP32temp = MAX_ESP32_TEMP;        // temperatura ESP32 maxima con aviso 
     int  maxledlevel = MAXLEDLEVEL;             // nivel brillo maximo led RGB 
     int  dimmlevel = DIMMLEVEL;                 // nivel atenuacion led RGB 
@@ -402,7 +403,7 @@
     bool mute = OFF;                            // sonidos activos
     bool showwifilevel = OFF;                   // muestra en standby nivel de la señal wifi
     bool xname = false;                         // actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
-    bool verify;                                // verifica estado dispositivo en el Domoticz
+    bool verify = true;                         // verifica estado dispositivo en el Domoticz
     bool dynamic = false;                       // si true permite añadir/eliminar zonas durante el riego
   };
 
@@ -484,7 +485,7 @@
     bool saveConfig = false;
     
     const char *parmFile = "/config_parm.json";       // fichero de parametros activos
-    const char *defaultFile = "/config_default.json"; // fichero de parametros por defecto
+    const char *backupParmFile = "/config_backup.json"; // fichero de respaldo de los parametros
 
     DisplayLCD lcd(LCD2004_address, 20, 4);  // 20 caracteres x 4 lineas
     char buff[MAXBUFF];
@@ -502,7 +503,7 @@
     extern bool webServerAct;
     extern bool saveConfig;
     extern const char *parmFile; 
-    extern const char *defaultFile;
+    extern const char *backupParmFile;
     extern DisplayLCD lcd;
     extern char buff[];
 
@@ -595,6 +596,7 @@
   void cleanFS(void);
   bool copyConfigFile(const char*, const char*);
   void debugloops(void);
+  bool deleteParmFiles(void);
   void dimmerLeds(bool);
   void displayDemo(void);
   void displayGrupo(uint16_t *, int);
@@ -634,7 +636,7 @@
   void leeSerial(void);
   void listDir(fs::FS &fs, const char * , uint8_t);
   bool loadConfigFile(const char*, Config_parm&);
-  void loadDefaultSignal(uint);
+  void deleteParmSignal(uint);
   void longbip(int);
   void lowbip(int);
   void mcpIinit(void);
@@ -685,7 +687,7 @@
   int  ledlevel(void);
   int  setMultibyId(uint16_t , Config_parm&);
   bool setMultirriego(Config_parm&);
-  bool setupConfig(const char*);
+  void setupConfig(void);
   void setupEstado(void);
   void setupInit(void);
   void setupParm(void);
