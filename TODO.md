@@ -2,10 +2,11 @@ PENDIENTES
 ==========
 - boton Pause reflejado en Domoticz (en ambos sentidos)
 - webserver: opcion descarga fichero parametros a PC
-- webserver: ficheros en subdirectorio
+- webserver: ficheros en subdirectorio de backup ??
 
 HECHOS
 ======
+**Version 1:**
 - el modo CONFIGURACION debe permitir definir los botones que pertenecen a un grupo de riegos, incluido su orden (en modo ConF pulsar multirriego). V1.2
 - Paso de modo NORMAL a modo NONETWORK y viceversa para pruebas o demo (encoderSW + PAUSA). V1.2
 - encoderSW + boton de riego -> muestra factor de riego asociado a ese boton. V1.2
@@ -29,7 +30,7 @@ HECHOS
 - permite configurar boton con IDX=0 para desactivarlo V1.4
 - debug trace si Exception en modo DEVELOP (platformio.ini) V1.4
 - no modifica parámetros de conexión (ip domoticz) el restaurar valores por defecto V1.4
-- VERIFY completo al salir de modo DEMO (NONETWORK): conexion wifi y con Domoticz, parada todos los riegos) V1.4
+- VERIFY completo al salir de modo DEMO (NONETWORK): conexion wifi y con Domoticz, parada todos los riegos V1.4
 **Version 2:**
 - fichero parámetros en lugar de variables del pgm y eeprom (parmConfig.json) V2.0
 - si error, parpadeo led zona que falla V2.0
@@ -47,31 +48,22 @@ HECHOS
 - si al lanzar o detener un riego Domoticz informa de error, se reintenta varias veces antes de dar error V2.5
 - mejoras en menu de servicio (webserver): posibilida de ver, borrar y actualizar ficheros individuales del file system V2.5
 **Version 3:**
-- adaptacion para ESP32 y expansores I/O MCP23017
+- nuevo HW: ESP32, expansores I/O MCP23017, pantalla LCD de 20 caracteres x 4 lineas (bus I2C)
 - cambio libreria encoder por una que soporta interrupciones
-- sustitucion display led de 7 segmentos por pantalla LCD de 20 caracteres x 4 lineas (bus I2C)
 - opciones de inicio por pantalla (borrar wifi o cargar parametros defecto) V3.1
-- ampliacion a 9 zonas / 4 grupos V3.0.2 (botones PAUSE y STOP conectados a mcpO ) V3.1
-- opcion de compilacion para 4 botones de grupos o selector 3 grupos con boton de multirriego V3.1
+- ampliacion a 9 zonas / 4 grupos V3.1
 - leds de RED y de WIFI fusionados en led STATUS RGB V3.1
 - muestra dia/mes al mostrar hora actual. Sincronizacion del time por NTP cada 10 horas V3.1
-- Opciones en modo configuracion por menu en pantalla, opcion MUTE V3.1
+- Modo configuracion por menu en pantalla V3.1
 - pseudogrupo riego temporal V3.1
 - refactoring  de procesaEstadoConfigurando y clase Configure  V3.1
-- tiempo finalizacion en tabla ultimos riegos zonas. Display al mostrar factor riego de zona V3.1
-- en multirriego se muestran en display zonas que restan por regar en lugar de nombre del grupo V3.1
-- display temperatura ambiente en STANDBY (sensor propio) V3.1
-- aviso temperatura alta ESP32 (configurable) V3.1
-- más parametros configurables: MAXLEDLEVEL y DIMMLEVEL (led RGB), TEMP_OFFSET, MSGDISPLAYMILLIS V3.1
-- migrado a Json V7. Eliminado parm tamaño del grupo del fichero de configuracion V3.1
+- mejoras información en pantalla (DEMO, zonas pendientes riego, temperatura ambiente, timestamp riegos) V3.1
+- Simplificacion fichero de configuracion V3.1
 - configurando grupo, enc+pause vacia grupo V3.1
-- simplificacion y tratamiento errores del fichero de configuracion V3.1
-- mas parametros configurables: display nivel señal wifi, XNAME V3.1
-- display temperatura sensor remoto en STANDBY (sensor externo Domoticz) V3.1.1
-- nuevo formato mandato comunicacion con Domoticz v3.1.1
-- indicacion modo demo (NONETWORK) en pantalla V3.1.1
-- parametro VERIFY (chequeo estado dispositivo en Domoticz) configurable V3.1.2
-- si parametro dynamic=true añadido/baja zonas durante el riego V3.2b.0
-- menu configuracion: rangos ajustables sobre linea del menu V3.2b.1
+- nuevo formato mandato comunicacion con Domoticz v3.1
+- mejoras información en pantalla (*Mtemp, -NF-) V3.2
+- si parametro dynamic=true se permite añadido/baja zonas durante el riego V3.2
+- menu configuracion: rangos ajustables sobre linea del menu V3.2
+- opciones de inicio por pantalla: reset parametros (borrado ficheros parm y backup) V3.2
 
 

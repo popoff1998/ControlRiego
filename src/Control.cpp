@@ -100,7 +100,7 @@ void setup()
   //lanzamos supervision periodica estado cada VERIFY_INTERVAL seg.
   tic_verificaciones.attach(VERIFY_INTERVAL, flagVerificaciones);
   standbyTime = millis();
-  LOG_INFO("*** ending setup");
+  PRINTLN("   *** Setup finalizado ***");
 }
 
 
@@ -558,7 +558,7 @@ void procesaBotonZona(void)
     }
     
     //else {bipKO(); LOG_DEBUG("[DYNAMIC] zona pulsada:",boton->znumber," es = a zona actual:",ultimoBotonZona->znumber);}
-    else { setEstado(TERMINANDO); LOG_INFO("dynamic true: terminamos riego de zona en curso"); }
+    else { setEstado(TERMINANDO); LOG_INFO("DYNAMIC: terminamos riego de zona en curso"); }
     boton = NULL; // borrar boton pulsado
   }
 }
@@ -829,6 +829,7 @@ bool procesaDynamic(void)
       }
       *multi.size = n-1;
       LOG_DEBUG("[ELIMINA] n=",n,"actual:",multi.actual,"size:",*multi.size,"zona:",boton->znumber);
+      LOG_INFO("DYNAMIC [ELIMINA] Zona:",boton->znumber);
       bip(2); return true; //zona eliminada
     }
   } 
@@ -839,6 +840,7 @@ bool procesaDynamic(void)
     multi.zserie[multi.w_size] = boton->znumber;  // numero de la zona pulsada
     *multi.size = multi.w_size + 1;
     LOG_DEBUG("[AÑADE] n=",n,"actual:",multi.actual,"size:",*multi.size,"zona:",boton->znumber);
+      LOG_INFO("DYNAMIC [AÑADE] Zona:",boton->znumber);
     bip(1); return true; //zona añadida
   }
   else return false; //no hay sitio --> zona ignorada   
