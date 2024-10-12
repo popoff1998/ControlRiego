@@ -54,7 +54,7 @@ void initLeds()
   int i;
   uint ledOrder[] = { lGRUPO1 , lGRUPO2 , lGRUPO3 , lGRUPO4 ,
                       lZONA1 , lZONA2 , lZONA3 , lZONA4 , lZONA5 , lZONA6 , lZONA7 , lZONA8 , lZONA9 };
-  size_t numLeds = sizeof(ledOrder)/sizeof(ledOrder[0]);
+  size_t numLeds = ELEMENTCOUNT(ledOrder);
   apagaLeds();
   for(i=0;i<numLeds;i++) {
     led(ledOrder[i],ON);

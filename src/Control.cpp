@@ -669,9 +669,8 @@ void procesaEstadoError(void)
   if(boton->bID == bSTOP) {
   //Si estamos en ERROR y pulsamos o liberamos STOP, reseteamos
     lcd.infoclear("ERROR+STOP-> Reset..",3);
-    LOG_WARN("ERROR + STOP --> Reset.....");
     lowbip(1);
-    if(checkWifi() && boton->estado) stopAllRiego(); //si es pulsado STOP intentamos parar riegos
+    //if(checkWifi() && boton->estado) stopAllRiego(); //si es pulsado STOP intentamos parar riegos
     delay(3000);
     ESP.restart();  
   }
@@ -840,7 +839,7 @@ bool procesaDynamic(void)
     multi.zserie[multi.w_size] = boton->znumber;  // numero de la zona pulsada
     *multi.size = multi.w_size + 1;
     LOG_DEBUG("[AÑADE] n=",n,"actual:",multi.actual,"size:",*multi.size,"zona:",boton->znumber);
-      LOG_INFO("DYNAMIC [AÑADE] Zona:",boton->znumber);
+    LOG_INFO("DYNAMIC [AÑADE] Zona:",boton->znumber);
     bip(1); return true; //zona añadida
   }
   else return false; //no hay sitio --> zona ignorada   
@@ -935,7 +934,6 @@ void initFactorRiegos()
   {
     int bIndex = bID2bIndex(ZONAS[i]);
     uint factorR = getFactor(config.zona[i].idx);
-    //uint factorR = getFactor(Boton[bIndex].idx);
     if(factorR == 999) break;     //en modo NONETWORK no continuamos iterando si no hay conexion
     if(Estado.estado == ERROR) {  //al primer error salimos
       if(Estado.error == E3) {    // y señalamos zona que falla si no es error general de conexion
@@ -950,13 +948,11 @@ void initFactorRiegos()
       // si xNAME true, actualizamos en config la DESCRIPCION con la recibida del Domoticz (campo Name)
       if (config.xname) {
         strlcpy(config.zona[i].desc, descDomoticz, sizeof(config.zona[i].desc));
-        //strlcpy(Boton[bIndex].desc, descDomoticz, sizeof(Boton[bIndex].desc));
         LOG_INFO("\t descripcion ZONA", i+1, "actualizada en config");
       }
       //si el parm desc estaba vacio actualizamos en todo caso (en config, no en Boton)
       if (config.zona[i].desc[0] == 0) {
         strlcpy(config.zona[i].desc, descDomoticz, sizeof(config.zona[i].desc));
-        //strlcpy(Boton[bIndex].desc, descDomoticz, sizeof(Boton[bIndex].desc));
         LOG_INFO("\t descripcion ZONA", i+1, "incluida en config");
         // saveConfig = true;   TODO ¿deberiamos salvarlo?
       }  
@@ -1017,8 +1013,7 @@ void setEncoderTime() {
     rotaryEncoder.setAcceleration(50); // set the value - larger number = more accelearation; 0 or 1 means disabled acceleration
     rotaryEncoder.enable();
     tmvalue(); //set valor tm.value para ajustar tiempo con procesaencoder
-
-}
+    }
 
 void setEncoderRange(int min, int max, int current, int aceleracion) {
     LOG_DEBUG("min=",min,"max=",max,"current=",current);
@@ -1172,35 +1167,30 @@ void procesaEncoderClock()
   int encvalue = rotaryEncoder.encoderChanged();  //devuelve cuanto y en que sentido se ha movido el encoder
   if(!encvalue) return; 
   LOG_DEBUG("rotaryEncoder.encoderChanged() devuelve encvalue =", encvalue);
+  
   tm.value = tm.value + encvalue;
 
   if(tm.seconds == 0 && tm.value>0) {   //Estamos en el rango de minutos
-    if (tm.value > MAXMINUTES)  tm.value = MAXMINUTES;
+    if (tm.value > MAXMINUTES) tm.value = MAXMINUTES;
     if (tm.value != tm.minutes) {
       tm.minutes = tm.value;
     } else return;
-  }
-  else {
-    //o bien estamos en el rango de segundos o acabamos de entrar en el
-    if(tm.value<60 && tm.value>=MINSECONDS) {
-      if (tm.value != tm.seconds) {
-        tm.seconds = tm.value;
-      } else return;
+  } else {    //o bien estamos en el rango de segundos o acabamos de entrar en el
+      if(tm.value<60 && tm.value>=MINSECONDS) {
+        if (tm.value != tm.seconds) {
+          tm.seconds = tm.value;
+        } else return;
+      } else if (tm.value >=60) {
+          tm.value = tm.minutes = 1;
+          tm.seconds = 0;
+        } else if(tm.minutes == 1) {
+            tm.value = tm.seconds = 59;
+            tm.minutes = 0;
+          } else {
+              tm.value = tm.seconds = MINSECONDS;
+              tm.minutes = 0;
+            }
     }
-    else if (tm.value >=60) {
-      tm.value = tm.minutes = 1;
-      tm.seconds = 0;
-    }
-    else if(tm.minutes == 1) {
-      tm.value = tm.seconds = 59;
-      tm.minutes = 0;
-    }
-    else
-    {
-      tm.value = tm.seconds = MINSECONDS;
-      tm.minutes = 0;
-    }
-  }
   if(reposo) reposoOFF();
   configure->configuringTime() ? configure->Time_process_update() : StaticTimeUpdate(UPDATE);
   standbyTime = millis();
@@ -1421,10 +1411,6 @@ void blinkPause()
 /// @param refresh si true actualiza incondicionalmente, en caso contrario solo si ha cambiado
 void StaticTimeUpdate(bool refresh)
 {
-  if (Estado.estado == ERROR) return; //para que en caso de estado ERROR no borre el código de error del display
-  if (tm.minutes < MINMINUTES) tm.minutes = MINMINUTES;
-  if (tm.minutes > MAXMINUTES) tm.minutes = MAXMINUTES;
-  //solo se actualiza si cambia hora o REFRESH
   if (refresh) lcd.clear(BORRA2H);
   if(prevseconds != tm.seconds || prevminutes != tm.minutes || refresh) {
     lcd.displayTime(tm.minutes, tm.seconds); 
@@ -1433,11 +1419,11 @@ void StaticTimeUpdate(bool refresh)
   }
 }
 
-void refreshTime()
+void refreshTime()   // Actualiza la cuenta atrás en pantalla, solo si ha cambiado
 {
   unsigned long curMinutes = T.ShowMinutes();
   unsigned long curSeconds = T.ShowSeconds();
-  if(prevseconds != curSeconds) lcd.displayTime(curMinutes, curSeconds); //LCD solo se actualiza si cambia
+  if(prevseconds != curSeconds) lcd.displayTime(curMinutes, curSeconds);
   prevseconds = curSeconds;
 
 }
@@ -1772,16 +1758,16 @@ float readTemp() {
     tempOK=false;
     if(config.tempRemote) {
       temperatura = getTemperatureDomoticz(config.tempRemoteIdx);
-      temperatura == 999 ? tempOK=false : tempOK=true;
     }
     else {
       #ifdef TEMPLOCAL   // temperatura ambiente del sensor local
         temperatura = dht.readTemperature();
-        humedad = dht.readHumidity();
+        //humedad = dht.readHumidity();
         //float temp_sense = dht.computeHeatIndex(false); // false para calculo en grados centigrados
-        (isnan(temperatura) || isnan(humedad)) ? tempOK=false : tempOK=true;
+        if(isnan(temperatura)) temperatura = 999;
       #endif
     }
+    temperatura == 999 ? tempOK=false : tempOK=true;
     return temperatura;  
 }
 
@@ -1908,6 +1894,7 @@ void setupConfig()
   tm.minutes = config.minutes;
   tm.seconds = config.seconds;
   tmvalue();
+  
   for(int i=0;i<NUMZONAS;i++) {
     //si en config campo desc de la zona esta vacio se copia el de la estructura Boton:
     if(strlen(config.zona[i].desc) == 0) {

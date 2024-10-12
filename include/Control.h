@@ -32,10 +32,6 @@
     #define VERBOSE
   #endif
 
-  #ifdef DEMO
-    //Comportamiento general para DEMO . DESCOMENTAR LO QUE CORRESPONDA
-    #define DEBUGLOG_DISABLE_LOG
-  #endif
   #include <DebugLog.h>
 
   #include <DNSServer.h>
@@ -95,7 +91,7 @@
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0]))
        
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.2-RC0"
+                            #define VERSION  "3.2-RC1"
   //-------------------------------------------------------------------------------------
 
   //Comportamiento General
@@ -107,17 +103,12 @@
     #define DEFAULTMINUTES      0
     #define DEFAULTSECONDS      10
   #endif
-  #ifdef DEMO
-    #define DEFAULTMINUTES      0
-    #define DEFAULTSECONDS      7
-  #endif
   #define STANDBYSECS         30      // tiempo en segundos para pasar a reposo desde standby (apagar pantalla y atenuar leds)
   #define NTPUPDATEINTERVAL   600     // tiempo en minutos para resincronizar el reloj del sistema con el servidor NTP
   #define RECONNECTINTERVAL   1       // tiempo en minutos para intentar reconexion a la wifi
   #define DEFAULTBLINK        4       // numero de parpadeos de la pantalla
   #define DEFAULTBLINKMILLIS  500     // mseg entre parpadeo de la pantalla
   #define MSGDISPLAYMILLIS    1000    // * mseg se mantienen mensajes informativos
-  #define MINMINUTES          0       // minimo de minutos ajustables en el temporizador
   #define MAXMINUTES          59      // corte automatico de seguridad a los 60 min. en los arduinos
   #define MINSECONDS          5       // minimo de segundos ajustables en el temporizador
   #define HOLDTIME            3000    // mseg que hay que mantener PAUSE pulsado para ciertas acciones
@@ -132,8 +123,8 @@
   #define ROTARY_ENCODER_STEPS 4      // TODO documentar
   #define MAX_ESP32_TEMP      80      // * max temp. ESP32 para mostrar aviso (con wifi funciona mal)
   #define TEMP_OFFSET         0       // * correccion temperatura sensor local o remoto
-  #define TEMP_DATA_REMOTE    0       // * fuente del dato de temperatura 0=remota/1=local
-                                      // "*" = configurables
+  #define TEMP_DATA_REMOTE    0       // * fuente del dato de temperatura 0=local/1=remota
+                                      // [*] = configurables
 
  //----------------  dependientes del HW   ----------------------------------------
   #ifdef ESP32
@@ -298,8 +289,8 @@
 
   const uint16_t ZONAS[] = {_ZONAS};
   const uint16_t GRUPOS[]  = {_GRUPOS};
-  const int NUMZONAS = sizeof(ZONAS)/sizeof(ZONAS[0]); // numero de zonas (botones riego individual)
-  const int NUMGRUPOS = sizeof(GRUPOS)/sizeof(GRUPOS[0]); // numero de grupos multirriego
+  const int NUMZONAS = ELEMENTCOUNT(ZONAS); // numero de zonas (botones riego individual)
+  const int NUMGRUPOS = ELEMENTCOUNT(GRUPOS); // numero de grupos multirriego
 
   union S_bFLAGS
   {
@@ -472,7 +463,7 @@
     #endif
 
     
-    int NUM_S_BOTON = sizeof(Boton)/sizeof(Boton[0]);
+    int NUM_S_BOTON = ELEMENTCOUNT(Boton);
 
     S_MULTI multi;  //estructura con variables del grupo de multirriego activo
     S_BOTON  *boton;
@@ -562,17 +553,17 @@
 
     // bipOK notes in the melody:
     int bipOK_melody[] = { NOTE_C6, NOTE_D6, NOTE_E6, NOTE_F6, NOTE_G6, NOTE_A6, NOTE_B6 };
-    const int bipOK_num = sizeof(bipOK_melody)/sizeof(bipOK_melody[0]); // numero de notas en la melodia
+    const int bipOK_num = ELEMENTCOUNT(bipOK_melody); // numero de notas en la melodia
     int bipOK_duration = 50;  // duracion de cada tono en mseg.
 
     // bipKO notes in the melody:
     int bipKO_melody[] = { NOTE_B5, NOTE_A5, NOTE_G5, NOTE_F5, NOTE_E5, NOTE_D5, NOTE_C5, NOTE_B4, NOTE_A3 };
-    const int bipKO_num = sizeof(bipKO_melody)/sizeof(bipKO_melody[0]); // numero de notas en la melodia
+    const int bipKO_num = ELEMENTCOUNT(bipKO_melody); // numero de notas en la melodia
     int bipKO_duration = 120;  // duracion de cada tono en mseg.
  
     // bipFIN notes in the melody:
     int bipFIN_melody[] = { NOTE_C6, NOTE_E6, NOTE_G6, NOTE_F6, NOTE_G6, NOTE_B6, NOTE_C7 };
-    const int bipFIN_num = sizeof(bipFIN_melody)/sizeof(bipFIN_melody[0]); // numero de notas en la melodia
+    const int bipFIN_num = ELEMENTCOUNT(bipFIN_melody); // numero de notas en la melodia
     int bipFIN_duration = 60;  // duracion de cada tono en mseg.
  
     #ifdef TEMPLOCAL 

@@ -117,7 +117,7 @@ void Configure::Time_process_start()
 //  actualizamos en menu tiempo por defecto modificado
 void Configure::Time_process_update()
 {
-      LOG_INFO("DEFAULT TIME, minutes:",tm.minutes," secons:",tm.seconds);
+      LOG_TRACE("DEFAULT TIME, minutes:",tm.minutes," secons:",tm.seconds);
       sprintf(buff, "%02d:%02d",tm.minutes,tm.seconds); 
       lcd.print(buff);
       lcd.setCursorBlink(_data_pos[_currentItem],1);
@@ -359,7 +359,7 @@ int Configure::showMenu(int opcion)
          /*<------17------->*/ 
       };
 
-      const int MAXOPCIONES = sizeof(opcionesMenuConf)/sizeof(opcionesMenuConf[0]);
+      const int MAXOPCIONES = ELEMENTCOUNT(opcionesMenuConf);
       LOG_DEBUG("sizeof Total",sizeof(opcionesMenuConf),"sizeof [0]",sizeof(opcionesMenuConf[0]));
       if(!_data_pos_valid) {
           for(int r=0; r<MAXOPCIONES; r++) {
