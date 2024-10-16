@@ -267,7 +267,7 @@ S_BOTON *parseInputs(bool read)
   return NULL;
 }
 
-// devuelve la posicion en Boton[] del boton que se le ha pasado (bID)
+// devuelve la posicion en array Boton[] (bIndex) del boton que se le ha pasado (bID)
 int bID2bIndex(uint16_t id)
 {
   for (int i=0;i<NUM_S_BOTON;i++) {
@@ -276,7 +276,7 @@ int bID2bIndex(uint16_t id)
   return 999;
 }
 
-// devuelve posicion en extructura Boton (bIndex) de la zona pasada (numero de la zona)
+// devuelve posicion en array Boton[] (bIndex) de la zona pasada (numero de la zona)
 int zNumber2bIndex(uint16_t z)
 {
   for (int i=0;i<NUM_S_BOTON;i++) {

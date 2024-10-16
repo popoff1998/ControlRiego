@@ -20,10 +20,6 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
     return false;
   }
 
-  #ifdef EXTRADEBUG
-    printFile(p_filename);
-  #endif
-
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, file);
 

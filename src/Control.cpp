@@ -47,7 +47,7 @@ void setup()
 
   PRINTLN("\n\n CONTROL RIEGO V" + String(VERSION) + "    Built on " __DATE__ " at " __TIME__  "\n");
   #ifndef DEBUGLOG_DISABLE_LOG
-    PRINTLN("(current log level is", (int)LOG_GET_LEVEL(), ")");
+    PRINTLN("\n (current log level is", (int)LOG_GET_LEVEL(), ")");
   #endif
   LOG_DEBUG("Startup reason: ", esp_reset_reason());
   LOG_TRACE("TRACE: in setup");
@@ -498,7 +498,6 @@ void procesaBotonZona(void)
 {
   int zIndex = boton->znumber-1;
   if (zIndex < 0) return; //el boton no es de ZONA o error en la matriz Boton[]
-  int bIndex = bID2bIndex(boton->bID); 
   if (Estado.estado == STANDBY) {
     if (!encoderSW || multi.riegoON) {  //iniciamos el riego correspondiente al boton seleccionado
         bip(2);
@@ -516,7 +515,7 @@ void procesaBotonZona(void)
         // si tiempo factorizado de riego es 0 o IDX=0, nos saltamos este riego
         if ((fminutes == 0 && fseconds == 0) || config.zona[(boton->znumber)-1].idx == 0) {
           setEstado(TERMINANDO);
-          led(Boton[bIndex].led,ON); //para que se vea que zona es 
+          led(boton->led,ON); //para que se vea que zona es 
           lcd.clear(BORRA2H);
           lcd.info("IDX/factor:     -00-",4);
           return;
@@ -527,18 +526,17 @@ void procesaBotonZona(void)
         if(Estado.estado != ERROR) setEstado(REGANDO); // para que no borre ERROR
     }
     else {  // mostramos en el display el factor de riego del boton pulsado y fecha ultimo riego
-      led(Boton[bIndex].led,ON);
+      led(boton->led,ON);
       #ifdef EXTRADEBUG
         Serial.printf("Boton: %s Factor de riego: %d \n", config.zona[boton->znumber-1].desc,factorRiegos[zIndex]);
-        Serial.printf("          boton.index: %d \n", bIndex);
-        Serial.printf("          boton(%d).led: %d \n", bIndex, Boton[bIndex].led);
+        Serial.printf("          boton.led: %d \n",boton->led);
       #endif
       lcd.infoclear("factor riego de ");
       snprintf(buff, MAXBUFF, "%s :  %d", config.zona[boton->znumber-1].desc, factorRiegos[zIndex]);
       lcd.info(buff,2);
       showTimeLastRiego(lastRiegos[zIndex], zIndex);
       delay(config.msgdisplaymillis*3);
-      led(Boton[bIndex].led,OFF);
+      led(boton->led,OFF);
       //value = savedValue;  // para que restaure reloj
       LOG_TRACE("[poniendo estado STANDBY]");
       setEstado(STANDBY);
@@ -621,8 +619,8 @@ void procesaEstadoConfigurando()
                 if(configure->configuringMultiTemp()) {     
                     if (multi.w_size && saveConfig) {  //solo si se ha guardado alguna zona iniciamos riego grupo temporal
                         saveConfig = false;  
-                        setMultirriego(config); 
                         multi.temporal = true;
+                        setMultirriego(config); 
                     }    
                 }
                 VERIFY = config.verify;
@@ -669,6 +667,7 @@ void procesaEstadoError(void)
   if(boton->bID == bSTOP) {
   //Si estamos en ERROR y pulsamos o liberamos STOP, reseteamos
     lcd.infoclear("ERROR+STOP-> Reset..",3);
+    LOG_WARN("ERROR + STOP --> Reset.....");
     lowbip(1);
     //if(checkWifi() && boton->estado) stopAllRiego(); //si es pulsado STOP intentamos parar riegos
     delay(3000);
@@ -714,7 +713,7 @@ void procesaEstadoTerminando(void)
   stopRiego(ultimoBotonZona->bID);
   if (Estado.estado == ERROR) return; //no continuamos si se ha producido error al parar el riego
   lcd.blinkLCD(DEFAULTBLINK);
-  led(Boton[bID2bIndex(ultimoBotonZona->bID)].led,OFF);
+  led(ultimoBotonZona->led,OFF);  // apaga led zona
   //Comprobamos si estamos en un multirriego
   if (multi.riegoON) {
     multi.actual++;
@@ -725,7 +724,7 @@ void procesaEstadoTerminando(void)
       //muestra en pantalla las zonas que restan por regar del grupo (excluida la zona en curso):
       displayLCDGrupo(RESTO, 2);  //  display zonas quedan por regar
     }
-    else {         // señalamos fin del multirriego y actulizamos timestamp de finalizacion
+    else {         // señalamos fin del multirriego y actualizamos timestamp de finalizacion
       if(!multi.temporal) finalTimeLastRiego(lastGrupos[multi.ngrupo-1], multi.ngrupo-1);
       lcd.info("multirriego",1);
       int msgl = snprintf(buff, MAXBUFF, "%s finalizado", multi.desc);
@@ -735,7 +734,7 @@ void procesaEstadoTerminando(void)
       bipFIN(3);
       LOG_INFO("MULTIRRIEGO", multi.desc, "terminado");
       delay(config.msgdisplaymillis*3);
-      led(Boton[bID2bIndex(*multi.id)].led,OFF);
+      led(Boton[bID2bIndex(*multi.id)].led,OFF);  // apaga led grupo
     }
   }
   LOG_TRACE("[poniendo estado STANDBY]");

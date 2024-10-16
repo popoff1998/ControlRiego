@@ -76,8 +76,7 @@ void Configure::Idx_process_start(int index)
 //  actualizamos en pantalla el nuevo IDX de la zona
 void Configure::Idx_process_update()
 {     
-      int bIndex = _actualIdxIndex;
-      int currentZona = Boton[bIndex].znumber;
+      int currentZona = Boton[_actualIdxIndex].znumber;
       snprintf(buff, MAXBUFF, " nuevo IDX ZONA%d %d", currentZona, tm.value);
       lcd.info(buff, 4);
 }  
@@ -85,17 +84,16 @@ void Configure::Idx_process_update()
 //  salvamos en config y Boton el nuevo IDX de la zona
 void Configure::Idx_process_end()
 {
-      int bIndex = _actualIdxIndex;
-      int zIndex = Boton[bIndex].znumber-1;
+      int zIndex = Boton[_actualIdxIndex].znumber-1;
       config.zona[zIndex].idx = (uint16_t)tm.value;
       saveConfig = true;
       
-      LOG_INFO("Save Zona",zIndex+1,"(",Boton[bIndex].desc,") IDX :",tm.value);
+      LOG_INFO("Save Zona",zIndex+1,"(",Boton[_actualIdxIndex].desc,") IDX :",tm.value);
       lcd.info("guardado IDX",2);
       lcd.clear(BORRA2H);
       bipOK();
       delay(config.msgdisplaymillis);  // para que se vea el msg
-      led(Boton[bIndex].led,OFF);
+      led(Boton[_actualIdxIndex].led,OFF);
 
       tmvalue();  // restaura tiempo (en lugar del IDX)
       this->menu(0);  // vuelve a mostrar menu de configuracion, primera linea
@@ -212,7 +210,6 @@ void Configure::configureMulti_display(void)
 
 void Configure::Multi_process_update()
 {
-      int bIndex = bID2bIndex(boton->bID);
       int zNumber = boton->znumber;
 
       if (multi.w_size < ZONASXGRUPO) {  //max. zonas por grupo
@@ -221,7 +218,7 @@ void Configure::Multi_process_update()
         multi.w_size = multi.w_size + 1;
 
         LOG_INFO("[ConF] añadiendo ZONA",zNumber,"(",config.zona[zNumber-1].desc,") multi.w_size=",multi.w_size);
-        led(Boton[bIndex].led,ON);
+        led(boton->led,ON);
         displayLCDGrupo(multi.zserie, multi.w_size,4,0);
       }
       else bipKO();  
