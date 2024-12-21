@@ -1,12 +1,12 @@
-PENDIENTES
-==========
+# PENDIENTES
+============
 - boton Pause reflejado en Domoticz (en ambos sentidos)
 - webserver: opcion descarga fichero parametros a PC
 - webserver: ficheros en subdirectorio de backup ??
 
-HECHOS
-======
-**Version 1:**
+# HECHOS
+========
+## Version 1:
 - el modo CONFIGURACION debe permitir definir los botones que pertenecen a un grupo de riegos, incluido su orden (en modo ConF pulsar multirriego). V1.2
 - Paso de modo NORMAL a modo NONETWORK y viceversa para pruebas o demo (encoderSW + PAUSA). V1.2
 - encoderSW + boton de riego -> muestra factor de riego asociado a ese boton. V1.2
@@ -31,7 +31,7 @@ HECHOS
 - debug trace si Exception en modo DEVELOP (platformio.ini) V1.4
 - no modifica parámetros de conexión (ip domoticz) el restaurar valores por defecto V1.4
 - VERIFY completo al salir de modo DEMO (NONETWORK): conexion wifi y con Domoticz, parada todos los riegos V1.4
-**Version 2:**
+## Version 2:
 - fichero parámetros en lugar de variables del pgm y eeprom (parmConfig.json) V2.0
 - si error, parpadeo led zona que falla V2.0
 - en modo configuración salvado parametros como default ((ConF + encoderSW +
@@ -47,7 +47,7 @@ HECHOS
 - verifica periódicamente si el riego en curso esta activo o en pause en Domoticz y lo refleja V2.5
 - si al lanzar o detener un riego Domoticz informa de error, se reintenta varias veces antes de dar error V2.5
 - mejoras en menu de servicio (webserver): posibilida de ver, borrar y actualizar ficheros individuales del file system V2.5
-**Version 3:**
+## Version 3:
 - nuevo HW: ESP32, expansores I/O MCP23017, pantalla LCD de 20 caracteres x 4 lineas (bus I2C)
 - cambio libreria encoder por una que soporta interrupciones
 - opciones de inicio por pantalla (borrar wifi o cargar parametros defecto) V3.1
