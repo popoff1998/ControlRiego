@@ -730,8 +730,7 @@ void procesaEstadoTerminando(void)
       int msgl = snprintf(buff, MAXBUFF, "%s finalizado", multi.desc);
       lcd.info(buff, 2, msgl);
       resetFlags();
-      //longbip(3);
-      bipFIN(3);
+      bipFIN();
       LOG_INFO("MULTIRRIEGO", multi.desc, "terminado");
       delay(config.msgdisplaymillis*3);
       led(Boton[bID2bIndex(*multi.id)].led,OFF);  // apaga led grupo
@@ -1322,66 +1321,6 @@ bool stopAllRiego()
     if(!stopRiego(ZONAS[i], false)) return false; //al primer error salimos
   }
   return true;
-}
-
-//override funcion tone de Tone.cpp para que no suenen bips en caso de MUTE
-void mitone(uint8_t pin, unsigned int frequency, unsigned long duration) {
-  if (config.mute) return;
-  tone(pin, frequency, duration);
-}
-
-void bip(int veces)
-{
-  LOG_TRACE("BIP ", veces);
-  for (int i=0; i<veces;i++) {
-    mitone(BUZZER, NOTE_A6, 50);
-    mitone(BUZZER, 0, 50);
-  }
-}
-
-void longbip(int veces)
-{
-  LOG_TRACE("LONGBIP ", veces);
-  for (int i=0; i<veces;i++) {
-    mitone(BUZZER, NOTE_A5, 750);
-    mitone(BUZZER, 0, 100);
-  }
-}
-
-void lowbip(int veces)
-{
-  LOG_TRACE("LOWBIP ", veces);
-  for (int i=0; i<veces;i++) {
-    mitone(BUZZER, NOTE_A5, 200);
-    mitone(BUZZER, 0, 100);
-  }
-}
-
-void beep(int note, int duration){
-  // we only play the note for 90% of the duration, leaving 10% as a pause
-  mitone(BUZZER, note, duration*0.9);
-  delay(duration); // espera a que acabe la nota antes de enviar la siguiente
-}
-
-void bipOK() {
-  for (int thisNote = 0; thisNote < bipOK_num; thisNote++) {
-    beep(bipOK_melody[thisNote], bipOK_duration);
-  }
-}
-
-void bipKO() {
-  for (int thisNote = 0; thisNote < bipKO_num; thisNote++) {
-    beep(bipKO_melody[thisNote], bipKO_duration);
-  }
-}
-
-void bipFIN(int veces) {
-  for (int i=0; i<veces;i++) {
-    LOG_TRACE("bipFIN bipFIN_num=", bipFIN_num);
-    for (int thisNote = 0; thisNote < bipFIN_num; thisNote++) {
-      beep(bipFIN_melody[thisNote], bipFIN_duration);
-    }
-  }  
 }
 
 void blinkPause()

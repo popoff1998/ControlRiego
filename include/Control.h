@@ -17,8 +17,8 @@
   */
   #ifdef DEVELOP
     //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
-    //#define DEBUGLOG_DEFAULT_LOG_LEVEL_TRACE
-    #define DEBUGLOG_DEFAULT_LOG_LEVEL_DEBUG
+    #define DEBUGLOG_DEFAULT_LOG_LEVEL_TRACE
+    //#define DEBUGLOG_DEFAULT_LOG_LEVEL_DEBUG
     //#define EXTRADEBUG
     //#define EXTRADEBUG2
     //#define EXTRATRACE
@@ -480,6 +480,7 @@
 
     DisplayLCD lcd(LCD2004_address, 20, 4);  // 20 caracteres x 4 lineas
     char buff[MAXBUFF];
+    int config_volume = 10; // Default volume.
 
   #else
     extern int NUM_S_BOTON;
@@ -497,6 +498,7 @@
     extern const char *backupParmFile;
     extern DisplayLCD lcd;
     extern char buff[];
+    extern int config_volume;
 
   #endif
 
@@ -549,23 +551,6 @@
     unsigned long NTPlastUpdate = 0;
     int numloops = 0;
 
-    // definiciones bips y tonos:
-
-    // bipOK notes in the melody:
-    int bipOK_melody[] = { NOTE_C6, NOTE_D6, NOTE_E6, NOTE_F6, NOTE_G6, NOTE_A6, NOTE_B6 };
-    const int bipOK_num = ELEMENTCOUNT(bipOK_melody); // numero de notas en la melodia
-    int bipOK_duration = 50;  // duracion de cada tono en mseg.
-
-    // bipKO notes in the melody:
-    int bipKO_melody[] = { NOTE_B5, NOTE_A5, NOTE_G5, NOTE_F5, NOTE_E5, NOTE_D5, NOTE_C5, NOTE_B4, NOTE_A3 };
-    const int bipKO_num = ELEMENTCOUNT(bipKO_melody); // numero de notas en la melodia
-    int bipKO_duration = 120;  // duracion de cada tono en mseg.
- 
-    // bipFIN notes in the melody:
-    int bipFIN_melody[] = { NOTE_C6, NOTE_E6, NOTE_G6, NOTE_F6, NOTE_G6, NOTE_B6, NOTE_C7 };
-    const int bipFIN_num = ELEMENTCOUNT(bipFIN_melody); // numero de notas en la melodia
-    int bipFIN_duration = 60;  // duracion de cada tono en mseg.
- 
     #ifdef TEMPLOCAL 
       DHT dht(DHTPIN, TEMPLOCAL);
     #endif
@@ -578,7 +563,9 @@
   void bip(int);
   void bipOK(void);
   void bipKO(void);
-  void bipFIN(int);
+  void bipFIN(void);
+  void bipMimi(int);
+  void bipTarari(void);
   int  bID2bIndex(uint16_t);
   void blinkPause(void);
   void check(void);
