@@ -91,7 +91,7 @@
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0]))
        
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.2-RC1"
+                            #define VERSION  "3.2-RC2"
   //-------------------------------------------------------------------------------------
 
   //Comportamiento General
@@ -118,6 +118,8 @@
   #define DELAYRETRY          2000    // mseg de retardo entre reintentos
   #define MAXLEDLEVEL         255     // * nivel maximo leds RGB (0 a 255)
   #define DIMMLEVEL           50      // * nivel atenuacion leds RGB (0 a 255)
+  #define DEFAULTVOLUME       8       // volumen por defecto (0 a 10)
+  #define DEFAULTFINMELODY    MIMI    // melodia final riego grupo por defecto
   #define I2C_CLOCK_SPEED     400000  // frecuencia del bus I2C en Hz (default 100000)
   #define LCD2004_address     0x27    // direccion bus I2C de la pantalla LCD
   #define ROTARY_ENCODER_STEPS 4      // TODO documentar
@@ -187,6 +189,12 @@
     BIPOK,
     BIPKO,
     BIPFIN,
+  };
+
+  enum _melody {
+    LONGx3 = 1,
+    MIMI,
+    TARARI,
   };
 
   enum _estados {
@@ -391,6 +399,8 @@
     int  tempRemote = TEMP_DATA_REMOTE;         // si true obtiene temperatura via Domoticz
     int  tempRemoteIdx = 0;                     // IDX del sensor remoto en Domoticz
     int  msgdisplaymillis = MSGDISPLAYMILLIS;   // tiempo que se muestran mensajes (mseg.) 
+    int  volume = DEFAULTVOLUME;                // volumen sonidos por defecto
+    int  finMelody = DEFAULTFINMELODY;          // melodia final riego grupo por defecto
     bool mute = OFF;                            // sonidos activos
     bool showwifilevel = OFF;                   // muestra en standby nivel de la señal wifi
     bool xname = false;                         // actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -480,9 +490,11 @@
 
     DisplayLCD lcd(LCD2004_address, 20, 4);  // 20 caracteres x 4 lineas
     char buff[MAXBUFF];
-    int config_volume = 10; // Default volume.
-
-  #else
+    int config_volume ; // volumen sonidos
+    int config_finMelody ; // melodia final riego grupo
+    bool config_mute; // sonidos silenciados
+    
+    #else
     extern int NUM_S_BOTON;
     extern S_BOTON Boton [];
     extern S_MULTI multi;
@@ -499,6 +511,8 @@
     extern DisplayLCD lcd;
     extern char buff[];
     extern int config_volume;
+    extern int config_finMelody ; // melodia final riego grupo
+    extern bool config_mute; // sonidos silenciados
 
   #endif
 

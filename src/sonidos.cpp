@@ -30,11 +30,12 @@ int Tarari_melody[] = { NOTE_C4, NOTE_G3, NOTE_G3, NOTE_A3, NOTE_G3, 0, NOTE_B3,
 const int Tarari_num = ELEMENTCOUNT(Tarari_melody); // numero de notas en la melodia
 int Tarari_duration[] = { DUR_SC, DUR_FU, DUR_FU, DUR_SC, DUR_SC, DUR_SC, DUR_SC, DUR_SC }; // en corcheas -> especificar tempo
 
-const uint8_t _tft_volume[] = { 200, 100, 67, 50, 40, 33, 29, 22, 11, 2 }; // Duty for linear volume control.
+const uint8_t _tft_volume[] = { 67, 50, 40, 33, 29, 22, 15, 11, 6, 2 }; // Duty for linear volume control.
+// const uint8_t _tft_volume[] = { 200, 100, 67, 50, 40, 33, 29, 22, 11, 2 }; // Duty for linear volume control.
 
 
 void mitone(int pin, unsigned long frequency, unsigned int duration, int volume) {
-	if (frequency == 0 || volume == 0) { // If frequency or volume are zero, just wait duration and exit.
+	if (frequency == 0 || volume == 0 || config_mute == 1) { // If frequency or volume are zero, just wait duration and exit.
 		delay(duration);
 		return;
 	} 
@@ -59,7 +60,7 @@ void playNote(int note, int duration){
 
 void bip(int veces)
 {
-  LOG_TRACE("BIP ", veces);
+  LOG_TRACE("BIP ", veces, " volume: ", config_volume);
   for (int i=0; i<veces;i++) {
     playNote(NOTE_A6, 50);  
     delay(50);
@@ -68,7 +69,7 @@ void bip(int veces)
 
 void longbip(int veces)
 {
-  LOG_TRACE("LONGBIP ", veces);
+  LOG_TRACE("LONGBIP ", veces, " volume: ", config_volume);
   for (int i=0; i<veces;i++) {
     playNote(NOTE_A5, 750);  
     delay(100);
@@ -77,7 +78,7 @@ void longbip(int veces)
 
 void lowbip(int veces)
 {
-  LOG_TRACE("LOWBIP ", veces);
+  LOG_TRACE("LOWBIP ", veces, " volume: ", config_volume);
   for (int i=0; i<veces;i++) {
     playNote(NOTE_A5, 200);  
     delay(100);
@@ -117,6 +118,11 @@ void bipMimi(int veces) {
 }
 
 void bipFIN() {
-  bipMimi(2);  
+  LOG_TRACE("BIPFIN melody: ", config_finMelody);
+  switch(config_finMelody) {
+    case LONGx3: longbip(3);  break;
+    case MIMI:   bipMimi(2);  break;
+    case TARARI: bipTarari(); break;
+  }
 }
 

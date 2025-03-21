@@ -67,10 +67,10 @@ void setup()
   configure = new Configure(config);   // se pasa por referencia la estructura config al constructor de la clase
   //preparo indicadores de inicializaciones opcionales
   setupInit();
-  //setup parametros configuracion
   #ifdef EXTRADEBUG
-    printFile(parmFile);
+   printFile(parmFile);
   #endif
+  //setup parametros configuracion
   setupParm();
   //Chequeo de perifericos de salida (leds, display, buzzer)
   check();
@@ -1804,7 +1804,10 @@ void setupParm()
     else LOG_ERROR(" ** [ERROR] Leyendo fichero parametros backup ", backupParmFile);
   }
   if (!config.initialized) zeroConfig(config);  //init config con zero-config
-  else VERIFY = config.verify; 
+  else VERIFY = config.verify;
+  config_finMelody = config.finMelody;
+  config_volume = config.volume;
+  config_mute = config.mute; 
 
   setupConfig(); //una vez cargados parametros, completa campos de config y boton
 

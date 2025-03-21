@@ -24,7 +24,7 @@ class Configure
           _configuringMultiTemp   : 1,
           _configuringRange       : 1,
           _configuringMenu        : 1,
-          spare0                  : 1,
+          _configuringMelody      : 1,
           spare1                  : 1;
       };
     };
@@ -55,6 +55,7 @@ class Configure
     bool configuringMulti(void);
     bool configuringMultiTemp(void);
     bool configuringRange(void);
+    bool configuringMelody(void);
     bool statusMenu(void);
     int  showMenu(int);
     void procesaSelectMenu(void);

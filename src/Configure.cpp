@@ -49,6 +49,11 @@ bool Configure::configuringMultiTemp()
   return _configuringMultiTemp;
 }
 
+bool Configure::configuringMelody()
+{
+  return _configuringMelody;
+}
+
 bool Configure::statusMenu()
 {
   return _configuringMenu;
@@ -168,7 +173,9 @@ void Configure::Range_process_end()
       LOG_INFO("Save new value:", *configValuep);
       lcd.setCursor(0,0);  // solo para anular visibilidad y parpadeo del cursor
       ledYellow(ON);  // para actualizar ya brillo led status por si se hubiera cambiado
-      bipOK();
+      config_volume = config.volume;  // actualizamos volumen sonidos por si hubiera cambiado
+      config_finMelody = config.finMelody;  // actualizamos melodia final riego grupo por si hubiera cambiado
+      this->configuringMelody() ? bipFIN() : bipOK();
 
       this->menu();  // vuelve a mostrar menu de configuracion
 }
@@ -348,10 +355,12 @@ int Configure::showMenu(int opcion)
           "rem TEMP IDX: ",     // 11
           "MSG time: ",         // 12
           "MUTE: ",             // 13
-          "NIVEL wifi: ",       // 14
-          "XNAME: ",            // 15
-          "VERIFY: ",           // 16
-          "DYNAMIC: ",          // 17
+          "VOLUME: ",           // 14
+          "finMELODY: ",        // 15
+          "NIVEL wifi: ",       // 16
+          "XNAME: ",            // 17
+          "VERIFY: ",           // 18
+          "DYNAMIC: ",          // 19
           "-----------------"   // - 
          /*<------17------->*/ 
       };
@@ -379,10 +388,12 @@ int Configure::showMenu(int opcion)
       opcionesMenuConf[11] += String(config.tempRemoteIdx);
       opcionesMenuConf[12] += String(config.msgdisplaymillis);
       opcionesMenuConf[13] += (config.mute ?          "ON" : "OFF");
-      opcionesMenuConf[14] += (config.showwifilevel ? "ON" : "OFF");
-      opcionesMenuConf[15] += (config.xname ?         "ON" : "OFF");
-      opcionesMenuConf[16] += (config.verify ?        "ON" : "OFF");
-      opcionesMenuConf[17] += (config.dynamic ?       "ON" : "OFF");
+      opcionesMenuConf[14] += String(config.volume);
+      opcionesMenuConf[15] += String(config.finMelody);
+      opcionesMenuConf[16] += (config.showwifilevel ? "ON" : "OFF");
+      opcionesMenuConf[17] += (config.xname ?         "ON" : "OFF");
+      opcionesMenuConf[18] += (config.verify ?        "ON" : "OFF");
+      opcionesMenuConf[19] += (config.dynamic ?       "ON" : "OFF");
 
 
       LOG_DEBUG("opcion=",opcion,"_currentitem=",_currentItem,"MAXOPCIONES=",MAXOPCIONES);
@@ -491,29 +502,39 @@ void Configure::procesaSelectMenu()
                 break;
         case 13 :   // toggle MUTE
                 config.mute = !config.mute;
+                config_mute = config.mute;  // actualizamos variable global (para sonidos)
                 bip(2);
                 saveConfig = true;
                 this->menu();  // vuelve a mostrar menu de configuracion
+                break;
+        case 14 :   //configuramos volumen de la melodia
+                configValuep = &config.volume;  
+                this->Range_process_start(1, 10);   
+                break;
+        case 15 :   //configuramos melodia final riego grupo
+                configValuep = &config.finMelody;  
+                this->Range_process_start(1, 3);   
+                _configuringMelody = true;
                 break; 
-        case 14 :   // toggle display nivel señal wifi
+        case 16 :   // toggle display nivel señal wifi
                 config.showwifilevel = !config.showwifilevel;
                 bip(2);
                 saveConfig = true;
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break; 
-        case 15 :   // toggle actualizar nombres zonas con los del Domoticz
+        case 17 :   // toggle actualizar nombres zonas con los del Domoticz
                 config.xname = !config.xname;
                 bip(2);
                 saveConfig = true;
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break;
-        case 16 :   // toggle verificar estado dispositivo en el Domoticz
+        case 18 :   // toggle verificar estado dispositivo en el Domoticz
                 config.verify = !config.verify;
                 bip(2);
                 saveConfig = true;
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break;
-        case 17 :   // toggle añadido/borrado dinamico de zonas durante el riego
+        case 19 :   // toggle añadido/borrado dinamico de zonas durante el riego
                 config.dynamic = !config.dynamic;
                 bip(2);
                 saveConfig = true;

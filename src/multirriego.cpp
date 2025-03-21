@@ -48,7 +48,7 @@ int setMultibyId(uint16_t id, Config_parm &config)
 // prepara el comienzo de un multirriego (normal o temporal)
 bool setMultirriego(Config_parm &config)
 {
-      bip(4);
+      bip(4); delay(50);
       if(*multi.size > 0) {    // si grupo tiene zonas definidas
           multi.riegoON = true;
           multi.dynamic  = false;
