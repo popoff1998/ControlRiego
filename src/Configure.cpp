@@ -339,31 +339,35 @@ void Configure::exit()
 
 int Configure::showMenu(int opcion)
 {
-      String opcionesMenuConf[] = {
-         /*-----------------*/ 
-          "botones IDX/MULT.",  // 0  (fijo)
-          "dflt TIME: ",        // 1  
-          "copy to BACKUP",     // 2 
-          "WIFI parm (AP)",     // 3 
-          "WEBSERVER",          // 4 
-          "load from BACKUP",   // 5
-          "ESP32 temp: xx/",    // 6
-          "led DIMM lvl: ",     // 7
-          "led MAX lvl: ",      // 8
-          "TEMP adj.: ",        // 9
-          "TEMP:       ",       // 10
-          "rem TEMP IDX: ",     // 11
-          "MSG time: ",         // 12
-          "MUTE: ",             // 13
-          "VOLUME: ",           // 14
-          "finMELODY: ",        // 15
-          "NIVEL wifi: ",       // 16
-          "XNAME: ",            // 17
-          "VERIFY: ",           // 18
-          "DYNAMIC: ",          // 19
-          "-----------------"   // - 
-         /*<------17------->*/ 
-      };
+
+      String opcionesMenuConf[__ENDLINE__ + 1] = {};
+      
+      //  OJO el orden en que se muestran en el menu no depende de su posicion aqui
+      //  sino del orden en que se definen en el enum _menuItems.
+      //  Texto fijo:
+                                    /*   <------17------->     maxima longitud */ 
+      opcionesMenuConf[IDX_MULT]      = "botones IDX/MULT.";
+      opcionesMenuConf[DFLT_TIME]     = "dflt TIME: ";
+      opcionesMenuConf[COPY_BACKUP]   = "copy to BACKUP";
+      opcionesMenuConf[WIFI_PARM]     = "WIFI parm (AP)";
+      opcionesMenuConf[WEBSERVER_ACT] = "WEBSERVER";
+      opcionesMenuConf[LOAD_BACKUP]   = "load from BACKUP";
+      opcionesMenuConf[ESP32_TEMP]    =  "ESP32 temp: xx/";
+      opcionesMenuConf[LED_DIMM_LVL]  = "led DIMM lvl: ";
+      opcionesMenuConf[LED_MAX_LVL]   = "led MAX lvl: ";
+      opcionesMenuConf[TEMP_ADJ]      = "TEMP adj.: ";
+      opcionesMenuConf[TEMP_SOURCE]   = "TEMP:       ";
+      opcionesMenuConf[REM_TEMP_IDX]  = "rem TEMP IDX: ";
+      opcionesMenuConf[MSG_TIME]      = "MSG time: ";
+      opcionesMenuConf[MUTE]          = "MUTE: ";
+      opcionesMenuConf[VOLUME]        = "VOLUME: ";
+      opcionesMenuConf[FIN_MELODY]    = "finMELODY: ";
+      opcionesMenuConf[NIVEL_WIFI]    = "NIVEL wifi: ";
+      opcionesMenuConf[XNAME_ONOFF]   = "XNAME: ";
+      opcionesMenuConf[VERIFY_ONOFF]  = "VERIFY: ";
+      opcionesMenuConf[DYNAMIC]       = "DYNAMIC: ";
+      opcionesMenuConf[__ENDLINE__]   = "-----------------";
+                                    /*   <------17------->     maxima longitud */ 
 
       const int MAXOPCIONES = ELEMENTCOUNT(opcionesMenuConf);
       LOG_DEBUG("sizeof Total",sizeof(opcionesMenuConf),"sizeof [0]",sizeof(opcionesMenuConf[0]));
@@ -377,23 +381,24 @@ int Configure::showMenu(int opcion)
           _data_pos_valid = true;
       }    
 
+      //  Texto variable:
       sprintf(buff, "%02d:%02d",config.minutes,config.seconds);
-      opcionesMenuConf[1]  += buff;
-      opcionesMenuConf[6]  =  "ESP32 temp: " + String((int)temperatureRead()) + "/" + String(config.warnESP32temp);
-      opcionesMenuConf[7]  += String(config.dimmlevel);
-      opcionesMenuConf[8]  += String(config.maxledlevel);
+      opcionesMenuConf[DFLT_TIME]  += buff;
+      opcionesMenuConf[ESP32_TEMP]  =  "ESP32 temp: " + String((int)temperatureRead()) + "/" + String(config.warnESP32temp);
+      opcionesMenuConf[LED_DIMM_LVL]  += String(config.dimmlevel);
+      opcionesMenuConf[LED_MAX_LVL]  += String(config.maxledlevel);
       sprintf(buff, "%+g", (float)config.tempOffset/2); //elimina ceros decimales al final y pone + si positivo
-      opcionesMenuConf[9]  += buff;
-      opcionesMenuConf[10] = (config.tempRemote ?  "TEMP: REM.  " : "TEMP: LOCAL ") + (readTemp()==999 ? "--" : String(readTemp()));
-      opcionesMenuConf[11] += String(config.tempRemoteIdx);
-      opcionesMenuConf[12] += String(config.msgdisplaymillis);
-      opcionesMenuConf[13] += (config.mute ?          "ON" : "OFF");
-      opcionesMenuConf[14] += String(config.volume);
-      opcionesMenuConf[15] += String(config.finMelody);
-      opcionesMenuConf[16] += (config.showwifilevel ? "ON" : "OFF");
-      opcionesMenuConf[17] += (config.xname ?         "ON" : "OFF");
-      opcionesMenuConf[18] += (config.verify ?        "ON" : "OFF");
-      opcionesMenuConf[19] += (config.dynamic ?       "ON" : "OFF");
+      opcionesMenuConf[TEMP_ADJ]  += buff;
+      opcionesMenuConf[TEMP_SOURCE] = (config.tempRemote ?  "TEMP: REM.  " : "TEMP: LOCAL ") + (readTemp()==999 ? "--" : String(readTemp()));
+      opcionesMenuConf[REM_TEMP_IDX] += String(config.tempRemoteIdx);
+      opcionesMenuConf[MSG_TIME] += String(config.msgdisplaymillis);
+      opcionesMenuConf[MUTE] += (config.mute ?          "ON" : "OFF");
+      opcionesMenuConf[VOLUME] += String(config.volume);
+      opcionesMenuConf[FIN_MELODY] += String(config.finMelody);
+      opcionesMenuConf[NIVEL_WIFI] += (config.showwifilevel ? "ON" : "OFF");
+      opcionesMenuConf[XNAME_ONOFF] += (config.xname ?         "ON" : "OFF");
+      opcionesMenuConf[VERIFY_ONOFF] += (config.verify ?        "ON" : "OFF");
+      opcionesMenuConf[DYNAMIC] += (config.dynamic ?       "ON" : "OFF");
 
 
       LOG_DEBUG("opcion=",opcion,"_currentitem=",_currentItem,"MAXOPCIONES=",MAXOPCIONES);
@@ -424,14 +429,14 @@ void Configure::procesaSelectMenu()
     boton = NULL; //para que no se procese mas adelante  TODO ¿es necesario?
 
     switch(_currentItem) {  
-        case 0 :      //configuramos boton de zona (IDX Domoticz asociado) o de grupo (zonas que lo componen)
+        case IDX_MULT :      //configuramos boton de zona (IDX Domoticz asociado) o de grupo (zonas que lo componen)
                 lcd.infoclear("pulse ZONA o GRUPO",1);
                 lcd.info("a configurar...",2);   
                 break;
-        case 1 :      //configuramos tiempo riego por defecto
+        case DFLT_TIME :      //configuramos tiempo riego por defecto
                 this->Time_process_start();   
                 break;
-        case 2 :  // copiamos fichero parametros en fichero backup
+        case COPY_BACKUP :  // copiamos fichero parametros en fichero backup
                 if (copyConfigFile(parmFile, backupParmFile)) {    // parmFile --> backupParmFile
                   LOG_INFO("[ConF] salvado fichero de parametros actuales como BACKUP");
                   lcd.infoclear("Save to BACKUP OK", DEFAULTBLINK, BIPOK);
@@ -440,7 +445,7 @@ void Configure::procesaSelectMenu()
                 else BIPKO;  
                 this->menu();  // vuelve a mostrar menu de configuracion 
                 break;
-        case 3 :   // activamos AP y portal de configuracion (bloqueante)
+        case WIFI_PARM :   // activamos AP y portal de configuracion (bloqueante)
                 LOG_INFO("[ConF]  activamos AP y portal de configuracion");
                 ledYellow(OFF);
                 starConfigPortal(config);
@@ -448,11 +453,11 @@ void Configure::procesaSelectMenu()
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break; 
   #ifdef WEBSERVER
-        case 4 :  // activamos webserver (no bloqueante, pero no respodemos a botones)
+        case WEBSERVER_ACT :  // activamos webserver (no bloqueante, pero no respodemos a botones)
                 connected ? setupWS(config) : bipKO();
                 break;
   #endif 
-        case 5 :   // carga parametros por defecto y reinicia
+        case LOAD_BACKUP :   // carga parametros por defecto y reinicia
                 if (copyConfigFile(backupParmFile, parmFile)) {    // backupParmFile --> parmFile
                   LOG_WARN("carga parametros por defecto OK");
                   //señala la carga parametros por defecto OK
@@ -464,23 +469,23 @@ void Configure::procesaSelectMenu()
                 else BIPKO;  
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break;
-        case 6 :      //configuramos temperatura aviso ESP32
+        case ESP32_TEMP :      //configuramos temperatura aviso ESP32
                 configValuep = &config.warnESP32temp;  
                 this->Range_process_start(40, 99);   
                 break;
-        case 7 :      //configuramos nivel atenuacion led STATUS (RGB)
+        case LED_DIMM_LVL :      //configuramos nivel atenuacion led STATUS (RGB)
                 configValuep = &config.dimmlevel;  
                 this->Range_process_start(10, config.maxledlevel);   
                 break;
-        case 8 :      //configuramos nivel maximo brillo led STATUS (RGB)
+        case LED_MAX_LVL :      //configuramos nivel maximo brillo led STATUS (RGB)
                 configValuep = &config.maxledlevel;  
                 this->Range_process_start(config.dimmlevel, 255);   
                 break;
-        case 9 :     //configuramos correccion temperatura mostrada
+        case TEMP_ADJ :     //configuramos correccion temperatura mostrada
                 configValuep = &config.tempOffset;  
                 this->Range_process_start(-5, 5, 100, 50);   
                 break;
-        case 10 :   // toggle temperatura mostrada (sensor local o remoto)
+        case TEMP_SOURCE :   // toggle temperatura mostrada (sensor local o remoto)
                 config.tempRemote = !config.tempRemote;
                 if(readTemp()==999) { // si no esta disponible no dejamos cambiar
                   config.tempRemote = !config.tempRemote;
@@ -492,49 +497,49 @@ void Configure::procesaSelectMenu()
                 }
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break; 
-        case 11 :     //configuramos IDX del sensor de temperatura remoto en el Domotiz
+        case REM_TEMP_IDX :     //configuramos IDX del sensor de temperatura remoto en el Domotiz
                 configValuep = &config.tempRemoteIdx;  
                 this->Range_process_start(0, 999, 100); // 0 = no definido  
                 break;
-        case 12 :     //configuramos tiempo que se muestran los mensajes (en milisegundos)
+        case MSG_TIME :     //configuramos tiempo que se muestran los mensajes (en milisegundos)
                 configValuep = &config.msgdisplaymillis;  
                 this->Range_process_start(1000, 4000, 500);   
                 break;
-        case 13 :   // toggle MUTE
+        case MUTE :   // toggle MUTE
                 config.mute = !config.mute;
                 config_mute = config.mute;  // actualizamos variable global (para sonidos)
                 bip(2);
                 saveConfig = true;
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break;
-        case 14 :   //configuramos volumen de la melodia
+        case VOLUME :   //configuramos volumen de la melodia
                 configValuep = &config.volume;  
                 this->Range_process_start(1, 10);   
                 break;
-        case 15 :   //configuramos melodia final riego grupo
+        case FIN_MELODY :   //configuramos melodia final riego grupo
                 configValuep = &config.finMelody;  
                 this->Range_process_start(1, 3);   
                 _configuringMelody = true;
                 break; 
-        case 16 :   // toggle display nivel señal wifi
+        case NIVEL_WIFI :   // toggle display nivel señal wifi
                 config.showwifilevel = !config.showwifilevel;
                 bip(2);
                 saveConfig = true;
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break; 
-        case 17 :   // toggle actualizar nombres zonas con los del Domoticz
+        case XNAME_ONOFF :   // toggle actualizar nombres zonas con los del Domoticz
                 config.xname = !config.xname;
                 bip(2);
                 saveConfig = true;
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break;
-        case 18 :   // toggle verificar estado dispositivo en el Domoticz
+        case VERIFY_ONOFF :   // toggle verificar estado dispositivo en el Domoticz
                 config.verify = !config.verify;
                 bip(2);
                 saveConfig = true;
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break;
-        case 19 :   // toggle añadido/borrado dinamico de zonas durante el riego
+        case DYNAMIC :   // toggle añadido/borrado dinamico de zonas durante el riego
                 config.dynamic = !config.dynamic;
                 bip(2);
                 saveConfig = true;
