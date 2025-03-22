@@ -17,8 +17,8 @@
   */
   #ifdef DEVELOP
     //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
-    //#define DEBUGLOG_DEFAULT_LOG_LEVEL_TRACE
-    #define DEBUGLOG_DEFAULT_LOG_LEVEL_DEBUG
+    #define DEBUGLOG_DEFAULT_LOG_LEVEL_TRACE
+    //#define DEBUGLOG_DEFAULT_LOG_LEVEL_DEBUG
     //#define EXTRADEBUG
     //#define EXTRADEBUG2
     //#define EXTRATRACE
@@ -91,7 +91,7 @@
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0]))
        
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.2-RC1"
+                            #define VERSION  "3.2-RC2"
   //-------------------------------------------------------------------------------------
 
   //Comportamiento General
@@ -118,6 +118,8 @@
   #define DELAYRETRY          2000    // mseg de retardo entre reintentos
   #define MAXLEDLEVEL         255     // * nivel maximo leds RGB (0 a 255)
   #define DIMMLEVEL           50      // * nivel atenuacion leds RGB (0 a 255)
+  #define DEFAULTVOLUME       8       // volumen por defecto (0 a 10)
+  #define DEFAULTFINMELODY    MIMI    // melodia final riego grupo por defecto
   #define I2C_CLOCK_SPEED     400000  // frecuencia del bus I2C en Hz (default 100000)
   #define LCD2004_address     0x27    // direccion bus I2C de la pantalla LCD
   #define ROTARY_ENCODER_STEPS 4      // TODO documentar
@@ -187,6 +189,12 @@
     BIPOK,
     BIPKO,
     BIPFIN,
+  };
+
+  enum _melody {
+    LONGx3 = 1,
+    MIMI,
+    TARARI,
   };
 
   enum _estados {
@@ -391,6 +399,8 @@
     int  tempRemote = TEMP_DATA_REMOTE;         // si true obtiene temperatura via Domoticz
     int  tempRemoteIdx = 0;                     // IDX del sensor remoto en Domoticz
     int  msgdisplaymillis = MSGDISPLAYMILLIS;   // tiempo que se muestran mensajes (mseg.) 
+    int  volume = DEFAULTVOLUME;                // volumen sonidos por defecto
+    int  finMelody = DEFAULTFINMELODY;          // melodia final riego grupo por defecto
     bool mute = OFF;                            // sonidos activos
     bool showwifilevel = OFF;                   // muestra en standby nivel de la señal wifi
     bool xname = false;                         // actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
@@ -480,8 +490,11 @@
 
     DisplayLCD lcd(LCD2004_address, 20, 4);  // 20 caracteres x 4 lineas
     char buff[MAXBUFF];
-
-  #else
+    int config_volume ; // volumen sonidos
+    int config_finMelody ; // melodia final riego grupo
+    bool config_mute; // sonidos silenciados
+    
+    #else
     extern int NUM_S_BOTON;
     extern S_BOTON Boton [];
     extern S_MULTI multi;
@@ -497,6 +510,9 @@
     extern const char *backupParmFile;
     extern DisplayLCD lcd;
     extern char buff[];
+    extern int config_volume;
+    extern int config_finMelody ; // melodia final riego grupo
+    extern bool config_mute; // sonidos silenciados
 
   #endif
 
@@ -549,23 +565,6 @@
     unsigned long NTPlastUpdate = 0;
     int numloops = 0;
 
-    // definiciones bips y tonos:
-
-    // bipOK notes in the melody:
-    int bipOK_melody[] = { NOTE_C6, NOTE_D6, NOTE_E6, NOTE_F6, NOTE_G6, NOTE_A6, NOTE_B6 };
-    const int bipOK_num = ELEMENTCOUNT(bipOK_melody); // numero de notas en la melodia
-    int bipOK_duration = 50;  // duracion de cada tono en mseg.
-
-    // bipKO notes in the melody:
-    int bipKO_melody[] = { NOTE_B5, NOTE_A5, NOTE_G5, NOTE_F5, NOTE_E5, NOTE_D5, NOTE_C5, NOTE_B4, NOTE_A3 };
-    const int bipKO_num = ELEMENTCOUNT(bipKO_melody); // numero de notas en la melodia
-    int bipKO_duration = 120;  // duracion de cada tono en mseg.
- 
-    // bipFIN notes in the melody:
-    int bipFIN_melody[] = { NOTE_C6, NOTE_E6, NOTE_G6, NOTE_F6, NOTE_G6, NOTE_B6, NOTE_C7 };
-    const int bipFIN_num = ELEMENTCOUNT(bipFIN_melody); // numero de notas en la melodia
-    int bipFIN_duration = 60;  // duracion de cada tono en mseg.
- 
     #ifdef TEMPLOCAL 
       DHT dht(DHTPIN, TEMPLOCAL);
     #endif
@@ -578,7 +577,9 @@
   void bip(int);
   void bipOK(void);
   void bipKO(void);
-  void bipFIN(int);
+  void bipFIN(void);
+  void bipMimi(int);
+  void bipTarari(void);
   int  bID2bIndex(uint16_t);
   void blinkPause(void);
   void check(void);

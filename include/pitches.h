@@ -1,7 +1,26 @@
 /*************************************************
- * Public Constants
+ * tempo (mseg)
+ * duracion notas musicales (fraccion negra)
  *************************************************/
  
+ #define TEMPO_60   1000 // 60 bpm = 1 segundo
+ #define TEMPO_80   750  // 80 bpm = 0.75 segundos
+ #define TEMPO_120  500  // 120 bpm = 0.5 segundos
+ #define TEMPO_150  400  // 150 bpm = 0.4 segundos
+ #define TEMPO_180  333  // 180 bpm = 0.33 segundos
+ #define TEMPO_250  240  // 250 bpm = 0.24 segundos
+ 
+ #define DUR_NG  1 // negra 
+ #define DUR_CO  2 // corchea 1/2 negra
+ #define DUR_SC  4 // semicorchea 1/4 negra
+ #define DUR_FU  8 // fusa 1/8 negra
+ #define DUR_SE  16 // semifusa 1/16 negra
+ 
+ /*************************************************
+  * Frecuencias notas musicales (Hz)
+  * A=La; B=Si, C=Do, D=Re, E=Mi, F=Fa, G=Sol
+  *************************************************/
+  
 #define NOTE_B0  31
 #define NOTE_C1  33
 #define NOTE_CS1 35

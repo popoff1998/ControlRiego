@@ -5,6 +5,34 @@
 class Configure
 {
   private:
+    //  Las opciones del menu se muestran en pantalla en el orden en que se definen aqui,
+    //  la primera opcion debe ser IDX_MULT y la ultima __ENDLINE__ ,
+    //  el resto se pueden mover libremente.
+    //  Para añadir una nueva opcion, añadirla en el enum _menuItems y en el array opcionesMenuConf
+    //  y añadir el case correspondiente en procesaSelectMenu
+    enum _menuItems {     
+      IDX_MULT      = 0,  //  botones IDX/MULT debe ser fijo primer item
+      DFLT_TIME     ,   
+      COPY_BACKUP   ,
+      WIFI_PARM     ,
+      WEBSERVER_ACT ,
+      LOAD_BACKUP   ,
+      ESP32_TEMP    ,
+      LED_DIMM_LVL  , 
+      LED_MAX_LVL   ,
+      TEMP_ADJ      ,
+      TEMP_SOURCE   ,
+      REM_TEMP_IDX  , 
+      MSG_TIME      ,
+      MUTE          ,   
+      VOLUME        ,
+      FIN_MELODY    ,
+      NIVEL_WIFI    ,
+      XNAME_ONOFF   ,
+      VERIFY_ONOFF  ,
+      DYNAMIC       ,
+      __ENDLINE__         //  ultimo item fijo (= numero de lineas del menu - 1)
+    };
     struct Config_parm &config;
     int _actualIdxIndex;
     int _actualGrupo;
@@ -12,7 +40,7 @@ class Configure
     int _currentItem;
     int _rangeFactor;
     int *configValuep;
-    int _data_pos[25];  //OJO valido hasta 25 items en el menu
+    int _data_pos[__ENDLINE__ + 1];  //  posicion de los datos en la linea de menu
     bool _data_pos_valid;
     char _currenItemText[18];
     union {
@@ -24,13 +52,13 @@ class Configure
           _configuringMultiTemp   : 1,
           _configuringRange       : 1,
           _configuringMenu        : 1,
-          spare0                  : 1,
+          _configuringMelody      : 1,
           spare1                  : 1;
       };
     };
     void configureMulti_display(void);
-
-
+  
+  
   public:
     Configure(struct Config_parm&);
     void menu(int item=-1);
@@ -55,6 +83,7 @@ class Configure
     bool configuringMulti(void);
     bool configuringMultiTemp(void);
     bool configuringRange(void);
+    bool configuringMelody(void);
     bool statusMenu(void);
     int  showMenu(int);
     void procesaSelectMenu(void);

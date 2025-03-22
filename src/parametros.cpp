@@ -83,6 +83,8 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
   config.tempRemoteIdx = doc["tempRemoteIdx"] | 0; 
   config.msgdisplaymillis = doc["msgdisplaymillis"] | MSGDISPLAYMILLIS; 
   config.mute = doc["mute"] | false; 
+  config.volume = doc["volume"] | DEFAULTVOLUME; 
+  config.finMelody = doc["finMelody"] | DEFAULTFINMELODY; 
   config.showwifilevel = doc["showwifilevel"] | false; 
   config.xname = doc["xname"] | false;
   config.verify = doc["verify"] | true;
@@ -143,6 +145,8 @@ bool saveConfigFile(const char *p_filename, Config_parm &config)
   doc["tempRemoteIdx"]      = config.tempRemoteIdx; 
   doc["msgdisplaymillis"]   = config.msgdisplaymillis; 
   doc["mute"]               = config.mute;
+  doc["volume"]             = config.volume;
+  doc["finMelody"]          = config.finMelody;
   doc["showwifilevel"]      = config.showwifilevel;
   doc["xname"]              = config.xname;
   doc["verify"]             = config.verify;
@@ -259,6 +263,8 @@ void printParms(Config_parm &config) {
   Serial.printf("\ttempRemoteIdx= %d \n", config.tempRemoteIdx);
   Serial.printf("\tmsgdisplaymillis= %d \n", config.msgdisplaymillis);
   Serial.printf("\tmute= %d \n", config.mute);
+  Serial.printf("\tvolume= %d \n", config.volume);
+  Serial.printf("\tfinMelody= %d \n", config.finMelody);
   Serial.printf("\tshowwifilevel= %d \n", config.showwifilevel);
   Serial.printf("\txname= %d \n", config.xname);
   Serial.printf("\tverify= %d \n", config.verify);
