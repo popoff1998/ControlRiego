@@ -535,7 +535,7 @@ void procesaBotonZona(void)
       snprintf(buff, MAXBUFF, "%s :  %d", config.zona[boton->znumber-1].desc, factorRiegos[zIndex]);
       lcd.info(buff,2);
       showTimeLastRiego(lastRiegos[zIndex], zIndex);
-      delay(config.msgdisplaymillis*3);
+      delay(config.msgdisplaymillis*4);
       led(boton->led,OFF);
       //value = savedValue;  // para que restaure reloj
       LOG_TRACE("[poniendo estado STANDBY]");

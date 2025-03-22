@@ -31,7 +31,7 @@ class Configure
       XNAME_ONOFF   ,
       VERIFY_ONOFF  ,
       DYNAMIC       ,
-      __ENDLINE__         //  ultimo item fijo (=numero de lineas del menu - 1)
+      __ENDLINE__         //  ultimo item fijo (= numero de lineas del menu - 1)
     };
     struct Config_parm &config;
     int _actualIdxIndex;

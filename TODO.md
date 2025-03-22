@@ -65,5 +65,7 @@
 - si parametro dynamic=true se permite añadido/baja zonas durante el riego V3.2
 - menu configuracion: rangos ajustables sobre linea del menu V3.2
 - opciones de inicio por pantalla: reset parametros (borrado ficheros parm y backup) V3.2
+- volumen sonidos y melodia fin riego de grupo configurables por parametros en menu V3.2
+
 
 

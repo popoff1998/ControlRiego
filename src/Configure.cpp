@@ -209,7 +209,7 @@ void Configure::configureMulti_display(void)
       lcd.infoclear("Configurando");
       snprintf(buff, MAXBUFF, "grupo%d: %s",_actualGrupo, multi.desc);
       lcd.info(buff, 2);
-      snprintf(buff, MAXBUFF, "pulse ZONAS");
+      snprintf(buff, MAXBUFF, "pulse ZONAS (+PAUSE)");
       lcd.info(buff, 3);
 
       if(!_configuringMultiTemp) displayGrupo(multi.serie, *multi.size); // no encendemos leds si grupo TEMPORAL 
@@ -392,13 +392,13 @@ int Configure::showMenu(int opcion)
       opcionesMenuConf[TEMP_SOURCE] = (config.tempRemote ?  "TEMP: REM.  " : "TEMP: LOCAL ") + (readTemp()==999 ? "--" : String(readTemp()));
       opcionesMenuConf[REM_TEMP_IDX] += String(config.tempRemoteIdx);
       opcionesMenuConf[MSG_TIME] += String(config.msgdisplaymillis);
-      opcionesMenuConf[MUTE] += (config.mute ?          "ON" : "OFF");
+      opcionesMenuConf[MUTE] += (config.mute ? "ON" : "OFF");
       opcionesMenuConf[VOLUME] += String(config.volume);
       opcionesMenuConf[FIN_MELODY] += String(config.finMelody);
       opcionesMenuConf[NIVEL_WIFI] += (config.showwifilevel ? "ON" : "OFF");
-      opcionesMenuConf[XNAME_ONOFF] += (config.xname ?         "ON" : "OFF");
-      opcionesMenuConf[VERIFY_ONOFF] += (config.verify ?        "ON" : "OFF");
-      opcionesMenuConf[DYNAMIC] += (config.dynamic ?       "ON" : "OFF");
+      opcionesMenuConf[XNAME_ONOFF] += (config.xname ? "ON" : "OFF");
+      opcionesMenuConf[VERIFY_ONOFF] += (config.verify ? "ON" : "OFF");
+      opcionesMenuConf[DYNAMIC] += (config.dynamic ? "ON" : "OFF");
 
 
       LOG_DEBUG("opcion=",opcion,"_currentitem=",_currentItem,"MAXOPCIONES=",MAXOPCIONES);

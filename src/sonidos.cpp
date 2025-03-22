@@ -21,12 +21,15 @@ const int bipKO_num = ELEMENTCOUNT(bipKO_melody); // numero de notas en la melod
 int bipKO_duration[] = { DUR_SC, DUR_CO, DUR_NG }; // en corcheas -> especificar tempo
 
 // bipMimi, notes in the melody:
-int bipMimi_melody[] = { NOTE_C6, NOTE_E6, NOTE_G6, NOTE_F6, NOTE_G6, NOTE_B6, NOTE_C7 };
+// int bipMimi_melody[] = { NOTE_C4, NOTE_E4, NOTE_G4, NOTE_F4, NOTE_G4, NOTE_B4, NOTE_C5 };
+int bipMimi_melody[] = { NOTE_C5, NOTE_E5, NOTE_G5, NOTE_F5, NOTE_G5, NOTE_B5, NOTE_C6 };
+// int bipMimi_melody[] = { NOTE_C6, NOTE_E6, NOTE_G6, NOTE_F6, NOTE_G6, NOTE_B6, NOTE_C7 };
 const int bipMimi_num = ELEMENTCOUNT(bipMimi_melody); // numero de notas en la melodia
 int bipMimi_duration = DUR_SC;  // en corcheas -> especificar tempo
 
 // Tarari Melody (liberated from the toneMelody Arduino example sketch by Tom Igoe).
-int Tarari_melody[] = { NOTE_C4, NOTE_G3, NOTE_G3, NOTE_A3, NOTE_G3, 0, NOTE_B3, NOTE_C4 };
+int Tarari_melody[] = { NOTE_C5, NOTE_G4, NOTE_G4, NOTE_A4, NOTE_G4, 0, NOTE_B4, NOTE_C5 };
+// int Tarari_melody[] = { NOTE_C4, NOTE_G3, NOTE_G3, NOTE_A3, NOTE_G3, 0, NOTE_B3, NOTE_C4 };
 const int Tarari_num = ELEMENTCOUNT(Tarari_melody); // numero de notas en la melodia
 int Tarari_duration[] = { DUR_SC, DUR_FU, DUR_FU, DUR_SC, DUR_SC, DUR_SC, DUR_SC, DUR_SC }; // en corcheas -> especificar tempo
 
