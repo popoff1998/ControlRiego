@@ -109,6 +109,11 @@ void DisplayLCD::displayOFF()
   _displayOff = true;
 }
 
+bool DisplayLCD::get__displayOff(void)
+{
+  return _displayOff;
+}
+
 void DisplayLCD::setBacklight(bool value)				// alias for backlight() and nobacklight()
 {
   LOG_TRACE("[LCD] backlight:", value);

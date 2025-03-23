@@ -40,6 +40,7 @@
       void infoEstado(const char* estado, const char* zona="         ");
       void info(const char* info, int line);
       void info(const char* info, int line, int size);
+      bool get__displayOff(void);
   };
 
 #endif  /*DisplayLCD_h*/

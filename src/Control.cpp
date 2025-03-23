@@ -41,7 +41,8 @@ void setup()
 
   Serial.begin(115200);
   #ifdef RELEASE
-      if (!serialDetect()) LOG_SET_LEVEL(DebugLogLevel::LVL_NONE); 
+      // if (!serialDetect()) LOG_SET_LEVEL(DebugLogLevel::LVL_NONE); 
+      if (!serialDetect()) LOG_SET_LEVEL(DebugLogLevel::LVL_ERROR); 
   #endif
   delay(500);
 
@@ -442,19 +443,16 @@ void procesaBotonStop(void)
           }
           lcd.infoclear("STOP riegos OK", DEFAULTBLINK, BIP, 0);
           setEstado(STOP,1);
-          reposo = true; //pasamos directamente a reposo
-          dimmerLeds(ON);
+          reposoON(LCDON); //pasamos directamente a reposo sin apagar pantalla
       }    
     }
   }
   //si hemos liberado STOP: salimos del estado stop
   //(dejamos el release del STOP en modo ConF para que actue el codigo de procesaEstadoConfigurando
   if (!boton->estado && Estado.estado == STOP) {
-    LOG_INFO("Salimos de reposo");
     LOG_TRACE("[poniendo estado STANDBY]");
     setEstado(STANDBY);
   }
-  //standbyTime = millis();  ¿hace falta?
 }
 
 
@@ -543,10 +541,11 @@ void procesaBotonZona(void)
     }
     return;
   }
-  // si config.dynamic=true se permite añadir/eliminar zonas durante un riego individual o multirriego temporal
-  // no durante un multirriego de grupo normal.
+  // Si config.dynamic=true se permite añadir/eliminar zonas durante un riego individual 
+  // o multirriego temporal (no durante un multirriego de grupo normal).
   // TODO PREGUNTA: sería conveniente que solo se pudiese hacer una vez pausado?
-  // TODO PREGUNTA: permitir eliminar (terminar riego) de la zona en curso ?
+  // TODO PREGUNTA: permitir eliminar (terminar riego) de la zona en curso solamente pulsando esa zona ?
+  //                (ya se puede hacer de forma general con encoderSW+PAUSE) 
   if ((Estado.estado == REGANDO || Estado.estado==PAUSE) && config.dynamic && (multi.riegoON == multi.temporal)) {
     // NOTA: la zona pulsada no puede coincidir con la actualmente en riego, se ignora en ese caso
     if (ultimoBotonZona->bID != boton->bID) {
@@ -554,9 +553,8 @@ void procesaBotonZona(void)
       if (procesaDynamic()) displayLCDGrupo(RESTO, 2);
       LOG_DEBUG("MULTI dynamic:",multi.dynamic,"actual:",multi.actual,"size:",*multi.size,"zona:",boton->znumber);
     }
-    
-    //else {bipKO(); LOG_DEBUG("[DYNAMIC] zona pulsada:",boton->znumber," es = a zona actual:",ultimoBotonZona->znumber);}
-    else { setEstado(TERMINANDO); LOG_INFO("DYNAMIC: terminamos riego de zona en curso"); }
+    else {bipKO(); LOG_DEBUG("[DYNAMIC] zona pulsada:",boton->znumber," es = a zona actual:",ultimoBotonZona->znumber);}
+    // else { setEstado(TERMINANDO); LOG_INFO("DYNAMIC: terminamos riego de zona en curso"); }
     boton = NULL; // borrar boton pulsado
   }
 }
@@ -653,13 +651,8 @@ void procesaEstadoError(void)
     LOG_INFO("estado en ERROR y PAUSA pulsada pasamos a modo NONETWORK y reset del error");
     NONETWORK = true;
     bip(2);
-    if (Boton[bID2bIndex(bSTOP)].estado) {
-      setEstado(STOP,1);
-      displayOff = true;
-    }
-    else {
-      setEstado(STANDBY);
-    } 
+    if (Boton[bID2bIndex(bSTOP)].estado) setEstado(STOP,1);
+    else setEstado(STANDBY);
     //reseteos varios:
     resetLeds();    //apaga leds activos y restablece leds ON y RED
     resetFlags();   //reset flags de status
@@ -747,10 +740,8 @@ void procesaEstadoStandby(void)
   if (reposo) standbyTime = millis();
   else {
     if (millis() > standbyTime + (1000 * STANDBYSECS)) {
-      LOG_INFO("Entramos en reposo");
-      reposo = true;
-      dimmerLeds(ON);
-      lcd.setBacklight(OFF);
+      LOG_TRACE("LLamando a reposoON");
+      reposoON();
     }
   }
   if (reposo & encoderSW) reposoOFF(); // pulsar boton del encoder saca del reposo
@@ -763,10 +754,10 @@ void procesaEstadoStop(void)
   //En stop activamos el comportamiento hold de pausa
   Boton[bID2bIndex(bPAUSE)].flags.holddisabled = false;
   //si estamos en Stop antinenes, apagamos el display pasado 4 x STANDBYSECS
-  if(reposo && !displayOff) {
+  if(reposo && !backlightOff) {
     if (millis() > standbyTime + (4 * 1000 * STANDBYSECS)) {
       lcd.setBacklight(OFF);
-      displayOff = true;
+      backlightOff = true;
     }
   }
 };
@@ -1115,9 +1106,17 @@ void reposoOFF()
   LOG_INFO(" salimos de reposo");
   reposo = false;
   dimmerLeds(OFF);
-  displayOff = false;
-  standbyTime = millis();
   lcd.setBacklight(ON);
+  backlightOff = false;
+  standbyTime = millis();
+}
+
+void reposoON(bool lcdOFF)
+{
+  LOG_INFO(" entramos en reposo");
+  reposo = true;
+  dimmerLeds(ON);
+  if(lcdOFF) lcd.setBacklight(OFF);
 }
 
 
@@ -1326,9 +1325,8 @@ bool stopAllRiego()
 void blinkPause()
 {
   //LOG_TRACE("");
-  if (!displayOff) {
+  if (!lcd.get__displayOff()) {
     if (millis() > lastBlinkPause + 1.5*DEFAULTBLINKMILLIS) {  // *1.5 para compensar inercia LCD
-      displayOff = true;
       lastBlinkPause = millis();
       lcd.displayOFF();
       if(Estado.estado == PAUSE) ledYellow(OFF);
@@ -1336,7 +1334,6 @@ void blinkPause()
   }
   else {
     if (millis() > lastBlinkPause + DEFAULTBLINKMILLIS) {
-      displayOff = false;
       lastBlinkPause = millis();
       lcd.displayON();
       if(Estado.estado == PAUSE) ledYellow(ON);
@@ -1647,7 +1644,7 @@ void Verificaciones()
     debugloops();
   #endif
   if (!flagV || webServerAct) return;      //si no activada por Ticker salimos sin hacer nada
-  if (Estado.estado == STANDBY) {
+  if (Estado.estado == STANDBY && !reposo) {
      LOG_TRACE(".");
       // si tenemos conexion y no hemos recibido time por NTP o han pasado NTPUPDATEINTERVAL minutos
       // desde la ultima sincronizacion -> actualizamos time del sistema con el del servidor NTP
@@ -1659,7 +1656,7 @@ void Verificaciones()
       showTemp();  // muestra temperatura ambiente en standby
   }   
   if (errorOFF) bip(2);  //recordatorio error grave al parar un riego
-  //si estamos en Standby o en Error por falta de conexion verificamos estado actual de la wifi (no en modo NONETWORK)
+  //si estamos en Standby o en Error por falta de conexion verificamos estado actual de la wifi (no en modo NONETWORK sin conexion)
   if ((!NONETWORK || connected) && (Estado.estado == STANDBY || (Estado.estado == ERROR && !connected))) {
     int wifilevel = checkWifi(config.showwifilevel); // conectado a wifi?
     if(wifilevel) {
@@ -1730,8 +1727,8 @@ void displayDemo() {
 }
 
 void displayNoFactorizado() {
-    lcd.setCursor(1,3);
-    lcd.print("-NF-"); 
+    lcd.setCursor(0,3);
+    lcd.print(" -NF-"); 
 }
 
 void displayMultiTemporal() {
@@ -1884,7 +1881,7 @@ return buff;
       return true;
     }
     return false;
-  }
+  }    
 
 // funciones solo usadas en DEVELOP
 // (es igual, el compilador no las incluye si no son llamadas)

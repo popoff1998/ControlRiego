@@ -179,6 +179,7 @@
   #define NOBLINK 0
   #define BORRA1H 1
   #define BORRA2H 2
+  #define LCDON 0
 
   //Enums
 
@@ -546,7 +547,7 @@
     char  descDomoticz[20];
     int  ledID = 0;
     unsigned long standbyTime;
-    bool displayOff = false;
+    bool backlightOff = false;
     bool reposo = false;
     unsigned long lastBlinkPause;
     bool holdPause = false;
@@ -583,7 +584,6 @@
   int  bID2bIndex(uint16_t);
   void blinkPause(void);
   void check(void);
-  void showTemp(void);
   int  checkWifi(bool level=false);
   void cleanFS(void);
   bool copyConfigFile(const char*, const char*);
@@ -665,6 +665,7 @@
   float readTemp();
   void refreshTime(void);
   void reposoOFF(void);
+  void reposoON(bool lcdOFF=true);
   void resetFlags(void);
   void resetLCD(void);
   void resetLeds(void);
@@ -676,6 +677,7 @@
   void setEncoderRange(int , int , int , int);
   void setEstado(uint8_t estado, int bnum = 0);
   void setledRGB(void);
+  void showTemp(void);
   int  ledlevel(void);
   int  setMultibyId(uint16_t , Config_parm&);
   bool setMultirriego(Config_parm&);

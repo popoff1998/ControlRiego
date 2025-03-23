@@ -346,22 +346,22 @@ int Configure::showMenu(int opcion)
       //  sino del orden en que se definen en el enum _menuItems.
       //  Texto fijo:
                                     /*   <------17------->     maxima longitud */ 
-      opcionesMenuConf[IDX_MULT]      = "botones IDX/MULT.";
-      opcionesMenuConf[DFLT_TIME]     = "dflt TIME: ";
-      opcionesMenuConf[COPY_BACKUP]   = "copy to BACKUP";
+      opcionesMenuConf[IDX_MULT]      = "Botones IDX/MULT.";
+      opcionesMenuConf[DFLT_TIME]     = "Dflt TIME: ";
+      opcionesMenuConf[COPY_BACKUP]   = "Copy to BACKUP";
       opcionesMenuConf[WIFI_PARM]     = "WIFI parm (AP)";
-      opcionesMenuConf[WEBSERVER_ACT] = "WEBSERVER";
-      opcionesMenuConf[LOAD_BACKUP]   = "load from BACKUP";
+      opcionesMenuConf[WEBSERVER_ACT] = "WEBSERVER act.";
+      opcionesMenuConf[LOAD_BACKUP]   = "Load from BACKUP";
       opcionesMenuConf[ESP32_TEMP]    =  "ESP32 temp: xx/";
-      opcionesMenuConf[LED_DIMM_LVL]  = "led DIMM lvl: ";
-      opcionesMenuConf[LED_MAX_LVL]   = "led MAX lvl: ";
-      opcionesMenuConf[TEMP_ADJ]      = "TEMP adj.: ";
+      opcionesMenuConf[LED_DIMM_LVL]  = "Led DIMM lvl: ";
+      opcionesMenuConf[LED_MAX_LVL]   = "Led MAX lvl: ";
+      opcionesMenuConf[TEMP_ADJ]      = "Temp adj.: ";
       opcionesMenuConf[TEMP_SOURCE]   = "TEMP:       ";
-      opcionesMenuConf[REM_TEMP_IDX]  = "rem TEMP IDX: ";
+      opcionesMenuConf[REM_TEMP_IDX]  = "Rem TEMP IDX: ";
       opcionesMenuConf[MSG_TIME]      = "MSG time: ";
       opcionesMenuConf[MUTE]          = "MUTE: ";
       opcionesMenuConf[VOLUME]        = "VOLUME: ";
-      opcionesMenuConf[FIN_MELODY]    = "finMELODY: ";
+      opcionesMenuConf[FIN_MELODY]    = "FinMELODY: ";
       opcionesMenuConf[NIVEL_WIFI]    = "NIVEL wifi: ";
       opcionesMenuConf[XNAME_ONOFF]   = "XNAME: ";
       opcionesMenuConf[VERIFY_ONOFF]  = "VERIFY: ";
