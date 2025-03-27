@@ -89,17 +89,19 @@ void lowbip(int veces)
 }  
 
 void bipOK() {
+  LOG_TRACE("BIPOK  volume: ", config_volume);
   for (int thisNote = 0; thisNote < bipOK_num; thisNote++) {
     playNote(bipOK_melody[thisNote], bipOK_duration);
   }
 }
 
 void bipKO() {
-    int tempo = TEMPO_120; // Set the tempo.
-    for (int thisNote = 0; thisNote < bipKO_num; thisNote++) {
-      int noteDuration = tempo / bipKO_duration[thisNote]; // Calculate note duration.
-      playNote(bipKO_melody[thisNote], noteDuration);
-    }
+  LOG_TRACE("BIPKO  volume: ", config_volume);
+  int tempo = TEMPO_120; // Set the tempo.
+  for (int thisNote = 0; thisNote < bipKO_num; thisNote++) {
+    int noteDuration = tempo / bipKO_duration[thisNote]; // Calculate note duration.
+    playNote(bipKO_melody[thisNote], noteDuration);
+  }
   }
   
 void bipTarari() {

@@ -32,7 +32,7 @@ void setup()
                 NONETWORK=false; 
   #endif
   #ifdef DEVELOP
-                NONETWORK=true;
+                NONETWORK=false;
   #endif
   #ifdef noWIFI
                 NONETWORK=true;
@@ -101,7 +101,7 @@ void setup()
   //lanzamos supervision periodica estado cada VERIFY_INTERVAL seg.
   tic_verificaciones.attach(VERIFY_INTERVAL, flagVerificaciones);
   standbyTime = millis();
-  PRINTLN("   *** Setup finalizado ***");
+  PRINTLN("   *** Setup finalizado *** \n\n");
 }
 
 
@@ -201,23 +201,26 @@ void procesaEstados()
  */
 void setupEstado() 
 {
-  LOG_TRACE("");
-  Estado.tipo = LOCAL;
+  LOG_DEBUG("setupEstado entrada Estado.error=", Estado.error, "falloSetup=", falloSetup, "NONETWORK=", NONETWORK);
   //Deshabilitamos el hold de Pause
   Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
   // Verificamos que se han cargado parametros de configuracion correctamente  
   if(!config.initialized) {
     statusError(E0);  //no se ha podido cargar parámetros desde ficheros -> señalamos el error
-  return;
+    return;
   }
   // Si estamos en modo NONETWORK pasamos a STANDBY (o STOP si esta pulsado) aunque no exista conexión wifi o estemos en ERROR
   if (NONETWORK) {
     if (testButton(bSTOP,ON))  setEstado(STOP,1);
     else setEstado(STANDBY,2);
+    LOG_DEBUG("setupEstado salida por NONETWORK=", NONETWORK);
     return;
   }
   // Si estado actual es ERROR seguimos así
   if (Estado.estado == ERROR) {
+    actLedError();
+    if(Estado.error == E1 || Estado.error == E2) falloSetup = true; //error recuperable de comunicacion en el Setup o en recovery de este
+    LOG_DEBUG("setupEstado salida por Estado.error=", Estado.error, "falloSetup=", falloSetup, "NONETWORK=", NONETWORK);
     return;
   }
   // Si estamos conectados pasamos a STANDBY o STOP (caso de estar pulsado este al inicio)
@@ -228,6 +231,7 @@ void setupEstado()
   }
   //si no estamos conectados a la red y no estamos en modo NONETWORK pasamos a estado ERROR
   statusError(E1);
+  LOG_TRACE("salida por estado ERROR(E1)");
 }
 
 #ifdef GRP4
@@ -412,7 +416,8 @@ void procesaBotonPause(void)
 void procesaBotonStop(void)
 {
   if (boton->estado) {  //si hemos PULSADO STOP
-    if (Estado.estado == REGANDO || Estado.estado == PAUSE) {
+    //(dejamos la pulsacion del STOP en estado ERROR para que actue el codigo de procesaEstadoError
+    if (Estado.estado == REGANDO || Estado.estado == PAUSE || Estado.estado == TERMINANDO) {
       //De alguna manera esta regando y hay que parar
       lcd.infoclear("Parando riegos", 1, BIP, 6);
       T.StopTimer();
@@ -427,23 +432,23 @@ void procesaBotonStop(void)
     }
     if (Estado.estado == STANDBY) { //Lo hemos pulsado en standby
       if (encoderSW) {  // activar configuracion de grupo multirriego temporal
-          setMultibyId(0, config);  // apunta estructura multi a grupo temporal en config (n+1) con id = 0
-          setEstado(CONFIGURANDO,1);
-          boton = NULL;
-          configure->MultiTemp_process_start();
-          return;
+        setMultibyId(0, config);  // apunta estructura multi a grupo temporal en config (n+1) con id = 0
+        setEstado(CONFIGURANDO,1);
+        boton = NULL;
+        configure->MultiTemp_process_start();
+        return;
       }
       else {      // seguro antinenes
-          // apagar leds y parar riegos (por si riego activado externamente)
-          reposoOFF();
-          lcd.infoclear("Parando riegos", 1, BIP, 6);
-          if (!stopAllRiego()) {   //error al parar riegos
-            boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
-            return; 
-          }
-          lcd.infoclear("STOP riegos OK", DEFAULTBLINK, BIP, 0);
-          setEstado(STOP,1);
-          reposoON(LCDON); //pasamos directamente a reposo sin apagar pantalla
+        // apagar leds y parar riegos (por si riego activado externamente)
+        reposoOFF();
+        lcd.infoclear("Parando riegos", 1, BIP, 6);
+        if (!stopAllRiego()) {   //error al parar riegos
+          boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
+          return; 
+        }
+        lcd.infoclear("STOP riegos OK", DEFAULTBLINK, BIP, 0);
+        setEstado(STOP,1);
+        reposoON(LCDON); //pasamos directamente a reposo sin apagar pantalla
       }    
     }
   }
@@ -535,7 +540,6 @@ void procesaBotonZona(void)
       showTimeLastRiego(lastRiegos[zIndex], zIndex);
       delay(config.msgdisplaymillis*4);
       led(boton->led,OFF);
-      //value = savedValue;  // para que restaure reloj
       LOG_TRACE("[poniendo estado STANDBY]");
       setEstado(STANDBY);
     }
@@ -545,7 +549,7 @@ void procesaBotonZona(void)
   // o multirriego temporal (no durante un multirriego de grupo normal).
   // TODO PREGUNTA: sería conveniente que solo se pudiese hacer una vez pausado?
   // TODO PREGUNTA: permitir eliminar (terminar riego) de la zona en curso solamente pulsando esa zona ?
-  //                (ya se puede hacer de forma general con encoderSW+PAUSE) 
+  //                (no parece necesario ya que ya se puede hacer de forma general con encoderSW+PAUSE) 
   if ((Estado.estado == REGANDO || Estado.estado==PAUSE) && config.dynamic && (multi.riegoON == multi.temporal)) {
     // NOTA: la zona pulsada no puede coincidir con la actualmente en riego, se ignora en ese caso
     if (ultimoBotonZona->bID != boton->bID) {
@@ -643,6 +647,12 @@ void procesaEstadoConfigurando()
 
 void procesaEstadoError(void)
 {
+  if (flagV) {   // acciones cada VERIFY_INTERVAL en estado ERROR
+    if(errorOFF) bip(2);  //recordatorio error grave al parar un riego
+    //se intenta recuperar error si en el SETUP no hemos podido conectar con la wifi o con domoticz
+    if(Estado.error == E1 && falloSetup) wifiVerifyRecovery(config, Estado);
+    if(Estado.error == E2 && falloSetup && checkReconInterval) domoticzVerifyRecovery();
+  }
   if(boton == NULL) return;  // si no se ha pulsado ningun boton salimos
   //En estado error no se responde a botones, a menos que este sea:
   //   - PAUSE y pasamos a modo NONETWORK
@@ -654,7 +664,6 @@ void procesaEstadoError(void)
     if (Boton[bID2bIndex(bSTOP)].estado) setEstado(STOP,1);
     else setEstado(STANDBY);
     //reseteos varios:
-    resetLeds();    //apaga leds activos y restablece leds ON y RED
     resetFlags();   //reset flags de status
   }
   if(boton->bID == bSTOP) {
@@ -736,7 +745,7 @@ void procesaEstadoTerminando(void)
 
 void procesaEstadoStandby(void)
 {
-  //Apagamos el display si ha pasado el lapso
+  //Apagamos el display si ha pasado el lapso STANDBYSECS sin actividad
   if (reposo) standbyTime = millis();
   else {
     if (millis() > standbyTime + (1000 * STANDBYSECS)) {
@@ -745,7 +754,27 @@ void procesaEstadoStandby(void)
     }
   }
   if (reposo & encoderSW) reposoOFF(); // pulsar boton del encoder saca del reposo
+  // leemos encoder
   procesaEncoderClock();
+  // verificaciones en STANDBY cada VERIFY_INTERVAL segundos
+  //  - actualiza y muestra temperatura ambiente
+  //  - verificacion de wifi y recuperacion si procede
+  //  - actualizacion de hora por NTP si no la tenemos actualizada o ha pasado NTPUPDATEINTERVAL horas
+  if (flagV) { 
+    LOG_TRACE(".");
+    if (multi.riegoON) return; //no se hacen verificaciones/acciones con multirriego en curso
+    showTemp();  // muestra temperatura ambiente en standby
+    wifiVerifyRecovery(config, Estado); //verificacion de wifi y recuperacion si procede
+    // si tenemos conexion y no hemos recibido time por NTP o han pasado NTPUPDATEINTERVAL minutos
+    // desde la ultima sincronizacion -> actualizamos time del sistema con el del servidor NTP
+    if (connected && (!timeOK || millis() > NTPlastUpdate + NTPUPDATEINTERVAL * 60000 )) {
+        LOG_TRACE("LLamando a setClock");
+        setClock();
+        // en cualquier caso, si timeOK, no intentaremos volver a resincronizar hasta que haya pasado otro NTPUPDATEINTERVAL 
+        NTPlastUpdate = millis(); 
+      }
+  }   
+
 };
 
 
@@ -869,7 +898,9 @@ void setEstado(uint8_t estado, int bnum)
     return;
   }
   if(estado == STANDBY) {
-    if(!multi.riegoON && !multi.temporal) {
+    // if(!multi.riegoON && !multi.temporal) {
+    if(!multi.riegoON) {  //en los intervalos entre riegos no se muestra la pantalla de standby
+      resetLeds();
       lcd.infoclear("STANDBY",NOBLINK,BIP,bnum);
       showTemp();
     }  
@@ -910,12 +941,13 @@ void check(void)
  */
 void initFactorRiegos()
 {
-  LOG_TRACE("TRACE: in initFactorRiegos");
+  LOG_DEBUG("entrada InitFactorRiegos Estado.error=", Estado.error, "falloSetup=", falloSetup, "NOWIFI=", NOWIFI);
   //inicializamos a valor 100 por defecto para caso de error
   for(uint i=0;i<NUMZONAS;i++) {
     factorRiegos[i]=100;
   }
-  if(Estado.estado == ERROR || NOWIFI) return; // si estabamos en error (o no wifi) ni lo intentamos
+  //si no tenemos wifi (error1) o NOWIFI, ni lo intentamos
+  if((Estado.error == E1) || NOWIFI) return; 
   lcd.info("conectando Domoticz", 2);
   lcd.clear(BORRA2H);
   //leemos factores del Domoticz
@@ -933,6 +965,7 @@ void initFactorRiegos()
     }
     factorRiegos[i] = factorR;
     LOG_TRACE("zona",i+1,"factor asignado=",factorR);
+    // Tratamiendo de la descripcion de las zonas (si hemos recibido la descripcion del Domoticz)
     if (strlen(descDomoticz)) {
       // si xNAME true, actualizamos en config la DESCRIPCION con la recibida del Domoticz (campo Name)
       if (config.xname) {
@@ -947,7 +980,7 @@ void initFactorRiegos()
       }  
     }
   }
-  //printParms(config);
+  LOG_DEBUG("salida  InitFactorRiegos Estado.error=", Estado.error, "falloSetup=", falloSetup, "NOWIFI=", NOWIFI);
   #ifdef VERBOSE
     //Leemos los valores para comprobar que lo hizo bien
     Serial.print(F("Factores de riego "));
@@ -1290,7 +1323,7 @@ void resetFlags()
   multi.dynamic  = false;
   multi.semaforo = false;
   errorOFF = false;
-  falloAP  = false;
+  falloSetup  = false;
   webServerAct = false;
   simular.all_simFlags = false;
 }
@@ -1456,7 +1489,8 @@ int getFactor(uint16_t idx)
     LOG_ERROR(" ** [ERROR] deserializeJson() failed: ", error.c_str());
     if(!VERIFY) return 100;
     else {
-      statusError(E2);  //TODO ¿deberiamos devolver E3?
+      statusError(E3);
+      // statusError(E2);  //TODO ¿deberiamos devolver E3?
       return 100;
     }
   }
@@ -1486,6 +1520,47 @@ int getFactor(uint16_t idx)
   return (int)factor;
 }
 
+bool checkDomoticz()
+{
+  LOG_TRACE("");
+  tic_parpadeoLedRecon.attach(0.2, parpadeoLedAP);
+  LOG_INFO("----  VERIFICANDO RECONEXION DOMOTICZ  ----");
+  String response = deviceInfo(0); //leemos el idx=0 para comprobar que hay conexion
+  tic_parpadeoLedRecon.detach();
+  ledPWM(LEDB,OFF);
+  //procesamos la respuesta para ver si se ha producido error:
+  if (response.startsWith("Err2")) {
+    LOG_ERROR(" ** sin conexion con Domoticz");
+    return false;
+  }
+  return true;
+}
+
+void domoticzVerifyRecovery()
+{  //verificamos que hay wifi y el Domoticz esta conectado, solo en este caso reintentamos leer factores de riego
+  LOG_TRACE("");
+  if(WiFi.status() == WL_CONNECTED) {
+    if (checkDomoticz()) {
+      LOG_INFO("Domoticz conectado OK");
+      initFactorRiegos(); //en caso de producirse error con esta funcion ya dejara este activado
+      setupEstado();
+    }
+  } else statusError(E1);
+  if(Estado.error == E1 || Estado.error == E2) {
+    LOG_INFO("reintento en ",RECONNECTINTERVAL," minutos \n");
+    } else falloSetup = false; //otro tipo de error con Domoticz (E3) no se reintenta recuperar ya
+}
+
+// void domoticzVerifyRecovery()
+// {  //verificamos que el Domoticz esta conectado y si lo esta, leemos factores de riego
+//   LOG_TRACE("");
+//   if (checkDomoticz()) {
+//     LOG_INFO("Domoticz conectado OK");
+//     initFactorRiegos(); //en caso de producirse error con esta funcion ya dejara este activado
+//     setupEstado();
+//     falloSetup = false; //otro tipo de error con Domoticz no se reintenta recuperar ya
+//   } else LOG_INFO("reintento en ",RECONNECTINTERVAL," minutos \n");
+// }
 
 /**---------------------------------------------------------------
  * lee datos de temperatura y humedad del sensor definido en Domoticz
@@ -1627,64 +1702,47 @@ bool domoticzSwitch(int idx, char *msg, int retries)
 
 void flagVerificaciones() 
 {
-  flagV = ON; //aqui solo activamos flagV para no usar llamadas a funciones bloqueantes en Ticker
+  flagVtimer = ON; //aqui solo activamos flagVtimer para no usar llamadas a funciones bloqueantes en Ticker
 }
 
 
 /**---------------------------------------------------------------
- * verificaciones periodicas de estado (wifi, hora correcta, ...)
+ * activacion del flagV para verificaciones periodicas de estado (wifi, hora correcta, ...) si se ha cumplido el timer 
  */
 void Verificaciones() 
 {   
-  static unsigned long lastmillisReconnect = 0;
   #ifdef DEVELOP
     leeSerial();  // para ver si simulamos algun tipo de error
   #endif
   #ifdef DEBUGloops
     debugloops();
   #endif
-  if (!flagV || webServerAct) return;      //si no activada por Ticker salimos sin hacer nada
-  if (Estado.estado == STANDBY && !reposo) {
-     LOG_TRACE(".");
-      // si tenemos conexion y no hemos recibido time por NTP o han pasado NTPUPDATEINTERVAL minutos
-      // desde la ultima sincronizacion -> actualizamos time del sistema con el del servidor NTP
-      if (connected && (!timeOK || millis() > NTPlastUpdate + NTPUPDATEINTERVAL * 60000 )) {
-        setClock();
-        // en cualquier caso, si timeOK, no intentaremos volver a resincronizar hasta que haya pasado otro NTPUPDATEINTERVAL 
-        NTPlastUpdate = millis(); 
-      }
-      showTemp();  // muestra temperatura ambiente en standby
-  }   
-  if (errorOFF) bip(2);  //recordatorio error grave al parar un riego
-  //si estamos en Standby o en Error por falta de conexion verificamos estado actual de la wifi (no en modo NONETWORK sin conexion)
-  if ((!NONETWORK || connected) && (Estado.estado == STANDBY || (Estado.estado == ERROR && !connected))) {
-    int wifilevel = checkWifi(config.showwifilevel); // conectado a wifi?
-    if(wifilevel) {
-      if (Estado.estado!=STANDBY) setEstado(STANDBY,1); 
-      if (config.showwifilevel) {
-         LOG_DEBUG("showwifilevel=",config.showwifilevel,"wifilevel=",wifilevel);
-         if(wifilevel==100) wifilevel=99; 
-         lcd.setCursor(0,3);
-         snprintf(buff,MAXBUFF,"%02d%%",wifilevel);
-         lcd.print(buff); 
-      }
-    }
-    if(!connected && millis() > lastmillisReconnect + RECONNECTINTERVAL * 60000) {   //si no estamos conectados a la wifi, intentamos reconexion
-      LOG_WARN("INTENTANDO RECONEXION WIFI");
-      //WiFi.reconnect();
-      WiFi.disconnect();
-      delay(500);
-      WiFi.begin();
-      lastmillisReconnect = millis();
-    }  
-    if (connected && falloAP) {
-      LOG_INFO("Wifi conectada despues Setup, leemos factor riegos");
-      falloAP = false;
-      initFactorRiegos(); //esta funcion ya dejara el estado correspondiente
-      setupEstado();
-    }
-  }
+  
+  static unsigned long lastmillisReconnect = 0;
   flagV = OFF;
+  checkReconInterval = false;
+  if (!flagVtimer) return;  //si no activada por Ticker salimos sin hacer nada
+  LOG_TRACE("-------flagVtimer(Verificaciones)   falloSetup: ", falloSetup, "Estado.error: ", Estado.error);
+  flagVtimer = OFF;
+  flagV = ON;  //activamos flagV para que se realicen las verificaciones en las funciones de estado correspondientes
+  if(millis() > lastmillisReconnect + RECONNECTINTERVAL * 60000) {   
+    lastmillisReconnect = millis();
+    checkReconInterval = true; //activamos el flag para que se realicen las verificaciones de reconexion
+  }    
+
+  /*
+     Con flagV activado, se realizan las siguientes verificaciones periodicas:
+      - estado de la wifi y recuperacion de la conexion si no la hay (en procesaEstadoStandby y procesaEstadoError)
+      - actualiza y muestra nivel señal wifi si procede (en procesaEstadoStandby)
+      - actualizacion de hora por NTP si procede (en procesaEstadoStandby)
+      - actualiza y muestra temperatura ambiente (en procesaEstadoStandby)
+      - recordatorio error grave al parar un riego (en procesaEstadoError)
+      - si VERIFY=true, verifica que el estado de la zona en RIEGO coincide con el de Domoticz (en procesaEstadoRegando)
+      - si VERIFY=true, verifica que el estado de la zona en PAUSA coincide con el de Domoticz (en procesaEstadoPause)
+      Con checkReconInterval activado, se realizan las siguientes verificaciones periodicas:
+       - intento de recuperacion de la conexion wifi si no la hay (en procesaEstadoError)
+       - intento de recuperacion de la conexion con Domoticz (en procesaEstadoError)
+  */
 }
 
 float readTemp() {
@@ -1743,6 +1801,7 @@ void statusError(uint8_t errorID)
 {
   Estado.estado = ERROR;
   Estado.error = errorID;
+  Estado.tipo = LOCAL;
   rotaryEncoder.disable();
   sprintf(errorText, "Error%d", errorID);
   LOG_ERROR("SET ERROR: ", errorText);

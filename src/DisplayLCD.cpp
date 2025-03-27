@@ -178,7 +178,6 @@ void DisplayLCD::infoEstado(const char *estado, const char *zona) {
       lcdDisp.print(infocut);
     }
     else lcdDisp.print(zona);  
-    //lcdDisp.print(zona);  
 }    
 
 // muestra info (hasta un maximo de 20 caracteres) en la linea pasada (1, 2 ,3 o 4)

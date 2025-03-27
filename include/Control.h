@@ -17,6 +17,7 @@
   */
   #ifdef DEVELOP
     //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
+    //#define DEBUGLOG_DEFAULT_LOG_LEVEL_WARN
     #define DEBUGLOG_DEFAULT_LOG_LEVEL_TRACE
     //#define DEBUGLOG_DEFAULT_LOG_LEVEL_DEBUG
     //#define EXTRADEBUG
@@ -29,6 +30,7 @@
     //Comportamiento general para uso normal . DESCOMENTAR LO QUE CORRESPONDA
     //#define DEBUGLOG_DISABLE_LOG
     #define DEBUGLOG_DEFAULT_LOG_LEVEL_INFO
+    // #define DEBUGLOG_DEFAULT_LOG_LEVEL_TRACE
     #define VERBOSE
   #endif
 
@@ -98,14 +100,15 @@
   #ifdef RELEASE
     #define DEFAULTMINUTES      10    // * tiempo de riego por defecto (minutos)
     #define DEFAULTSECONDS      0     // * tiempo de riego por defecto (segundos)
-  #endif
-  #ifdef DEVELOP
+    #define RECONNECTINTERVAL   2       // tiempo en minutos para intentar reconexion a la wifi
+    #endif
+    #ifdef DEVELOP
     #define DEFAULTMINUTES      0
     #define DEFAULTSECONDS      10
+    #define RECONNECTINTERVAL   1       // tiempo en minutos para intentar reconexion a la wifi
   #endif
   #define STANDBYSECS         30      // tiempo en segundos para pasar a reposo desde standby (apagar pantalla y atenuar leds)
   #define NTPUPDATEINTERVAL   600     // tiempo en minutos para resincronizar el reloj del sistema con el servidor NTP
-  #define RECONNECTINTERVAL   1       // tiempo en minutos para intentar reconexion a la wifi
   #define DEFAULTBLINK        4       // numero de parpadeos de la pantalla
   #define DEFAULTBLINKMILLIS  500     // mseg entre parpadeo de la pantalla
   #define MSGDISPLAYMILLIS    1000    // * mseg se mantienen mensajes informativos
@@ -223,8 +226,8 @@
   };
 
   enum estado_tipos {
-    LOCAL       = 0,
-    REMOTO      = 1,
+    LOCAL       = 1,
+    REMOTO      = 2,
   };
 
   enum _flags {
@@ -348,9 +351,9 @@
   } ;
 
   struct S_Estado {
-    uint8_t estado; 
-    uint8_t tipo;
-    uint8_t error;
+    uint8_t estado = STANDBY; 
+    uint8_t tipo   = LOCAL;
+    uint8_t error  = NOERROR;
   } ;
 
   struct S_timeRiego {
@@ -482,7 +485,7 @@
     bool connected;
     bool NONETWORK;
     bool NOWIFI;
-    bool falloAP;
+    bool falloSetup;
     bool webServerAct = false;
     bool saveConfig = false;
     
@@ -494,6 +497,8 @@
     int config_volume ; // volumen sonidos
     int config_finMelody ; // melodia final riego grupo
     bool config_mute; // sonidos silenciados
+    bool checkReconInterval = false; // verificaciones de conexion cada RECONNECTINTERVAL minutosº
+    
     
     #else
     extern int NUM_S_BOTON;
@@ -504,7 +509,7 @@
     extern bool connected;
     extern bool NONETWORK;
     extern bool NOWIFI;
-    extern bool falloAP;
+    extern bool falloSetup;
     extern bool webServerAct;
     extern bool saveConfig;
     extern const char *parmFile; 
@@ -512,8 +517,9 @@
     extern DisplayLCD lcd;
     extern char buff[];
     extern int config_volume;
-    extern int config_finMelody ; // melodia final riego grupo
-    extern bool config_mute; // sonidos silenciados
+    extern int config_finMelody ; 
+    extern bool config_mute;
+    extern bool checkReconInterval;
 
   #endif
 
@@ -536,6 +542,7 @@
     S_simFlags simular; // estructura flags para simular errores
     Configure    *configure;
     AiEsp32RotaryEncoder rotaryEncoder(ENCDT,ENCCLK,-1, -1, ROTARY_ENCODER_STEPS);
+    Ticker tic_parpadeoLedRecon;    //para parpadeo led LEDG con LEDR activo (morado)
     Ticker tic_parpadeoLedError;    //para parpadeo led ERROR (LEDR)
     Ticker tic_parpadeoLedZona;  //para parpadeo led zona de riego
     Ticker tic_verificaciones;   //para verificaciones periodicas
@@ -553,6 +560,7 @@
     bool holdPause = false;
     unsigned long countHoldPause;
     bool flagV = OFF;
+    bool flagVtimer = OFF;
     bool timeOK = false;
     bool tempOK = false;
     bool factorRiegosOK = false;
@@ -584,6 +592,7 @@
   int  bID2bIndex(uint16_t);
   void blinkPause(void);
   void check(void);
+  bool checkDomoticz(void);
   int  checkWifi(bool level=false);
   void cleanFS(void);
   bool copyConfigFile(const char*, const char*);
@@ -598,6 +607,7 @@
   void displayNoFactorizado(void);
   void displayTimer(uint8_t, uint8_t, uint8_t, uint8_t);
   bool domoticzSwitch(int,char *, int);
+  void domoticzVerifyRecovery(void);
   void enciendeLeds(void);
   void endWS(void);
   static const char* errorToString(uint8_t);
@@ -703,6 +713,7 @@
   void Verificaciones(void);
   void wifiClearSignal(uint);
   bool wifiReconnect(void);
+  void wifiVerifyRecovery(Config_parm&, S_Estado&);
   void zeroConfig(Config_parm&);
   int  zNumber2bIndex(uint16_t);
 

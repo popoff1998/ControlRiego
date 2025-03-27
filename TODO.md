@@ -48,24 +48,25 @@
 - si al lanzar o detener un riego Domoticz informa de error, se reintenta varias veces antes de dar error V2.5
 - mejoras en menu de servicio (webserver): posibilida de ver, borrar y actualizar ficheros individuales del file system V2.5
 ## Version 3:
-- nuevo HW: ESP32, expansores I/O MCP23017, pantalla LCD de 20 caracteres x 4 lineas (bus I2C)
-- cambio libreria encoder por una que soporta interrupciones
-- opciones de inicio por pantalla (borrar wifi o cargar parametros defecto) V3.1
-- ampliacion a 9 zonas / 4 grupos V3.1
-- leds de RED y de WIFI fusionados en led STATUS RGB V3.1
-- muestra dia/mes al mostrar hora actual. Sincronizacion del time por NTP cada 10 horas V3.1
+- Nuevo HW: ESP32, expansores I/O MCP23017, pantalla LCD de 20 caracteres x 4 lineas (bus I2C)
+- Cambio libreria encoder por una que soporta interrupciones
+- Opciones de inicio por pantalla (borrar wifi o cargar parametros defecto) V3.1
+- Ampliacion a 9 zonas / 4 grupos V3.1
+- Leds de RED y de WIFI fusionados en led STATUS RGB V3.1
+- Muestra dia/mes al mostrar hora actual. Sincronizacion del time por NTP cada 10 horas V3.1
 - Modo configuracion por menu en pantalla V3.1
-- pseudogrupo riego temporal V3.1
-- refactoring  de procesaEstadoConfigurando y clase Configure  V3.1
-- mejoras información en pantalla (DEMO, zonas pendientes riego, temperatura ambiente, timestamp riegos) V3.1
+- Pseudogrupo riego temporal V3.1
+- Refactoring  de procesaEstadoConfigurando y clase Configure  V3.1
+- Mejoras información en pantalla (DEMO, zonas pendientes riego, temperatura ambiente, timestamp riegos) V3.1
 - Simplificacion fichero de configuracion V3.1
-- configurando grupo, enc+pause vacia grupo V3.1
-- nuevo formato mandato comunicacion con Domoticz v3.1
-- mejoras información en pantalla (*Mtemp, -NF-) V3.2
-- si parametro dynamic=true se permite añadido/baja zonas durante el riego V3.2
-- menu configuracion: rangos ajustables sobre linea del menu V3.2
-- opciones de inicio por pantalla: reset parametros (borrado ficheros parm y backup) V3.2
-- volumen sonidos y melodia fin riego de grupo configurables por parametros en menu V3.2
+- Configurando grupo, enc+pause vacia grupo V3.1
+- Nuevo formato mandato comunicacion con Domoticz v3.1
+- Mejoras información en pantalla (*Mtemp, -NF-) V3.2
+- Si parametro dynamic=true se permite añadido/baja zonas durante el riego V3.2
+- Menu configuracion: rangos ajustables sobre linea del menu V3.2
+- Opciones de inicio por pantalla: reset parametros (borrado ficheros parm y backup) V3.2
+- Volumen sonidos y melodia fin riego de grupo configurables por parametros en menu V3.2
+- Si error de conexión en el arranque (wifi o Domoticz) se reintenta recuperarla periodicamente V3.2
 
 
 
