@@ -125,7 +125,7 @@ void setupRedWM(Config_parm &config, S_initFlags &initFlags)
   custom_domoticz_server.setValue(config.domoticz_ip, 40);
   custom_domoticz_port.setValue(config.domoticz_port, 5);
   custom_ntpserver.setValue(config.ntpServer, 40);
-  if(NONETWORK && NOWIFI) return;
+  if(NOWIFI) return;
   lcd.infoclear("conectando WIFI");
   tic_WifiLed.attach(0.2, parpadeoLedWifi); // Empezamos el temporizador que hará parpadear el LED indicador de wifi
   ledPWM(LEDR,OFF);   // y apagamos LEDR
@@ -165,8 +165,8 @@ void setupRedWM(Config_parm &config, S_initFlags &initFlags)
       }
     }
   }
-  // dejamos LEDB segun estado de NONETWORK
-  NONETWORK ? ledPWM(LEDB,ON) : ledPWM(LEDB,OFF);
+  // dejamos LEDB segun estado de modoDEMO
+  modoDEMO ? ledPWM(LEDB,ON) : ledPWM(LEDB,OFF);
   //detenemos parpadeo led wifi
   tic_WifiLed.detach();
   if (checkWifi()) {
@@ -177,7 +177,7 @@ void setupRedWM(Config_parm &config, S_initFlags &initFlags)
     int msgl = snprintf(buff, MAXBUFF, "wifi OK: %s", WiFi.SSID().c_str());
     lcd.info(buff, 1, msgl);
   }
-  else if(!NONETWORK) statusError(E1); //si no hemos podido conectar a la wifi señalamos error
+  else if(!modoDEMO) statusError(E1); //si no hemos podido conectar a la wifi señalamos error
     // ----------------------------- save the custom parameters
   if (saveConfig) {
     strcpy(config.domoticz_ip, custom_domoticz_server.getValue());
@@ -207,9 +207,9 @@ void starConfigPortal(Config_parm &config)
     strcpy(config.domoticz_port, custom_domoticz_port.getValue());
     strcpy(config.ntpServer, custom_ntpserver.getValue());
   }
-  // Eliminamos el temporizador y dejamos LEDB segun estado de NONETWORK
+  // Eliminamos el temporizador y dejamos LEDB segun estado de modoDEMO
   tic_APLed.detach();
-  NONETWORK ? ledPWM(LEDB,ON) : ledPWM(LEDB,OFF);
+  modoDEMO ? ledPWM(LEDB,ON) : ledPWM(LEDB,OFF);
   lcd.infoclear("reconectando WIFI");
   tic_WifiLed.detach();
   checkWifi();
@@ -244,8 +244,8 @@ bool wifiReconnect () {
 }    
 void wifiVerifyRecovery(Config_parm &config, S_Estado &Estado) {
   LOG_TRACE("");
-  //en modo NONETWORK sin conexion no verificamos (DEMO sin wifi)
-  if (NONETWORK && !connected) return;
+  //en modoDEMO sin conexion no verificamos (DEMO sin wifi)
+  if (modoDEMO && !connected) return;
   /*
     Si no estamos conectados a la wifi, intentamos reconexion cada RECONNECTINTERVAL minutos.
     Normalmente no se ejecutara, ya que el evento WiFiStationConnected se ejecutara

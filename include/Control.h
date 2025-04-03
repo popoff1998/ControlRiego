@@ -483,7 +483,7 @@
     S_BOTON  *boton;
     S_tm tm;          // variables contador de tiempo
     bool connected;
-    bool NONETWORK;
+    bool modoDEMO;
     bool NOWIFI;
     bool falloSetup;
     bool webServerAct = false;
@@ -507,7 +507,7 @@
     extern S_BOTON  *boton;
     extern S_tm tm;
     extern bool connected;
-    extern bool NONETWORK;
+    extern bool modoDEMO;
     extern bool NOWIFI;
     extern bool falloSetup;
     extern bool webServerAct;

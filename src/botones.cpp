@@ -164,12 +164,12 @@ void ledYellow(int estado)
   if(estado == OFF) ledRGB(OFF,OFF,OFF);  //  los apaga para parpadeo
 }
 
-// deja led RGB segun estado wifi y NONETWORK
+// deja led RGB segun estado wifi y modoDEMO
 void setledRGB()
 {
     ledPWM(LEDR,OFF);                   
     checkWifi();
-    NONETWORK ? ledPWM(LEDB,ON) : ledPWM(LEDB,OFF);
+    modoDEMO ? ledPWM(LEDB,ON) : ledPWM(LEDB,OFF);
 }  
 
 

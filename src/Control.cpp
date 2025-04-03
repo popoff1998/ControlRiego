@@ -28,14 +28,11 @@ void IRAM_ATTR readEncoderISR()
  *----------------------------------------------*/
 void setup()
 {
-  #ifdef RELEASE
-                NONETWORK=false; 
-  #endif
-  #ifdef DEVELOP
-                NONETWORK=false;
+  #ifdef DEMO
+                modoDEMO=true;
   #endif
   #ifdef noWIFI
-                NONETWORK=true;
+                modoDEMO=true;
                 NOWIFI=true;
   #endif
 
@@ -201,7 +198,7 @@ void procesaEstados()
  */
 void setupEstado() 
 {
-  LOG_DEBUG("setupEstado entrada Estado.error=", Estado.error, "falloSetup=", falloSetup, "NONETWORK=", NONETWORK);
+  LOG_DEBUG("setupEstado entrada Estado.error=", Estado.error, "falloSetup=", falloSetup, "modoDEMO=", modoDEMO);
   //Deshabilitamos el hold de Pause
   Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
   // Verificamos que se han cargado parametros de configuracion correctamente  
@@ -209,18 +206,18 @@ void setupEstado()
     statusError(E0);  //no se ha podido cargar parámetros desde ficheros -> señalamos el error
     return;
   }
-  // Si estamos en modo NONETWORK pasamos a STANDBY (o STOP si esta pulsado) aunque no exista conexión wifi o estemos en ERROR
-  if (NONETWORK) {
+  // Si estamos en modoDEMO pasamos a STANDBY (o STOP si esta pulsado) aunque no exista conexión wifi o estemos en ERROR
+  if (modoDEMO) {
     if (testButton(bSTOP,ON))  setEstado(STOP,1);
     else setEstado(STANDBY,2);
-    LOG_DEBUG("setupEstado salida por NONETWORK=", NONETWORK);
+    LOG_DEBUG("setupEstado salida por modoDEMO=", modoDEMO);
     return;
   }
   // Si estado actual es ERROR seguimos así
   if (Estado.estado == ERROR) {
     actLedError();
     if(Estado.error == E1 || Estado.error == E2) falloSetup = true; //error recuperable de comunicacion en el Setup o en recovery de este
-    LOG_DEBUG("setupEstado salida por Estado.error=", Estado.error, "falloSetup=", falloSetup, "NONETWORK=", NONETWORK);
+    LOG_DEBUG("setupEstado salida por Estado.error=", Estado.error, "falloSetup=", falloSetup, "modoDEMO=", modoDEMO);
     return;
   }
   // Si estamos conectados pasamos a STANDBY o STOP (caso de estar pulsado este al inicio)
@@ -229,7 +226,7 @@ void setupEstado()
     else setEstado(STANDBY,1);
     return;
   }
-  //si no estamos conectados a la red y no estamos en modo NONETWORK pasamos a estado ERROR
+  //si no estamos conectados a la red y no estamos en modoDEMO pasamos a estado ERROR
   statusError(E1);
   LOG_TRACE("salida por estado ERROR(E1)");
 }
@@ -353,9 +350,9 @@ void procesaBotonPause(void)
         break;
       case STANDBY:
           boton = NULL; //lo borramos para que no sea tratado más adelante en procesaEstados
-          if(encoderSW) {  //si encoderSW+Pause --> conmutamos estado NONETWORK
-            if (NONETWORK) {
-                NONETWORK = false;
+          if(encoderSW) {  //si encoderSW+Pause --> conmutamos estado modoDEMO
+            if (modoDEMO) {
+                modoDEMO = false;
                 NOWIFI = false;
                 LOG_INFO("encoderSW+PAUSE pasamos a modo NORMAL y leemos factor riegos");
                 bip(2);
@@ -367,8 +364,8 @@ void procesaBotonPause(void)
                 if(VERIFY && Estado.estado != ERROR) stopAllRiego(); //verificamos operativa OFF para los IDX's 
             }
             else {
-                NONETWORK = true;
-                LOG_INFO("encoderSW+PAUSE pasamos a modo NONETWORK (DEMO)");
+                modoDEMO = true;
+                LOG_INFO("encoderSW+PAUSE pasamos a modoDEMO (DEMO)");
                 bip(2);
                 ledPWM(LEDB,ON);
                 displayDemo();
@@ -655,11 +652,11 @@ void procesaEstadoError(void)
   }
   if(boton == NULL) return;  // si no se ha pulsado ningun boton salimos
   //En estado error no se responde a botones, a menos que este sea:
-  //   - PAUSE y pasamos a modo NONETWORK
+  //   - PAUSE y pasamos a modoDEMO
   //   - STOP y en este caso reseteamos 
   if(boton->bID == bPAUSE && boton->estado) {  //evita procesar el release del pause
-    LOG_INFO("estado en ERROR y PAUSA pulsada pasamos a modo NONETWORK y reset del error");
-    NONETWORK = true;
+    LOG_INFO("estado en ERROR y PAUSA pulsada pasamos a modoDEMO y reset del error");
+    modoDEMO = true;
     bip(2);
     if (Boton[bID2bIndex(bSTOP)].estado) setEstado(STOP,1);
     else setEstado(STANDBY);
@@ -684,7 +681,7 @@ void procesaEstadoRegando(void)
   if (T.TimeHasChanged()) refreshTime();
   if (tiempoTerminado == 0) setEstado(TERMINANDO);
   // verificamos periodicamente que el riego sigue activo en Domoticz
-  else if(flagV && VERIFY && (!NONETWORK || simular.all_simFlags)) { 
+  else if(flagV && VERIFY && (!modoDEMO || simular.all_simFlags)) { 
     ledID = ultimoBotonZona->led;
     tic_parpadeoLedZona.detach(); //detiene posible parpadeo led zona
     led(ledID,ON);                //y lo dejamos fijo
@@ -792,7 +789,7 @@ void procesaEstadoStop(void)
 };
 
 void procesaEstadoPause(void) {
-  if(flagV && VERIFY && (!NONETWORK || simular.all_simFlags)) {  // verificamos zona sigue OFF en Domoticz periodicamente
+  if(flagV && VERIFY && (!modoDEMO || simular.all_simFlags)) {  // verificamos zona sigue OFF en Domoticz periodicamente
     if(queryStatus(config.zona[ultimoBotonZona->znumber-1].idx, (char *)"Off")) return;
     else {
       if(Estado.error == NOERROR) { //riego zona activo: salimos del PAUSE y blink lento zona activada remotamente 
@@ -887,7 +884,7 @@ void setEstado(uint8_t estado, int bnum)
   Estado.tipo = LOCAL;
   if((estado==REGANDO || estado==TERMINANDO ) && ultimoBotonZona != NULL) {
     lcd.infoEstado(nEstado[estado], config.zona[ultimoBotonZona->znumber-1].desc);
-    if(NONETWORK) displayDemo(); 
+    if(modoDEMO) displayDemo(); 
     if(multi.dynamic) displayNoFactorizado();
       else if(multi.temporal) displayMultiTemporal(); 
     return;
@@ -906,7 +903,7 @@ void setEstado(uint8_t estado, int bnum)
     }  
     StaticTimeUpdate(REFRESH);
     setEncoderTime();
-    if(NONETWORK) displayDemo();
+    if(modoDEMO) displayDemo();
     standbyTime = millis();
     return;
   }
@@ -955,7 +952,7 @@ void initFactorRiegos()
   {
     int bIndex = bID2bIndex(ZONAS[i]);
     uint factorR = getFactor(config.zona[i].idx);
-    if(factorR == 999) break;     //en modo NONETWORK no continuamos iterando si no hay conexion
+    if(factorR == 999) break;     //en modoDEMO no continuamos iterando si no hay conexion
     if(Estado.estado == ERROR) {  //al primer error salimos
       if(Estado.error == E3) {    // y señalamos zona que falla si no es error general de conexion
         ledID = Boton[bIndex].led;
@@ -1125,12 +1122,12 @@ void dimmerLeds(bool status)
   if(status) {
     LOG_TRACE("leds atenuados ");
     if(connected) analogWrite(LEDG, config.dimmlevel);
-    if(NONETWORK) analogWrite(LEDB, config.dimmlevel);
+    if(modoDEMO) analogWrite(LEDB, config.dimmlevel);
   }
   else {
     LOG_TRACE("leds brillo normal ");
     if(connected) analogWrite(LEDG, config.maxledlevel);
-    if(NONETWORK) analogWrite(LEDB, config.maxledlevel);
+    if(modoDEMO) analogWrite(LEDB, config.maxledlevel);
   }  
 }
 
@@ -1248,16 +1245,18 @@ bool initRiego()
 {
   int zIndex = ultimoBotonZona->znumber-1;
   if (zIndex < 0) return false; //el boton no es de ZONA o error en la matriz Boton[]
+  led(ultimoBotonZona->led,ON);
   LOG_DEBUG("Boton:",config.zona[zIndex].desc,"zona:",ultimoBotonZona->znumber,"IDX:",config.zona[zIndex].idx);
   LOG_INFO( "Iniciando riego: ", config.zona[zIndex].desc);
-  led(ultimoBotonZona->led,ON);
-  inicioTimeLastRiego(lastRiegos[zIndex], zIndex);
+  if (domoticzSwitch(config.zona[zIndex].idx, (char *)"On", DEFAULT_SWITCH_RETRIES)) {
+    inicioTimeLastRiego(lastRiegos[zIndex], zIndex);
       #ifdef EXTRADEBUG
           for(uint i=0;i<NUMZONAS;i++) {
                 LOG_DEBUG("[ULTIMOSRIEGOS] inicio zona:", i+1, "time:",lastRiegos[i].inicio);
             }
       #endif
-  return domoticzSwitch(config.zona[zIndex].idx, (char *)"On", DEFAULT_SWITCH_RETRIES);
+    return true; 
+  } else return false; //error al iniciar el riego   
 }
 
 
@@ -1268,8 +1267,7 @@ bool stopRiego(uint16_t id, bool update)
   int zIndex = Boton[bIndex].znumber-1;
   ledID = Boton[bIndex].led;
   LOG_DEBUG( "Terminando riego: ", config.zona[zIndex].desc);
-  domoticzSwitch(config.zona[zIndex].idx, (char *)"Off", DEFAULT_SWITCH_RETRIES);
-  if (Estado.estado != ERROR) {
+  if (domoticzSwitch(config.zona[zIndex].idx, (char *)"Off", DEFAULT_SWITCH_RETRIES)) {
     LOG_INFO( "Terminado OK riego: " , config.zona[zIndex].desc );
     // solo actualizamos hora de fin si no hemos sido llamado desde stopAllRiego :
     if(update) finalTimeLastRiego(lastRiegos[zIndex], zIndex);
@@ -1278,16 +1276,15 @@ bool stopRiego(uint16_t id, bool update)
                   LOG_DEBUG("[ULTIMOSRIEGOS] fin zona:", i+1, "time:",lastRiegos[i].final);
               }
         #endif
-  }
-  else {     //avisa de que no se ha podido terminar un riego
-    if (!errorOFF) { //para no repetir bips en caso de stopAllRiego
-      errorOFF = true;  // recordatorio error
-      tic_parpadeoLedError.attach(0.2,parpadeoLedError);
-      tic_parpadeoLedZona.attach(0.4, parpadeoLedZona, ledID);
-    } 
-    return false;
-  }
-  return true;
+    return true;
+  } else {    //avisa de que no se ha podido terminar un riego
+      if (!errorOFF) { //para no repetir bips en caso de stopAllRiego
+        errorOFF = true;  // recordatorio error
+        tic_parpadeoLedError.attach(0.2,parpadeoLedError);
+        tic_parpadeoLedZona.attach(0.4, parpadeoLedZona, ledID);
+      } 
+      return false;
+    }  
 }
 
 
@@ -1458,7 +1455,7 @@ int getFactor(uint16_t idx)
   factorRiegosOK = false;
   strcpy(descDomoticz, "");
   if(!checkWifi()) {
-    if(NONETWORK) return 999; //si estamos en modo NONETWORK devolvemos 999 y no damos error
+    if(modoDEMO) return 999; //si estamos en modoDEMO sin conexion devolvemos 999 y no damos error
     else {
       statusError(E1);
       return 100;
@@ -1467,7 +1464,7 @@ int getFactor(uint16_t idx)
   String response = deviceInfo(idx);
   //procesamos la respuesta para ver si se ha producido error:
   if (response.startsWith("Err")) {
-    if (NONETWORK) {  //si estamos en modo NONETWORK devolvemos 999 y no damos error
+    if (modoDEMO) {  //si estamos en modoDEMO devolvemos 999 y no damos error
       LOG_TRACE("[poniendo estado STANDBY]");
       setEstado(STANDBY);
       return 999;
@@ -1490,7 +1487,6 @@ int getFactor(uint16_t idx)
     if(!VERIFY) return 100;
     else {
       statusError(E3);
-      // statusError(E2);  //TODO ¿deberiamos devolver E3?
       return 100;
     }
   }
@@ -1616,7 +1612,7 @@ bool queryStatus(uint16_t idx, char *status)
   } 
 
   if(!checkWifi()) {
-    if(NONETWORK) return true; //si estamos en modo NONETWORK devolvemos true y no damos error
+    if(modoDEMO) return true; //si estamos en modoDEMO devolvemos true y no damos error
     else {
       Estado.error=E1;
       return false;
@@ -1625,7 +1621,7 @@ bool queryStatus(uint16_t idx, char *status)
   String response = deviceInfo(idx);
   //procesamos la respuesta para ver si se ha producido error:
   if (response.startsWith("Err")) {
-    if (NONETWORK) return true;  //si estamos en modo NONETWORK devolvemos true y no damos error
+    if (modoDEMO) return true;  //si estamos en modoDEMO devolvemos true y no damos error
     if(response == "ErrX") Estado.error=E3;
     else Estado.error=E2;
     LOG_ERROR(" ** [ERROR] IDX: ", idx, " [HTTP] GET... failed");
@@ -1653,7 +1649,7 @@ bool queryStatus(uint16_t idx, char *status)
   #endif
   if(strcmp(actual_status,status) == 0) return true;
   else{
-    if(NONETWORK) return true; //siempre devolvemos ok en modo simulacion
+    if(modoDEMO) return true; //siempre devolvemos ok en modo simulacion
     LOG_WARN("queryStatus devuelve FALSE, status / actual =",status,"/",actual_status);
     return false;
   }  
@@ -1666,7 +1662,7 @@ bool domoticzSwitch(int idx, char *msg, int retries)
 {
   LOG_TRACE("idx:", idx, " ", msg, "(", retries, "intentos)");
   if(idx == 0) return true; //simulamos que ha ido OK
-  if(!checkWifi() && !NONETWORK) {
+  if(!checkWifi() && !modoDEMO) {
     statusError(E1);
     return false;
   }
@@ -1676,7 +1672,7 @@ bool domoticzSwitch(int idx, char *msg, int retries)
   String response;
   for(int i=0; i<retries; i++) {
      if ((simular.ErrorON && strcmp(msg,"On")==0) || (simular.ErrorOFF && strcmp(msg,"Off")==0)) response = "ErrX"; // simulamos el error
-     else if(!NONETWORK) response = httpGetDomoticz(message); // enviamos orden al Domoticz
+     else if(!modoDEMO) response = httpGetDomoticz(message); // enviamos orden al Domoticz
      if(response == "ErrX") { // solo reintentamos si Domoticz informa del estado de la zona
        bip(1);
        LOG_WARN("DOMOTICZSWITH IDX:", idx, "fallo en", msg, "(intento", i+1, "de", retries, ")");
@@ -1722,7 +1718,7 @@ void Verificaciones()
   flagV = OFF;
   checkReconInterval = false;
   if (!flagVtimer) return;  //si no activada por Ticker salimos sin hacer nada
-  LOG_TRACE("-------flagVtimer(Verificaciones)   falloSetup: ", falloSetup, "Estado.error: ", Estado.error);
+  LOG_TRACE("-------flagVtimer ON----   falloSetup: ", falloSetup, "Estado.error: ", Estado.error);
   flagVtimer = OFF;
   flagV = ON;  //activamos flagV para que se realicen las verificaciones en las funciones de estado correspondientes
   if(millis() > lastmillisReconnect + RECONNECTINTERVAL * 60000) {   
