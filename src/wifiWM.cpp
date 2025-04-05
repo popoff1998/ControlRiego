@@ -90,7 +90,7 @@ void setupRedWM(Config_parm &config, S_initFlags &initFlags)
     //wm.debugPlatformInfo();
   #endif  
   connected = false;
-  falloSetup = false;
+  recoverableError = false;
   saveConfig = false;
   if(initFlags.initWifi) {
     wm.resetSettings(); //borra wifi guardada
@@ -132,7 +132,7 @@ void setupRedWM(Config_parm &config, S_initFlags &initFlags)
   // activamos conexion wifi y comprobamos si se establece
   if(!wm.autoConnect("Ardomo")) {
     LOG_WARN("Fallo en la conexión (timeout)");
-    falloSetup = true;
+    recoverableError = true;
     delay(1000);
   }
   /* 
@@ -140,18 +140,18 @@ void setupRedWM(Config_parm &config, S_initFlags &initFlags)
     *   - nos hemos conectado a la red wifi almacenada
     *   - nos hemos podido conectara a la red wifi que hemos introducido en la web de configuracion
     *   - no nos hemos podido conectar a la red wifi almacenada o no habia y el modo configuracion ha 
-    *     dado timeout (falloSetup=true)
+    *     dado timeout (recoverableError=true)
     */
   // detenemos parpadeo led AP (caso de que se hubiera activado antes AP)
   tic_APLed.detach();
   ledPWM(LEDB,OFF);   // y lo apagamos
   //si no hemos podido conectar y existe una red wifi salvada,reintentamos hasta 20 seg.
   // (para caso corte de corriente)
-  if (falloSetup && wm.getWiFiIsSaved()) {
+  if (recoverableError && wm.getWiFiIsSaved()) {
     lcd.infoclear("conectando WIFI");
     LOG_INFO("Hay wifi salvada -> reintentamos la conexion");
     int j=0;
-    falloSetup = false;
+    recoverableError = false;
     tic_WifiLed.attach(0.2, parpadeoLedWifi);
     while(WiFi.status() != WL_CONNECTED) {
       Serial.print(F("."));
@@ -159,7 +159,7 @@ void setupRedWM(Config_parm &config, S_initFlags &initFlags)
       delay(2000);
       j++;
       if(j == MAXCONNECTRETRY) {
-        falloSetup = true;
+        recoverableError = true;
         LOG_ERROR("Fallo en la reconexión");
         break;
       }
@@ -177,7 +177,7 @@ void setupRedWM(Config_parm &config, S_initFlags &initFlags)
     int msgl = snprintf(buff, MAXBUFF, "wifi OK: %s", WiFi.SSID().c_str());
     lcd.info(buff, 1, msgl);
   }
-  else if(!modoDEMO) statusError(E1); //si no hemos podido conectar a la wifi señalamos error
+  else if(!modoDEMO) statusError(E1, RECUPERABLE); //si no hemos podido conectar a la wifi señalamos error
     // ----------------------------- save the custom parameters
   if (saveConfig) {
     strcpy(config.domoticz_ip, custom_domoticz_server.getValue());
@@ -235,17 +235,25 @@ int checkWifi(bool level) {
 bool wifiReconnect () {
     LOG_WARN("----  INTENTANDO RECONEXION WIFI  ----");
     tic_WifiLed.attach(0.2, parpadeoLedWifi);
+    lcd.info("conectando WIFI",1);
     // WiFi.reconnect(); 
     WiFi.disconnect();
-    delay(5000);
+    delay(3000);
     WiFi.begin();
+    delay(3000);
     tic_WifiLed.detach();
-    return checkWifi();
+    if (checkWifi()) {
+      int msgl = snprintf(buff, MAXBUFF, "wifi OK: %s", WiFi.SSID().c_str());
+      lcd.info(buff, 1, msgl);
+      return true;
+    } else return false;
 }    
+
 void wifiVerifyRecovery(Config_parm &config, S_Estado &Estado) {
   LOG_TRACE("");
   //en modoDEMO sin conexion no verificamos (DEMO sin wifi)
   if (modoDEMO && !connected) return;
+  lcd.displayON(); //por si estuviera parpadeando(apagado) por error en pantalla
   /*
     Si no estamos conectados a la wifi, intentamos reconexion cada RECONNECTINTERVAL minutos.
     Normalmente no se ejecutara, ya que el evento WiFiStationConnected se ejecutara
@@ -264,8 +272,7 @@ void wifiVerifyRecovery(Config_parm &config, S_Estado &Estado) {
     int wifilevel = checkWifi(config.showwifilevel); // conectado a wifi?
     if(wifilevel) {
       LOG_DEBUG("Wifi verificada OK, nivel=",wifilevel);
-      if (Estado.estado!=STANDBY && Estado.error != E2) setEstado(STANDBY,1); 
-      // if (Estado.error == E2) ledRGB(ON,OFF,ON);; //si hay wifi pero no conexion con Domoticz --> led status morado
+      // if (Estado.estado!=STANDBY && Estado.error != E2) setEstado(STANDBY,1); 
       if (config.showwifilevel && Estado.estado == STANDBY) {
          LOG_DEBUG("showwifilevel=",config.showwifilevel,"wifilevel=",wifilevel);
          if(wifilevel==100) wifilevel=99; 
@@ -276,13 +283,13 @@ void wifiVerifyRecovery(Config_parm &config, S_Estado &Estado) {
     } else if (config.showwifilevel && Estado.estado == STANDBY) {lcd.setCursor(0,3);lcd.print("--%");} //borramos nivel wifi si se mostraba
     /*
       Caso de haber recuperado la conexion wifi despues del Setup leemos factor riegos.
-      Si este diese error de conexion con Domoticz, se dejara el flag falloSetup activado
+      Si este diese error de conexion con Domoticz, se dejara el flag recoverableError activado
       y domoticzVerifyRecovery será llamada en procesaEstadoError cada RECONNECTINTERVAL 
       para seguir reintentando hasta que se recupere la conexion.
     */    
-    if (connected && falloSetup) {
+    if (connected && recoverableError) {
       LOG_INFO("conexion Wifi recuperada despues Setup, leemos factor riegos");
-      falloSetup = false;
+      // recoverableError = false;
       initFactorRiegos(); //en caso de producirse error con esta funcion ya dejara este activado
       setupEstado();
     }

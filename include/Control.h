@@ -93,7 +93,7 @@
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0]))
        
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.2-RC2"
+                            #define VERSION  "3.2-RC3"
   //-------------------------------------------------------------------------------------
 
   //Comportamiento General
@@ -183,6 +183,7 @@
   #define BORRA1H 1
   #define BORRA2H 2
   #define LCDON 0
+  #define RECUPERABLE 1
 
   //Enums
 
@@ -485,7 +486,7 @@
     bool connected;
     bool modoDEMO;
     bool NOWIFI;
-    bool falloSetup;
+    bool recoverableError;
     bool webServerAct = false;
     bool saveConfig = false;
     
@@ -509,7 +510,7 @@
     extern bool connected;
     extern bool modoDEMO;
     extern bool NOWIFI;
-    extern bool falloSetup;
+    extern bool recoverableError;
     extern bool webServerAct;
     extern bool saveConfig;
     extern const char *parmFile; 
@@ -551,7 +552,6 @@
     uint factorRiegos[NUMZONAS];
     uint8_t prevseconds;
     uint8_t prevminutes;
-    char  descDomoticz[20];
     int  ledID = 0;
     unsigned long standbyTime;
     bool backlightOff = false;
@@ -598,6 +598,8 @@
   bool copyConfigFile(const char*, const char*);
   void debugloops(void);
   bool deleteParmFiles(void);
+  String deviceInfo(int idx);
+  String deviceInfo(int idx, char *campo);
   void dimmerLeds(bool);
   void displayDemo(void);
   void displayGrupo(uint16_t *, int);
@@ -701,7 +703,7 @@
   void showTimeLastRiego(S_timeRiego&, int);
   void starConfigPortal(Config_parm&);
   void StaticTimeUpdate(bool);
-  void statusError(uint8_t);
+  void statusError(uint8_t, bool recoverable=false);
   bool stopRiego(uint16_t, bool update=true);
   bool stopAllRiego(void);
   bool testButton(uint16_t, bool);
