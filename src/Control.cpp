@@ -198,7 +198,7 @@ void procesaEstados()
  */
 void setupEstado() 
 {
-  LOG_DEBUG("setupEstado entrada Estado.error=", Estado.error, "falloSetup=", falloSetup, "modoDEMO=", modoDEMO);
+  LOG_DEBUG("setupEstado entrada, Estado.error=", Estado.error, "recoverableError=", recoverableError, "modoDEMO=", modoDEMO);
   //Deshabilitamos el hold de Pause
   Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
   // Verificamos que se han cargado parametros de configuracion correctamente  
@@ -215,9 +215,7 @@ void setupEstado()
   }
   // Si estado actual es ERROR seguimos así
   if (Estado.estado == ERROR) {
-    actLedError();
-    if(Estado.error == E1 || Estado.error == E2) falloSetup = true; //error recuperable de comunicacion en el Setup o en recovery de este
-    LOG_DEBUG("setupEstado salida por Estado.error=", Estado.error, "falloSetup=", falloSetup, "modoDEMO=", modoDEMO);
+    LOG_DEBUG("setupEstado salida por estado ERROR(E", Estado.error, ") recoverableError=", recoverableError, "modoDEMO=", modoDEMO);
     return;
   }
   // Si estamos conectados pasamos a STANDBY o STOP (caso de estar pulsado este al inicio)
@@ -227,8 +225,9 @@ void setupEstado()
     return;
   }
   //si no estamos conectados a la red y no estamos en modoDEMO pasamos a estado ERROR
-  statusError(E1);
-  LOG_TRACE("salida por estado ERROR(E1)");
+  //TODO: ¿podemos llegar aqui?
+  statusError(E1, RECUPERABLE); //error de conexion wifi recuperable
+  LOG_TRACE("salida por estado ERROR(E1)"); 
 }
 
 #ifdef GRP4
@@ -314,8 +313,7 @@ void setupEstado()
 void procesaBotonPause(void)
 {
   if (Estado.estado != STOP) {
-    //No procesamos los release del boton salvo en STOP
-    if(!boton->estado) return;
+    if(!boton->estado) return; //No procesamos los release del boton salvo en STOP
     switch (Estado.estado) {
       case REGANDO:
         if(encoderSW) {  //si pulsamos junto con encoderSW terminamos el riego (pasaria al siguiente en caso de multirriego)
@@ -326,9 +324,12 @@ void procesaBotonPause(void)
           setEstado(PAUSE,1);
           tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
           led(ultimoBotonZona->led,ON);// y lo deja fijo
-          stopRiego(ultimoBotonZona->bID);
-          T.PauseTimer();
-        }
+          if (stopRiego(ultimoBotonZona->bID)) T.PauseTimer();
+          else { //error al parar riego
+              boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
+              LOG_WARN("error al pausar riego de zona en curso errorText :",errorText,"zona :",ultimoBotonZona->desc );
+            }
+          }
         break;
       case PAUSE:
         if(simular.ErrorPause) statusError(E2); //simulamos error al salir del PAUSE
@@ -381,8 +382,8 @@ void procesaBotonPause(void)
           standbyTime = millis();
     }
   }
+  //en estado STOP procesamos el posible hold del boton pause  
   else {
-    //Procesamos el posible hold del boton pause
     if(boton->estado) {
       if(!holdPause) {
         countHoldPause = millis();
@@ -407,7 +408,7 @@ void procesaBotonPause(void)
     //Si lo hemos soltado quitamos holdPause
     else holdPause = false;
   }
-};
+}; //fin de procesaBotonPause
 
 
 void procesaBotonStop(void)
@@ -455,7 +456,7 @@ void procesaBotonStop(void)
     LOG_TRACE("[poniendo estado STANDBY]");
     setEstado(STANDBY);
   }
-}
+} //fin de procesaBotonStop
 
 
 void procesaBotonMultiriego(void)
@@ -491,7 +492,7 @@ void procesaBotonMultiriego(void)
       if(setMultirriego(config)) inicioTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1);
     }
   }
-}
+} //fin de procesaBotonMultiriego
 
 
 void procesaBotonZona(void)
@@ -558,7 +559,7 @@ void procesaBotonZona(void)
     // else { setEstado(TERMINANDO); LOG_INFO("DYNAMIC: terminamos riego de zona en curso"); }
     boton = NULL; // borrar boton pulsado
   }
-}
+} //fin de procesaBotonZona
 
 
 void procesaEstadoConfigurando()
@@ -639,7 +640,7 @@ void procesaEstadoConfigurando()
   else { 
       webServerAct ? procesaWebServer() : procesaEncoderConfig();
   }
-};
+}; //fin de procesaEstadoConfigurando
 
 
 void procesaEstadoError(void)
@@ -647,8 +648,8 @@ void procesaEstadoError(void)
   if (flagV) {   // acciones cada VERIFY_INTERVAL en estado ERROR
     if(errorOFF) bip(2);  //recordatorio error grave al parar un riego
     //se intenta recuperar error si en el SETUP no hemos podido conectar con la wifi o con domoticz
-    if(Estado.error == E1 && falloSetup) wifiVerifyRecovery(config, Estado);
-    if(Estado.error == E2 && falloSetup && checkReconInterval) domoticzVerifyRecovery();
+    if(Estado.error == E1 && recoverableError) wifiVerifyRecovery(config, Estado);
+    if(Estado.error == E2 && recoverableError && checkReconInterval) domoticzVerifyRecovery();
   }
   if(boton == NULL) return;  // si no se ha pulsado ningun boton salimos
   //En estado error no se responde a botones, a menos que este sea:
@@ -672,7 +673,7 @@ void procesaEstadoError(void)
     delay(3000);
     ESP.restart();  
   }
-};
+}; //fin de procesaEstadoError
 
 
 void procesaEstadoRegando(void)
@@ -702,7 +703,7 @@ void procesaEstadoRegando(void)
       }  
     }
   }
-};
+}; //fin de procesaEstadoRegando
 
 
 void procesaEstadoTerminando(void)
@@ -737,7 +738,7 @@ void procesaEstadoTerminando(void)
   }
   LOG_TRACE("[poniendo estado STANDBY]");
   setEstado(STANDBY);
-};
+}; //fin de procesaEstadoTerminando
 
 
 void procesaEstadoStandby(void)
@@ -772,7 +773,7 @@ void procesaEstadoStandby(void)
       }
   }   
 
-};
+}; //fin de procesaEstadoStandby
 
 
 void procesaEstadoStop(void)
@@ -804,7 +805,7 @@ void procesaEstadoPause(void) {
       else Estado.error = NOERROR; // si no hemos podido verificar estado, ignoramos el error
     }
   }
-}
+} //fin de procesaEstadoPause
 
 
 /**---------------------------------------------------------------
@@ -858,7 +859,7 @@ bool procesaDynamic(void)
     bip(1); return true; //zona añadida
   }
   else return false; //no hay sitio --> zona ignorada   
-}  
+}   //fin de procesaDynamic
 
 
 /**---------------------------------------------------------------
@@ -870,6 +871,7 @@ void setEstado(uint8_t estado, int bnum)
   // setup y reseteos varios
   Estado.estado = estado;
   Estado.error = NOERROR;
+  recoverableError = false;
   strcpy(errorText, "");
   //Deshabilitamos el hold de Pause
   Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
@@ -918,7 +920,7 @@ void setEstado(uint8_t estado, int bnum)
     holdPause = false;
     return;
   }
-}
+} //fin setEstado
 
 
 /**---------------------------------------------------------------
@@ -938,13 +940,13 @@ void check(void)
  */
 void initFactorRiegos()
 {
-  LOG_DEBUG("entrada InitFactorRiegos Estado.error=", Estado.error, "falloSetup=", falloSetup, "NOWIFI=", NOWIFI);
+  LOG_DEBUG("entrada InitFactorRiegos Estado.error=", Estado.error, "recoverableError=", recoverableError, "NOWIFI=", NOWIFI);
   //inicializamos a valor 100 por defecto para caso de error
   for(uint i=0;i<NUMZONAS;i++) {
     factorRiegos[i]=100;
   }
   //si no tenemos wifi (error1) o NOWIFI, ni lo intentamos
-  if((Estado.error == E1) || NOWIFI) return; 
+  if((!connected) || NOWIFI) return; 
   lcd.info("conectando Domoticz", 2);
   lcd.clear(BORRA2H);
   //leemos factores del Domoticz
@@ -962,22 +964,19 @@ void initFactorRiegos()
     }
     factorRiegos[i] = factorR;
     LOG_TRACE("zona",i+1,"factor asignado=",factorR);
-    // Tratamiendo de la descripcion de las zonas (si hemos recibido la descripcion del Domoticz)
-    if (strlen(descDomoticz)) {
-      // si xNAME true, actualizamos en config la DESCRIPCION con la recibida del Domoticz (campo Name)
-      if (config.xname) {
-        strlcpy(config.zona[i].desc, descDomoticz, sizeof(config.zona[i].desc));
-        LOG_INFO("\t descripcion ZONA", i+1, "actualizada en config");
+    // si XNAME: true, leemos la descripcion de la zona del domoticz y la guardamos en config
+    // si no existe la zona en domoticz, se ignora el error y se deja la descripcion de config
+    if (config.xname) {
+      String response = deviceInfo(config.zona[i].idx, (char *)"Name");
+      if (response.startsWith("Err") || strlen(response.c_str()) == 0) {
+        LOG_WARN("Sin descripcion de zona", i+1, "idx=", config.zona[i].idx, "response:", response.c_str());
+        continue;; //error en la lectura de la descripcion, no actualizamos nada y pasamos al siguiente idx
       }
-      //si el parm desc estaba vacio actualizamos en todo caso (en config, no en Boton)
-      if (config.zona[i].desc[0] == 0) {
-        strlcpy(config.zona[i].desc, descDomoticz, sizeof(config.zona[i].desc));
-        LOG_INFO("\t descripcion ZONA", i+1, "incluida en config");
-        // saveConfig = true;   TODO ¿deberiamos salvarlo?
-      }  
+      LOG_INFO("\t descripcion ZONA", i+1, "actualizada en config");
+      strlcpy(config.zona[i].desc, response.c_str(), sizeof(config.zona[i].desc));
     }
   }
-  LOG_DEBUG("salida  InitFactorRiegos Estado.error=", Estado.error, "falloSetup=", falloSetup, "NOWIFI=", NOWIFI);
+  LOG_DEBUG("salida  InitFactorRiegos Estado.error=", Estado.error, "recoverableError=", recoverableError, "NOWIFI=", NOWIFI);
   #ifdef VERBOSE
     //Leemos los valores para comprobar que lo hizo bien
     Serial.print(F("Factores de riego "));
@@ -986,8 +985,7 @@ void initFactorRiegos()
       Serial.printf("\tfactor ZONA%d: %d (%s) \n", i+1, factorRiegos[i], config.zona[i].desc);
     }
   #endif
-}
-
+}  //fin initFactorRiegos
 
 //Aqui convertimos minutes y seconds por el factorRiegos
 void timeByFactor(int factor,uint8_t *fminutes, uint8_t *fseconds)
@@ -1320,7 +1318,7 @@ void resetFlags()
   multi.dynamic  = false;
   multi.semaforo = false;
   errorOFF = false;
-  falloSetup  = false;
+  recoverableError = false;
   webServerAct = false;
   simular.all_simFlags = false;
 }
@@ -1427,7 +1425,7 @@ String httpGetDomoticz(String message)
   //vemos si la respuesta indica status error
   int pos = response.indexOf("\"status\" : \"ERR");
   if(pos != -1) {
-    LOG_ERROR(" ** SE HA DEVUELTO ERROR"); 
+    LOG_ERROR(" ** Domoticz a devuelto error: ", response.c_str()); 
     return "ErrX";
   }
   httpclient.end();
@@ -1446,67 +1444,73 @@ String deviceInfo(int idx)
 }
 
 /**---------------------------------------------------------------
- * lee factor de riego del Domoticz, almacenado en campo comentarios
+ * devuelve campo con informacion del dispositivo con el idx pasado
+ */
+String deviceInfo(int idx, char *campo)
+{
+  char JSONMSG[200]="/json.htm?type=command&param=getdevices&rid=%d";
+  char message[250];
+  sprintf(message,JSONMSG,idx);
+  String response = httpGetDomoticz(message);
+    //procesamos la respuesta para ver si se ha producido error:
+    if (response.startsWith("Err")) {
+      LOG_ERROR(" ** [ERROR] IDX: ", idx, " [HTTP] GET... failed");
+      return response; //devolvemos el error recibido
+    }
+  /* Teoricamente ya tenemos en response el JSON, lo procesamos
+     Si el IDX no existe Domoticz no devuelve error, asi que hay que controlarlo
+  */
+ char* response_pointer = &response[0];
+    JsonDocument jsondoc;
+    DeserializationError error = deserializeJson(jsondoc, response_pointer);
+    if (error) {
+      LOG_ERROR(" **  [ERROR] deserializeJson() failed: ", error.c_str());
+      return "Err3"; //error de deserializacion
+    }
+    //Tenemos que controlar para que no resetee en caso de no haber leido por un rid malo
+    /* "ArduinoJson implements the Null Object Pattern, it is always safe to read the object:
+     if the key doesn’t exist, it returns an empty value." */
+    const char *contenido_campo = jsondoc["result"][0][campo];
+    if(contenido_campo == NULL) {
+      LOG_ERROR(" **  [ERROR] deserializeJson() return: IDX ", idx, " o ", campo, " not found");
+      return "Err3"; //campo no encontrado en la respuesta o idx no existe
+    }
+    return contenido_campo; //devolvemos el campo solicitado
+}  //fin deviceInfo
+
+/**---------------------------------------------------------------
+ * lee factor de riego del Domoticz, almacenado en campo Description
  */
 int getFactor(uint16_t idx)
 {
   LOG_TRACE("");
   if(idx == 0) return 100; //si el IDX es 0 devolvemos 100 sin procesarlo (boton no asignado)
   factorRiegosOK = false;
-  strcpy(descDomoticz, "");
   if(!checkWifi()) {
     if(modoDEMO) return 999; //si estamos en modoDEMO sin conexion devolvemos 999 y no damos error
     else {
-      statusError(E1);
+      statusError(E1, RECUPERABLE); //error de conexion recuperable
       return 100;
     }
   }
-  String response = deviceInfo(idx);
+  String response = deviceInfo(idx, (char *)"Description");
   //procesamos la respuesta para ver si se ha producido error:
   if (response.startsWith("Err")) {
     if (modoDEMO) {  //si estamos en modoDEMO devolvemos 999 y no damos error
-      LOG_TRACE("[poniendo estado STANDBY]");
-      setEstado(STANDBY);
       return 999;
     }
-    if(response == "ErrX") statusError(E3);
-    else statusError(E2);
-    LOG_WARN("GETFACTOR IDX: ", idx, " [HTTP] GET... failed\n");
+    if(response != "Err2") statusError(E3); //error de deserializacion
+    else {
+      statusError(E2, RECUPERABLE); //error de conexion con Domoticz recuperable
+    }  
+    LOG_WARN("GETFACTOR IDX: ", idx, " respuesta recibida: ", response.c_str());
     return 100;
   }
-  /* Teoricamente ya tenemos en response el JSON, lo procesamos
-     Si el IDX no existe Domoticz no devuelve error, asi que hay que controlarlo
-     Ante cualquier problema (no de error) devolvemos 100% para no factorizar ese riego,
-     sin error si VERIFY=false o Err2 si VERIFY=true
-  */
-  char* response_pointer = &response[0];
-  JsonDocument jsondoc;
-  DeserializationError error = deserializeJson(jsondoc, response_pointer);
-  if (error) {
-    LOG_ERROR(" ** [ERROR] deserializeJson() failed: ", error.c_str());
-    if(!VERIFY) return 100;
-    else {
-      statusError(E3);
-      return 100;
-    }
-  }
-  //Tenemos que controlar para que no resetee en caso de no haber leido por un rid malo
-  const char *factorstr = jsondoc["result"][0]["Description"];
-  if(factorstr == NULL) {
-    //El rid (idx) no esta definido en el Domoticz
-    LOG_WARN("El idx", idx, " no se ha podido leer del JSON");
-    if(!VERIFY) return 100;
-    else {
-      statusError(E3);
-      return 100;
-    }
-  }
-  //extraemos la DESCRIPCION para ese boton en Domoticz del json (campo Name)
-  strlcpy(descDomoticz, jsondoc["result"][0]["Name"] | "", sizeof(descDomoticz));
   //si hemos leido correctamente (numero, campo vacio o solo con comentarios)
   //consideramos leido OK el factor riego. En los dos ultimos casos se
   //devuelve valor por defecto 100.
   factorRiegosOK = true;
+  char* factorstr = &response[0];
   long int factor = strtol(factorstr,NULL,10);
   //controlamos devolver 0 solo si se ha puesto explicitamente
   if (factor == 0) {
@@ -1514,7 +1518,7 @@ int getFactor(uint16_t idx)
     if (!isdigit(factorstr[0])) return 100;    //comentarios no comienzan por 0
   }
   return (int)factor;
-}
+} //fin getFactor
 
 bool checkDomoticz()
 {
@@ -1524,7 +1528,7 @@ bool checkDomoticz()
   String response = deviceInfo(0); //leemos el idx=0 para comprobar que hay conexion
   tic_parpadeoLedRecon.detach();
   ledPWM(LEDB,OFF);
-  //procesamos la respuesta para ver si se ha producido error:
+  //procesamos la respuesta para ver si hemos recibido respuesta del domoticz:
   if (response.startsWith("Err2")) {
     LOG_ERROR(" ** sin conexion con Domoticz");
     return false;
@@ -1535,28 +1539,16 @@ bool checkDomoticz()
 void domoticzVerifyRecovery()
 {  //verificamos que hay wifi y el Domoticz esta conectado, solo en este caso reintentamos leer factores de riego
   LOG_TRACE("");
+  lcd.displayON(); //por si estuviera parpadeando(apagado) por error en pantalla
   if(WiFi.status() == WL_CONNECTED) {
     if (checkDomoticz()) {
       LOG_INFO("Domoticz conectado OK");
       initFactorRiegos(); //en caso de producirse error con esta funcion ya dejara este activado
       setupEstado();
     }
-  } else statusError(E1);
-  if(Estado.error == E1 || Estado.error == E2) {
-    LOG_INFO("reintento en ",RECONNECTINTERVAL," minutos \n");
-    } else falloSetup = false; //otro tipo de error con Domoticz (E3) no se reintenta recuperar ya
+  } else statusError(E1, RECUPERABLE); //error de conexion recuperable
+  if(recoverableError) LOG_INFO("reintento en ",RECONNECTINTERVAL," minutos \n");
 }
-
-// void domoticzVerifyRecovery()
-// {  //verificamos que el Domoticz esta conectado y si lo esta, leemos factores de riego
-//   LOG_TRACE("");
-//   if (checkDomoticz()) {
-//     LOG_INFO("Domoticz conectado OK");
-//     initFactorRiegos(); //en caso de producirse error con esta funcion ya dejara este activado
-//     setupEstado();
-//     falloSetup = false; //otro tipo de error con Domoticz no se reintenta recuperar ya
-//   } else LOG_INFO("reintento en ",RECONNECTINTERVAL," minutos \n");
-// }
 
 /**---------------------------------------------------------------
  * lee datos de temperatura y humedad del sensor definido en Domoticz
@@ -1567,33 +1559,17 @@ float getTemperatureDomoticz(uint16_t idx)
   // si el IDX es 0 devolvemos 999 sin procesarlo (sensor no asignado)
   if(idx == 0) return 999;
   if(!checkWifi()) return 999; //si no hay conexion devolvemos 999 y no damos error
-  String response = deviceInfo(idx);
+  String response = deviceInfo(idx, (char *)"Data");  //campo Data devuelve temperatura como caracteres (ej. "9.4 C")
+  //String response = deviceInfo(idx, (char *)"Temp");  //campo Temp devuelve temperatura como numero (ej. 9.4)
+  LOG_INFO("Temperatura recibida del Domoticz: ", response);
   //procesamos la respuesta para ver si se ha producido error:
   if (response.startsWith("Err")) {
-    LOG_WARN("getTemperatureDomoticz IDX: ", idx, " [HTTP] GET... failed\n");
-    return 999;
+    LOG_WARN("getTemperatureDomoticz IDX: ", idx, " respuesta recibida: ", response.c_str());
+    return 999;  //devolvemos 999 para indicar temperatura no valida
   }
-  /* Teoricamente ya tenemos en response el JSON, lo procesamos
-     Si el IDX no existe Domoticz no devuelve error, asi que hay que controlarlo
-  */
-  char* response_pointer = &response[0];
-  JsonDocument jsondoc;
-  DeserializationError error = deserializeJson(jsondoc, response_pointer);
-  if (error) {
-    LOG_ERROR(" ** [ERROR] deserializeJson() failed: ", error.c_str());
-    return 999;
-  }
-  //Tenemos que controlar para que no resetee en caso de no haber leido por un rid malo
-  const char *datastr = jsondoc["result"][0]["Data"];
-  if(datastr == NULL) {
-    //El rid (idx) no esta definido en el Domoticz
-    LOG_WARN("El idx", idx, " no se ha podido leer del JSON");
-    return 999;
-  }
-  else LOG_INFO(datastr);
-  //devolvemos la temperatura del sensor en Domoticz del json (campo Temp)
-  float temp = jsondoc["result"][0]["Temp"] | 999.00; // si no existe devuel 999 (float)
-  LOG_INFO("devuelve temperatura =",temp);
+  //devolvemos la temperatura del sensor en Domoticz del json (campo Data)
+  float temp = strtof(response.c_str(), NULL); //strtof convierte a float (ej. 9.4 C -> 9.4)
+  LOG_INFO("devuelve temperatura = ",temp);
   return temp;
 }
 
@@ -1610,7 +1586,6 @@ bool queryStatus(uint16_t idx, char *status)
   if(simular.ErrorVerifyOFF) {   // simulamos EV no esta OFF en Domoticz
     if(strcmp(status, "Off") == 0) return false; else return true; 
   } 
-
   if(!checkWifi()) {
     if(modoDEMO) return true; //si estamos en modoDEMO devolvemos true y no damos error
     else {
@@ -1618,42 +1593,27 @@ bool queryStatus(uint16_t idx, char *status)
       return false;
     }
   }
-  String response = deviceInfo(idx);
+  String response = deviceInfo(idx, (char *)"Status");
+  LOG_DEBUG("response:", response);
   //procesamos la respuesta para ver si se ha producido error:
   if (response.startsWith("Err")) {
     if (modoDEMO) return true;  //si estamos en modoDEMO devolvemos true y no damos error
-    if(response == "ErrX") Estado.error=E3;
-    else Estado.error=E2;
-    LOG_ERROR(" ** [ERROR] IDX: ", idx, " [HTTP] GET... failed");
-    return false;
-  }
-  // ya tenemos en response el JSON, lo procesamos
-  char* response_pointer = &response[0];
-  JsonDocument jsondoc;
-  DeserializationError error = deserializeJson(jsondoc, response_pointer);
-  if (error) {
-    LOG_ERROR(" **  [ERROR] deserializeJson() failed: ", error.c_str());
-    Estado.error=E2;  
-    return false;
-  }
-  //Tenemos que controlar para que no resetee en caso de no haber leido por un rid malo
-  const char *actual_status = jsondoc["result"][0]["Status"];
-  if(actual_status == NULL) {
-    LOG_ERROR(" **  [ERROR] deserializeJson() failed: Status not found");
-    Estado.error=E2;  
+    if(response == "Err2") Estado.error=E2;
+    else Estado.error=E3;
+    LOG_WARN("queryStatus devuelve FALSE, error ",response.c_str());
     return false;
   }
   #ifdef EXTRADEBUG
-    Serial.printf( "queryStatus verificando, status=%s / actual=%s \n" , status, actual_status);
-    Serial.printf( "                status_size=%d / actual_size=%d \n" , strlen(status), strlen(actual_status));
+    Serial.printf( "queryStatus verificando, status=%s / actual=%s \n" , status, response);
+    Serial.printf( "                status_size=%d / actual_size=%d \n" , strlen(status), strlen(response));
   #endif
-  if(strcmp(actual_status,status) == 0) return true;
+  if(strcmp(response.c_str(), status) == 0) return true; //si coinciden devolvemos true
   else{
     if(modoDEMO) return true; //siempre devolvemos ok en modo simulacion
-    LOG_WARN("queryStatus devuelve FALSE, status / actual =",status,"/",actual_status);
+    LOG_WARN("queryStatus devuelve FALSE, status / actual =",status,"/",response.c_str());
     return false;
   }  
-}
+} //fin queryStatus
 
 /**---------------------------------------------------------------
  * Envia a domoticz orden de on/off del idx correspondiente
@@ -1693,7 +1653,7 @@ bool domoticzSwitch(int idx, char *msg, int retries)
     return false;
   }
   return true;
-}
+} //fin domoticzSwitch
 
 
 void flagVerificaciones() 
@@ -1718,7 +1678,7 @@ void Verificaciones()
   flagV = OFF;
   checkReconInterval = false;
   if (!flagVtimer) return;  //si no activada por Ticker salimos sin hacer nada
-  LOG_TRACE("-------flagVtimer ON----   falloSetup: ", falloSetup, "Estado.error: ", Estado.error);
+  LOG_TRACE("-------flagVtimer ON----   recoverableError: ", recoverableError, "Estado.error: ", Estado.error);
   flagVtimer = OFF;
   flagV = ON;  //activamos flagV para que se realicen las verificaciones en las funciones de estado correspondientes
   if(millis() > lastmillisReconnect + RECONNECTINTERVAL * 60000) {   
@@ -1793,15 +1753,17 @@ void displayMultiTemporal() {
 /**---------------------------------------------------------------
  * pasa a estado ERROR
  */
-void statusError(uint8_t errorID) 
+void statusError(uint8_t errorID, bool recoverable) 
 {
+  recoverableError = recoverable; //error recuperable o no
   Estado.estado = ERROR;
   Estado.error = errorID;
   Estado.tipo = LOCAL;
   rotaryEncoder.disable();
   sprintf(errorText, "Error%d", errorID);
   LOG_ERROR("SET ERROR: ", errorText);
-  snprintf(buff, MAXBUFF, ">>>  %s  <<<", errorText);
+  if (recoverableError) snprintf(buff, MAXBUFF, ">>>  %s  >>> R", errorText);
+  else snprintf(buff, MAXBUFF, ">>>  %s  <<<", errorText);
   lcd.clear(BORRA2H);
   lcd.setCursor(2,2);
   lcd.print(buff);
@@ -1868,7 +1830,7 @@ void setupParm()
     else Serial.print(F("Parametros zero-config, "));
     printParms(config);
   #endif
-}
+} //fin setupParm
 
 //Completa campos de config y boton
 void setupConfig() 
@@ -1903,7 +1865,7 @@ void setupConfig()
   #ifdef MUTE
     config.mute = true;   // arranque con sonidos silenciados
   #endif
-}
+} //fin setupConfig
 
 // convierte timestamp a fecha hora
 String TS2Date(time_t t)
@@ -1922,21 +1884,20 @@ return buff;
 }
 
 
-  /* On the computer side, everytime you want to start the debugging mode, 
-  simply send a byte over the serial connection during the setup phase and sit back.*/
-  bool serialDetect() {
-    //Wait for four seconds or till data is available on serial, 
-    //whichever occurs first.
-    while(Serial.available()==0 && millis()<4000);
-    //On timeout or availability of data, we come here.
-    if(Serial.available()>0)
-    {
-      //If data is available, we enter here.
-      Serial.println("\n \t SERIAL available"); //Give feedback indicating mode
-      return true;
-    }
-    return false;
-  }    
+/* On the computer side, everytime you want to start the debugging mode, 
+simply send a byte over the serial connection during the setup phase and sit back.*/
+bool serialDetect() {
+  //Wait for four seconds or till data is available on serial, whichever occurs first.
+  while(Serial.available()==0 && millis()<4000);
+  //On timeout or availability of data, we come here.
+  if(Serial.available()>0)
+  {
+    //If data is available, we enter here.
+    Serial.println("\n \t SERIAL available"); //Give feedback indicating mode
+    return true;
+  }
+  return false;
+}    
 
 // funciones solo usadas en DEVELOP
 // (es igual, el compilador no las incluye si no son llamadas)
