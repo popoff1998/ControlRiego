@@ -57,7 +57,8 @@
       #include <WebServer.h>
     #ifdef WEBSERVER
       #include <ESPmDNS.h>
-      #include <HTTPUpdateServer.h>
+      // #include <HTTPUpdateServer.h>
+      #include "HTTPUpdateServerLittleFs.h"
     #endif
     #ifdef TEMPLOCAL
       #include <Adafruit_Sensor.h>

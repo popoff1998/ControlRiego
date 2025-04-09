@@ -59,11 +59,6 @@
 
     WebServer wserver(WSPORT);
     HTTPUpdateServer httpUpdater(httpUpdateDebug);  
-    // actualmente HTTPUpdateServer no soporta LittleFS por lo que la carga del file system falla con:
-    //  "Update error: Bad Size Given"
-    //hay un issue abierto para que lo soporte. TODO: actualizar HTTPUpdateServer cuando lo cierren:
-    //  https://github.com/espressif/arduino-esp32/issues/9347
-
 
 // ===== Simple functions used to answer simple GET requests =====
 
