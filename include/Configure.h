@@ -57,12 +57,12 @@ class Configure
       };
     };
     void configureMulti_display(void);
+    void reset(void);
   
   
   public:
     Configure(struct Config_parm&);
     void menu(int item=-1);
-    void reset(void);
     void exit(void);
     void Idx_process_start(int);
     void Idx_process_update(void);

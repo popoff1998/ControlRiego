@@ -175,7 +175,7 @@ void Configure::Range_process_end()
       ledYellow(ON);  // para actualizar ya brillo led status por si se hubiera cambiado
       config_volume = config.volume;  // actualizamos volumen sonidos por si hubiera cambiado
       config_finMelody = config.finMelody;  // actualizamos melodia final riego grupo por si hubiera cambiado
-      this->configuringMelody() ? bipFIN() : bipOK();
+      this->configuringMelody() ? bipFIN() : bipOK(); // y la hacemos sonar en lugar de bipOK
 
       this->menu();  // vuelve a mostrar menu de configuracion
 }
@@ -453,10 +453,9 @@ void Configure::procesaSelectMenu()
                 connected ? setupWS(config) : bipKO();
                 break;
   #endif 
-        case LOAD_BACKUP :   // carga parametros por defecto y reinicia
+        case LOAD_BACKUP :   // carga parametros de backup y reinicia
                 if (copyConfigFile(backupParmFile, parmFile)) {    // backupParmFile --> parmFile
-                  LOG_WARN("carga parametros por defecto OK");
-                  //señala la carga parametros por defecto OK
+                  LOG_WARN("carga parametros de backup OK");
                   lcd.infoclear("load BACKUP OK", DEFAULTBLINK, BIPOK);
                   lcd.info(">> RESET en 2 seg <<",3);
                   delay(2000);

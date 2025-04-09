@@ -125,7 +125,7 @@ void setupRedWM(Config_parm &config, S_initFlags &initFlags)
   custom_domoticz_server.setValue(config.domoticz_ip, 40);
   custom_domoticz_port.setValue(config.domoticz_port, 5);
   custom_ntpserver.setValue(config.ntpServer, 40);
-  if(NOWIFI) return;
+  if(noWIFI) return;
   lcd.infoclear("conectando WIFI");
   tic_WifiLed.attach(0.2, parpadeoLedWifi); // Empezamos el temporizador que hará parpadear el LED indicador de wifi
   ledPWM(LEDR,OFF);   // y apagamos LEDR

@@ -485,7 +485,7 @@
     S_tm tm;          // variables contador de tiempo
     bool connected;
     bool modoDEMO;
-    bool NOWIFI;
+    bool noWIFI;
     bool recoverableError;
     bool webServerAct = false;
     bool saveConfig = false;
@@ -509,7 +509,7 @@
     extern S_tm tm;
     extern bool connected;
     extern bool modoDEMO;
-    extern bool NOWIFI;
+    extern bool noWIFI;
     extern bool recoverableError;
     extern bool webServerAct;
     extern bool saveConfig;

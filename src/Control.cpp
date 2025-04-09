@@ -31,9 +31,9 @@ void setup()
   #ifdef DEMO
                 modoDEMO=true;
   #endif
-  #ifdef noWIFI
+  #ifdef NOWIFI
                 modoDEMO=true;
-                NOWIFI=true;
+                noWIFI=true;
   #endif
 
   Serial.begin(115200);
@@ -354,7 +354,7 @@ void procesaBotonPause(void)
           if(encoderSW) {  //si encoderSW+Pause --> conmutamos estado modoDEMO
             if (modoDEMO) {
                 modoDEMO = false;
-                NOWIFI = false;
+                noWIFI = false;
                 LOG_INFO("encoderSW+PAUSE pasamos a modo NORMAL y leemos factor riegos");
                 bip(2);
                 ledPWM(LEDB,OFF);
@@ -940,13 +940,13 @@ void check(void)
  */
 void initFactorRiegos()
 {
-  LOG_DEBUG("entrada InitFactorRiegos Estado.error=", Estado.error, "recoverableError=", recoverableError, "NOWIFI=", NOWIFI);
+  LOG_DEBUG("entrada InitFactorRiegos Estado.error=", Estado.error, "recoverableError=", recoverableError, "noWIFI=", noWIFI);
   //inicializamos a valor 100 por defecto para caso de error
   for(uint i=0;i<NUMZONAS;i++) {
     factorRiegos[i]=100;
   }
-  //si no tenemos wifi (error1) o NOWIFI, ni lo intentamos
-  if((!connected) || NOWIFI) return; 
+  //si no tenemos wifi (error1) o noWIFI, ni lo intentamos
+  if((!connected) || noWIFI) return; 
   lcd.info("conectando Domoticz", 2);
   lcd.clear(BORRA2H);
   //leemos factores del Domoticz
@@ -976,7 +976,7 @@ void initFactorRiegos()
       strlcpy(config.zona[i].desc, response.c_str(), sizeof(config.zona[i].desc));
     }
   }
-  LOG_DEBUG("salida  InitFactorRiegos Estado.error=", Estado.error, "recoverableError=", recoverableError, "NOWIFI=", NOWIFI);
+  LOG_DEBUG("salida  InitFactorRiegos Estado.error=", Estado.error, "recoverableError=", recoverableError, "noWIFI=", noWIFI);
   #ifdef VERBOSE
     //Leemos los valores para comprobar que lo hizo bien
     Serial.print(F("Factores de riego "));
