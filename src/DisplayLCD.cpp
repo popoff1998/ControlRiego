@@ -220,12 +220,12 @@ void DisplayLCD::infoclear(const char *info, int dnum, int btype, int bnum) {
     if(info=="STOP") setCursor(8,1);
     else setCursor(0, 0);
     lcdDisp.print(info);
-      if (btype == LONGBIP) longbip(bnum);
-      if (btype == LOWBIP) lowbip(bnum);
-      if (btype == BIP) bip(bnum);
-      if (btype == BIPOK) bipOK();
-      if (btype == BIPKO) bipKO();
-      if (btype == BIPFIN) bipFIN();
+      if (btype == LONGBIP) sonido.longbip(bnum);
+      if (btype == LOWBIP) sonido.lowbip(bnum);
+      if (btype == BIP) sonido.bip(bnum);
+      if (btype == BIPOK) sonido.bipOK();
+      if (btype == BIPKO) sonido.bipKO();
+      if (btype == BIPFIN) sonido.bipFIN();
     if(dnum) lcd.blinkLCD(dnum);
 }
 
@@ -233,7 +233,7 @@ void DisplayLCD::displayTemp(int temperature, int warnESP32temp)
 {
   LOG_TRACE("temperatura recibida=",temperature,"temp ESP32=",temperatureRead());
   if(temperatureRead() > warnESP32temp) {   // aviso de temperatura excesiva del ESP32
-    setCursor(14, 0); print("!"); bip(2);
+    setCursor(14, 0); print("!"); sonido.bip(2);
     setCursor(15, 0); print(temperatureRead());
   }
   else {

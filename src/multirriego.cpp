@@ -48,7 +48,7 @@ int setMultibyId(uint16_t id, Config_parm &config)
 // prepara el comienzo de un multirriego (normal o temporal)
 bool setMultirriego(Config_parm &config)
 {
-      bip(4); delay(50);
+      sonido.bip(4); delay(50);
       if(*multi.size > 0) {    // si grupo tiene zonas definidas
           multi.riegoON = true;
           multi.dynamic  = false;
@@ -77,7 +77,7 @@ void displayGrupo(uint16_t *serie, int serieSize)
       for(i=0;i<serieSize;i++) {
         led(Boton[bID2bIndex(serie[i])].led,ON);
         delay(300);
-        bip(i+1);
+        sonido.bip(i+1);
         delay(100*(i+1));
         led(Boton[bID2bIndex(serie[i])].led,OFF);
         delay(100);

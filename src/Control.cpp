@@ -76,8 +76,8 @@ void setup()
   delay(1000);
   setupRedWM(config, initFlags);
   if (saveConfig) {
-    if (saveConfigFile(parmFile, config))  bipOK();
-    else bipKO();
+    if (saveConfigFile(parmFile, config))  sonido.bipOK();
+    else sonido.bipKO();
     saveConfig = false;
   }
   delay(2000);
@@ -92,7 +92,7 @@ void setup()
   initFactorRiegos();
   //Estado final en funcion de la conexion
   setupEstado();
-  if(Estado.estado==STANDBY) bipOK();
+  if(Estado.estado==STANDBY) sonido.bipOK();
   //Llamo a parseInputs CLEAR para eliminar prepulsaciones antes del bucle loop
   parseInputs(CLEAR);
   //lanzamos supervision periodica estado cada VERIFY_INTERVAL seg.
@@ -342,7 +342,7 @@ void procesaBotonPause(void)
           setEstado(PAUSE,1);
           break;
         }
-        bip(2);
+        sonido.bip(2);
         T.ResumeTimer();
         tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
         led(ultimoBotonZona->led,ON);// y lo deja fijo
@@ -356,7 +356,7 @@ void procesaBotonPause(void)
                 modoDEMO = false;
                 noWIFI = false;
                 LOG_INFO("encoderSW+PAUSE pasamos a modo NORMAL y leemos factor riegos");
-                bip(2);
+                sonido.bip(2);
                 ledPWM(LEDB,OFF);
                 lcd.clear();
                 if (!checkWifi()) wifiReconnect();
@@ -367,7 +367,7 @@ void procesaBotonPause(void)
             else {
                 modoDEMO = true;
                 LOG_INFO("encoderSW+PAUSE pasamos a modoDEMO (DEMO)");
-                bip(2);
+                sonido.bip(2);
                 ledPWM(LEDB,ON);
                 displayDemo();
             }
@@ -501,7 +501,7 @@ void procesaBotonZona(void)
   if (zIndex < 0) return; //el boton no es de ZONA o error en la matriz Boton[]
   if (Estado.estado == STANDBY) {
     if (!encoderSW || multi.riegoON) {  //iniciamos el riego correspondiente al boton seleccionado
-        bip(2);
+        sonido.bip(2);
         //cambia minutes y seconds en funcion del factor de cada sector de riego
         uint8_t fminutes=0,fseconds=0;
         if(multi.riegoON && !multi.dynamic) {
@@ -555,7 +555,7 @@ void procesaBotonZona(void)
       if (procesaDynamic()) displayLCDGrupo(RESTO, 2);
       LOG_DEBUG("MULTI dynamic:",multi.dynamic,"actual:",multi.actual,"size:",*multi.size,"zona:",boton->znumber);
     }
-    else {bipKO(); LOG_DEBUG("[DYNAMIC] zona pulsada:",boton->znumber," es = a zona actual:",ultimoBotonZona->znumber);}
+    else {sonido.bipKO(); LOG_DEBUG("[DYNAMIC] zona pulsada:",boton->znumber," es = a zona actual:",ultimoBotonZona->znumber);}
     // else { setEstado(TERMINANDO); LOG_INFO("DYNAMIC: terminamos riego de zona en curso"); }
     boton = NULL; // borrar boton pulsado
   }
@@ -646,7 +646,7 @@ void procesaEstadoConfigurando()
 void procesaEstadoError(void)
 {
   if (flagV) {   // acciones cada VERIFY_INTERVAL en estado ERROR
-    if(errorOFF) bip(2);  //recordatorio error grave al parar un riego
+    if(errorOFF) sonido.bip(2);  //recordatorio error grave al parar un riego
     //se intenta recuperar error si en el SETUP no hemos podido conectar con la wifi o con domoticz
     if(Estado.error == E1 && recoverableError) wifiVerifyRecovery(config, Estado);
     if(Estado.error == E2 && recoverableError && checkReconInterval) domoticzVerifyRecovery();
@@ -658,7 +658,7 @@ void procesaEstadoError(void)
   if(boton->bID == bPAUSE && boton->estado) {  //evita procesar el release del pause
     LOG_INFO("estado en ERROR y PAUSA pulsada pasamos a modoDEMO y reset del error");
     modoDEMO = true;
-    bip(2);
+    sonido.bip(2);
     if (Boton[bID2bIndex(bSTOP)].estado) setEstado(STOP,1);
     else setEstado(STANDBY);
     //reseteos varios:
@@ -668,7 +668,7 @@ void procesaEstadoError(void)
   //Si estamos en ERROR y pulsamos o liberamos STOP, reseteamos
     lcd.infoclear("ERROR+STOP-> Reset..",3);
     LOG_WARN("ERROR + STOP --> Reset.....");
-    lowbip(1);
+    sonido.lowbip(1);
     //if(checkWifi() && boton->estado) stopAllRiego(); //si es pulsado STOP intentamos parar riegos
     delay(3000);
     ESP.restart();  
@@ -698,7 +698,7 @@ void procesaEstadoRegando(void)
       else {  // si no hemos podido verificar estado, señalamos zona blink rapido y continuamos
         tic_parpadeoLedZona.attach(0.4, parpadeoLedZona, ledID);
         Estado.error = NOERROR; // si no hemos podido verificar estado, ignoramos el error
-        bip(2);
+        sonido.bip(2);
         LOG_ERROR("** SE HA DEVUELTO ERROR al verificar estado riego");
       }  
     }
@@ -708,7 +708,7 @@ void procesaEstadoRegando(void)
 
 void procesaEstadoTerminando(void)
 {
-  bip(5);
+  sonido.bip(5);
   tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
   stopRiego(ultimoBotonZona->bID);
   if (Estado.estado == ERROR) return; //no continuamos si se ha producido error al parar el riego
@@ -730,7 +730,7 @@ void procesaEstadoTerminando(void)
       int msgl = snprintf(buff, MAXBUFF, "%s finalizado", multi.desc);
       lcd.info(buff, 2, msgl);
       resetFlags();
-      bipFIN();
+      sonido.bipFIN();
       LOG_INFO("MULTIRRIEGO", multi.desc, "terminado");
       delay(config.msgdisplaymillis*3);
       led(Boton[bID2bIndex(*multi.id)].led,OFF);  // apaga led grupo
@@ -794,7 +794,7 @@ void procesaEstadoPause(void) {
     if(queryStatus(config.zona[ultimoBotonZona->znumber-1].idx, (char *)"Off")) return;
     else {
       if(Estado.error == NOERROR) { //riego zona activo: salimos del PAUSE y blink lento zona activada remotamente 
-        bip(2);
+        sonido.bip(2);
         ledID = ultimoBotonZona->led;
         tic_parpadeoLedZona.attach(0.8, parpadeoLedZona, ledID);
         LOG_WARN(">>>>>>>>>> procesaEstadoPause zona:", config.zona[ultimoBotonZona->znumber-1].desc,"activada REMOTAMENTE <<<<<<<");
@@ -845,7 +845,7 @@ bool procesaDynamic(void)
       *multi.size = n-1;
       LOG_DEBUG("[ELIMINA] n=",n,"actual:",multi.actual,"size:",*multi.size,"zona:",boton->znumber);
       LOG_INFO("DYNAMIC [ELIMINA] Zona:",boton->znumber);
-      bip(2); return true; //zona eliminada
+      sonido.bip(2); return true; //zona eliminada
     }
   } 
   // la zona pulsada no existe en la lista --> añadirla al final
@@ -856,7 +856,7 @@ bool procesaDynamic(void)
     *multi.size = multi.w_size + 1;
     LOG_DEBUG("[AÑADE] n=",n,"actual:",multi.actual,"size:",*multi.size,"zona:",boton->znumber);
     LOG_INFO("DYNAMIC [AÑADE] Zona:",boton->znumber);
-    bip(1); return true; //zona añadida
+    sonido.bip(1); return true; //zona añadida
   }
   else return false; //no hay sitio --> zona ignorada   
 }   //fin de procesaDynamic
@@ -893,7 +893,7 @@ void setEstado(uint8_t estado, int bnum)
   }
   if(estado==PAUSE) {
     lcd.infoEstado(nEstado[estado], config.zona[ultimoBotonZona->znumber-1].desc); 
-    if(bnum) bip(bnum);
+    if(bnum) sonido.bip(bnum);
     return;
   }
   if(estado == STANDBY) {
@@ -1634,7 +1634,7 @@ bool domoticzSwitch(int idx, char *msg, int retries)
      if ((simular.ErrorON && strcmp(msg,"On")==0) || (simular.ErrorOFF && strcmp(msg,"Off")==0)) response = "ErrX"; // simulamos el error
      else if(!modoDEMO) response = httpGetDomoticz(message); // enviamos orden al Domoticz
      if(response == "ErrX") { // solo reintentamos si Domoticz informa del estado de la zona
-       bip(1);
+       sonido.bip(1);
        LOG_WARN("DOMOTICZSWITH IDX:", idx, "fallo en", msg, "(intento", i+1, "de", retries, ")");
        delay(DELAYRETRY);
      }
@@ -1770,8 +1770,8 @@ void statusError(uint8_t errorID, bool recoverable)
   lcd.setCursor(0,3);
   lcd.print(errorToString(errorID));
   actLedError();
-  bipKO();
-  if (errorID == E5) longbip(5); // resaltamos error al parar riego
+  sonido.bipKO();
+  if (errorID == E5) sonido.longbip(5); // resaltamos error al parar riego
 }
 
 /**
@@ -1819,9 +1819,6 @@ void setupParm()
   }
   if (!config.initialized) zeroConfig(config);  //init config con zero-config
   else VERIFY = config.verify;
-  config_finMelody = config.finMelody;
-  config_volume = config.volume;
-  config_mute = config.mute; 
 
   setupConfig(); //una vez cargados parametros, completa campos de config y boton
 
