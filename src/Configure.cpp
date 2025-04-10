@@ -96,7 +96,7 @@ void Configure::Idx_process_end()
       LOG_INFO("Save Zona",zIndex+1,"(",Boton[_actualIdxIndex].desc,") IDX :",tm.value);
       lcd.info("guardado IDX",2);
       lcd.clear(BORRA2H);
-      bipOK();
+      sonido.bipOK();
       delay(config.msgdisplaymillis);  // para que se vea el msg
       led(Boton[_actualIdxIndex].led,OFF);
 
@@ -114,7 +114,7 @@ void Configure::Time_process_start()
       setEncoderTime();
 
       lcd.setCursorBlink(_data_pos[_currentItem],1);
-      bip(1);
+      sonido.bip(1);
 }              
 
 //  actualizamos en menu tiempo por defecto modificado
@@ -135,7 +135,7 @@ void Configure::Time_process_end()
 
       LOG_INFO("Save DEFAULT TIME, minutes:",tm.minutes," secons:",tm.seconds);
       lcd.setCursor(0,0);  // solo para anular visibilidad y parpadeo del cursor
-      bipOK();
+      sonido.bipOK();
 
       this->menu();  // vuelve a mostrar menu de configuracion
 }
@@ -152,7 +152,7 @@ void Configure::Range_process_start(int min, int max, int aceleracion, int range
       LOG_DEBUG("[ConF] configurando RANGO Item:",_currentItem, "valor actual:",tm.value,"_data_pos:",_data_pos[_currentItem]);
       LOG_DEBUG("[ConF]                    rangefactor:",_rangeFactor);
       lcd.setCursorBlink(_data_pos[_currentItem],1);
-      bip(1);
+      sonido.bip(1);
 }
 
 // actualizamos rango en pantalla
@@ -173,9 +173,7 @@ void Configure::Range_process_end()
       LOG_INFO("Save new value:", *configValuep);
       lcd.setCursor(0,0);  // solo para anular visibilidad y parpadeo del cursor
       ledYellow(ON);  // para actualizar ya brillo led status por si se hubiera cambiado
-      config_volume = config.volume;  // actualizamos volumen sonidos por si hubiera cambiado
-      config_finMelody = config.finMelody;  // actualizamos melodia final riego grupo por si hubiera cambiado
-      this->configuringMelody() ? bipFIN() : bipOK(); // y la hacemos sonar en lugar de bipOK
+      this->configuringMelody() ? sonido.bipFIN() : sonido.bipOK(); // y la hacemos sonar en lugar de bipOK
 
       this->menu();  // vuelve a mostrar menu de configuracion
 }
@@ -228,7 +226,7 @@ void Configure::Multi_process_update()
         led(boton->led,ON);
         displayLCDGrupo(multi.zserie, multi.w_size,4,0);
       }
-      else bipKO();  
+      else sonido.bipKO();  
 }
 
 // actualizamos config con las zonas introducidas
@@ -244,7 +242,7 @@ void Configure::Multi_process_end(bool clear)
 
         LOG_INFO("SAVE PARM Multi : GRUPO",g,"tamaño:",*multi.size,"(",multi.desc,")");
         printMultiGroup(config, g-1);
-        bipOK();
+        sonido.bipOK();
         lcd.info("guardado GRUPO",2);
         lcd.clear(BORRA2H);
         delay(config.msgdisplaymillis);
@@ -254,7 +252,7 @@ void Configure::Multi_process_end(bool clear)
         saveConfig = true;
 
         LOG_INFO("borrado GRUPO",_actualGrupo,"tamaño:",*multi.size,"(",multi.desc,")");
-        bipOK();
+        sonido.bipOK();
         lcd.info("vaciado GRUPO",2);
         lcd.clear(BORRA2H);
         delay(config.msgdisplaymillis);
@@ -274,7 +272,7 @@ void Configure::MultiTemp_process_end()
 
         LOG_INFO("process_end grupo TEMPORAL : GRUPO",_actualGrupo,"tamaño:",*multi.size,"(",multi.desc,")");
         //printMultiGroup(config, _actualGrupo-1);
-        bipOK();
+        sonido.bipOK();
         lcd.info("  >> libere STOP <<",1);
         lcd.info("para comenzar riego",2);
         lcd.info("de las zonas:",3);
@@ -450,7 +448,7 @@ void Configure::procesaSelectMenu()
                 break; 
   #ifdef WEBSERVER
         case WEBSERVER_ACT :  // activamos webserver (no bloqueante, pero no respodemos a botones)
-                connected ? setupWS(config) : bipKO();
+                connected ? setupWS(config) : sonido.bipKO();
                 break;
   #endif 
         case LOAD_BACKUP :   // carga parametros de backup y reinicia
@@ -484,10 +482,10 @@ void Configure::procesaSelectMenu()
                 config.tempRemote = !config.tempRemote;
                 if(readTemp()==999) { // si no esta disponible no dejamos cambiar
                   config.tempRemote = !config.tempRemote;
-                  bipKO();
+                  sonido.bipKO();
                 }
                 else {
-                  bip(2);
+                  sonido.bip(2);
                   saveConfig = true;
                 }
                 this->menu();  // vuelve a mostrar menu de configuracion
@@ -502,8 +500,7 @@ void Configure::procesaSelectMenu()
                 break;
         case MUTE :   // toggle MUTE
                 config.mute = !config.mute;
-                config_mute = config.mute;  // actualizamos variable global (para sonidos)
-                bip(2);
+                sonido.bip(2);
                 saveConfig = true;
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break;
@@ -518,25 +515,25 @@ void Configure::procesaSelectMenu()
                 break; 
         case NIVEL_WIFI :   // toggle display nivel señal wifi
                 config.showwifilevel = !config.showwifilevel;
-                bip(2);
+                sonido.bip(2);
                 saveConfig = true;
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break; 
         case XNAME_ONOFF :   // toggle actualizar nombres zonas con los del Domoticz
                 config.xname = !config.xname;
-                bip(2);
+                sonido.bip(2);
                 saveConfig = true;
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break;
         case VERIFY_ONOFF :   // toggle verificar estado dispositivo en el Domoticz
                 config.verify = !config.verify;
-                bip(2);
+                sonido.bip(2);
                 saveConfig = true;
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break;
         case DYNAMIC :   // toggle añadido/borrado dinamico de zonas durante el riego
                 config.dynamic = !config.dynamic;
-                bip(2);
+                sonido.bip(2);
                 saveConfig = true;
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break;

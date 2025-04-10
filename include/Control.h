@@ -71,7 +71,7 @@
   //Para mis clases
   #include "Configure.h"
   #include "DisplayLCD.h"
-
+  #include "Sonidos.h"
 
   #ifdef DEVELOP
     #define HOSTNAME "ardomot"
@@ -94,7 +94,7 @@
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0]))
        
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.2-RC3"
+                            #define VERSION  "3.2-RC4"
   //-------------------------------------------------------------------------------------
 
   //Comportamiento General
@@ -497,9 +497,6 @@
 
     DisplayLCD lcd(LCD2004_address, 20, 4);  // 20 caracteres x 4 lineas
     char buff[MAXBUFF];
-    int config_volume ; // volumen sonidos
-    int config_finMelody ; // melodia final riego grupo
-    bool config_mute; // sonidos silenciados
     bool checkReconInterval = false; // verificaciones de conexion cada RECONNECTINTERVAL minutosº
     
     
@@ -519,16 +516,15 @@
     extern const char *backupParmFile;
     extern DisplayLCD lcd;
     extern char buff[];
-    extern int config_volume;
-    extern int config_finMelody ; 
-    extern bool config_mute;
     extern bool checkReconInterval;
-
-  #endif
-
-  #ifdef __MAIN__
+    extern Sonidos sonido;
+    
+    #endif
+    
+    #ifdef __MAIN__
     //Globales a este módulo
     Config_parm config; //estructura parametros configurables y runtime
+    Sonidos sonido(config);   // se pasa por referencia la estructura config al constructor de la clase
     S_initFlags initFlags ;
     WiFiClient client;
     HTTPClient httpclient;
@@ -585,12 +581,6 @@
   //Funciones (prototipos)
   void actLedError(void);
   void apagaLeds(void);
-  void bip(int);
-  void bipOK(void);
-  void bipKO(void);
-  void bipFIN(void);
-  void bipMimi(int);
-  void bipTarari(void);
   int  bID2bIndex(uint16_t);
   void blinkPause(void);
   void check(void);
@@ -643,8 +633,6 @@
   void listDir(fs::FS &fs, const char * , uint8_t);
   bool loadConfigFile(const char*, Config_parm&);
   void deleteParmSignal(uint);
-  void longbip(int);
-  void lowbip(int);
   void mcpIinit(void);
   void mcpOinit(void);
   void memoryInfo(void);
