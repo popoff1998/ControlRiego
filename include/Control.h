@@ -129,6 +129,7 @@
   #define ROTARY_ENCODER_STEPS 4      // TODO documentar
   #define MAX_ESP32_TEMP      80      // * max temp. ESP32 para mostrar aviso (con wifi funciona mal)
   #define TEMP_OFFSET         0       // * correccion temperatura sensor local o remoto
+  #define TEMP_OFFSET_FACTOR  50      // * correccion temperatura factor ajuste (50% = x 0.5)
   #define TEMP_DATA_REMOTE    0       // * fuente del dato de temperatura 0=local/1=remota
                                       // [*] = configurables
 

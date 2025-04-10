@@ -383,7 +383,7 @@ int Configure::showMenu(int opcion)
       opcionesMenuConf[ESP32_TEMP]  =  "ESP32 temp: " + String((int)temperatureRead()) + "/" + String(config.warnESP32temp);
       opcionesMenuConf[LED_DIMM_LVL]  += String(config.dimmlevel);
       opcionesMenuConf[LED_MAX_LVL]  += String(config.maxledlevel);
-      sprintf(buff, "%+g", (float)config.tempOffset/2); //elimina ceros decimales al final y pone + si positivo
+      sprintf(buff, "%+g", (float)config.tempOffset*(TEMP_OFFSET_FACTOR/100)); //elimina ceros decimales al final y pone + si positivo
       opcionesMenuConf[TEMP_ADJ]  += buff;
       opcionesMenuConf[TEMP_SOURCE] = (config.tempRemote ?  "TEMP: REM.  " : "TEMP: LOCAL ") + (readTemp()==999 ? "--" : String(readTemp()));
       opcionesMenuConf[REM_TEMP_IDX] += String(config.tempRemoteIdx);
@@ -478,7 +478,7 @@ void Configure::procesaSelectMenu()
                 break;
         case TEMP_ADJ :     //configuramos correccion temperatura mostrada
                 configValuep = &config.tempOffset;  
-                this->Range_process_start(-5, 5, 100, 50);   
+                this->Range_process_start(-5, 5, 100, TEMP_OFFSET_FACTOR);   
                 break;
         case TEMP_SOURCE :   // toggle temperatura mostrada (sensor local o remoto)
                 config.tempRemote = !config.tempRemote;
