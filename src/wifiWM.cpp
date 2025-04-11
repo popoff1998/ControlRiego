@@ -289,7 +289,7 @@ void wifiVerifyRecovery(Config_parm &config, S_Estado &Estado) {
     */    
     if (connected && recoverableError) {
       LOG_INFO("conexion Wifi recuperada despues Setup, leemos factor riegos");
-      // recoverableError = false;
+      ledPWM(LEDG,OFF);
       initFactorRiegos(); //en caso de producirse error con esta funcion ya dejara este activado
       setupEstado();
     }

@@ -215,7 +215,7 @@ void setupEstado()
   }
   // Si estado actual es ERROR seguimos así
   if (Estado.estado == ERROR) {
-    LOG_DEBUG("setupEstado salida por estado ERROR(E", Estado.error, ") recoverableError=", recoverableError, "modoDEMO=", modoDEMO);
+    LOG_DEBUG("setupEstado salida por estado ERROR (", errorText, ") recoverableError=", recoverableError, "modoDEMO=", modoDEMO);
     return;
   }
   // Si estamos conectados pasamos a STANDBY o STOP (caso de estar pulsado este al inicio)
@@ -1486,7 +1486,7 @@ int getFactor(uint16_t idx)
   LOG_TRACE("");
   if(idx == 0) return 100; //si el IDX es 0 devolvemos 100 sin procesarlo (boton no asignado)
   factorRiegosOK = false;
-  if(!checkWifi()) {
+  if(WiFi.status() != WL_CONNECTED) {
     if(modoDEMO) return 999; //si estamos en modoDEMO sin conexion devolvemos 999 y no damos error
     else {
       statusError(E1, RECUPERABLE); //error de conexion recuperable
@@ -1496,19 +1496,16 @@ int getFactor(uint16_t idx)
   String response = deviceInfo(idx, (char *)"Description");
   //procesamos la respuesta para ver si se ha producido error:
   if (response.startsWith("Err")) {
-    if (modoDEMO) {  //si estamos en modoDEMO devolvemos 999 y no damos error
-      return 999;
-    }
-    if(response != "Err2") statusError(E3); //error de deserializacion
-    else {
-      statusError(E2, RECUPERABLE); //error de conexion con Domoticz recuperable
-    }  
-    LOG_WARN("GETFACTOR IDX: ", idx, " respuesta recibida: ", response.c_str());
-    return 100;
+      if (modoDEMO) return 999;  //si estamos en modoDEMO devolvemos 999 y no damos error
+      if(response != "Err2") {
+        if (VERIFY) statusError(E3); //error de deserializacion, posible IDX inexistente
+      } else statusError(E2, RECUPERABLE); //error de conexion con Domoticz recuperable
+      LOG_WARN("GETFACTOR IDX: ", idx, " respuesta recibida: ", response.c_str());
+      return 100;
   }
-  //si hemos leido correctamente (numero, campo vacio o solo con comentarios)
-  //consideramos leido OK el factor riego. En los dos ultimos casos se
-  //devuelve valor por defecto 100.
+  //si hemos leido correctamente campo Description (numero, campo vacio o solo con comentarios)
+  //el IDX existe, consideramos leido OK el factor riego. 
+  //En los dos ultimos casos se devuelve valor por defecto 100.
   factorRiegosOK = true;
   char* factorstr = &response[0];
   long int factor = strtol(factorstr,NULL,10);
@@ -1546,7 +1543,10 @@ void domoticzVerifyRecovery()
       initFactorRiegos(); //en caso de producirse error con esta funcion ya dejara este activado
       setupEstado();
     }
-  } else statusError(E1, RECUPERABLE); //error de conexion recuperable
+  } else {
+    lcd.clear(BORRA1H);
+    statusError(E1, RECUPERABLE); //error de conexion recuperable
+    }
   if(recoverableError) LOG_INFO("reintento en ",RECONNECTINTERVAL," minutos \n");
 }
 
