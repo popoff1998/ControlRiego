@@ -65,11 +65,11 @@ void setup()
   configure = new Configure(config);   // se pasa por referencia la estructura config al constructor de la clase
   //preparo indicadores de inicializaciones opcionales
   setupInit();
+  //setup parametros configuracion
+  setupParm();
   #ifdef EXTRADEBUG
    printFile(parmFile);
   #endif
-  //setup parametros configuracion
-  setupParm();
   //Chequeo de perifericos de salida (leds, display, buzzer)
   check();
   //Para la red
@@ -80,6 +80,7 @@ void setup()
     else sonido.bipKO();
     saveConfig = false;
   }
+  LittleFS.end();
   delay(2000);
   //Ponemos en hora
   timeClient.begin();
@@ -918,6 +919,13 @@ void setEstado(uint8_t estado, int bnum)
     ledYellow(ON);
     boton = NULL;
     holdPause = false;
+    if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
+      LOG_ERROR("An Error has occurred while mounting LittleFS");
+      lcd.infoclear("No se ha podido montar el sistema de ficheros",1,BIPKO);
+      delay(config.msgdisplaymillis*3);
+      return;
+    }
+  
     return;
   }
 } //fin setEstado
@@ -1797,6 +1805,12 @@ void setupParm()
 {
   LOG_TRACE("");
   if(clean_FS) cleanFS();
+  if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
+    LOG_ERROR("An Error has occurred while mounting LittleFS");
+    lcd.infoclear("No se ha podido montar el sistema de ficheros",1,BIPKO);
+    delay(config.msgdisplaymillis*3);
+    return;
+  }
   #ifdef DEVELOP
     Serial.printf( "\n initParm= %d \n", initFlags.initParm );
     filesInfo();

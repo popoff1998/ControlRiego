@@ -319,13 +319,13 @@ void Configure::exit()
         }  
         saveConfig = false;
       }
+      LittleFS.end();
       #ifdef WEBSERVER
         if (webServerAct) {
           endWS();           //al salir de modo ConF no procesaremos peticiones al webserver
           LOG_INFO("[ConF][WS] desactivado webserver");
         }
       #endif
-      // resetLeds();  (ya se hace en STANDBY)
       LOG_TRACE("[poniendo estado STANDBY]");
       setEstado(STANDBY);
 }

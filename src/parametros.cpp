@@ -4,10 +4,10 @@
 bool loadConfigFile(const char *p_filename, Config_parm &config)
 {
   LOG_TRACE("");
-  if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
-    LOG_ERROR("An Error has occurred while mounting LittleFS");
-    return false;
-  }
+  // if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
+  //   LOG_ERROR("An Error has occurred while mounting LittleFS");
+  //   return false;
+  // }
   File file = LittleFS.open(p_filename, "r");
   if(!file){
     LOG_ERROR("Failed to open file for reading");
@@ -91,7 +91,7 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
   config.dynamic = doc["dynamic"] | false;
   //-------------------------------------------------------------------------------------------
   file.close();
-  LittleFS.end();
+  // LittleFS.end();
   if (!config.initialized) return false;
   return true;
 }
@@ -100,10 +100,10 @@ bool saveConfigFile(const char *p_filename, Config_parm &config)
 {
   LOG_TRACE("TRACE: in saveConfigFile");
   //memoryInfo();
-  if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
-    LOG_ERROR("An Error has occurred while mounting LittleFS");
-    return false;
-  }
+  // if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
+  //   LOG_ERROR("An Error has occurred while mounting LittleFS");
+  //   return false;
+  // }
   // Delete existing file, otherwise the configuration is appended to the file
   LittleFS.remove(p_filename);
   File file = LittleFS.open(p_filename, "w");
@@ -164,7 +164,7 @@ bool saveConfigFile(const char *p_filename, Config_parm &config)
   }
   else LOG_DEBUG("    tamaño del jsondoc: (",docsize,")");
   file.close();
-  LittleFS.end();
+  // LittleFS.end();
   #ifdef EXTRADEBUG
     printFile(p_filename);
   #endif
@@ -176,10 +176,10 @@ bool saveConfigFile(const char *p_filename, Config_parm &config)
 bool copyConfigFile(const char *fileFrom, const char *fileTo)
 {
   LOG_TRACE("in copyConfigFile");
-  if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)) {
-  LOG_ERROR("An Error has occurred while mounting LittleFS");
-  return false;
-  }
+  // if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)) {
+  // LOG_ERROR("An Error has occurred while mounting LittleFS");
+  // return false;
+  // }
   File origen = LittleFS.open(fileFrom, "r");
   if (!origen) {
     LOG_ERROR("- failed to open file ",fileFrom);
@@ -202,7 +202,8 @@ bool copyConfigFile(const char *fileFrom, const char *fileTo)
       destino.close(); 
     }
     origen.close();  
-    LittleFS.end();  
+    LOG_TRACE("copiado ",fileFrom," en ",fileTo, "OK returning true");
+    // LittleFS.end();  
     return true;
   } 
 }
@@ -211,10 +212,10 @@ bool copyConfigFile(const char *fileFrom, const char *fileTo)
 bool deleteParmFiles()
 {
   LOG_TRACE("in deleteParmFiles");
-  if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)) {
-  LOG_ERROR("An Error has occurred while mounting LittleFS");
-  return false;
-  }
+  // if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)) {
+  // LOG_ERROR("An Error has occurred while mounting LittleFS");
+  // return false;
+  // }
   if (LittleFS.exists(parmFile)) LittleFS.remove(parmFile);
   if (LittleFS.exists(backupParmFile)) LittleFS.remove(backupParmFile);
   return true;
@@ -274,7 +275,7 @@ void printParms(Config_parm &config) {
 
 void filesInfo() 
 {
-  LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED);
+  // LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED);
   float fileTotalKB = (float)LittleFS.totalBytes() / 1024.0; 
   float fileUsedKB = (float)LittleFS.usedBytes() / 1024.0; 
   Serial.print("__________________________\n");
@@ -283,7 +284,7 @@ void filesInfo()
   Serial.print(F("    Used KB: ")); Serial.print(fileUsedKB); Serial.println(F(" KB"));
   Serial.print("__________________________\n");
   listDir(LittleFS, "/", 1); // List the directories up to one level beginning at the root directory
-  LittleFS.end();
+  // LittleFS.end();
 }
 
 void listDir(fs::FS &fs, const char * dirname, uint8_t levels){
@@ -329,10 +330,10 @@ void listDir(fs::FS &fs, const char * dirname, uint8_t levels){
 // Prints the content of a file to the Serial 
 void printFile(const char *p_filename) {
   LOG_TRACE("printFile (",p_filename,")");
-  if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
-    LOG_ERROR("An Error has occurred while mounting LittleFS");
-  return;
-  }
+  // if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
+  //   LOG_ERROR("An Error has occurred while mounting LittleFS");
+  // return;
+  // }
   // Open file for reading
   File file = LittleFS.open(p_filename, "r");
   if (!file) {
@@ -345,7 +346,7 @@ void printFile(const char *p_filename) {
   }
   Serial.println(F("\n\n"));
   file.close();
-  LittleFS.end();
+  // LittleFS.end();
 }
 
 void memoryInfo() 
@@ -367,7 +368,7 @@ void memoryInfo()
   Serial.printf("free RAM (max Head size): %d KB  <<<<<<<<<<<<<<<<<<<\n\n", freeHeadSize);
   Serial.printf("free SketchSpace: %f KB\n\n", freeSketchSize);
   Serial.println(F("#####################"));
-  LittleFS.end();
+  // LittleFS.end();
 }
 
 void printCharArray(char *arr, size_t len)

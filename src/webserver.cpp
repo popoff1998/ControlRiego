@@ -285,7 +285,7 @@ protected:
 
    void setupWS(Config_parm &config)
    {
-      if (!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)) LOG_ERROR("could not mount the filesystem...");
+      // if (!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)) LOG_ERROR("could not mount the filesystem...");
       if (!MDNS.begin(HOSTNAME)) LOG_ERROR("Error iniciando mDNS");
       else LOG_INFO("mDNS iniciado");
       httpUpdater.setup(&wserver, update_path, update_username, update_password);
@@ -315,8 +315,8 @@ protected:
 
    void endWS()
    {
-      TRACE2("cerrando filesystem...\n");
-      LittleFS.end();
+      // TRACE2("cerrando filesystem...\n");
+      // LittleFS.end();
       TRACE2("terminando MDNS...\n");
       MDNS.end();
       TRACE2("terminando webserver...\n");
