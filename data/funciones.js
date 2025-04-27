@@ -65,7 +65,9 @@
                 buttonContainer.appendChild(createButton("Export", () => downloadFile(file.name)));
                 buttonContainer.appendChild(createButton("Backup", () => handleFileAction("BACKUP", file.name)));
                 buttonContainer.appendChild(createButton("Edit", () => {
-                    window.open(`/parmfile_edit.htm?file=${file.name}`, '_blank');  // Open in a new tab
+                    window.open(`/parmfile_edit.htm?file=${file.name}`, '_self');  // Open in a the same tab
+                    //window.location.href = `/parmfile_edit.htm?file=${file.name}`;  // Open in the same tab
+                    //window.open(`/parmfile_edit.htm?file=${file.name}`, '_blank');  // Open in a new tab
                 }));
 
                 actionCell.appendChild(buttonContainer);
@@ -125,7 +127,8 @@
                 .then(response => {
                     if (response.ok) {
                         alert(`${action} OK!`);
-                        location.reload();
+                        if (action === "RESTORE") alert("Deberia reiniciar el sistema para aplicar los cambios");
+                        location.reload(); // Reload the page to update the table
                     } else {
                         alert(`Failed to ${action.toLowerCase()} the file.`);
                     }

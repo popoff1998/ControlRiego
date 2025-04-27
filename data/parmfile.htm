@@ -78,11 +78,10 @@ button {
                 })
                 .then(response => {
                 if (response.ok) {
-                    alert("File uploaded successfully!");
-                    location.reload(); // Reload the page to update the table
-                } else {
-                    alert("Failed to upload the file.");
-                }
+                    if (confirm("File uploaded successfully! ¿Desea reiniciar el sistema para aplicar los cambios?")) {
+                        window.location.href='/$restart'; // Restart device to apply changes
+                    } else location.reload(); // Reload the page to update the table
+                } else alert("Failed to upload the file.");
                 })
                 .catch(error => {
                 console.error("Error uploading file:", error);
@@ -93,7 +92,9 @@ button {
 
             function openNewFile() {
             if (confirm("¿Desea crear un nuevo archivo de parámetros? (los actuales serán borrados)")) {
-                window.open('parmfile_edit.htm?file=sampleParm.json', '_blank');
+                window.open('parmfile_edit.htm?file=sampleParm.json', '_self'); // Open in the same tab
+                //window.location.href = 'parmfile_edit.htm?file=sampleParm.json'; // Open in the same tab
+                //window.open('parmfile_edit.htm?file=sampleParm.json', '_blank');
             }
             }
         </script>

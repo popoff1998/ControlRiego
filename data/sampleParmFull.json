@@ -40,7 +40,7 @@
       "idx": 0,
       "nombre": "ZONA8"
     },
-	{
+    {
       "zona": 9,
       "idx": 0,
       "nombre": "ZONA9"
@@ -50,27 +50,47 @@
     {
       "grupo": 1,
       "desc": "GRUPO1",
-      "zonas": [1]
+      "zonas": []
     },
     {
       "grupo": 2,
       "desc": "GRUPO2",
-      "zonas": [2]
+      "zonas": []
     },
     {
       "grupo": 3,
       "desc": "GRUPO3",
-      "zonas": [3]
+      "zonas": []
     },
     {
       "grupo": 4,
       "desc": "GRUPO4",
-      "zonas": [4]
+      "zonas": []
     }
-  ],  
-  "domoticz" : {	
+  ],
+  "tiempo": {
+    "minutos": 10,
+    "segundos": 0
+  },
+  "domoticz": {
     "ip": "192.168.xxx.xxx",
     "port": "xxxx"
-    },
-  "ntpServer": "es.pool.ntp.org"
+  },
+  "ntpServer": "es.pool.ntp.org",
+  "warnESP32temp": 80,
+  "ledRGB": {
+    "maxledlevel": 255,
+    "dimmlevel": 50
+  },
+  "tempOffset": 0,
+  "tempRemote": 0,
+  "tempRemoteIdx": 0,
+  "msgdisplaymillis": 1000,
+  "mute": false,
+  "volume": 8,
+  "finMelody": 2,
+  "showwifilevel": false,
+  "xname": false,
+  "verify": true,
+  "dynamic": false
 }
