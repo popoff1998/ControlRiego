@@ -125,6 +125,13 @@ void handleListFiles() {
   wserver.send(200, "text/javascript; charset=utf-8", result);
 }  // handleListFiles()
 
+// This function is called when the WebServer was requested to restart the ESP32.
+void handleRestart() {
+  TRACE2("Restarting ESP32...\n");
+  wserver.send(200, "text/plain", "Restarting ESP32...");
+  delay(500); // Give the client time to receive the response
+  ESP.restart();
+}
 
 // This function is called when the sysInfo service was requested.
 void handleSysInfo() {
@@ -318,6 +325,7 @@ class FileServerHandler : public RequestHandler {
   // register some REST services
   wserver.on("/$list", HTTP_GET, handleListFiles);
   wserver.on("/$sysinfo", HTTP_GET, handleSysInfo);
+  wserver.on("/$restart", HTTP_GET, handleRestart);
   
   wserver.on("/download", HTTP_GET, []() {
     // Extract the file name from the query parameter
