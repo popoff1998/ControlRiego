@@ -2,72 +2,47 @@
 
 <head>
   <title>Files</title>
-  <link Content-Type="text/css" href="/style.css" rel="stylesheet" />
+  <link Content-Type="text/css" href="/style_base.css" rel="stylesheet" />
+  <link Content-Type="text/css" href="/style_tableFiles.css" rel="stylesheet" />
+  <meta name='viewport' content='user-scalable=yes,initial-scale=1.0,width=device-width'>
+  <script src="/funciones.js"></script>
 </head>
 
-<body>
-  <h1>Files on Server</h1>
+<style>
+  body {max-width:65%;}
+</style>  
 
-  <p>These files are available on the server to be opened or delete: </p>
-  <pre>                                         size      created timestamp </pre>
-  <div id="list">
-  </div>
+</body>
 
+  <h1 style="margin-top: 20px;">Files on server</h1>
+
+    <h3>These files are available on the server to be opened, downloaded or delete: </h3>
+      <table style="margin: 0 auto;">  <!-- tabla centrada -->
+          <thead style="background-color: #9ee0eb;">
+          <tr>
+          <th>Filename</th>
+          <th style="text-align: center;">Size</th>
+          <th style="text-align: center;">Timestamp</th>
+          <th style="text-align: center;">Action</th>
+          </tr>
+          </thead>
+          <tbody id="filesTableBody">
+          <!-- Rows will be dynamically added here -->
+          </tbody>
+      </table>
+  
   <script>
-    // load and display all files after page loading has finished
-    window.addEventListener("load", function () {
+
+
+    // Fetch and display the data when the page loads
+    window.addEventListener("load", () => {
       fetch('/$list')
-        .then(function (result) { return result.json(); })
-        .then(function (e) {
-          var listObj = document.querySelector('#list');
-          e.forEach(function (f) {
-            var entry = document.createElement("div");
-            var nameObj = document.createElement("a");
-            nameObj.href = '/' + f.name;
-            nameObj.innerText = '/' + f.name;
-            entry.appendChild(nameObj)
-            
-            //entry.appendChild(document.createTextNode(' (' + f.size + ') '));
-            entry.appendChild(document.createTextNode(" "));
-            var filesize = document.createElement("span");
-            filesize.innerText = ' (' + f.size + ') ';
-            filesize.style = 'display: inline-block; width: 80;';
-            entry.appendChild(filesize)
-
-
-            var timeObj = document.createElement("span");
-            timeObj.innerText = (new Date(f.time*1000)).toLocaleString();
-            entry.appendChild(timeObj)
-            entry.appendChild(document.createTextNode(" "));
-
-            var delObj = document.createElement("span");
-            delObj.className = 'deleteFile';
-            delObj.innerText = ' [delete]';
-            delObj.style = 'color:red; cursor: pointer;';
-            entry.appendChild(delObj)
-
-            listObj.appendChild(entry)
-          });
-
-        })
-        .catch(function (err) {
-          window.alert(err);
-        });
-    });
-
-    window.addEventListener("click", function (evt) {
-      var t = evt.target;
-      if (t.className === 'deleteFile') {
-        var fname = t.parentElement.innerText;
-        fname = fname.split(' ')[0];
-        //fname = '/'+ fname.split(' ')[0];
-        if (window.confirm("Delete " + fname + " ?")) {
-          fetch(fname, { method: 'DELETE' }) .then (response => document.location.reload(false)); //funciona en CR y FF
-          //fetch(fname, { method: 'DELETE' })
-          //document.location.reload(false);  //funciona en CR pero no en FF
-        }
-      };
-    });
+          .then(function (data) { return data.json(); })
+          .then(data => {
+            populateTable(data, "filesTableBody");
+          })
+          .catch(error => console.error("Error fetching file data:", error));
+  });
 
   </script>
 </body>

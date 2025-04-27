@@ -94,7 +94,7 @@
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0]))
        
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.2-RC5"
+                            #define VERSION  "3.2-RC6"
   //-------------------------------------------------------------------------------------
 
   //Comportamiento General
@@ -630,6 +630,7 @@
   void ledRGB(int,int,int);
   bool ledStatusId(int);
   void leeSerial(void);
+  void listAllFilesInDir(fs::FS &fs, String dir_path);
   void listDir(fs::FS &fs, const char * , uint8_t);
   bool loadConfigFile(const char*, Config_parm&);
   void deleteParmSignal(uint);
@@ -696,6 +697,7 @@
   void statusError(uint8_t, bool recoverable=false);
   bool stopRiego(uint16_t, bool update=true);
   bool stopAllRiego(void);
+  String sysInfo(void);
   bool testButton(uint16_t, bool);
   void timeByFactor(int,uint8_t *,uint8_t *);
   int  tmvalue(void);

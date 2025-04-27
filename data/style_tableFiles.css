@@ -1,0 +1,73 @@
+/* CSS Document */
+table {
+    font-family:arial,sans-serif;
+    font-size:1.0em;
+    border-collapse:collapse;
+    width:85%;
+} 
+th,td {
+    border:0.06em solid #898787;
+    text-align:left;
+    padding:0.3em;
+    border-bottom:0.06em solid #8a8a8a;
+} 
+tr:nth-child(odd) {background-color:#eeeeee;}
+
+.rcorners_n {border-radius:0.5em;background:#558ED5;padding:0.3em 0.3em;width:20%;color:white;font-size:75%;}
+.rcorners_m {border-radius:0.5em;background:#558ED5;padding:0.3em 0.3em;width:50%;color:white;font-size:75%;}
+.rcorners_w {border-radius:0.5em;background:#558ED5;padding:0.3em 0.3em;width:70%;color:white;font-size:75%;}
+.column{float:left;width:50%;height:45%;}
+.row:after{content:'';display:table;clear:both;}
+*{box-sizing:border-box;}
+
+/* a{font-size:75%;} */
+/* p{font-size:75%;} */
+
+button {
+    padding: 8px 12px;
+    background-color: #2e8e95;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 16px;
+}
+.button-import {
+    padding: 12px 17px;
+    background-color: #1e9a31;
+    font-size: 18px;
+    color: #fff;
+}
+.button-new {
+    padding: 12px 17px;
+    background-color: #2e8e95;
+    font-size: 18px;
+    color: #fff;
+}
+.button-restore {
+    background-color: #780320;
+    color: #fff;
+}
+.button-delete {
+    background-color: #9d072c;
+    color: #fff;
+}
+.button-data {
+    background-color: #858585;
+    color: #fff;
+}
+button:hover {
+    background-color: #0056b3;
+}
+button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    margin: 5px 0 20px 0;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
+

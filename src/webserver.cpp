@@ -75,6 +75,34 @@ void handleRedirect() {
 }  // handleRedirect()
 
 
+// This function is called when the WebServer was requested to list files in the filesystem.
+// a JSON array with file information is returned.
+void handleListFilter(String filter) {
+  TRACE2("handleListFilter filter: %s\n", filter.c_str());
+  File dir = LittleFS.open("/" , "r");
+  TRACE2("handleListFilter dir: %s\n", dir.name());
+  String result;
+
+  result += "[\n";
+  while (File entry = dir.openNextFile()) {
+    String filename = String(entry.name());
+    if (filename.startsWith(filter)) {
+        if (result.length() > 4) { result += ",\n"; }
+        result += "  {";
+        result += "\"type\": \"file\", ";
+        result += "\"name\": \"" + String(entry.name()) + "\", ";
+        result += "\"size\": " + String(entry.size()) + ", ";
+        result += "\"time\": " + String(entry.getLastWrite());
+        result += "}";
+    } // if    
+  }  // while
+
+  result += "\n]";
+  wserver.sendHeader("Cache-Control", "no-cache");
+  wserver.send(200, "text/javascript; charset=utf-8", result);
+}  // handleListFiles()
+
+
 // This function is called when the WebServer was requested to list all existing files in the filesystem.
 // a JSON array with file information is returned.
 void handleListFiles() {
@@ -100,128 +128,174 @@ void handleListFiles() {
 
 // This function is called when the sysInfo service was requested.
 void handleSysInfo() {
-  String result;
 
-  result += "{\n";
-  result += "  \"Chip Model\": " + String(ESP.getChipModel()) + ",\n";
-  result += "  \"Chip Cores\": " + String(ESP.getChipCores()) + ",\n";
-  result += "  \"Chip Revision\": " + String(ESP.getChipRevision()) + ",\n";
-  result += "  \"flashSize\": " + String(ESP.getFlashChipSize()) + ",\n";
-  result += "  \"freeHeap\": " + String(ESP.getFreeHeap()) + ",\n";
-  result += "  \"fsTotalBytes\": " + String(LittleFS.totalBytes()) + ",\n";
-  result += "  \"fsUsedBytes\": " + String(LittleFS.usedBytes()) + ",\n";
-  result += "  \"ESP32 temperature\": " + String(temperatureRead()) + "ºC,\n";
-  result += "}";
-
+  String result = sysInfo(); // get the system information as JSON string
   wserver.sendHeader("Cache-Control", "no-cache");
   wserver.send(200, "text/javascript; charset=utf-8", result);
 }  // handleSysInfo()
+
+void handleSaveConfig() {
+  TRACE2("handleSaveConfig entrada");
+    if (!wserver.hasArg("plain")) {
+        wserver.send(400, "text/plain", "Bad Request: Missing JSON body");
+        return;
+    }
+
+    // Obtener el cuerpo de la solicitud (JSON enviado por el cliente)
+    String jsonBody = wserver.arg("plain");
+
+    // Guardar el JSON en un archivo en el sistema de archivos
+    File configFile = LittleFS.open("/config_parm.json", "w");
+    if (!configFile) {
+        wserver.send(500, "text/plain", "Internal Server Error: Could not open file for writing");
+        return;
+    }
+
+    // Escribir el contenido del JSON en el archivo
+    configFile.print(jsonBody);
+    configFile.close();
+
+    // Responder al cliente con éxito
+    wserver.send(200, "text/plain", "Configuration saved successfully");
+}
+
+void file_download(String filename)
+{
+    TRACE2("file_download filename recibido: %s\n", filename.c_str());
+    File download = LittleFS.open("/"+filename);
+    TRACE2("  download name %s\n", download.name());
+    TRACE2(" download size %d\n", download.size());
+    if (download) 
+    {
+      wserver.sendHeader("Content-Type", "text/text");
+      wserver.sendHeader("Content-Disposition", "attachment; filename="+filename);
+      wserver.sendHeader("Connection", "close");
+      wserver.streamFile(download, "application/octet-stream");
+      download.close();
+    } else wserver.send(404, "text/plain", "File not found");
+}  // file_download()
 
 
 // ===== Request Handler class used to answer more complex requests =====
 
 // The FileServerHandler is registered to the web server to support DELETE and UPLOAD of files into the filesystem.
 class FileServerHandler : public RequestHandler {
-public:
-  // @brief Construct a new File Server Handler object
-  // @param fs The file system to be used.
-  // @param path Path to the root folder in the file system that is used for serving static data down and upload.
-  // @param cache_header Cache Header to be used in replies.
-  FileServerHandler() {
-    TRACE2("FileServerHandler is registered\n");
-  }
-
-
-  // @brief check incoming request. Can handle POST for uploads and DELETE.
-  // @param requestMethod method of the http request line.
-  // @param requestUri request ressource from the http request line.
-  // @return true when method can be handled.
-  bool canHandle(HTTPMethod requestMethod, String UNUSED uri) override {
-    return ((requestMethod == HTTP_POST) || (requestMethod == HTTP_DELETE));
-  }  // canHandle()
-
-
-  bool canUpload(String uri) override {
-    // only allow upload on root fs level.
-    return (uri == "/");
-  }  // canUpload()
-
-
-  bool handle(WebServer &server, HTTPMethod requestMethod, String requestUri) override {
-    // ensure that filename starts with '/'
-    String fName = requestUri;
-    if (!fName.startsWith("/")) { fName = "/" + fName; }
-
-    TRACE2("handle %s\n", fName.c_str());
-
-    if (requestMethod == HTTP_POST) {
-      // all done in upload. no other forms.
-
-    } else if (requestMethod == HTTP_DELETE) {
-      if (LittleFS.exists(fName)) {
-        TRACE2("DELETE %s\n", fName.c_str());
-        LittleFS.remove(fName);
+    public:
+      // @brief Construct a new File Server Handler object
+      // @param fs The file system to be used.
+      // @param path Path to the root folder in the file system that is used for serving static data down and upload.
+      // @param cache_header Cache Header to be used in replies.
+      FileServerHandler() {
+        TRACE2("FileServerHandler is registered\n");
       }
-    }  // if
-
-    wserver.send(200);  // all done.
-    return (true);
-  }  // handle()
 
 
-  // uploading process
-  void
-  upload(WebServer UNUSED &server, String UNUSED _requestUri, HTTPUpload &upload) override {
-    // ensure that filename starts with '/'
-    static size_t uploadSize;
+      // @brief check incoming request. Can handle POST for uploads and DELETE.
+      // @param requestMethod method of the http request line.
+      // @param requestUri request ressource from the http request line.
+      // @return true when method can be handled.
+      bool canHandle(HTTPMethod requestMethod, String UNUSED uri) override {
+        return ((requestMethod == HTTP_POST) || (requestMethod == HTTP_DELETE) || (requestMethod == HTTP_COPY));
+      }  // canHandle()
 
-    if (upload.status == UPLOAD_FILE_START) {
-      String fName = upload.filename;
 
-      // Open the file for writing
-      if (!fName.startsWith("/")) { fName = "/" + fName; }
-      TRACE2("start uploading file %s...\n", fName.c_str());
+      bool canUpload(String uri) override {
+        // only allow upload on root fs level.
+        TRACE2("canUpload uri received: %s\n", uri.c_str());
+        return (uri == "/");
+      }  // canUpload()
 
-      if (LittleFS.exists(fName)) {
-        LittleFS.remove(fName);
-      }  // if
-      _fsUploadFile = LittleFS.open(fName, "w");
-      uploadSize = 0;
 
-    } else if (upload.status == UPLOAD_FILE_WRITE) {
-      // Write received bytes
-      if (_fsUploadFile) {
-        size_t written = _fsUploadFile.write(upload.buf, upload.currentSize);
-        if (written < upload.currentSize) {
-          // upload failed
-          TRACE2("  write error!\n");
-          _fsUploadFile.close();
+      bool handle(WebServer &server, HTTPMethod requestMethod, String requestUri) override {
+        // ensure that filename starts with '/'
+        String fName = requestUri;
+        if (!fName.startsWith("/")) { fName = "/" + fName; }
+        bool handleOK = false;
+        TRACE2("handle %s\n", fName.c_str());
 
-          // delete file to free up space in filesystem
-          String fName = upload.filename;
-          if (!fName.startsWith("/")) { fName = "/" + fName; }
-          LittleFS.remove(fName);
+        if (requestMethod == HTTP_POST) {
+          // all done in upload. no other forms.
+          TRACE2("POST %s\n", fName.c_str());
+          handleOK = true;
+        } 
+        if (requestMethod == HTTP_COPY) {
+          String fileFrom , fileTo;
+          TRACE2("COPY %s\n", fName.c_str());
+          if (fName == "/BACKUP") {fileFrom = parmFile; fileTo = backupParmFile;}
+          if (fName == "/RESTORE") {fileFrom = backupParmFile; fileTo = parmFile;}
+          TRACE2("HTTP_COPY %s : %s to %s\n", fName.c_str(), fileFrom.c_str(), fileTo.c_str());
+          handleOK = copyConfigFile(fileFrom.c_str(), fileTo.c_str());
+        }  
+        if (requestMethod == HTTP_DELETE) {
+          if (LittleFS.exists(fName)) {
+            TRACE2("DELETE %s\n", fName.c_str());
+            handleOK = LittleFS.remove(fName);
+          }
         }
-        uploadSize += upload.currentSize;
-        // TRACE2("free:: %d of %d\n", LittleFS.usedBytes(), LittleFS.totalBytes());
-        // TRACE2("written:: %d of %d\n", written, upload.currentSize);
-        // TRACE2("totalSize: %d\n", upload.currentSize + upload.totalSize);
-      }  // if
-
-    } else if (upload.status == UPLOAD_FILE_END) {
-        TRACE2("finished.\n");
-      // Close the file
-      if (_fsUploadFile) {
-        _fsUploadFile.close();
-        TRACE2(" %d bytes uploaded.\n", upload.totalSize);
-      }
-    }  // if
-
-  }  // upload()
+        if (handleOK) {
+          // send a 200 OK response to the client
+          wserver.send(200, "text/plain", "OK");
+          return (true);
+        } else {
+          wserver.send(500, "text/plain", "ERROR");
+          return (false);
+        }
+      }  // handle()
 
 
-protected:
-  File _fsUploadFile;
+      // uploading process
+      void
+      upload(WebServer UNUSED &server, String UNUSED _requestUri, HTTPUpload &upload) override {
+        // ensure that filename starts with '/'
+        static size_t uploadSize;
+
+        if (upload.status == UPLOAD_FILE_START) {
+          String fName = upload.filename;
+
+          // Open the file for writing
+          if (!fName.startsWith("/")) { fName = "/" + fName; }
+          TRACE2("start uploading file %s...\n", fName.c_str());
+
+          if (LittleFS.exists(fName)) {
+            LittleFS.remove(fName);
+          }  // if
+          _fsUploadFile = LittleFS.open(fName, "w");
+          uploadSize = 0;
+
+        } else if (upload.status == UPLOAD_FILE_WRITE) {
+          // Write received bytes
+          if (_fsUploadFile) {
+            size_t written = _fsUploadFile.write(upload.buf, upload.currentSize);
+            if (written < upload.currentSize) {
+              // upload failed
+              TRACE2("  write error!\n");
+              _fsUploadFile.close();
+
+              // delete file to free up space in filesystem
+              String fName = upload.filename;
+              if (!fName.startsWith("/")) { fName = "/" + fName; }
+              LittleFS.remove(fName);
+            }
+            uploadSize += upload.currentSize;
+            // TRACE2("free:: %d of %d\n", LittleFS.usedBytes(), LittleFS.totalBytes());
+            // TRACE2("written:: %d of %d\n", written, upload.currentSize);
+            // TRACE2("totalSize: %d\n", upload.currentSize + upload.totalSize);
+          }  // if
+
+        } else if (upload.status == UPLOAD_FILE_END) {
+            TRACE2("finished.\n");
+          // Close the file
+          if (_fsUploadFile) {
+            _fsUploadFile.close();
+            TRACE2(" %d bytes uploaded.\n", upload.totalSize);
+          }
+        }  // if
+
+      }  // upload()
+
+
+    protected:
+      File _fsUploadFile;
 };
 
    void defWebpages() {
@@ -240,13 +314,35 @@ protected:
   wserver.on("/$upload.htm", []() {
     wserver.send(200, "text/html", FPSTR(uploadContent));
   });
-
+  
   // register some REST services
   wserver.on("/$list", HTTP_GET, handleListFiles);
   wserver.on("/$sysinfo", HTTP_GET, handleSysInfo);
+  
+  wserver.on("/download", HTTP_GET, []() {
+    // Extract the file name from the query parameter
+    if (!wserver.hasArg("file")) {
+      wserver.send(400, "text/plain", "Bad Request: Missing 'file' parameter");
+      return;
+    }
+    String filename = wserver.arg("file");
+    file_download(filename);
+  });
+
+  wserver.on("/$listfilter", HTTP_GET, []() {
+    // Extract the file name from the query parameter
+    if (!wserver.hasArg("file")) {
+      wserver.send(400, "text/plain", "Bad Request: Missing 'file' parameter");
+      return;
+    }
+    String filename = wserver.arg("file");
+    handleListFilter(filename);
+  });
+
+  wserver.on("/save_config", HTTP_POST, handleSaveConfig);
 
   TRACE2("Register file system handlers...\n");
-
+  
   // UPLOAD and DELETE of files in the file system using a request handler.
   wserver.addHandler(new FileServerHandler());
 

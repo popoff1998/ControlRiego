@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Advanced</title>
+  <link Content-Type="text/css" href="/style_base.css" rel="stylesheet" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<style>
+  body {
+    max-width: 55%;
+    background-color: rgb(234, 255, 255);
+  }
+  /* Aumentar el tamaño de la letra en todos los elementos excepto h1 
+  body *:not(h1) {
+    font-size: 1em;  
+  } 
+  */
+  a {
+    text-decoration: none; /* Elimina el subrayado */
+    font-size: 1.2em; /* Mantiene el tamaño de letra */
+    color: #007BFF; /* Color del enlace */
+  }
+
+  a:hover {
+    text-decoration: underline; /* Opcional: subrayado al pasar el cursor */
+  }
+</style>
+
+<body>
+ 
+  <h1>Ardomo Webserver Maintenance Menu</h1>
+  <img src="logo_Ardomo.png" style="margin-right: 40px;" align="right">
+
+
+  <p>The following pages are available:</p>
+  <ul>
+    <li><a href="/index.htm">HOME</a> - HomePage</li>
+    <li><a href="/sysinfo.htm">SYSINFO</a> - System Information </li>
+
+    <p>OTA & File management:</p>
+    <li><a href="/files.htm">FILES</a> - Manage files on the server (browse, download or delete)</li>
+    <li><a href="/$upload.htm">UPLOAD</a> - Upload individual files</a></li>
+    <li><a href="/$update">OTA update</a> - Update Firmware or Filesystem</a></li>
+
+    <p>Testing:</p>
+    <li><a href="/parmfile.htm">/parmfile.htm</a> - Manage configuration file</li>
+    <li><a href="/parmfile_edit.htm">/parmfile_edit.htm</a> - Edit configuration file</li>
+    <li><a href="/parmfile_edit.htm?file=sampleParm.json">/parmfile_edit.htm?file=sampleParm.json</a> - New configuration file</li>
+  </ul>
+  
+  <p>The following REST services are available:</p>
+  <ul>
+    <li><a href="/$sysinfo">/$sysinfo</a> - Some system level information</a></li>
+    <li><a href="/$list">/$list</a> - Array of all files</a></li>
+  </ul>
+</body>
+</html>
+

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Parmfile</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link Content-Type="text/css" href="/style_base.css" rel="stylesheet" />
+    <link Content-Type="text/css" href="/style_tableFiles.css" rel="stylesheet" />
+    <script src="/funciones.js"></script>
+</head>
+
+<style>
+    body {max-width:65%;}
+
+    .container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+    }
+
+    @media (max-width: 768px) {
+        .container {
+            gap: 10px;
+        }
+    }
+
+form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+}
+
+input[type="file"] {
+    flex: 1 1 auto;
+    max-width: 300px;
+}
+
+button {
+    flex: 1 1 auto;
+    max-width: 150px;
+}
+
+</style>  
+  
+<body>
+    <h1 style="margin-top: 20px;">Gestion fichero de parámetros</h1>
+    
+    <div class="container">
+        <h3>Carga de parámetros a la CCR:</h3>
+        <form id="uploadForm" enctype="multipart/form-data" style="white-space: nowrap" >
+            <input type="file" id="fileInput" name="file" accept=".json" required>
+            <span style="display: inline-block; width: 5px;"></span>
+            <button type="button" class="button button-import" onclick="uploadFile()">Import</button>
+            <span style="display: inline-block; width: 15px;"></span>
+            <button type="button" class="button button-new" onclick="openNewFile()">New</button>
+        </form>
+        <script>
+            function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert("Please select a file to upload.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file, 'config_parm.json'); // Specify the filename here
+            // If you want to keep the original filename, you can use the line below instead:
+            //formData.append('file', file);
+
+            if (confirm("¡los parámetros actuales serán sustituidos por los de " + file.name + " ! ¿Continuar?")) {
+                fetch('/', {
+                method: 'POST',
+                body: formData
+                })
+                .then(response => {
+                if (response.ok) {
+                    alert("File uploaded successfully!");
+                    location.reload(); // Reload the page to update the table
+                } else {
+                    alert("Failed to upload the file.");
+                }
+                })
+                .catch(error => {
+                console.error("Error uploading file:", error);
+                alert("An error occurred while uploading the file.");
+                });
+            }        
+            }
+
+            function openNewFile() {
+            if (confirm("¿Desea crear un nuevo archivo de parámetros? (los actuales serán borrados)")) {
+                window.open('parmfile_edit.htm?file=sampleParm.json', '_blank');
+            }
+            }
+        </script>
+    </div>
+
+    <h3>fichero de Parámetros en la CCR: </h1>
+    <table style="margin: 0 auto;">  <!-- tabla centrada -->
+        <thead>
+            <tr>
+                <th>Filename</th>
+                <th style="text-align: center;">Tamaño</th>
+                <th style="text-align: center;">Timestamp</th>
+                <th style="text-align: center;">Acción</th>
+            </tr>
+        </thead>
+        <tbody id="parmTableBody">
+            <!-- Rows will be dynamically added here -->
+        </tbody>
+    </table>
+    <h3>fichero de Backup en la CCR:</h3>
+    <table style="margin: 0 auto;">  <!-- tabla centrada -->
+        <thead>
+            <tr>
+                <th>Filename</th>
+                <th style="text-align: center;">Tamaño</th>
+                <th style="text-align: center;">Timestamp</th>
+                <th style="text-align: center;">Acción</th>
+            </tr>
+        </thead>
+        <tbody id="backupTableBody">
+            <!-- Rows will be dynamically added here -->
+        </tbody>    
+    </table>    
+    
+    <script>
+
+        // Fetch and display the data when the page loads
+        window.addEventListener("load", () => {
+            fetch('/$listfilter?file=' + 'config_parm.json')
+                .then(function (data) { return data.json(); })
+                .then(data => {
+                    populateTable(data, "parmTableBody");
+                })
+                .catch(error => console.error("Error fetching file data:", error));
+            fetch('/$listfilter?file=' + 'config_backup.json')
+                .then(function (data) { return data.json(); })
+                .then(data => {
+                    populateTable(data, "backupTableBody");
+                })
+                .catch(error => console.error("Error fetching file data:", error));
+        });
+        
+    </script>
+</body>
+</html>

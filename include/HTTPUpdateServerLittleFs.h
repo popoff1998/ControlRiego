@@ -1,14 +1,6 @@
 #ifndef __HTTP_UPDATE_SERVER_H
 #define __HTTP_UPDATE_SERVER_H
 
-// ESP32 LittleFS HTTP Update Server
-// adaptado para LittleFS a partir de la libreria HTTPUpdateServer.h de ESP32
-//
-// actualmente HTTPUpdateServer no soporta LittleFS por lo que la carga del file system falla con:
-//  "Update error: Bad Size Given"
-// hay un issue abierto para que lo soporte. TODO: actualizar HTTPUpdateServer cuando lo cierren:
-//  https://github.com/espressif/arduino-esp32/issues/9347
-
 // #include<SPIFFS.h>
 #include <LittleFS.h>
 #include <StreamString.h>
@@ -17,25 +9,56 @@
 
 
 static const char serverIndex[] PROGMEM =
-R"(<!DOCTYPE html>
-     <html lang='en'>
-     <head>
-         <meta charset='utf-8'>
-         <meta name='viewport' content='width=device-width,initial-scale=1'/>
-     </head>
-     <body>
-     <form method='POST' action='' enctype='multipart/form-data'>
-         Firmware:<br>
-         <input type='file' accept='.bin,.bin.gz' name='firmware'>
-         <input type='submit' value='Update Firmware'>
-     </form>
-     <form method='POST' action='' enctype='multipart/form-data'>
-         FileSystem:<br>
-         <input type='file' accept='.bin,.bin.gz,.image' name='filesystem'>
-         <input type='submit' value='Update FileSystem'>
-     </form>
-     </body>
-     </html>)";
+ R"(<!DOCTYPE html>
+    <html lang='en'>
+    <head>
+        <meta charset='utf-8'>
+        <meta name='viewport' content='width=device-width,initial-scale=1'/>
+        <title>OTA update</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+            }
+            .section-title {
+                font-size: 1.5em;
+                margin-top: 30px;
+                margin-bottom: 10px;
+            }
+            input[type="submit"] {
+                font-size: 1.2em; /* Aumentar el tamaño del texto */
+                padding: 10px 20px; /* Aumentar el relleno interno */
+                border: none;
+                border-radius: 5px;
+                background-color: #007BFF; /* Color de fondo */
+                color: white; /* Color del texto */
+                cursor: pointer;
+                margin-left: 50px; /* Desplazar un poco a la derecha */
+            }
+            input[type="submit"]:hover {
+                background-color: #c0116b; /* Color al pasar el cursor */
+            }
+            input[type="file"] {
+                font-size: 1em; /* Aumentar el tamaño del texto */
+                padding: 10px 5px; /* Aumentar el relleno interno */
+            }
+        </style>
+    </head>
+    <body>
+        <form method='POST' action='' enctype='multipart/form-data'>
+            <div class='section-title'>Firmware:</div>
+            <input type='file' accept='.bin,.bin.gz' name='firmware'>
+            <br><br>
+            <input type='submit' value='Update Firmware'>
+        </form>
+        <hr>
+        <form method='POST' action='' enctype='multipart/form-data'>
+            <div class='section-title'>FileSystem:</div>
+            <input type='file' accept='.bin,.bin.gz,.image' name='filesystem'>
+            <br><br>
+            <input type='submit' value='Update FileSystem'>
+        </form>
+    </body>
+    </html>)";
 static const char successResponse[] PROGMEM =
 "<META http-equiv=\"refresh\" content=\"15;URL=/\">Update Success! Rebooting...";
 
