@@ -546,10 +546,11 @@ void procesaBotonZona(void)
   }
   // Si config.dynamic=true se permite añadir/eliminar zonas durante un riego individual 
   // o multirriego temporal (no durante un multirriego de grupo normal).
-  // TODO PREGUNTA: sería conveniente que solo se pudiese hacer una vez pausado?
+  // Para ello el riego debe estar en PAUSE
   // TODO PREGUNTA: permitir eliminar (terminar riego) de la zona en curso solamente pulsando esa zona ?
   //                (no parece necesario ya que ya se puede hacer de forma general con encoderSW+PAUSE) 
-  if ((Estado.estado == REGANDO || Estado.estado==PAUSE) && config.dynamic && (multi.riegoON == multi.temporal)) {
+  //if ((Estado.estado == REGANDO || Estado.estado==PAUSE) && config.dynamic && (multi.riegoON == multi.temporal)) {
+  if ((Estado.estado==PAUSE) && config.dynamic && (multi.riegoON == multi.temporal)) {
     // NOTA: la zona pulsada no puede coincidir con la actualmente en riego, se ignora en ese caso
     if (ultimoBotonZona->bID != boton->bID) {
       // procesar cambio dinamico y reflejarlo en el display
