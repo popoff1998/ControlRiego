@@ -64,12 +64,11 @@
 
 // This function is called when the WebServer was requested without giving a filename.
 // This will redirect to the file index.htm when it is existing otherwise to the built-in $upload.htm page
-void handleRedirect() {
+void handleRedirect() 
+{
   TRACE2("Redirect...\n");
   String url = "/index.htm";
-
   if (!LittleFS.exists(url)) { url = "/$upload.htm"; }
-
   wserver.sendHeader("Location", url, true);
   wserver.send(302);
 }  // handleRedirect()
@@ -77,12 +76,12 @@ void handleRedirect() {
 
 // This function is called when the WebServer was requested to list files in the filesystem.
 // a JSON array with file information is returned.
-void handleListFilter(String filter) {
+void handleListFilter(String filter) 
+{
   TRACE2("handleListFilter filter: %s\n", filter.c_str());
   File dir = LittleFS.open("/" , "r");
   TRACE2("handleListFilter dir: %s\n", dir.name());
   String result;
-
   result += "[\n";
   while (File entry = dir.openNextFile()) {
     String filename = String(entry.name());
@@ -96,7 +95,6 @@ void handleListFilter(String filter) {
         result += "}";
     } // if    
   }  // while
-
   result += "\n]";
   wserver.sendHeader("Cache-Control", "no-cache");
   wserver.send(200, "text/javascript; charset=utf-8", result);
@@ -105,10 +103,10 @@ void handleListFilter(String filter) {
 
 // This function is called when the WebServer was requested to list all existing files in the filesystem.
 // a JSON array with file information is returned.
-void handleListFiles() {
+void handleListFiles() 
+{
   File dir = LittleFS.open("/", "r");
   String result;
-
   result += "[\n";
   while (File entry = dir.openNextFile()) {
     if (result.length() > 4) { result += ",\n"; }
@@ -119,49 +117,49 @@ void handleListFiles() {
     result += "\"time\": " + String(entry.getLastWrite());
     result += "}";
   }  // while
-
   result += "\n]";
   wserver.sendHeader("Cache-Control", "no-cache");
   wserver.send(200, "text/javascript; charset=utf-8", result);
 }  // handleListFiles()
 
+
 // This function is called when the WebServer was requested to restart the ESP32.
-void handleRestart() {
+void handleRestart() 
+{
   TRACE2("Restarting ESP32...\n");
   wserver.send(200, "text/plain", "Restarting ESP32...");
   delay(500); // Give the client time to receive the response
   ESP.restart();
 }
 
-// This function is called when the sysInfo service was requested.
-void handleSysInfo() {
 
+// This function is called when the sysInfo service was requested.
+void handleSysInfo() 
+{
   String result = sysInfo(); // get the system information as JSON string
   wserver.sendHeader("Cache-Control", "no-cache");
   wserver.send(200, "text/javascript; charset=utf-8", result);
 }  // handleSysInfo()
 
-void handleSaveConfig() {
+
+void handleSaveConfig() 
+{
   TRACE2("handleSaveConfig entrada");
     if (!wserver.hasArg("plain")) {
         wserver.send(400, "text/plain", "Bad Request: Missing JSON body");
         return;
     }
-
     // Obtener el cuerpo de la solicitud (JSON enviado por el cliente)
     String jsonBody = wserver.arg("plain");
-
     // Guardar el JSON en un archivo en el sistema de archivos
     File configFile = LittleFS.open("/config_parm.json", "w");
     if (!configFile) {
         wserver.send(500, "text/plain", "Internal Server Error: Could not open file for writing");
         return;
     }
-
     // Escribir el contenido del JSON en el archivo
     configFile.print(jsonBody);
     configFile.close();
-
     // Responder al cliente con éxito
     wserver.send(200, "text/plain", "Configuration saved successfully");
 }
@@ -213,13 +211,12 @@ class FileServerHandler : public RequestHandler {
       }  // canUpload()
 
 
-      bool handle(WebServer &server, HTTPMethod requestMethod, String requestUri) override {
-        // ensure that filename starts with '/'
+      bool handle(WebServer &server, HTTPMethod requestMethod, String requestUri) override 
+      {
         String fName = requestUri;
-        if (!fName.startsWith("/")) { fName = "/" + fName; }
+        if (!fName.startsWith("/")) { fName = "/" + fName; } // ensure that filename starts with '/'
         bool handleOK = false;
         TRACE2("handle %s\n", fName.c_str());
-
         if (requestMethod == HTTP_POST) {
           // all done in upload. no other forms.
           TRACE2("POST %s\n", fName.c_str());
@@ -251,24 +248,19 @@ class FileServerHandler : public RequestHandler {
 
 
       // uploading process
-      void
-      upload(WebServer UNUSED &server, String UNUSED _requestUri, HTTPUpload &upload) override {
-        // ensure that filename starts with '/'
+      void upload(WebServer UNUSED &server, String UNUSED _requestUri, HTTPUpload &upload) override 
+      {
         static size_t uploadSize;
-
         if (upload.status == UPLOAD_FILE_START) {
           String fName = upload.filename;
-
           // Open the file for writing
-          if (!fName.startsWith("/")) { fName = "/" + fName; }
+          if (!fName.startsWith("/")) { fName = "/" + fName; } // ensure that filename starts with '/'
           TRACE2("start uploading file %s...\n", fName.c_str());
-
           if (LittleFS.exists(fName)) {
             LittleFS.remove(fName);
           }  // if
           _fsUploadFile = LittleFS.open(fName, "w");
           uploadSize = 0;
-
         } else if (upload.status == UPLOAD_FILE_WRITE) {
           // Write received bytes
           if (_fsUploadFile) {
@@ -277,7 +269,6 @@ class FileServerHandler : public RequestHandler {
               // upload failed
               TRACE2("  write error!\n");
               _fsUploadFile.close();
-
               // delete file to free up space in filesystem
               String fName = upload.filename;
               if (!fName.startsWith("/")) { fName = "/" + fName; }
@@ -288,7 +279,6 @@ class FileServerHandler : public RequestHandler {
             // TRACE2("written:: %d of %d\n", written, upload.currentSize);
             // TRACE2("totalSize: %d\n", upload.currentSize + upload.totalSize);
           }  // if
-
         } else if (upload.status == UPLOAD_FILE_END) {
             TRACE2("finished.\n");
           // Close the file
@@ -297,7 +287,6 @@ class FileServerHandler : public RequestHandler {
             TRACE2(" %d bytes uploaded.\n", upload.totalSize);
           }
         }  // if
-
       }  // upload()
 
 
@@ -305,128 +294,111 @@ class FileServerHandler : public RequestHandler {
       File _fsUploadFile;
 };
 
-   void defWebpages() {
 
-   TRACE2("Setup ntp...\n");
-   configTzTime(TIMEZONE, "es.pool.ntp.org");
-
-  TRACE2("Register redirect...\n");
-
-  // register a redirect handler when only domain name is given.
-  wserver.on("/", HTTP_GET, handleRedirect);
-
-  TRACE2("Register service handlers...\n");
-
-  // serve a built-in htm page
-  wserver.on("/$upload.htm", []() {
-    wserver.send(200, "text/html", FPSTR(uploadContent));
-  });
-  
-  // register some REST services
-  wserver.on("/$list", HTTP_GET, handleListFiles);
-  wserver.on("/$sysinfo", HTTP_GET, handleSysInfo);
-  wserver.on("/$restart", HTTP_GET, handleRestart);
-  
-  wserver.on("/download", HTTP_GET, []() {
-    // Extract the file name from the query parameter
-    if (!wserver.hasArg("file")) {
-      wserver.send(400, "text/plain", "Bad Request: Missing 'file' parameter");
-      return;
-    }
-    String filename = wserver.arg("file");
-    file_download(filename);
-  });
-
-  wserver.on("/$listfilter", HTTP_GET, []() {
-    // Extract the file name from the query parameter
-    if (!wserver.hasArg("file")) {
-      wserver.send(400, "text/plain", "Bad Request: Missing 'file' parameter");
-      return;
-    }
-    String filename = wserver.arg("file");
-    handleListFilter(filename);
-  });
-
-  wserver.on("/save_config", HTTP_POST, handleSaveConfig);
-
-  TRACE2("Register file system handlers...\n");
-  
-  // UPLOAD and DELETE of files in the file system using a request handler.
-  wserver.addHandler(new FileServerHandler());
-
-  // // enable CORS header in webserver results
-  wserver.enableCORS(true);
-/*
-  // enable ETAG header in webserver results (used by serveStatic handler)
-#if defined(CUSTOM_ETAG_CALC)
-  // This is a fast custom eTag generator. It returns a value based on the time the file was updated like
-  // ETag: 63bbceb5
-  wserver.enableETag(true, [](FS &fs, const String &path) -> String {
-    File f = fs.open(path, "r");
-    String eTag = String(f.getLastWrite(), 16);  // use file modification timestamp to create ETag
-    f.close();
-    return (eTag);
-  });
-
-#else
-  // enable standard ETAG calculation using md5 checksum of file content.
-  wserver.enableETag(true);
-#endif
-*/
-  // serve all static files
-  wserver.serveStatic("/", LittleFS, "/");
-
-  TRACE2("Register default (not found) answer...\n");
-
-  // handle cases when file is not found
-  wserver.onNotFound([]() {
-    // standard not found in browser.
-    wserver.send(404, "text/html", FPSTR(notFoundContent));
-  });
-
-   }
+void defWebpages() 
+{
+    TRACE2("Setup ntp...\n");
+    configTzTime(TIMEZONE, "es.pool.ntp.org");
+    TRACE2("Register redirect...\n");
+    // register a redirect handler when only domain name is given.
+    wserver.on("/", HTTP_GET, handleRedirect);
+    TRACE2("Register service handlers...\n");
+    // serve a built-in htm page
+    wserver.on("/$upload.htm", []() {
+      wserver.send(200, "text/html", FPSTR(uploadContent));
+    });
+    // register some REST services
+    wserver.on("/$list", HTTP_GET, handleListFiles);
+    wserver.on("/$sysinfo", HTTP_GET, handleSysInfo);
+    wserver.on("/$restart", HTTP_GET, handleRestart);
+    wserver.on("/download", HTTP_GET, []() {
+      // Extract the file name from the query parameter
+      if (!wserver.hasArg("file")) {
+        wserver.send(400, "text/plain", "Bad Request: Missing 'file' parameter");
+        return;
+      }
+      String filename = wserver.arg("file");
+      file_download(filename);
+    });
+    wserver.on("/$listfilter", HTTP_GET, []() {
+      // Extract the file name from the query parameter
+      if (!wserver.hasArg("file")) {
+        wserver.send(400, "text/plain", "Bad Request: Missing 'file' parameter");
+        return;
+      }
+      String filename = wserver.arg("file");
+      handleListFilter(filename);
+    });
+    wserver.on("/save_config", HTTP_POST, handleSaveConfig);
+    TRACE2("Register file system handlers...\n");
+    // UPLOAD and DELETE of files in the file system using a request handler.
+    wserver.addHandler(new FileServerHandler());
+    // // enable CORS header in webserver results
+    wserver.enableCORS(true);
+    /*
+      // enable ETAG header in webserver results (used by serveStatic handler)
+    #if defined(CUSTOM_ETAG_CALC)
+      // This is a fast custom eTag generator. It returns a value based on the time the file was updated like
+      // ETag: 63bbceb5
+      wserver.enableETag(true, [](FS &fs, const String &path) -> String {
+        File f = fs.open(path, "r");
+        String eTag = String(f.getLastWrite(), 16);  // use file modification timestamp to create ETag
+        f.close();
+        return (eTag);
+      });
+    #else
+      // enable standard ETAG calculation using md5 checksum of file content.
+      wserver.enableETag(true);
+    #endif
+    */
+    // serve all static files
+    wserver.serveStatic("/", LittleFS, "/");
+    TRACE2("Register default (not found) answer...\n");
+    // handle cases when file is not found
+    wserver.onNotFound([]() {
+      // standard not found in browser.
+      wserver.send(404, "text/html", FPSTR(notFoundContent));
+    });
+}
 
 
-   void setupWS(Config_parm &config)
-   {
-      // if (!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)) LOG_ERROR("could not mount the filesystem...");
-      if (!MDNS.begin(HOSTNAME)) LOG_ERROR("Error iniciando mDNS");
-      else LOG_INFO("mDNS iniciado");
-      httpUpdater.setup(&wserver, update_path, update_username, update_password);
-      defWebpages();
-      MDNS.addService("http", "tcp", WSPORT);
-      wserver.begin();
-      webServerAct = true;
+void setupWS(Config_parm &config)
+{
+  // if (!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)) LOG_ERROR("could not mount the filesystem...");
+  if (!MDNS.begin(HOSTNAME)) LOG_ERROR("Error iniciando mDNS");
+  else LOG_INFO("mDNS iniciado");
+  httpUpdater.setup(&wserver, update_path, update_username, update_password);
+  defWebpages();
+  MDNS.addService("http", "tcp", WSPORT);
+  wserver.begin();
+  webServerAct = true;
+  LOG_INFO("[WS] HTTPUpdateServer ready!");
+  Serial.printf("[WS]    --> Open http://%s.local:%d%s in your browser and login with username '%s' and password '%s'\n\n", WiFi.getHostname(), WSPORT, update_path, update_username, update_password);
+  TRACE2("hostname=%s\n", WiFi.getHostname());
+  LOG_INFO("[ConF][WS] IP address: ", WiFi.localIP());
+  LOG_INFO("[ConF][WS] activado webserver para actualizaciones OTA de SW o filesystem");
+  lcd.infoclear("OTA Webserver act", DEFAULTBLINK, BIPOK);
+  snprintf(buff, MAXBUFF, "\"%s.local:%d\"", WiFi.getHostname(), WSPORT);
+  lcd.info(buff, 3);
+  int msgl = snprintf(buff, MAXBUFF, "%s:%d" , WiFi.localIP().toString().c_str(), WSPORT);
+  lcd.info(buff, 4, msgl);
+}
 
-      LOG_INFO("[WS] HTTPUpdateServer ready!");
-      Serial.printf("[WS]    --> Open http://%s.local:%d%s in your browser and login with username '%s' and password '%s'\n\n", WiFi.getHostname(), WSPORT, update_path, update_username, update_password);
-      TRACE2("hostname=%s\n", WiFi.getHostname());
-      LOG_INFO("[ConF][WS] IP address: ", WiFi.localIP());
-      LOG_INFO("[ConF][WS] activado webserver para actualizaciones OTA de SW o filesystem");
-      lcd.infoclear("OTA Webserver act", DEFAULTBLINK, BIPOK);
-      snprintf(buff, MAXBUFF, "\"%s.local:%d\"", WiFi.getHostname(), WSPORT);
-      lcd.info(buff, 3);
-      int msgl = snprintf(buff, MAXBUFF, "%s:%d" , WiFi.localIP().toString().c_str(), WSPORT);
-      // IPAddress ip = WiFi.localIP();
-      // int msgl = snprintf(buff, MAXBUFF, "%d.%d.%d.%d:%d", ip[0], ip[1], ip[2], ip[3], WSPORT);
-      lcd.info(buff, 4, msgl);
-   }
+void procesaWebServer()
+{
+  wserver.handleClient();
+}  
 
-   void procesaWebServer()
-   {
-      wserver.handleClient();
-   }  
-
-   void endWS()
-   {
-      // TRACE2("cerrando filesystem...\n");
-      // LittleFS.end();
-      TRACE2("terminando MDNS...\n");
-      MDNS.end();
-      TRACE2("terminando webserver...\n");
-      wserver.stop();
-      webServerAct = false;
-   }
+void endWS()
+{
+  // TRACE2("cerrando filesystem...\n");
+  // LittleFS.end();
+  TRACE2("terminando MDNS...\n");
+  MDNS.end();
+  TRACE2("terminando webserver...\n");
+  wserver.stop();
+  webServerAct = false;
+}
 
 
 #endif
