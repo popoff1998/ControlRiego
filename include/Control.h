@@ -122,8 +122,8 @@
   #define DELAYRETRY          2000    // mseg de retardo entre reintentos
   #define MAXLEDLEVEL         255     // * nivel maximo leds RGB (0 a 255)
   #define DIMMLEVEL           50      // * nivel atenuacion leds RGB (0 a 255)
-  #define DEFAULTVOLUME       8       // volumen por defecto (0 a 10)
-  #define DEFAULTFINMELODY    MIMI    // melodia final riego grupo por defecto
+  #define DEFAULTVOLUME       8       // * volumen por defecto (0 a 10)
+  #define DEFAULTFINMELODY    MIMI    // * melodia final riego grupo por defecto
   #define I2C_CLOCK_SPEED     400000  // frecuencia del bus I2C en Hz (default 100000)
   #define LCD2004_address     0x27    // direccion bus I2C de la pantalla LCD
   #define ROTARY_ENCODER_STEPS 4      // TODO documentar
@@ -132,6 +132,8 @@
   #define TEMP_OFFSET_FACTOR  50      // * correccion temperatura factor ajuste (50% = x 0.5)
   #define TEMP_DATA_REMOTE    0       // * fuente del dato de temperatura 0=local/1=remota
                                       // [*] = configurables
+  // #define PARMFILE    "/config_parm.json"     // archivo de configuracion de parametros
+  // #define BACKUPFILE  "/config_backup.json"   // archivo de backup de configuracion de parametros
 
  //----------------  dependientes del HW   ----------------------------------------
   #ifdef ESP32
@@ -587,9 +589,12 @@
   bool checkDomoticz(void);
   int  checkWifi(bool level=false);
   void cleanFS(void);
+  String convertFileSize(const size_t);
+  String convertFileSize(const float);
   bool copyConfigFile(const char*, const char*);
   void debugloops(void);
   bool deleteParmFiles(void);
+  void deleteParmSignal(uint);
   String deviceInfo(int idx);
   String deviceInfo(int idx, char *campo);
   void dimmerLeds(bool);
@@ -612,7 +617,6 @@
   float getTemperatureDomoticz(uint16_t);
   uint16_t getMultiStatus(void);
   String *httpGetDomoticz(String *);
-  void setClock(void);
   void inicioTimeLastRiego(S_timeRiego&, int);
   void initEncoder(void);
   void initFactorRiegos(void);
@@ -633,7 +637,6 @@
   void listAllFilesInDir(fs::FS &fs, String dir_path);
   void listDir(fs::FS &fs, const char * , uint8_t);
   bool loadConfigFile(const char*, Config_parm&);
-  void deleteParmSignal(uint);
   void mcpIinit(void);
   void mcpOinit(void);
   void memoryInfo(void);
@@ -675,6 +678,7 @@
   bool saveConfigFile(const char*, Config_parm&);
   bool serialDetect(void);
   void setbIDgrupos(Config_parm&);
+  void setClock(void);
   void setEncoderMenu(int menuitems, int currentitem = 0);
   void setEncoderTime(void);
   void setEncoderRange(int , int , int , int);

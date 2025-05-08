@@ -1,3 +1,7 @@
+  <!-- 
+   Esta página, parmfile_edit.htm, permite editar los campos básicos de configuración 
+    realiza validaciones de los campos Botones y Grupos. 
+  -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,57 +10,25 @@
     <link Content-Type="text/css" href="/style_base.css" rel="stylesheet" />
     <title>Edicion parámetros</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            max-width: 50%;
-        }
-
-        table {
-            width: 90%;
-            border-collapse: collapse;
-            margin: 0 auto;  /* Center the table */
-            margin-top: 20px;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: center;
-        }
-        th {
-            background-color: #f4f4f4;
-        }
-        input {
-            width: 90%;
-            padding: 5px;
-            box-sizing: border-box;
-        }
-        button {
-            padding: 10px 15px;
-            background-color: #007BFF;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        p {
-            margin: 0;
-            padding: 0;
-            font-size: 0.9em;
-        }
+        body {font-family: Arial, sans-serif;display: flex;flex-direction: column;max-width: 50%;}
+        table {width: 90%;border-collapse: collapse;margin: 0 auto;margin-top: 20px;}
+        th, td {border: 1px solid #ddd;padding: 8px;text-align: center;}
+        th {background-color: #f4f4f4;}
+        input {width: 90%;padding: 5px;box-sizing: border-box;}
+        button {padding: 10px 15px;background-color: #007BFF;color: white;border: none;
+            border-radius: 5px;cursor: pointer;width: auto;}
+        button:hover {background-color: #0056b3;}
+        .edit-full-button {background-color: #d1caca;color: black;border: none;border-radius: 5px;padding: 10px 15px;cursor: pointer;}
+        .edit-full-button:hover {background-color: #b3b3b3;}
+        p {margin: 0;padding: 0;font-size: 0.9em;}
     </style>
 </head>
 <body>
     <h1>Editar parametros de configuracion BÁSICOS</h1>
-
+    
     <h2>Botones</h2>
     <p>Nombre: max. 9 caracteres.</p>
     <p>Idx = 0 para zonas no asignadas.</p>
-    <!-- <table style="table-layout: fixed; width: 100%;"> -->
     <table>
         <colgroup>
             <col style="width: 10%;">
@@ -117,19 +89,22 @@
         </tbody>    
     </table>    
         
-        <div style="margin-top: 20px;">
-            <button onclick="saveChanges()">Guardar Cambios y Salir</button>
-        </div>
-        
+        <div style="margin-top: 20px; margin-bottom: 20px; text-align: center;">
+            <button onclick="saveChanges()"><b>Guardar Cambios y Salir</b></button>
+        </div>  
+        <div style="margin-top: 5px; margin-bottom: 20px; text-align: center;">
+            <button type="button" onclick="editRaw()" class="edit-full-button">Edit Full</button>
+            <span style="display: inline-block; width: 20px;"></span>
+            <button type="button" onclick="window.location.href='parmfile.htm'" class="edit-full-button">Cancel</button>
+        </div>        
     <script>
         
         // Cargar las tablas al cargar la página
         window.addEventListener("load", () => {
             const urlParams = new URLSearchParams(window.location.search);
-            const fileName = urlParams.get('file') || 'config_parm.json'; // Default to 'config_parm.json' if no file is provided
-            console.log(fileName); // Debería mostrar "sampleParm.json"
-
-            //fetch(`/${fileName}`)
+            window.fileName = urlParams.get('file') || 'config_parm.json'; // window.fileName is now global
+            console.log(window.fileName);
+            // Realizar una solicitud fetch para obtener el contenido del archivo
             fetch(`${fileName}`)
                 .then(function (data) { return data.json(); })
                 .then(data => {
@@ -367,7 +342,8 @@
                     if (confirm("Cambios guardados correctamente. ¿Desea reiniciar el sistema para aplicar los cambios?")) {
                         window.location.href = '/$restart'; // Reiniciar el dispositivo para aplicar los cambios
                     } else {
-                        window.history.back(); // Cerrar y volver a la página anterior
+                        window.location.href = 'parmfile.htm'; // Cerrar y volver a la página parmfile.htm
+                        //window.history.back(); // Cerrar y volver a la página anterior
                     }
                 } else {
                     alert("Error al guardar los cambios.");
@@ -378,6 +354,12 @@
                 alert("Ocurrió un error al intentar guardar los cambios.");
             });
         }
+
+        function editRaw() {
+                window.open(`parmfile_editRaw.htm?file=${window.fileName}`, '_self'); // Open in the same tab
+            }
+
+
     </script>
 </body>
 </html>

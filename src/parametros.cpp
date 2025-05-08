@@ -325,12 +325,8 @@ void listDir(fs::FS &fs, const char * dirname, uint8_t levels){
 
 String sysInfo() {
   
-  int fileTotalKB = (float)LittleFS.totalBytes() / 1024.0; 
-  int fileUsedKB = (float)LittleFS.usedBytes() / 1024.0; 
-  int FreeSketchSpace = ESP.getFreeSketchSpace();
-  int sketchSize = ESP.getSketchSize();
-  int sketchAvailable = ((sketchSize + FreeSketchSpace)/2) - sketchSize;
-  int sketchPercentUsed = ((float) sketchSize / (float) FreeSketchSpace) * 100;
+  int sketchPercentUsed = ((float) ESP.getSketchSize() / (float) ESP.getFreeSketchSpace()) * 100;
+  int filesPercentUsed = ((float) LittleFS.usedBytes() / (float) LittleFS.totalBytes()) * 100;
 
   String result;
   result += "{\n";
@@ -338,15 +334,15 @@ String sysInfo() {
   result += "  \"Chip Model\": \"" + String(ESP.getChipModel()) + "\",\n";
   result += "  \"Chip Cores\": " + String(ESP.getChipCores()) + ",\n";
   result += "  \"Chip Revision\": " + String(ESP.getChipRevision()) + ",\n";
-  result += "  \"FlashSize\": " + String(ESP.getFlashChipSize()) + ",\n";
-  result += "  \"SketchSpace \": \"" + String(ESP.getFreeSketchSpace()) + "\",\n";
+  result += "  \"FlashSize\": \"" + convertFileSize(ESP.getFlashChipSize()) + "\",\n";
+  result += "  \"SketchSpace \": \"" + convertFileSize(ESP.getFreeSketchSpace()) + "\",\n";
   result += "  \"SketchSize  (percent used)\": \"" + String(ESP.getSketchSize()) + "   (" + String(sketchPercentUsed) + "%)\",\n";
   result += "  \"HeapSize\": " + String(ESP.getHeapSize()) + ",\n";
   result += "  \"FreeHeap\": " + String(ESP.getFreeHeap()) + ",\n";
   result += "  \"MaxAllocHeap (largest free block)\": " + String(ESP.getMaxAllocHeap()) + ",\n";
   result += "  \"MinFreeHeap (lowes since boot)\": " + String(ESP.getMinFreeHeap()) + ",\n";
-  result += "  \"File System Total KB\": \"" + String(fileTotalKB) + " KB\",\n";
-  result += "  \"File System Used KB\": \"" + String(fileUsedKB) + " KB\",\n";
+  result += "  \"File System Total\": \"" + convertFileSize(LittleFS.totalBytes()) + "\",\n";
+  result += "  \"File System Used (percent used)\": \"" + convertFileSize(LittleFS.usedBytes()) + "   (" + String(filesPercentUsed) + "%)\",\n";
   result += "  \"ESP32 temperature\": \"" + String(temperatureRead()) + " ºC\"\n";
   result += "}";
 

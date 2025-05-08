@@ -1,3 +1,10 @@
+  <!-- 
+   Esta página, parmfile.htm, permite gestionar el fichero de parámetros de la CCR.
+   Permite cargar un nuevo fichero de parámetros desde el PC o crear uno nuevo a partir de una plantilla 
+   Tambien ver el contenido del fichero actual, descargarlo al PC, hacerle un backup o editarlo
+   Ademas permite ver el contenido del fichero de backup y hacer un restore de este al fichero de parámetros actual. 
+ --> 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -67,7 +74,8 @@ button {
             }
 
             const formData = new FormData();
-            formData.append('file', file, 'config_parm.json'); // Specify the filename here
+            formData.append('file', file, '%PARMFILE%'); // Specify the filename here
+            //formData.append('file', file, 'config_parm.json'); // Specify the filename here
             // If you want to keep the original filename, you can use the line below instead:
             //formData.append('file', file);
 
@@ -94,7 +102,7 @@ button {
             if (confirm("¿Desea crear un nuevo archivo de parámetros? (los actuales serán borrados)")) {
                 window.open('parmfile_edit.htm?file=sampleParm.json', '_self'); // Open in the same tab
                 //window.location.href = 'parmfile_edit.htm?file=sampleParm.json'; // Open in the same tab
-                //window.open('parmfile_edit.htm?file=sampleParm.json', '_blank');
+                //window.open('parmfile_edit.htm?file=sampleParm.json', '_blank'); // Open in a new tab
             }
             }
         </script>
@@ -133,13 +141,13 @@ button {
 
         // Fetch and display the data when the page loads
         window.addEventListener("load", () => {
-            fetch('/$listfilter?file=' + 'config_parm.json')
+            fetch('/$listfilter?file=' + encodeURIComponent('%PARMFILE%'))
                 .then(function (data) { return data.json(); })
                 .then(data => {
                     populateTable(data, "parmTableBody");
                 })
                 .catch(error => console.error("Error fetching file data:", error));
-            fetch('/$listfilter?file=' + 'config_backup.json')
+            fetch('/$listfilter?file=' + encodeURIComponent('%BACKUPFILE%'))
                 .then(function (data) { return data.json(); })
                 .then(data => {
                     populateTable(data, "backupTableBody");

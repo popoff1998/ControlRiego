@@ -78,6 +78,9 @@ void handleRedirect()
 // a JSON array with file information is returned.
 void handleListFilter(String filter) 
 {
+  if (filter == "%PARMFILE%") { filter = parmFile; } // replace the %PARMFILE% with the real filename in variable parmFile
+  if (filter == "%BACKUPFILE%") { filter = backupParmFile; } // replace the %BACKUPFILE% with the real filename in variable backupParmFile
+  if (filter.startsWith("/")) { filter = filter.substring(1); }
   TRACE2("handleListFilter filter: %s\n", filter.c_str());
   File dir = LittleFS.open("/" , "r");
   TRACE2("handleListFilter dir: %s\n", dir.name());
@@ -122,6 +125,33 @@ void handleListFiles()
   wserver.send(200, "text/javascript; charset=utf-8", result);
 }  // handleListFiles()
 
+void handleFileList() {
+  if (!wserver.hasArg("dir")) {
+    wserver.send(500, "text/plain", "BAD ARGS");
+    return;
+  }
+  String path = wserver.arg("dir");
+  TRACE2("handleFileList: %s", path);
+  File root = LittleFS.open(path);
+  path = String();
+  String output = "[";
+  if (root.isDirectory()) {
+    File file = root.openNextFile();
+    while (file) {
+      if (output != "[") {
+        output += ',';
+      }
+      output += "{\"type\":\"";
+      output += (file.isDirectory()) ? "dir" : "file";
+      output += "\",\"name\":\"";
+      output += String(file.path()).substring(1);
+      output += "\"}";
+      file = root.openNextFile();
+    }
+  }
+  output += "]";
+  wserver.send(200, "text/json", output);
+}
 
 // This function is called when the WebServer was requested to restart the ESP32.
 void handleRestart() 
@@ -152,7 +182,7 @@ void handleSaveConfig()
     // Obtener el cuerpo de la solicitud (JSON enviado por el cliente)
     String jsonBody = wserver.arg("plain");
     // Guardar el JSON en un archivo en el sistema de archivos
-    File configFile = LittleFS.open("/config_parm.json", "w");
+    File configFile = LittleFS.open(parmFile, "w");
     if (!configFile) {
         wserver.send(500, "text/plain", "Internal Server Error: Could not open file for writing");
         return;
@@ -163,6 +193,25 @@ void handleSaveConfig()
     // Responder al cliente con éxito
     wserver.send(200, "text/plain", "Configuration saved successfully");
 }
+
+void handleAdvancedPage() {
+  // Verificar credenciales
+  if (!wserver.authenticate(update_username, update_password)) {
+      wserver.requestAuthentication(); // Solicitar autenticación si las credenciales son incorrectas
+      return;
+  }
+
+  // Enviar la página si las credenciales son correctas
+  File advancedFile = LittleFS.open("/advanced.htm", "r");
+  if (!advancedFile) {
+    wserver.send(500, "text/plain", "Internal Server Error: Could not open advanced.htm");
+    return;
+  }
+  String advancedContent = advancedFile.readString();
+  advancedFile.close();
+  wserver.send(200, "text/html", advancedContent);
+}
+
 
 void file_download(String filename)
 {
@@ -253,6 +302,7 @@ class FileServerHandler : public RequestHandler {
         static size_t uploadSize;
         if (upload.status == UPLOAD_FILE_START) {
           String fName = upload.filename;
+          if (fName == "%PARMFILE%") { fName = parmFile; } // replace the %PARMFILE% with the real filename in variable parmFile
           // Open the file for writing
           if (!fName.startsWith("/")) { fName = "/" + fName; } // ensure that filename starts with '/'
           TRACE2("start uploading file %s...\n", fName.c_str());
@@ -294,7 +344,6 @@ class FileServerHandler : public RequestHandler {
       File _fsUploadFile;
 };
 
-
 void defWebpages() 
 {
     TRACE2("Setup ntp...\n");
@@ -308,6 +357,7 @@ void defWebpages()
       wserver.send(200, "text/html", FPSTR(uploadContent));
     });
     // register some REST services
+    wserver.on("/advanced.htm", HTTP_GET, handleAdvancedPage); // handle advanced.htm page with authentication
     wserver.on("/$list", HTTP_GET, handleListFiles);
     wserver.on("/$sysinfo", HTTP_GET, handleSysInfo);
     wserver.on("/$restart", HTTP_GET, handleRestart);
@@ -400,5 +450,105 @@ void endWS()
   webServerAct = false;
 }
 
+/*
+
+  ServerUtils.hpp
+  
+  */
+
+  String GetContentType(String filename)
+  {
+    if(filename.endsWith(".htm")) return "text/html";
+    else if(filename.endsWith(".html")) return "text/html";
+    else if(filename.endsWith(".css")) return "text/css";
+    else if(filename.endsWith(".js")) return "application/javascript";
+    else if(filename.endsWith(".png")) return "image/png";
+    else if(filename.endsWith(".gif")) return "image/gif";
+    else if(filename.endsWith(".jpg")) return "image/jpeg";
+    else if(filename.endsWith(".ico")) return "image/x-icon";
+    else if(filename.endsWith(".xml")) return "text/xml";
+    else if(filename.endsWith(".pdf")) return "application/x-pdf";
+    else if(filename.endsWith(".zip")) return "application/x-zip";
+    else if(filename.endsWith(".gz")) return "application/x-gzip";
+    return "text/plain";
+  }
+  
+  void ServeFile(String path)
+  {
+     File file = LittleFS.open(path, "r");
+     size_t sent = wserver.streamFile(file, GetContentType(path));
+     file.close();
+  }
+  
+  void ServeFile(String path, String contentType)
+  {
+     File file = LittleFS.open(path, "r");
+     size_t sent = wserver.streamFile(file, contentType);
+     file.close();
+  }
+  
+  bool HandleFileRead(String path) 
+  { 
+    if (path.endsWith("/")) path += "index.html";
+    Serial.println("handleFileRead: " + path);
+    
+    if (LittleFS.exists(path)) 
+    {
+      ServeFile(path);
+      return true;
+    }
+    Serial.println("\tFile Not Found");
+    return false;
+  }
+  
+  bool HandleFileReadGzip(String path) 
+  { 
+    if (path.endsWith("/")) path += "index.html";
+    Serial.println("handleFileRead: " + path);
+    
+    if (LittleFS.exists(path)) 
+    {
+      ServeFile(path, GetContentType(path));
+      return true;
+    }
+    else 
+    {
+      String pathWithGz = path + ".gz";
+      if (LittleFS.exists(pathWithGz)) 
+      {
+        ServeFile(pathWithGz, GetContentType(path));
+        return true;
+      }
+    }
+    Serial.println("\tFile Not Found");
+    return false;
+  }
+
+  String convertFileSize(const size_t bytes)
+  {
+    if(bytes < 1024)
+    {
+      return String(bytes) + " B";
+    }
+    else if (bytes < 1048576)
+    {
+      return String(bytes / 1024) + " KB";  //sin decimales
+      //return String(bytes / 1024.0) + " KB";
+    }
+    return String(bytes / 1048576.0) + " MB";
+  }
+  
+  String convertFileSize(const float bytes)
+  {
+    if(bytes < 1024)
+    {
+      return String(bytes) + " B";
+    }
+    else if (bytes < 1048576)
+    {
+      return String(bytes / 1024.0) + " KB";
+    }
+    return String(bytes / 1048576.0) + " MB";
+  }  
 
 #endif
