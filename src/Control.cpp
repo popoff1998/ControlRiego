@@ -82,9 +82,7 @@ void setup()
   }
   LittleFS.end();
   delay(2000);
-  //Ponemos en hora
-  timeClient.begin();
-  delay(500);
+  //Obtenemos hora del servidor ntp y ajustamos hora del sistema y timezone
   setClock();
   //Inicializamos lastRiegos y lastGrupos (registro fecha/hora y riego realizado)
   initLastRiegos();
@@ -759,19 +757,16 @@ void procesaEstadoStandby(void)
   // verificaciones en STANDBY cada VERIFY_INTERVAL segundos
   //  - actualiza y muestra temperatura ambiente
   //  - verificacion de wifi y recuperacion si procede
-  //  - actualizacion de hora por NTP si no la tenemos actualizada o ha pasado NTPUPDATEINTERVAL horas
+  //  - actualizacion de hora por NTP si no la tenemos actualizada
   if (flagV) { 
     LOG_TRACE(".");
     if (multi.riegoON) return; //no se hacen verificaciones/acciones con multirriego en curso
     showTemp();  // muestra temperatura ambiente en standby
     wifiVerifyRecovery(config, Estado); //verificacion de wifi y recuperacion si procede
-    // si tenemos conexion y no hemos recibido time por NTP o han pasado NTPUPDATEINTERVAL minutos
-    // desde la ultima sincronizacion -> actualizamos time del sistema con el del servidor NTP
-    if (connected && (!timeOK || millis() > NTPlastUpdate + NTPUPDATEINTERVAL * 60000 )) {
+    // si tenemos conexion y no hemos recibido time por NTP -> actualizamos time del sistema con el del servidor NTP
+    if (connected && !timeOK) {
         LOG_TRACE("LLamando a setClock");
         setClock();
-        // en cualquier caso, si timeOK, no intentaremos volver a resincronizar hasta que haya pasado otro NTPUPDATEINTERVAL 
-        NTPlastUpdate = millis(); 
       }
   }   
 
@@ -1012,18 +1007,36 @@ void timeByFactor(int factor,uint8_t *fminutes, uint8_t *fseconds)
 void setClock()
 {
   LOG_TRACE("");
-  if (timeClient.update()) {
-    NTPlastUpdate = millis();
-    setTime(timeClient.getEpochTime());  // set reloj del sistema con el time recibido por NTP
-    timeOK = true;
-    time_t t = CE.toLocal(now(),&tcr);
-    LOG_INFO("\n NTP time recibido OK  (UTC) --> ",timeClient.getFormattedTime(),"  local --> ",TS2Hour(t));
-  }  
-   else {  // si se recibio al menos una vez anteriormente consideramos valida la hora del sistema
-     if (timeOK) LOG_WARN("no se ha recibido time por NTP desde",(millis()-NTPlastUpdate)/60000,"minutos");
-     else LOG_WARN(">>> NO TIME SET by NTP <<<");
-   }
+  // set reloj del ESP32 y timezone con el time recibido por NTP (se actualizara automaticamente cada 3 horas (default))
+  configTzTime(TZ_Europe_Madrid, config.ntpServer); 
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo, NTP_TIMEOUT)) {
+    timeOK = false;
+    LOG_WARN(">>> NO TIME SET by NTP <<<");
+    return;
+  }
+  timeOK = true;
+  LOG_INFO(">>> TIME SET by NTP <<<     Local time: ", asctime(&timeinfo));
 }
+
+time_t tLoc()
+{
+  getLocalTime(&tmd);  //set &tmd to actual local time/date
+  //copy tmd struct to tmElements_t struct
+  tmElements_t tmElements;
+  tmElements.Second = tmd.tm_sec;
+  tmElements.Minute = tmd.tm_min;
+  tmElements.Hour = tmd.tm_hour;
+  tmElements.Day = tmd.tm_mday;
+  tmElements.Month = tmd.tm_mon + 1; // tm_mon is 0-based
+  tmElements.Year = tmd.tm_year - 70;    // tm_year is years since 1900 , Year is years since 1970
+  //calculate time_t from tmElements_t struct
+  // makeTime() NO tiene en cuenta el timezone del sistema (from TimeLib)  --> devuelve time local en este caso
+  // mktime() si lo tiene en cuenta (from time.h) --> devolveria time UTC
+  time_t tLocal = makeTime(tmElements);
+  return tLocal;
+}
+
 
 void initEncoder() {
     LOG_TRACE("");
@@ -1064,11 +1077,9 @@ void setEncoderMenu(int menuitems, int currentitem) {
 void ultimosRiegos(int modo)
 {
   LOG_TRACE("modo:",modo);
+  time_t t = tLoc();
   switch(modo) {
     case SHOW:
-      time_t t;
-      utc = timeClient.getEpochTime();
-      t = CE.toLocal(utc,&tcr);
       for(uint i=0;i<NUMZONAS;i++) {
         if(lastRiegos[i].inicio > previousMidnight(t)) {
             LOG_DEBUG("[ULTIMOSRIEGOS] zona:", i+1, "time:",lastRiegos[i].inicio);
@@ -1094,8 +1105,7 @@ void ultimosRiegos(int modo)
 
 void inicioTimeLastRiego(S_timeRiego &timeRiego, int index) 
 {
-  utc = timeClient.getEpochTime();
-  time_t t = CE.toLocal(utc,&tcr);
+  time_t t = tLoc();
   LOG_DEBUG("actualizo lastriegos inicio zona/grupo ", index+1);
   timeRiego.inicio = t;
   timeRiego.final = 0;
@@ -1103,8 +1113,7 @@ void inicioTimeLastRiego(S_timeRiego &timeRiego, int index)
 
 void finalTimeLastRiego(S_timeRiego &timeRiego, int index) 
 {
-  utc = timeClient.getEpochTime();
-  time_t t = CE.toLocal(utc,&tcr);
+  time_t t = tLoc();
   LOG_DEBUG("actualizo lastriegos fin zona/grupo ", index+1);
   timeRiego.final = t;
 }  
@@ -1699,7 +1708,7 @@ void Verificaciones()
      Con flagV activado, se realizan las siguientes verificaciones periodicas:
       - estado de la wifi y recuperacion de la conexion si no la hay (en procesaEstadoStandby y procesaEstadoError)
       - actualiza y muestra nivel señal wifi si procede (en procesaEstadoStandby)
-      - actualizacion de hora por NTP si procede (en procesaEstadoStandby)
+      - actualizacion de hora por NTP si no se hubiera hecho ya (en procesaEstadoStandby)
       - actualiza y muestra temperatura ambiente (en procesaEstadoStandby)
       - recordatorio error grave al parar un riego (en procesaEstadoError)
       - si VERIFY=true, verifica que el estado de la zona en RIEGO coincide con el de Domoticz (en procesaEstadoRegando)

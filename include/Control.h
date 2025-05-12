@@ -40,9 +40,8 @@
   #include <WifiUdp.h>
   #include <WiFiManager.h> 
   #include <SPI.h>
-  #include <NTPClient.h>
   #include <Time.h>
-  #include <Timezone.h>
+  #include <TimeLib.h>
   #include <AiEsp32RotaryEncoder.h>
   #include <CountUpDownTimer.h>
   #define ARDUINOJSON_ENABLE_COMMENTS 1
@@ -57,7 +56,6 @@
       #include <WebServer.h>
     #ifdef WEBSERVER
       #include <ESPmDNS.h>
-      // #include <HTTPUpdateServer.h>
       #include "HTTPUpdateServerLittleFs.h"
     #endif
     #ifdef TEMPLOCAL
@@ -108,6 +106,8 @@
     #define DEFAULTSECONDS      10
     #define RECONNECTINTERVAL   1       // tiempo en minutos para intentar reconexion a la wifi
   #endif
+  #define TZ_Europe_Madrid    "CET-1CEST,M3.5.0,M10.5.0/3"  // time zone en formato TZ posix
+  #define NTP_TIMEOUT         7000    // tiempo de espera para recibir respuesta del servidor NTP en mseg
   #define STANDBYSECS         30      // tiempo en segundos para pasar a reposo desde standby (apagar pantalla y atenuar leds)
   #define NTPUPDATEINTERVAL   600     // tiempo en minutos para resincronizar el reloj del sistema con el servidor NTP
   #define DEFAULTBLINK        4       // numero de parpadeos de la pantalla
@@ -531,12 +531,7 @@
     WiFiClient client;
     HTTPClient httpclient;
     WiFiUDP    ntpUDP;
-    NTPClient timeClient(ntpUDP,config.ntpServer);
-    TimeChangeRule CEST = {"CEST", Last, Sun, Mar, 2, 120};
-    TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};
-    Timezone CE(CEST, CET);
-    TimeChangeRule *tcr;
-    time_t utc;
+    struct tm tmd;  // C Time struct
     CountUpDownTimer T(DOWN);
     S_BOTON  *ultimoBotonZona;
     S_Estado Estado;
@@ -629,6 +624,7 @@
   bool initRiego(void);
   void initWire(void);
   void led(uint8_t,int);
+  int  ledlevel(void);
   void ledYellow(int);
   void ledPWM(uint8_t, int);
   void ledRGB(int,int,int);
@@ -685,7 +681,6 @@
   void setEstado(uint8_t estado, int bnum = 0);
   void setledRGB(void);
   void showTemp(void);
-  int  ledlevel(void);
   int  setMultibyId(uint16_t , Config_parm&);
   bool setMultirriego(Config_parm&);
   void setupConfig(void);
@@ -703,6 +698,7 @@
   bool stopAllRiego(void);
   String sysInfo(void);
   bool testButton(uint16_t, bool);
+  time_t tLoc(void);
   void timeByFactor(int,uint8_t *,uint8_t *);
   int  tmvalue(void);
   String TS2Date(time_t);
