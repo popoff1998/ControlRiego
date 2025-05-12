@@ -41,7 +41,7 @@
    #define UNUSED __attribute__((unused))
 
    // local time zone definition (Madrid)
-   #define TIMEZONE "CET-1CEST,M3.5.0,M10.5.0/3"
+   //#define TIMEZONE "CET-1CEST,M3.5.0/2,M10.5.0/3"
 
 
    //int wsport = 8080;
@@ -74,25 +74,38 @@ void handleRedirect()
 }  // handleRedirect()
 
 
-// This function is called when the WebServer was requested to list files in the filesystem.
+// This function is called when the WebServer was requested to list existing files in the filesystem.
+// The request can contain the following arguments:
+// - dir: the directory to be listed (default is '/')
+// - file: the filter for the file names (default is '')
 // a JSON array with file information is returned.
-void handleListFilter(String filter) 
+void handleListFiles() 
 {
-  if (filter == "%PARMFILE%") { filter = parmFile; } // replace the %PARMFILE% with the real filename in variable parmFile
-  if (filter == "%BACKUPFILE%") { filter = backupParmFile; } // replace the %BACKUPFILE% with the real filename in variable backupParmFile
-  if (filter.startsWith("/")) { filter = filter.substring(1); }
-  TRACE2("handleListFilter filter: %s\n", filter.c_str());
-  File dir = LittleFS.open("/" , "r");
-  TRACE2("handleListFilter dir: %s\n", dir.name());
+  TRACE2("handleListFiles, Argumentos recibidos:\n");
+  for (int i = 0; i < wserver.args(); i++) {
+      TRACE2("  %s: %s\n", wserver.argName(i).c_str(), wserver.arg(i).c_str());
+  }
+  String path = "/";
+  if (wserver.hasArg("dir")) path = wserver.arg("dir");
+  TRACE2("handleListFiles, listing: %s\n", path);
+  String filter = "";
+  if (wserver.hasArg("file")) {
+    filter = wserver.arg("file");
+    if (filter == "%PARMFILE%") { filter = parmFile; } // replace the %PARMFILE% with the real filename in variable parmFile
+    if (filter == "%BACKUPFILE%") { filter = backupParmFile; } // replace the %BACKUPFILE% with the real filename in variable backupParmFile
+    if (filter.startsWith("/")) { filter = filter.substring(1); }
+    TRACE2("handleListFiles filter: %s\n", filter.c_str());
+  }
+  File dir = LittleFS.open(path, "r");
   String result;
   result += "[\n";
   while (File entry = dir.openNextFile()) {
     String filename = String(entry.name());
-    if (filename.startsWith(filter)) {
-        if (result.length() > 4) { result += ",\n"; }
+    if (filename.startsWith(filter) || filter == "") {
+        if (result != "[\n") { result += ",\n"; }
         result += "  {";
-        result += "\"type\": \"file\", ";
-        result += "\"name\": \"" + String(entry.name()) + "\", ";
+        result += "\"type\": \"" + String(entry.isDirectory() ? "dir" : "file") + "\", ";
+        result += "\"name\": \"" + String(entry.path()).substring(1) + "\", ";
         result += "\"size\": " + String(entry.size()) + ", ";
         result += "\"time\": " + String(entry.getLastWrite());
         result += "}";
@@ -100,58 +113,9 @@ void handleListFilter(String filter)
   }  // while
   result += "\n]";
   wserver.sendHeader("Cache-Control", "no-cache");
-  wserver.send(200, "text/javascript; charset=utf-8", result);
+  wserver.send(200, "text/json; charset=utf-8", result);
 }  // handleListFiles()
 
-
-// This function is called when the WebServer was requested to list all existing files in the filesystem.
-// a JSON array with file information is returned.
-void handleListFiles() 
-{
-  File dir = LittleFS.open("/", "r");
-  String result;
-  result += "[\n";
-  while (File entry = dir.openNextFile()) {
-    if (result.length() > 4) { result += ",\n"; }
-    result += "  {";
-    result += "\"type\": \"file\", ";
-    result += "\"name\": \"" + String(entry.name()) + "\", ";
-    result += "\"size\": " + String(entry.size()) + ", ";
-    result += "\"time\": " + String(entry.getLastWrite());
-    result += "}";
-  }  // while
-  result += "\n]";
-  wserver.sendHeader("Cache-Control", "no-cache");
-  wserver.send(200, "text/javascript; charset=utf-8", result);
-}  // handleListFiles()
-
-void handleFileList() {
-  if (!wserver.hasArg("dir")) {
-    wserver.send(500, "text/plain", "BAD ARGS");
-    return;
-  }
-  String path = wserver.arg("dir");
-  TRACE2("handleFileList: %s", path);
-  File root = LittleFS.open(path);
-  path = String();
-  String output = "[";
-  if (root.isDirectory()) {
-    File file = root.openNextFile();
-    while (file) {
-      if (output != "[") {
-        output += ',';
-      }
-      output += "{\"type\":\"";
-      output += (file.isDirectory()) ? "dir" : "file";
-      output += "\",\"name\":\"";
-      output += String(file.path()).substring(1);
-      output += "\"}";
-      file = root.openNextFile();
-    }
-  }
-  output += "]";
-  wserver.send(200, "text/json", output);
-}
 
 // This function is called when the WebServer was requested to restart the ESP32.
 void handleRestart() 
@@ -347,7 +311,7 @@ class FileServerHandler : public RequestHandler {
 void defWebpages() 
 {
     TRACE2("Setup ntp...\n");
-    configTzTime(TIMEZONE, "es.pool.ntp.org");
+    // configTzTime(TIMEZONE, "es.pool.ntp.org");
     TRACE2("Register redirect...\n");
     // register a redirect handler when only domain name is given.
     wserver.on("/", HTTP_GET, handleRedirect);
@@ -369,15 +333,6 @@ void defWebpages()
       }
       String filename = wserver.arg("file");
       file_download(filename);
-    });
-    wserver.on("/$listfilter", HTTP_GET, []() {
-      // Extract the file name from the query parameter
-      if (!wserver.hasArg("file")) {
-        wserver.send(400, "text/plain", "Bad Request: Missing 'file' parameter");
-        return;
-      }
-      String filename = wserver.arg("file");
-      handleListFilter(filename);
     });
     wserver.on("/save_config", HTTP_POST, handleSaveConfig);
     TRACE2("Register file system handlers...\n");
@@ -461,12 +416,13 @@ void endWS()
     if(filename.endsWith(".htm")) return "text/html";
     else if(filename.endsWith(".html")) return "text/html";
     else if(filename.endsWith(".css")) return "text/css";
-    else if(filename.endsWith(".js")) return "application/javascript";
+    else if(filename.endsWith(".json")) return "text/json";
+    else if(filename.endsWith(".xml")) return "text/xml";
     else if(filename.endsWith(".png")) return "image/png";
     else if(filename.endsWith(".gif")) return "image/gif";
     else if(filename.endsWith(".jpg")) return "image/jpeg";
     else if(filename.endsWith(".ico")) return "image/x-icon";
-    else if(filename.endsWith(".xml")) return "text/xml";
+    else if(filename.endsWith(".js")) return "application/javascript";
     else if(filename.endsWith(".pdf")) return "application/x-pdf";
     else if(filename.endsWith(".zip")) return "application/x-zip";
     else if(filename.endsWith(".gz")) return "application/x-gzip";

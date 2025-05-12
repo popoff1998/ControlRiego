@@ -29,7 +29,7 @@
             // Filename
             const filenameCell = document.createElement("td");
             const filenameLink = document.createElement("a");
-            filenameLink.href = '/' + file.name; // Assuming the file can be accessed directly via this URL
+            filenameLink.href = file.type == "dir" ? '/files.htm?dir=/'+file.name : '/' + file.name; 
             filenameLink.target = "_blank"; // Open in a new tab
             filenameLink.textContent = file.name;
             filenameCell.appendChild(filenameLink);
@@ -37,7 +37,8 @@
 
             // Size
             const sizeCell = document.createElement("td");
-            sizeCell.textContent = file.size;
+            //sizeCell.textContent = file.size;
+            sizeCell.textContent = file.type == "dir" ? "directory" : file.size;
             sizeCell.style.textAlign = "center";
             sizeCell.style.width = "15%";
             row.appendChild(sizeCell);
@@ -79,7 +80,8 @@
                 });
                 restoreButton.className = "button-restore"; // Add a class for styling (color teja)
                 actionCell.appendChild(restoreButton);
-            } else if (tableId === "filesTableBody") {
+            } else if (tableId === "filesTableBody" && file.type == "file") {
+                // Only show download and delete buttons for files
                 const buttonContainer = document.createElement("div");
                 buttonContainer.style.display = "flex";
                 buttonContainer.style.flexWrap = "wrap";

@@ -141,13 +141,13 @@ button {
 
         // Fetch and display the data when the page loads
         window.addEventListener("load", () => {
-            fetch('/$listfilter?file=' + encodeURIComponent('%PARMFILE%'))
+            fetch('/$list?file=' + encodeURIComponent('%PARMFILE%'))
                 .then(function (data) { return data.json(); })
                 .then(data => {
                     populateTable(data, "parmTableBody");
                 })
                 .catch(error => console.error("Error fetching file data:", error));
-            fetch('/$listfilter?file=' + encodeURIComponent('%BACKUPFILE%'))
+            fetch('/$list?file=' + encodeURIComponent('%BACKUPFILE%'))
                 .then(function (data) { return data.json(); })
                 .then(data => {
                     populateTable(data, "backupTableBody");
