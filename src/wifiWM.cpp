@@ -24,6 +24,7 @@ WiFiManager wm;
 WiFiManagerParameter custom_domoticz_server("domoticz_ip", "Domoticz_ip");
 WiFiManagerParameter custom_domoticz_port("domoticz_port", "puerto");
 WiFiManagerParameter custom_ntpserver("ntpServer", "NTP_server");
+WiFiManagerParameter custom_timezone("timeZone", "timezone");
 
 //llamado cuando WiFiManager sale del modo configuracion
 void saveWifiCallback() {
@@ -122,9 +123,11 @@ void setupRedWM(Config_parm &config, S_initFlags &initFlags)
   wm.addParameter(&custom_domoticz_server);
   wm.addParameter(&custom_domoticz_port);
   wm.addParameter(&custom_ntpserver);
+  wm.addParameter(&custom_timezone);
   custom_domoticz_server.setValue(config.domoticz_ip, 40);
   custom_domoticz_port.setValue(config.domoticz_port, 5);
   custom_ntpserver.setValue(config.ntpServer, 40);
+  custom_timezone.setValue(config.TZ, 100);
   if(noWIFI) return;
   lcd.infoclear("conectando WIFI");
   tic_WifiLed.attach(0.2, parpadeoLedWifi); // Empezamos el temporizador que hará parpadear el LED indicador de wifi
@@ -183,6 +186,7 @@ void setupRedWM(Config_parm &config, S_initFlags &initFlags)
     strcpy(config.domoticz_ip, custom_domoticz_server.getValue());
     strcpy(config.domoticz_port, custom_domoticz_port.getValue());
     strcpy(config.ntpServer, custom_ntpserver.getValue());
+    strcpy(config.TZ, custom_timezone.getValue());
   }
   //dejamos activado evento de desconexion o conexion ?? (wifi events):
   // WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);

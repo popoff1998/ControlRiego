@@ -92,7 +92,7 @@
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0]))
        
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.2-RC6"
+                            #define VERSION  "3.2-RC7"
   //-------------------------------------------------------------------------------------
 
   //Comportamiento General
@@ -106,6 +106,7 @@
     #define DEFAULTSECONDS      10
     #define RECONNECTINTERVAL   1       // tiempo en minutos para intentar reconexion a la wifi
   #endif
+  #define NTPSERVER_SPAIN     "es.pool.ntp.org"  // servidor NTP por defecto
   #define TZ_Europe_Madrid    "CET-1CEST,M3.5.0,M10.5.0/3"  // time zone en formato TZ posix
   #define NTP_TIMEOUT         7000    // tiempo de espera para recibir respuesta del servidor NTP en mseg
   #define STANDBYSECS         30      // tiempo en segundos para pasar a reposo desde standby (apagar pantalla y atenuar leds)
@@ -398,7 +399,8 @@
     Grupo_parm group[n_Grupos+1];            // +1 para sitio para grupo temporal n+1
     char domoticz_ip[40];
     char domoticz_port[6];
-    char ntpServer[40] = "es.pool.ntp.org";
+    char ntpServer[40] = NTPSERVER_SPAIN;       // servidor NTP por defecto
+    char TZ[100] = TZ_Europe_Madrid;            // time zone por defecto en formato TZ posix
     uint8_t   minutes = DEFAULTMINUTES;         // tiempo de riego por defecto
     uint8_t   seconds = DEFAULTSECONDS;         // tiempo de riego por defecto
     int  warnESP32temp = MAX_ESP32_TEMP;        // temperatura ESP32 maxima con aviso 

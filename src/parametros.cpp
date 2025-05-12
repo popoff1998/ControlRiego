@@ -74,7 +74,8 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
   config.seconds = doc["tiempo"]["segundos"] | DEFAULTSECONDS;
   strlcpy(config.domoticz_ip, doc["domoticz"]["ip"] | "", sizeof(config.domoticz_ip));
   strlcpy(config.domoticz_port, doc["domoticz"]["port"] | "", sizeof(config.domoticz_port));
-  strlcpy(config.ntpServer, doc["ntpServer"] | "", sizeof(config.ntpServer));
+  strlcpy(config.ntpServer, doc["time"]["ntpServer"] | NTPSERVER_SPAIN, sizeof(config.ntpServer));
+  strlcpy(config.TZ, doc["time"]["timeZone"] | TZ_Europe_Madrid, sizeof(config.TZ));
   config.warnESP32temp = doc["warnESP32temp"] | MAX_ESP32_TEMP; 
   config.maxledlevel = doc["ledRGB"]["maxledlevel"] | MAXLEDLEVEL; 
   config.dimmlevel = doc["ledRGB"]["dimmlevel"] | DIMMLEVEL; 
@@ -99,11 +100,6 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
 bool saveConfigFile(const char *p_filename, Config_parm &config)
 {
   LOG_TRACE("TRACE: in saveConfigFile");
-  //memoryInfo();
-  // if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
-  //   LOG_ERROR("An Error has occurred while mounting LittleFS");
-  //   return false;
-  // }
   // Delete existing file, otherwise the configuration is appended to the file
   LittleFS.remove(p_filename);
   File file = LittleFS.open(p_filename, "w");
@@ -136,7 +132,8 @@ bool saveConfigFile(const char *p_filename, Config_parm &config)
   doc["tiempo"]["segundos"] = config.seconds;
   doc["domoticz"]["ip"]     = config.domoticz_ip;
   doc["domoticz"]["port"]   = config.domoticz_port;
-  doc["ntpServer"]          = config.ntpServer;
+  doc["time"]["ntpServer"]  = config.ntpServer;
+  doc["time"]["timeZone"]   = config.TZ;
   doc["warnESP32temp"]      = config.warnESP32temp; 
   doc["ledRGB"]["maxledlevel"]  = config.maxledlevel; 
   doc["ledRGB"]["dimmlevel"]    = config.dimmlevel; 

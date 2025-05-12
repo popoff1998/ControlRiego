@@ -1,8 +1,6 @@
 # PENDIENTES
 ============
 - boton Pause reflejado en Domoticz (en ambos sentidos)
-- webserver: opcion descarga fichero parametros a PC
-- webserver: ficheros en subdirectorio de backup ??
 
 # HECHOS
 ========
@@ -62,11 +60,14 @@
 - Configurando grupo, enc+pause vacia grupo V3.1
 - Nuevo formato mandato comunicacion con Domoticz v3.1
 - Mejoras información en pantalla (*Mtemp, -NF-) V3.2
-- Si parametro dynamic=true se permite añadido/baja zonas durante el riego V3.2
+- Si parametro dynamic=true se permite añadido/baja zonas durante el riego en pausa V3.2
 - Menu configuracion: rangos ajustables sobre linea del menu V3.2
 - Opciones de inicio por pantalla: reset parametros (borrado ficheros parm y backup) V3.2
 - Volumen sonidos y melodia fin riego de grupo configurables por parametros en menu V3.2
 - Si error de conexión en el arranque (wifi o Domoticz) se reintenta recuperarla periodicamente V3.2
+- Webserver: gestion del fichero de parámetros (ver, descargar, crear, editar, etc) V3.2
+- Time, timezone, NTP con funciones nativas de C (ctime) y ESP32. V3.2
+- Timezone configurable desde webserver (fichero de parametros) y desde modo AP (menu Setup) V3.2
 
 
 

@@ -1008,7 +1008,7 @@ void setClock()
 {
   LOG_TRACE("");
   // set reloj del ESP32 y timezone con el time recibido por NTP (se actualizara automaticamente cada 3 horas (default))
-  configTzTime(TZ_Europe_Madrid, config.ntpServer); 
+  configTzTime(config.TZ, config.ntpServer); 
   struct tm timeinfo;
   if(!getLocalTime(&timeinfo, NTP_TIMEOUT)) {
     timeOK = false;

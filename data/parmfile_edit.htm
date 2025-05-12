@@ -76,7 +76,7 @@
         </tbody>
     </table>
 
-    <h2>NTP Server</h2>
+    <h2>NTP Server y TimeZone</h2>
     <table>
         <thead>
             <tr>
@@ -84,7 +84,7 @@
                 <th>Valor</th>
             </tr>
         </thead>    
-        <tbody id="ntpServerTableBody">
+        <tbody id="timeTableBody">
             <!-- Rows will be dynamically added here -->
         </tbody>    
     </table>    
@@ -121,7 +121,7 @@
             loadBotonesTable(jsonData.botones);
             loadGruposTable(jsonData.grupos);
             loadDomoticzTable(jsonData.domoticz);
-            loadNtpServerTable(jsonData.ntpServer);
+            loadTimeTable(jsonData.time);
         }    
 
         function loadBotonesTable(botones) {
@@ -256,29 +256,31 @@
             });    
         }    
 
-        function loadNtpServerTable(ntpServer) {
-            const tableBody = document.getElementById("ntpServerTableBody");
+        function loadTimeTable(time) {
+            const tableBody = document.getElementById("timeTableBody");
             tableBody.innerHTML = ""; // Limpiar la tabla
 
-            const row = document.createElement("tr");
+            Object.keys(time).forEach(key => {
+                const row = document.createElement("tr");
 
-            // Campo (no editable)
-            const keyCell = document.createElement("td");
-            keyCell.textContent = "ntpServer";
-            row.appendChild(keyCell);
+                // Campo (no editable)
+                const keyCell = document.createElement("td");
+                keyCell.textContent = key;
+                row.appendChild(keyCell);
 
-            // Valor (editable)
-            const valueCell = document.createElement("td");
-            const valueInput = document.createElement("input");
-            valueInput.type = "text";
-            valueInput.value = ntpServer;
-            valueInput.dataset.field = "ntpServer";
-            valueCell.appendChild(valueInput);
-            row.appendChild(valueCell);
+                // Valor (editable)
+                const valueCell = document.createElement("td");
+                const valueInput = document.createElement("input");
+                valueInput.type = "text";
+                valueInput.value = time[key];
+                valueInput.dataset.field = key;
+                valueCell.appendChild(valueInput);
+                row.appendChild(valueCell);
 
-            tableBody.appendChild(row);
+                tableBody.appendChild(row);
+            });    
         }    
-        
+
 
         // Función para guardar los cambios en el servidor
         function saveChanges() {
@@ -286,7 +288,7 @@
             botones: [],
             grupos: [],
             domoticz: {},
-            ntpServer: ""
+            time: {}
             };
 
             // Recopilar datos de la tabla de botones
@@ -324,9 +326,12 @@
             jsonData.domoticz[field] = input.value;
             });
 
-            // Recopilar datos del servidor NTP
-            const ntpServerInput = document.querySelector("#ntpServerTableBody input");
-            jsonData.ntpServer = ntpServerInput.value;
+            // Recopilar datos de la tabla de Time
+            const timeInputs = document.querySelectorAll("#timeTableBody input");
+            timeInputs.forEach(input => {
+            const field = input.dataset.field;
+            jsonData.domoticz[field] = input.value;
+            });
 
             // Enviar el JSON al servidor
             fetch('/save_config', {
