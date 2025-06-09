@@ -251,7 +251,7 @@ void printParms(Config_parm &config) {
   }
   //--------------  imprime parametro conexion   ----------------------------------------
   Serial.printf("\tdomoticz_ip= %s / domoticz_port= %s \n", config.domoticz_ip, config.domoticz_port);
-  Serial.printf("\tntpServer= %s \n", config.ntpServer);
+  Serial.printf("\tntpServer= %s / timezone= %s \n", config.ntpServer, config.TZ);
   //--------------  imprime parametro individuales   ----------------------------------------
   Serial.printf("\tminutes= %d / seconds= %d \n", config.minutes, config.seconds);
   Serial.printf("\twarnESP32temp= %d \n", config.warnESP32temp);
@@ -342,11 +342,25 @@ String sysInfo() {
   result += "  \"File System Used (percent used)\": \"" + convertFileSize(LittleFS.usedBytes()) + "   (" + String(filesPercentUsed) + "%)\",\n";
   result += "  \"ESP32 temperature\": \"" + String(temperatureRead()) + " ºC\"\n";
   result += "}";
-
   return result;
 } // sysInfo()
 
 
+  String convertFileSize(const size_t bytes)
+  {
+    if(bytes < 1024)
+    {
+      return String(bytes) + " B";
+    }
+    else if (bytes < 1048576)
+    {
+      return String(bytes / 1024) + " KB";  //sin decimales
+      //return String(bytes / 1024.0) + " KB";
+    }
+    return String(bytes / 1048576.0) + " MB";
+  }
+
+  
 // funciones solo usadas en DEVELOP
 #ifdef EXTRADEBUG
 

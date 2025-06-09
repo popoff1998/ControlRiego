@@ -1003,11 +1003,19 @@ void timeByFactor(int factor,uint8_t *fminutes, uint8_t *fseconds)
   *fseconds = tseconds%60;
 }
 
+void cbSyncTime(struct timeval *tv)  { // callback function to show when NTP was synchronized
+  struct tm timeinfo;
+  getLocalTime(&timeinfo);
+  Serial.printf("<<<<   NTP time synched   >>>>   Local time: %s \n", asctime(&timeinfo));
+}
 
+// set reloj del ESP32 y timezone con el time recibido por NTP (se actualizara automaticamente cada 3 horas (default))
 void setClock()
 {
-  LOG_TRACE("");
-  // set reloj del ESP32 y timezone con el time recibido por NTP (se actualizara automaticamente cada 3 horas (default))
+  // sntp_set_time_sync_notification_cb(cbSyncTime);  // set a Callback function for time synchronization notification
+  // sntp_set_sync_interval(60 * 60 * 1000UL); // 60 minutos (default ESP32 es 180 minutos - 3 horas)
+
+  LOG_INFO("Timezone: ", config.TZ, "   NTP server: ", config.ntpServer);
   configTzTime(config.TZ, config.ntpServer); 
   struct tm timeinfo;
   if(!getLocalTime(&timeinfo, NTP_TIMEOUT)) {
@@ -1016,23 +1024,29 @@ void setClock()
     return;
   }
   timeOK = true;
-  LOG_INFO(">>> TIME SET by NTP <<<     Local time: ", asctime(&timeinfo));
+  char message[150];
+  strftime(message, sizeof(message), ">>> TIME SET by NTP <<<   Local time: %A, %B %d %Y %H:%M:%S (zone %Z %z)", &timeinfo);
+  LOG_INFO(message);
 }
 
 time_t tLoc()
 {
-  getLocalTime(&tmd);  //set &tmd to actual local time/date
+  if (!timeOK) return 0; //no tenemos time, devolvemos 0
+  time_t t = time(NULL); // time() devuelve el tiempo UTC actual (epoch time en segundos desde 00:00 1/1/1970) leyendolo del reloj del ESP32
+  struct tm *tmd;
+  // localtime() devuelve la fecha/hora local en la estructura tmd
+  tmd = localtime(&t); // localtime() convierte time_t a struct tm en la zona horaria local
   //copy tmd struct to tmElements_t struct
   tmElements_t tmElements;
-  tmElements.Second = tmd.tm_sec;
-  tmElements.Minute = tmd.tm_min;
-  tmElements.Hour = tmd.tm_hour;
-  tmElements.Day = tmd.tm_mday;
-  tmElements.Month = tmd.tm_mon + 1; // tm_mon is 0-based
-  tmElements.Year = tmd.tm_year - 70;    // tm_year is years since 1900 , Year is years since 1970
+  tmElements.Second = tmd->tm_sec;
+  tmElements.Minute = tmd->tm_min;
+  tmElements.Hour = tmd->tm_hour;
+  tmElements.Day = tmd->tm_mday;
+  tmElements.Month = tmd->tm_mon + 1; // tm_mon is 0-based
+  tmElements.Year = tmd->tm_year - 70;    // tmd->tm_year is years since 1900 , tmElements.Year is years since 1970
   //calculate time_t from tmElements_t struct
-  // makeTime() NO tiene en cuenta el timezone del sistema (from TimeLib)  --> devuelve time local en este caso
-  // mktime() si lo tiene en cuenta (from time.h) --> devolveria time UTC
+  // makeTime() (from TimeLib) NO tiene en cuenta el timezone del sistema  --> devuelve time local en este caso
+  // mktime() (from time.h) si lo tiene en cuenta --> devolveria time UTC
   time_t tLocal = makeTime(tmElements);
   return tLocal;
 }
@@ -1077,23 +1091,22 @@ void setEncoderMenu(int menuitems, int currentitem) {
 void ultimosRiegos(int modo)
 {
   LOG_TRACE("modo:",modo);
-  time_t t = tLoc();
   switch(modo) {
     case SHOW:
-      for(uint i=0;i<NUMZONAS;i++) {
-        if(lastRiegos[i].inicio > previousMidnight(t)) {
-            LOG_DEBUG("[ULTIMOSRIEGOS] zona:", i+1, "time:",lastRiegos[i].inicio);
-            led(Boton[bID2bIndex(ZONAS[i])].led,ON);
+    lcd.infoclear("Hora actual:");
+    if (timeOK) {
+        time_t t = tLoc();
+        for(uint i=0;i<NUMZONAS;i++) {
+          if(lastRiegos[i].inicio > previousMidnight(t)) {
+              LOG_DEBUG("[ULTIMOSRIEGOS] zona:", i+1, "time:",lastRiegos[i].inicio);
+              led(Boton[bID2bIndex(ZONAS[i])].led,ON);
+          }
         }
-      }
-      lcd.infoclear("Hora actual:");
-      if (timeOK) {
         sprintf(buff, " %d", day(t));
         lcd.info(buff,3);
         lcd.info(MESES[month(t)-1],4);
         lcd.displayTime(hour(t),minute(t));
-      }
-      else lcd.info("   <<< NO TIME >>>",3);
+      } else {lcd.info("   <<< NO TIME >>>",3); sonido.bipKO();}
       break;
     case HIDE:
       for(unsigned int i=0;i<NUMZONAS;i++) {
@@ -1106,7 +1119,7 @@ void ultimosRiegos(int modo)
 void inicioTimeLastRiego(S_timeRiego &timeRiego, int index) 
 {
   time_t t = tLoc();
-  LOG_DEBUG("actualizo lastriegos inicio zona/grupo ", index+1);
+  LOG_DEBUG("actualizo lastriegos inicio zona/grupo ", index+1, "timestamp:", t);
   timeRiego.inicio = t;
   timeRiego.final = 0;
 }  
@@ -1114,7 +1127,7 @@ void inicioTimeLastRiego(S_timeRiego &timeRiego, int index)
 void finalTimeLastRiego(S_timeRiego &timeRiego, int index) 
 {
   time_t t = tLoc();
-  LOG_DEBUG("actualizo lastriegos fin zona/grupo ", index+1);
+  LOG_DEBUG("actualizo lastriegos fin zona/grupo ", index+1, "timestamp:", t);
   timeRiego.final = t;
 }  
 
