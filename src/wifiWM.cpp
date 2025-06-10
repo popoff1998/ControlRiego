@@ -276,7 +276,6 @@ void wifiVerifyRecovery(Config_parm &config, S_Estado &Estado) {
     int wifilevel = checkWifi(config.showwifilevel); // conectado a wifi?
     if(wifilevel) {
       LOG_DEBUG("Wifi verificada OK, nivel=",wifilevel);
-      // if (Estado.estado!=STANDBY && Estado.error != E2) setEstado(STANDBY,1); 
       if (config.showwifilevel && Estado.estado == STANDBY) {
          LOG_DEBUG("showwifilevel=",config.showwifilevel,"wifilevel=",wifilevel);
          if(wifilevel==100) wifilevel=99; 

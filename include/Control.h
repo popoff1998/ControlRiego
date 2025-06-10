@@ -37,33 +37,32 @@
   #include <DebugLog.h>
 
   #include <DNSServer.h>
-  #include <WifiUdp.h>
   #include <WiFiManager.h> 
   #include <SPI.h>
   #include <Time.h>
   #include <TimeLib.h>
-  #include <AiEsp32RotaryEncoder.h>
+  // #include <esp_sntp.h>  // para poder cambiar el intervalo por defecto del ESP32 para sincronizar con el NTP
   #include <CountUpDownTimer.h>
-  #define ARDUINOJSON_ENABLE_COMMENTS 1
   #include <ArduinoJson.h>
   #include <Ticker.h>
   #include <LittleFS.h>
   #include <Wire.h>
   
   #ifdef ESP32
-      #include <HTTPClient.h>
-      #include <WiFi.h>
-      #include <WebServer.h>
-    #ifdef WEBSERVER
-      #include <ESPmDNS.h>
-      #include "HTTPUpdateServerLittleFs.h"
-    #endif
-    #ifdef TEMPLOCAL
-      #include <Adafruit_Sensor.h>
-      #include <DHT.h>
-    #endif
+  #include <HTTPClient.h>
+  #include <WiFi.h>
+  #include <WebServer.h>
+  #ifdef WEBSERVER
+  #include <ESPmDNS.h>
+  #include "HTTPUpdateServerLittleFs.h"
   #endif
-
+  #ifdef TEMPLOCAL
+  #include <Adafruit_Sensor.h>
+  #include <DHT.h>
+  #endif
+  #endif
+  
+  #include "AiEsp32RotaryEncoder.h" // libreria para el encoder rotatorio AiEsp32RotaryEncoder
   #include "MCP23017.h"  // expansor E/S MCP23017
   #include "pitches.h"   // notas musicales
   //Para mis clases
@@ -400,7 +399,7 @@
     char domoticz_ip[40];
     char domoticz_port[6];
     char ntpServer[40] = NTPSERVER_SPAIN;       // servidor NTP por defecto
-    char TZ[100] = TZ_Europe_Madrid;            // time zone por defecto en formato TZ posix
+    char TZ[50] = TZ_Europe_Madrid;             // time zone por defecto en formato TZ posix
     uint8_t   minutes = DEFAULTMINUTES;         // tiempo de riego por defecto
     uint8_t   seconds = DEFAULTSECONDS;         // tiempo de riego por defecto
     int  warnESP32temp = MAX_ESP32_TEMP;        // temperatura ESP32 maxima con aviso 
@@ -532,8 +531,6 @@
     S_initFlags initFlags ;
     WiFiClient client;
     HTTPClient httpclient;
-    WiFiUDP    ntpUDP;
-    struct tm tmd;  // C Time struct
     CountUpDownTimer T(DOWN);
     S_BOTON  *ultimoBotonZona;
     S_Estado Estado;
@@ -587,7 +584,6 @@
   int  checkWifi(bool level=false);
   void cleanFS(void);
   String convertFileSize(const size_t);
-  String convertFileSize(const float);
   bool copyConfigFile(const char*, const char*);
   void debugloops(void);
   bool deleteParmFiles(void);

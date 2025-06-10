@@ -1,0 +1,1 @@
+https://github.com/igorantolic/ai-esp32-rotary-encoder   (V1.7)

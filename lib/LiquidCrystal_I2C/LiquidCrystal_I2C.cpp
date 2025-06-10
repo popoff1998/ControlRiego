@@ -1,5 +1,6 @@
+// Adaptado de:   (comentada llamada a Wire.begin(), ya se hace en initWire en botones.cpp para LCD y MCP)
 // Based on the work by DFRobot
-// https://github.com/johnrickman/LiquidCrystal_I2C
+// https://github.com/johnrickman/LiquidCrystal_I2C  (--> movida a https://gitlab.com/tandembyte/LCD_I2C  privada!)
 
 #include "LiquidCrystal_I2C.h"
 #include <inttypes.h>
@@ -303,6 +304,8 @@ void LiquidCrystal_I2C::printstr(const char c[]){
 
 
 // unsupported API functions
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 void LiquidCrystal_I2C::off(){}
 void LiquidCrystal_I2C::on(){}
 void LiquidCrystal_I2C::setDelay (int cmdDelay,int charDelay) {}
@@ -312,5 +315,5 @@ uint8_t LiquidCrystal_I2C::init_bargraph(uint8_t graphtype){return 0;}
 void LiquidCrystal_I2C::draw_horizontal_graph(uint8_t row, uint8_t column, uint8_t len,  uint8_t pixel_col_end){}
 void LiquidCrystal_I2C::draw_vertical_graph(uint8_t row, uint8_t column, uint8_t len,  uint8_t pixel_row_end){}
 void LiquidCrystal_I2C::setContrast(uint8_t new_val){}
-
+#pragma GCC diagnostic pop
 	

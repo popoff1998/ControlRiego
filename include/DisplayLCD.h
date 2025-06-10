@@ -1,6 +1,6 @@
 #ifndef DisplayLCD_h
   #define DisplayLCD_h
-  //#include "Control.h"
+  
   #include "LiquidCrystal_I2C.h"
 
   #define LCDBIGROW 2           // linea por defecto para timer en numeros grandes
