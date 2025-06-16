@@ -1,6 +1,6 @@
 /*************************************************
  * tempo (mseg)
- * duracion notas musicales (fraccion negra)
+ * figuras musicales (fraccion negra)
  *************************************************/
  
  #define TEMPO_60   1000 // 60 bpm = 1 segundo
@@ -10,11 +10,11 @@
  #define TEMPO_180  333  // 180 bpm = 0.33 segundos
  #define TEMPO_250  240  // 250 bpm = 0.24 segundos
  
- #define DUR_NG  1 // negra 
- #define DUR_CO  2 // corchea 1/2 negra
- #define DUR_SC  4 // semicorchea 1/4 negra
- #define DUR_FU  8 // fusa 1/8 negra
- #define DUR_SE  16 // semifusa 1/16 negra
+ #define FIG_NG  1 // negra 
+ #define FIG_CO  2 // corchea 1/2 negra
+ #define FIG_SC  4 // semicorchea 1/4 negra
+ #define FIG_FU  8 // fusa 1/8 negra
+ #define FIG_SE  16 // semifusa 1/16 negra
  
  /*************************************************
   * Frecuencias notas musicales (Hz)

@@ -43,7 +43,7 @@ void Sonidos::bipOK() {
 void Sonidos::bipKO() {
     int tempo = TEMPO_120; // Set the tempo.
     for (int thisNote = 0; thisNote < ELEMENTCOUNT(bipKO_melody); thisNote++) {
-        int noteDuration = tempo / bipKO_duration[thisNote]; // Calculate note duration.
+        int noteDuration = tempo / bipKO_figure[thisNote]; // Calculate note duration.
         playNote(bipKO_melody[thisNote], noteDuration);
       }
     }
@@ -51,7 +51,7 @@ void Sonidos::bipKO() {
 void Sonidos::bipTarari() {
   int tempo = TEMPO_80; // Set the tempo.
   for (int thisNote = 0; thisNote < ELEMENTCOUNT(Tarari_melody); thisNote++) { // Loop through the notes in the array.
-    int noteDuration = tempo / Tarari_duration[thisNote]; // Calculate note duration.
+    int noteDuration = tempo / Tarari_figure[thisNote]; // Calculate note duration.
     playNote(Tarari_melody[thisNote], noteDuration); // Play melody[thisNote] for duration[thisNote].
   }
 }
@@ -60,7 +60,7 @@ void Sonidos::bipMimi(int veces) {
   int tempo = TEMPO_250; // Set the tempo.
   for (int i = 0; i < veces; i++) {
     for (int thisNote = 0; thisNote < ELEMENTCOUNT(bipMimi_melody); thisNote++) {
-      int noteDuration = tempo / bipMimi_duration; // Calculate note duration.
+      int noteDuration = tempo / bipMimi_figure; // Calculate note duration.
         playNote(bipMimi_melody[thisNote], noteDuration);
       }
   }  

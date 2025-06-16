@@ -18,13 +18,13 @@ class Sonidos {
         int bipOK_duration = 75;
         
         int bipKO_melody[3] = { NOTE_C5, NOTE_B4, NOTE_A3 };
-        int bipKO_duration[3] = { DUR_SC, DUR_CO, DUR_NG };
+        int bipKO_figure[3] = { FIG_SC, FIG_CO, FIG_NG };
         
         int bipMimi_melody[7] = { NOTE_C5, NOTE_E5, NOTE_G5, NOTE_F5, NOTE_G5, NOTE_B5, NOTE_C6 };
-        int bipMimi_duration = DUR_SC;
+        int bipMimi_figure = FIG_SC;
         
         int Tarari_melody[8] = { NOTE_C5, NOTE_G4, NOTE_G4, NOTE_A4, NOTE_G4, 0, NOTE_B4, NOTE_C5 };
-        int Tarari_duration[8] = { DUR_SC, DUR_FU, DUR_FU, DUR_SC, DUR_SC, DUR_SC, DUR_SC, DUR_SC };
+        int Tarari_figure[8] = { FIG_SC, FIG_FU, FIG_FU, FIG_SC, FIG_SC, FIG_SC, FIG_SC, FIG_SC };
     
         void mitone(int pin, unsigned long frequency, unsigned int duration, int volume);
         void playNote(int note, int duration);
