@@ -328,6 +328,8 @@ String sysInfo() {
   String result;
   result += "{\n";
   result += "  \"FW version\": \"" + String(VERSION) + " Built on " __DATE__ " at " __TIME__ + "\",\n";
+  result += "  \"esp_idf_version\": \"" + String(esp_get_idf_version()) + "\",\n";
+  result += "  \"arduino_version\": \"" + String(ESP_ARDUINO_VERSION_MAJOR) + "." + String(ESP_ARDUINO_VERSION_MINOR) + "." + String(ESP_ARDUINO_VERSION_PATCH) + "\",\n";
   result += "  \"Chip Model\": \"" + String(ESP.getChipModel()) + "\",\n";
   result += "  \"Chip Cores\": " + String(ESP.getChipCores()) + ",\n";
   result += "  \"Chip Revision\": " + String(ESP.getChipRevision()) + ",\n";

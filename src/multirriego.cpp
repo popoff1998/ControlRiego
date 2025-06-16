@@ -56,7 +56,8 @@ bool setMultirriego(Config_parm &config)
           multi.semaforo = true;
           LOG_INFO("MULTIRRIEGO iniciado: ", multi.desc);
           boton = &Boton[bID2bIndex(multi.serie[multi.actual])]; // simula pulsacion boton primera zona del grupo
-          if (!multi.temporal) led(Boton[bID2bIndex(*multi.id)].led,ON); // enciende led del grupo pulsado
+          if (multi.temporal) ultimosRiegos(HIDE); // apaga leds zonas seleccionadas en el multirriego temporal
+          else led(Boton[bID2bIndex(*multi.id)].led,ON); // enciende led del grupo pulsado si es normal
           displayLCDGrupo(RESTO,2);  //  display zonas a regar
           return true;
       }

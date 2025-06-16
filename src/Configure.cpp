@@ -158,8 +158,8 @@ void Configure::Range_process_start(int min, int max, int aceleracion, int range
 // actualizamos rango en pantalla
 void Configure::Range_process_update()
 {
-      LOG_DEBUG("[ConF] rangefactor:",_rangeFactor,"multiplicador:",(float)_rangeFactor/100,"resultado=",tm.value*((float)_rangeFactor/100));
-      snprintf(buff, MAXBUFF-_data_pos[_currentItem], "%g        ", (float)tm.value*((float)_rangeFactor/100));
+      LOG_DEBUG("[ConF] rangefactor:",_rangeFactor,"multiplicador:", _rangeFactor/100.0, "resultado=", tm.value*(_rangeFactor/100.0));
+      snprintf(buff, MAXBUFF-_data_pos[_currentItem], "%g        ", tm.value*(_rangeFactor/100.0));
       lcd.print(buff);
       lcd.setCursorBlink(_data_pos[_currentItem],1);
 }
@@ -381,7 +381,7 @@ int Configure::showMenu(int opcion)
       opcionesMenuConf[ESP32_TEMP]  =  "ESP32 temp: " + String((int)temperatureRead()) + "/" + String(config.warnESP32temp);
       opcionesMenuConf[LED_DIMM_LVL]  += String(config.dimmlevel);
       opcionesMenuConf[LED_MAX_LVL]  += String(config.maxledlevel);
-      sprintf(buff, "%+g", (float)config.tempOffset*(TEMP_OFFSET_FACTOR/100)); //elimina ceros decimales al final y pone + si positivo
+      sprintf(buff, "%+g", config.tempOffset*(TEMP_OFFSET_FACTOR/100.0)); //elimina ceros decimales al final y pone + si positivo
       opcionesMenuConf[TEMP_ADJ]  += buff;
       opcionesMenuConf[TEMP_SOURCE] = (config.tempRemote ?  "TEMP: REM.  " : "TEMP: LOCAL ") + (readTemp()==999 ? "--" : String(readTemp()));
       opcionesMenuConf[REM_TEMP_IDX] += String(config.tempRemoteIdx);
