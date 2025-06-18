@@ -531,8 +531,12 @@ void procesaBotonZona(void)
         Serial.printf("Boton: %s Factor de riego: %d \n", config.zona[boton->znumber-1].desc,factorRiegos[zIndex]);
         Serial.printf("          boton.led: %d \n",boton->led);
       #endif
-      lcd.infoclear("factor riego de ");
-      snprintf(buff, MAXBUFF, "%s :  %d", config.zona[boton->znumber-1].desc, factorRiegos[zIndex]);
+      lcd.clear();
+      lcd.infoCut(config.zona[boton->znumber-1].desc, 11);
+      lcd.setCursor(12, 0);
+      snprintf(buff, MAXBUFF, "idx(%d)", config.zona[boton->znumber-1].idx);
+      lcd.print(buff);
+      snprintf(buff, MAXBUFF, "-factor riego:  %d", factorRiegos[zIndex]);
       lcd.info(buff,2);
       showTimeLastRiego(lastRiegos[zIndex], zIndex);
       delay(config.msgdisplaymillis*4);
@@ -1134,12 +1138,12 @@ void finalTimeLastRiego(S_timeRiego &timeRiego, int index)
 
 void showTimeLastRiego(S_timeRiego &timeRiego, int index) 
 {
-  lcd.info("ultimo riego:",3);
+  lcd.info("-ultimo riego:",3);
   time_t t1=timeRiego.inicio;
   time_t t2=timeRiego.final;
   LOG_DEBUG("Zona/Grupo:", index+1 , "time.inicio", t1, "time.final", t2);
   if (t1) {
-    snprintf(buff, MAXBUFF, "%d/%02d %d:%02d (%d:%02d)", day(t1), month(t1), hour(t1), minute(t1), hour(t2), minute(t2));
+    snprintf(buff, MAXBUFF, " %d/%02d %d:%02d (%d:%02d)", day(t1), month(t1), hour(t1), minute(t1), hour(t2), minute(t2));
     lcd.info(buff,4);
   }
   else lcd.info("   > sin datos <",4);

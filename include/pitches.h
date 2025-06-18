@@ -1,6 +1,7 @@
 /*************************************************
  * tempo (mseg)
  * figuras musicales (fraccion negra)
+ *   duracion nota = tempo / figura
  *************************************************/
  
  #define TEMPO_60   1000 // 60 bpm = 1 segundo

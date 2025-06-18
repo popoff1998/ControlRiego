@@ -40,6 +40,7 @@
       void infoEstado(const char* estado, const char* zona="         ");
       void info(const char* info, int line);
       void info(const char* info, int line, int size);
+      void infoCut(const char *texto, uint8_t max);
       bool get__displayOff(void);
   };
 

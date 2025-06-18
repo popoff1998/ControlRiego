@@ -161,7 +161,7 @@ void DisplayLCD::blinkLCD(int veces) //parpadea contenido actual de la pantalla 
   }
 }
 
-
+// muestra el estado de riego en curso y nombre de la zona en la primera linea del LCD
 void DisplayLCD::infoEstado(const char *estado, const char *zona) {
     LOG_DEBUG("[LCD]  Recibido: ", estado, zona);
     setCursor(0, 0);
@@ -169,22 +169,27 @@ void DisplayLCD::infoEstado(const char *estado, const char *zona) {
     setCursor(0, 0);
     lcdDisp.print(estado);
     setCursor(11, 0);
-    int size = strlen(zona);
-    char infocut[10];
-    if(size>9) {
-      LOG_DEBUG("* zona recibido de longitud =",size);
-      strlcpy(infocut, zona, sizeof(infocut)); 
-      LOG_DEBUG("* nombre zona (infocut) acortado a =",infocut);
+    infoCut(zona, 9); // muestra el nombre de la zona con un maximo de 9 caracteres
+}    
+
+// muestra el texto pasado con un maximo de max caracteres
+void DisplayLCD::infoCut(const char *texto, uint8_t max) {
+    int size = strlen(texto);
+    if(size>max) {
+      char infocut[max+1];
+      LOG_DEBUG("* texto recibido de longitud =",size);
+      strlcpy(infocut, texto, sizeof(infocut)); 
+      LOG_DEBUG("* texto acortado a =", static_cast<const char*>(infocut));
       lcdDisp.print(infocut);
     }
-    else lcdDisp.print(zona);  
-}    
+    else lcdDisp.print(texto);  
+}
 
 // muestra info (hasta un maximo de 20 caracteres) en la linea pasada (1, 2 ,3 o 4)
 void DisplayLCD::info(const char* info, int line) {
     int size = strlen(info);
-    char infocut[MAXBUFF];
     if(size>MAXBUFF-1) {
+      char infocut[MAXBUFF];
       LOG_DEBUG("*info recibido de longitud =",size);
       strlcpy(infocut, info, sizeof(infocut)); 
       lcd.info(infocut, line, size);
