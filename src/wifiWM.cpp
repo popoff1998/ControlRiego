@@ -192,7 +192,7 @@ void setupRedWM(Config_parm &config, S_initFlags &initFlags)
   // WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
   WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_CONNECTED);
   // WiFi.removeEvent(WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
-}
+} //fin setupRedWM
 
 /**
  * @brief activa portal para configuracion red wifi y/o parámetros de conexion

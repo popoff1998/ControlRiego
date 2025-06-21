@@ -66,6 +66,7 @@
 - Volumen sonidos y melodia fin riego de grupo configurables por parametros en menu V3.2
 - Si error de conexión en el arranque (wifi o Domoticz) se reintenta recuperarla periodicamente V3.2
 - Webserver: gestion del fichero de parámetros (ver, descargar, crear, editar, etc) V3.2
+- Webserver: menú de mantenimiento avanzado (Sysinfo,Files,Upload files, OTA update) V3.2
 - Time, timezone, NTP con funciones nativas de C (ctime) y ESP32. V3.2
 - Timezone configurable desde webserver (fichero de parametros) y desde modo AP (menu Setup) V3.2
 

@@ -76,7 +76,10 @@
     "ip": "192.168.xxx.xxx",
     "port": "xxxx"
   },
-  "ntpServer": "es.pool.ntp.org",
+  "time": {
+	  "ntpServer": "es.pool.ntp.org",
+	  "timeZone": "CET-1CEST,M3.5.0,M10.5.0/3"
+  },
   "warnESP32temp": 80,
   "ledRGB": {
     "maxledlevel": 255,

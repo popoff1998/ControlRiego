@@ -81,7 +81,7 @@ void setup()
     saveConfig = false;
   }
   LittleFS.end();
-  delay(2000);
+  delay(1000);
   //Obtenemos hora del servidor ntp y ajustamos hora del sistema y timezone
   setClock();
   //Inicializamos lastRiegos y lastGrupos (registro fecha/hora y riego realizado)
@@ -1039,7 +1039,6 @@ time_t tLoc()
   if (!timeOK) return 0; //no tenemos time, devolvemos 0
   time_t t = time(NULL); // time() devuelve el tiempo UTC actual (epoch time en segundos desde 00:00 1/1/1970) leyendolo del reloj del ESP32
   struct tm *tmd;
-  // localtime() devuelve la fecha/hora local en la estructura tmd
   tmd = localtime(&t); // localtime() convierte time_t a struct tm en la zona horaria local
   //copy tmd struct to tmElements_t struct
   tmElements_t tmElements;
