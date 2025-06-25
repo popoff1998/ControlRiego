@@ -77,6 +77,12 @@
   #endif  
   #define WSPORT 8080
 
+  #ifdef DOMOTICZV3
+    #define QUERYDEVICE "/json.htm?type=devices&rid=%d"  //formato antiguo v3.0.0 Domoticz
+  #else
+    #define QUERYDEVICE "/json.htm?type=command&param=getdevices&rid=%d" //nuevo formato v4.0.0 Domoticz
+  #endif  
+
   //#define CONFIG_LITTLEFS_SPIFFS_COMPAT 1  // modo compatibilidad con SPIFFS
 
   /* You only need to format LittleFS the first time you run a

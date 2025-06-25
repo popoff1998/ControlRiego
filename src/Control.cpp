@@ -186,7 +186,7 @@ void procesaEstados()
       break;
     case PAUSE:
       procesaEstadoPause();
-      blinkPause();
+      if(Estado.estado == PAUSE) blinkPause();
       break;
   }
 }
@@ -1472,9 +1472,8 @@ String httpGetDomoticz(String message)
  */
 String deviceInfo(int idx)
 {
-  char JSONMSG[200]="/json.htm?type=command&param=getdevices&rid=%d";
   char message[250];
-  sprintf(message,JSONMSG,idx);
+  sprintf(message,QUERYDEVICE,idx);
   return httpGetDomoticz(message);
 }
 
@@ -1483,9 +1482,8 @@ String deviceInfo(int idx)
  */
 String deviceInfo(int idx, char *campo)
 {
-  char JSONMSG[200]="/json.htm?type=command&param=getdevices&rid=%d";
   char message[250];
-  sprintf(message,JSONMSG,idx);
+  sprintf(message,QUERYDEVICE,idx);
   String response = httpGetDomoticz(message);
     //procesamos la respuesta para ver si se ha producido error:
     if (response.startsWith("Err")) {
@@ -1537,7 +1535,8 @@ int getFactor(uint16_t idx)
       } else statusError(E2, RECUPERABLE); //error de conexion con Domoticz recuperable
       LOG_WARN("GETFACTOR IDX: ", idx, " respuesta recibida: ", response.c_str());
       return 100;
-  }
+    }
+    LOG_DEBUG("GETFACTOR IDX: ", idx, " respuesta recibida: ", response.c_str());
   //si hemos leido correctamente campo Description (numero, campo vacio o solo con comentarios)
   //el IDX existe, consideramos leido OK el factor riego. 
   //En los dos ultimos casos se devuelve valor por defecto 100.
@@ -1565,6 +1564,11 @@ bool checkDomoticz()
     LOG_ERROR(" ** sin conexion con Domoticz");
     return false;
   }
+  LOG_DEBUG("Respuesta recibida del Domoticz: ", response.c_str());
+  LOG_DEBUG("estado.error=", Estado.error,"recoverableError=", recoverableError);
+  Estado.estado = STANDBY; //borramos estado ERROR
+  Estado.error = NOERROR; //reseteamos error
+  recoverableError = false; //reseteamos error recuperable
   return true;
 }
 
