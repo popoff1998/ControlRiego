@@ -1,6 +1,7 @@
 # PENDIENTES
 ============
 - boton Pause reflejado en Domoticz (en ambos sentidos)
+- en info de zona: tiempo de riego real (excluidas pausas)
 
 # HECHOS
 ========

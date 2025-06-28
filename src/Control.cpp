@@ -332,7 +332,7 @@ void procesaBotonPause(void)
         break;
       case PAUSE:
         if(simular.ErrorPause) statusError(E2); //simulamos error al salir del PAUSE
-        else initRiego();        // reanudamos riego que estaba parado 
+        else initRiego(RESUME);        // reanudamos riego que estaba parado 
         if(Estado.estado == ERROR) { // caso de error al reanudar el riego seguimos en PAUSE y señalamos con blink rapido zona
           ledID = ultimoBotonZona->led;
           tic_parpadeoLedZona.attach(0.2, parpadeoLedZona, ledID);
@@ -342,11 +342,12 @@ void procesaBotonPause(void)
           break;
         }
         sonido.bip(2);
-        T.ResumeTimer();
-        tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
-        led(ultimoBotonZona->led,ON);// y lo deja fijo
         lcd.clear(BORRA2H); //por si hubiera msgs de error (caso error al salir del pause previo)
         setEstado(REGANDO);
+        T.ResumeTimer(); // reanudamos el timer de cuenta atras
+        refreshTime(); //actualizamos tiempo de cuenta atras
+        tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
+        led(ultimoBotonZona->led,ON);// y lo deja fijo
         break;
       case STANDBY:
           boton = NULL; //lo borramos para que no sea tratado más adelante en procesaEstados
@@ -413,11 +414,12 @@ void procesaBotonPause(void)
 void procesaBotonStop(void)
 {
   if (boton->estado) {  //si hemos PULSADO STOP
-    //(dejamos la pulsacion del STOP en estado ERROR para que actue el codigo de procesaEstadoError
+    //dejamos la pulsacion del STOP en estado ERROR para que actue el codigo de procesaEstadoError
     if (Estado.estado == REGANDO || Estado.estado == PAUSE || Estado.estado == TERMINANDO) {
       //De alguna manera esta regando y hay que parar
       lcd.infoclear("Parando riegos", 1, BIP, 6);
       T.StopTimer();
+      tic_CountDownTimer.detach(); //detiene actualizacion periodica del temporizador
       // paramos riego en curso y todas las zonas
       if (!stopRiego(ultimoBotonZona->bID) || !stopAllRiego()) {   //error al parar riegos
         boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
@@ -520,10 +522,13 @@ void procesaBotonZona(void)
           lcd.info("IDX/factor:     -00-",4);
           return;
         }
-        T.SetTimer(0,fminutes,fseconds);
-        T.StartTimer();
-        initRiego();
-        if(Estado.estado != ERROR) setEstado(REGANDO); // para que no borre ERROR
+        if(initRiego()) { //comenzamos el riego de la zona
+          setEstado(REGANDO);
+          //inicializamos el timer de cuenta atras
+          T.SetTimer(0,fminutes,fseconds);
+          T.StartTimer();
+          tic_CountDownTimer.attach_ms(10, timerTick); // Llama a timerTick() cada 10 ms
+        }  
     }
     else {  // mostramos en el display el factor de riego del boton pulsado y fecha ultimo riego
       led(boton->led,ON);
@@ -714,6 +719,7 @@ void procesaEstadoTerminando(void)
 {
   sonido.bip(5);
   tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
+  tic_CountDownTimer.detach(); //detiene actualizacion periodica del temporizador
   stopRiego(ultimoBotonZona->bID);
   if (Estado.estado == ERROR) return; //no continuamos si se ha producido error al parar el riego
   lcd.blinkLCD(DEFAULTBLINK);
@@ -876,10 +882,10 @@ void setEstado(uint8_t estado, int bnum)
   strcpy(errorText, "");
   //Deshabilitamos el hold de Pause
   Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
-  setledRGB();   // led RGB segun status wifi y nonetwork
   if(reposo) reposoOFF();     //por si salimos de stop antinenes
   rotaryEncoder.disable();  // para que no cuente pasos salvo que lo habilitemos
   lcd.displayON();
+  setledRGB();   // led RGB segun status wifi y nonetwork
   LOG_DEBUG( "Estado.tipo =", Estado.tipo);
   lcd.setCursor(17, 1);
   if (Estado.tipo==REMOTO) lcd.print("(R)");
@@ -1274,7 +1280,7 @@ void initLastGrupos()
 }
 
 //Inicia/reanuda el riego correspondiente al idx del boton de zona pulsado ultimo
-bool initRiego()
+bool initRiego(bool resume)
 {
   int zIndex = ultimoBotonZona->znumber-1;
   if (zIndex < 0) return false; //el boton no es de ZONA o error en la matriz Boton[]
@@ -1282,7 +1288,7 @@ bool initRiego()
   LOG_DEBUG("Boton:",config.zona[zIndex].desc,"zona:",ultimoBotonZona->znumber,"IDX:",config.zona[zIndex].idx);
   LOG_INFO( "Iniciando riego: ", config.zona[zIndex].desc);
   if (domoticzSwitch(config.zona[zIndex].idx, (char *)"On", DEFAULT_SWITCH_RETRIES)) {
-    inicioTimeLastRiego(lastRiegos[zIndex], zIndex);
+    if (!resume) inicioTimeLastRiego(lastRiegos[zIndex], zIndex);
       #ifdef EXTRADEBUG
           for(uint i=0;i<NUMZONAS;i++) {
                 LOG_DEBUG("[ULTIMOSRIEGOS] inicio zona:", i+1, "time:",lastRiegos[i].inicio);
@@ -1417,13 +1423,19 @@ void StaticTimeUpdate(bool refresh)
   }
 }
 
-void refreshTime()   // Actualiza la cuenta atrás en pantalla, solo si ha cambiado
+void refreshTime()   // Actualiza la cuenta atrás en pantalla
 {
   unsigned long curMinutes = T.ShowMinutes();
   unsigned long curSeconds = T.ShowSeconds();
-  if(prevseconds != curSeconds) lcd.displayTime(curMinutes, curSeconds);
-  prevseconds = curSeconds;
+  lcd.displayTime(curMinutes, curSeconds);
+  // if(prevseconds != curSeconds) lcd.displayTime(curMinutes, curSeconds);
+  // prevseconds = curSeconds;
 
+}
+
+// Para actualizar el temporizador de cuenta atrás
+void timerTick() {
+    T.Timer();
 }
 
 int tmvalue()

@@ -194,6 +194,7 @@
   #define BORRA2H 2
   #define LCDON 0
   #define RECUPERABLE 1
+  #define RESUME 1
 
   //Enums
 
@@ -543,7 +544,8 @@
     S_simFlags simular; // estructura flags para simular errores
     Configure    *configure;
     AiEsp32RotaryEncoder rotaryEncoder(ENCDT,ENCCLK,-1, -1, ROTARY_ENCODER_STEPS);
-    Ticker tic_parpadeoLedRecon;    //para parpadeo led LEDG con LEDR activo (morado)
+    Ticker tic_CountDownTimer;    //para llamar a la funcion de cuenta atras del temporizador
+    Ticker tic_parpadeoLedRecon;    //para parpadeo led LEDB con LEDR activo (morado)
     Ticker tic_parpadeoLedError;    //para parpadeo led ERROR (LEDR)
     Ticker tic_parpadeoLedZona;  //para parpadeo led zona de riego
     Ticker tic_verificaciones;   //para verificaciones periodicas
@@ -625,7 +627,7 @@
   void initLCD(void);
   void initLeds(void);
   void initMCP23017 (void);
-  bool initRiego(void);
+  bool initRiego(bool resume=false);
   void initWire(void);
   void led(uint8_t,int);
   int  ledlevel(void);
@@ -704,6 +706,7 @@
   bool testButton(uint16_t, bool);
   time_t tLoc(void);
   void timeByFactor(int,uint8_t *,uint8_t *);
+  void timerTick(void);
   int  tmvalue(void);
   String TS2Date(time_t);
   String TS2Hour(time_t);
