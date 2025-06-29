@@ -697,7 +697,7 @@ void procesaEstadoRegando(void)
     led(ledID,ON);                //y lo dejamos fijo
     if(queryStatus(config.zona[ultimoBotonZona->znumber-1].idx, (char *)"On")) return;
     else {
-      if(Estado.error == NOERROR) { //riego zona parado: entramos en PAUSE y blink lento zona pausada remotamente 
+      if(!Estado.error) { //riego zona parado: entramos en PAUSE y blink lento zona pausada remotamente 
         T.PauseTimer();
         tic_parpadeoLedZona.attach(0.8, parpadeoLedZona, ledID);
         LOG_WARN(">>>>>>>>>> procesaEstadoRegando zona:", config.zona[ultimoBotonZona->znumber-1].desc, "en PAUSA remota <<<<<<<<");
@@ -800,7 +800,7 @@ void procesaEstadoPause(void) {
   if(flagV && VERIFY && (!modoDEMO || simular.all_simFlags)) {  // verificamos zona sigue OFF en Domoticz periodicamente
     if(queryStatus(config.zona[ultimoBotonZona->znumber-1].idx, (char *)"Off")) return;
     else {
-      if(Estado.error == NOERROR) { //riego zona activo: salimos del PAUSE y blink lento zona activada remotamente 
+      if(!Estado.error) { //riego zona activo: salimos del PAUSE y blink lento zona activada remotamente 
         sonido.bip(2);
         ledID = ultimoBotonZona->led;
         tic_parpadeoLedZona.attach(0.8, parpadeoLedZona, ledID);
@@ -1747,7 +1747,7 @@ void Verificaciones()
   flagV = OFF;
   checkReconInterval = false;
   if (!flagVtimer) return;  //si no activada por Ticker salimos sin hacer nada
-  LOG_TRACE("-------flagVtimer ON----   recoverableError: ", recoverableError, "Estado.error: ", Estado.error);
+  if (Estado.error) LOG_TRACE("-------flagVtimer ON----   recoverableError: ", recoverableError, "Estado.error: ", Estado.error);
   flagVtimer = OFF;
   flagV = ON;  //activamos flagV para que se realicen las verificaciones en las funciones de estado correspondientes
   if(millis() > lastmillisReconnect + RECONNECTINTERVAL * 60000) {   
@@ -1829,7 +1829,8 @@ void statusError(uint8_t errorID, bool recoverable)
   Estado.error = errorID;
   Estado.tipo = LOCAL;
   rotaryEncoder.disable();
-  sprintf(errorText, "Error%d", errorID);
+  if (errorID == E0) sprintf(errorText, "Error0");
+  else sprintf(errorText, "Error%d", errorID);
   LOG_ERROR("SET ERROR: ", errorText);
   if (recoverableError) snprintf(buff, MAXBUFF, ">>>  %s  >>> R", errorText);
   else snprintf(buff, MAXBUFF, ">>>  %s  <<<", errorText);
@@ -1837,7 +1838,7 @@ void statusError(uint8_t errorID, bool recoverable)
   lcd.setCursor(2,2);
   lcd.print(buff);
   lcd.setCursor(0,3);
-  lcd.print(errorToString(errorID));
+  lcd.print(errorToString(errorID));  // mostramos explicacion del error en pantalla
   actLedError();
   sonido.bipKO();
   if (errorID == E5) sonido.longbip(5); // resaltamos error al parar riego

@@ -233,8 +233,8 @@
   const char nEstado[][15] = {_ESTADOS};
 
   enum error_tipos {
-    NOERROR       = 0xFF,
-    E0            = 0,
+    NOERROR       = 0,
+    E0            = 10,
     E1            = 1,
     E2            = 2,
     E3            = 3,
