@@ -482,7 +482,7 @@ void procesaBotonMultiriego(void)
       snprintf(buff, MAXBUFF, "grupo: %s", multi.desc);
       lcd.infoclear(buff, 1);
       displayLCDGrupo(FULL, 2);
-      showTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1);
+      showTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1, GRUPO);
       displayGrupo(multi.serie, *multi.size);
       delay(config.msgdisplaymillis*3);
       setEstado(STANDBY);   //para que restaure pantalla
@@ -490,7 +490,7 @@ void procesaBotonMultiriego(void)
     else {
       //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
       //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
-      if(setMultirriego(config)) inicioTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1);
+      if(setMultirriego(config)) inicioTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1, false); //inicializamos el tiempo de riego del grupo
     }
   }
 } //fin de procesaBotonMultiriego
@@ -543,7 +543,7 @@ void procesaBotonZona(void)
       lcd.print(buff);
       snprintf(buff, MAXBUFF, "-factor riego:  %d", factorRiegos[zIndex]);
       lcd.info(buff,2);
-      showTimeLastRiego(lastRiegos[zIndex], zIndex);
+      showTimeLastRiego(lastRiegos[zIndex], zIndex, ZONA);
       delay(config.msgdisplaymillis*4);
       led(boton->led,OFF);
       LOG_TRACE("[poniendo estado STANDBY]");
@@ -1126,12 +1126,24 @@ void ultimosRiegos(int modo)
   }
 }
 
-void inicioTimeLastRiego(S_timeRiego &timeRiego, int index) 
+void inicioTimeLastRiego(S_timeRiego &timeRiego, int index, bool resume) 
 {
   time_t t = tLoc();
-  LOG_DEBUG("actualizo lastriegos inicio zona/grupo ", index+1, "timestamp:", t);
-  timeRiego.inicio = t;
-  timeRiego.final = 0;
+  if (resume)
+  {
+    // si estamos reanudando un riego, mantenemos el inicio del riego anterior
+    LOG_DEBUG("actualizo lastriegos: reanudando riego zona/grupo ", index+1, "timestamp:", t);
+    timeRiego.reinicio = t;
+  }
+  else
+  {
+    // si estamos iniciando, actualizamos el inicio del riego
+    LOG_DEBUG("actualizo lastriegos: iniciando riego zona/grupo ", index+1, "timestamp:", t);
+    timeRiego.inicio = t;
+    timeRiego.final = 0;
+    timeRiego.reinicio = t;
+    timeRiego.total = 0;
+  }
 }  
 
 void finalTimeLastRiego(S_timeRiego &timeRiego, int index) 
@@ -1139,19 +1151,25 @@ void finalTimeLastRiego(S_timeRiego &timeRiego, int index)
   time_t t = tLoc();
   LOG_DEBUG("actualizo lastriegos fin zona/grupo ", index+1, "timestamp:", t);
   timeRiego.final = t;
+  timeRiego.total = timeRiego.total + (timeRiego.final - timeRiego.reinicio); //total = tiempo regado hasta ahora
+  LOG_DEBUG("tiempo total regado hasta ahora zona/grupo ", index+1, "total:", timeRiego.total / 60.0, "minutos");
 }  
 
-void showTimeLastRiego(S_timeRiego &timeRiego, int index) 
+void showTimeLastRiego(S_timeRiego &timeRiego, int index, int tipo) 
 {
-  lcd.info("-ultimo riego:",3);
   time_t t1=timeRiego.inicio;
   time_t t2=timeRiego.final;
   LOG_DEBUG("Zona/Grupo:", index+1 , "time.inicio", t1, "time.final", t2);
-  if (t1) {
+  if (t1 && t2-t1 > 0) { // si tenemos inicio y finalizacion del riego
+    if (tipo == ZONA) snprintf(buff, MAXBUFF, "-ultimo riego:   %02dm", (timeRiego.total+20)/60);
+    if (tipo == GRUPO) snprintf(buff, MAXBUFF, "-ultimo riego grupo:");
+    lcd.info(buff,3);
     snprintf(buff, MAXBUFF, " %d/%02d %d:%02d (%d:%02d)", day(t1), month(t1), hour(t1), minute(t1), hour(t2), minute(t2));
     lcd.info(buff,4);
-  }
-  else lcd.info("   > sin datos <",4);
+  } else {
+      lcd.info("-ultimo riego:",3);
+      lcd.info("   > sin datos <",4);
+  }  
 }
 
 
@@ -1288,7 +1306,7 @@ bool initRiego(bool resume)
   LOG_DEBUG("Boton:",config.zona[zIndex].desc,"zona:",ultimoBotonZona->znumber,"IDX:",config.zona[zIndex].idx);
   LOG_INFO( "Iniciando riego: ", config.zona[zIndex].desc);
   if (domoticzSwitch(config.zona[zIndex].idx, (char *)"On", DEFAULT_SWITCH_RETRIES)) {
-    if (!resume) inicioTimeLastRiego(lastRiegos[zIndex], zIndex);
+    inicioTimeLastRiego(lastRiegos[zIndex], zIndex, resume);
       #ifdef EXTRADEBUG
           for(uint i=0;i<NUMZONAS;i++) {
                 LOG_DEBUG("[ULTIMOSRIEGOS] inicio zona:", i+1, "time:",lastRiegos[i].inicio);

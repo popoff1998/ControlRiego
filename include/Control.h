@@ -222,6 +222,11 @@
     STOP          ,
     ERROR         ,
   };
+  
+  enum _opciones_varias {
+    ZONA = 1,
+    GRUPO,
+  };
 
   // literales para los estados en el display
   #define _ESTADOS "STANDBY" , "REGANDO:" , "CONFIGURANDO" , "TERMINANDO" , "PAUSA:" , "STOP" , "ERROR"
@@ -371,6 +376,8 @@
   struct S_timeRiego {
     time_t inicio; 
     time_t final; 
+    time_t reinicio; 
+    time_t total; 
   } ;
 
   struct S_tm {
@@ -618,7 +625,7 @@
   float getTemperatureDomoticz(uint16_t);
   uint16_t getMultiStatus(void);
   String *httpGetDomoticz(String *);
-  void inicioTimeLastRiego(S_timeRiego&, int);
+  void inicioTimeLastRiego(S_timeRiego&, int, bool);
   void initEncoder(void);
   void initFactorRiegos(void);
   void initGPIOs(void);
@@ -696,7 +703,7 @@
   void setupRedWM(Config_parm&, S_initFlags&);
   void setupWS(Config_parm&);
   void setzNumber(void);
-  void showTimeLastRiego(S_timeRiego&, int);
+  void showTimeLastRiego(S_timeRiego&, int, int);
   void starConfigPortal(Config_parm&);
   void StaticTimeUpdate(bool);
   void statusError(uint8_t, bool recoverable=false);
