@@ -220,7 +220,7 @@ void DisplayLCD::infoclear(const char *info, int line) {
  * @param bnum = numero de bips emitidos
  */
 void DisplayLCD::infoclear(const char *info, int dnum, int btype, int bnum) {
-    LOG_DEBUG("[LCD]  Recibido: '",info, "'   (blink=",dnum, ") btype=",btype,"bnum=",bnum);
+    LOG_DEBUG("[LCD]  Recibido: '",info, "'   (blink=",dnum, ") biptype=",btype,"(veces=",bnum,")");
     clear();
     if(info=="STOP") setCursor(8,1);
     else setCursor(0, 0);

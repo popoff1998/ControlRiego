@@ -34,7 +34,7 @@ void saveWifiCallback() {
     ledPWM(LEDB,OFF);
     lcd.infoclear("conectando WIFI");
     // Empezamos el temporizador que hará parpadear el LED indicador de wifi
-    tic_WifiLed.attach(0.2, parpadeoLedWifi);
+    tic_WifiLed.attach(RAPIDO, parpadeoLedWifi);
 }
 
 //llamado cuando WiFiManager entra en modo configuracion
@@ -44,7 +44,7 @@ void configModeCallback (WiFiManager *myWiFiManager) {
   tic_WifiLed.detach();
   ledPWM(LEDG,OFF);
   // Empezamos el temporizador que hará parpadear el LED indicador de AP
-  tic_APLed.attach(0.5, parpadeoLedAP);
+  tic_APLed.attach(NORMAL, parpadeoLedAP);
   lcd.infoclear("   modo -AP- :", DEFAULTBLINK, LOWBIP, 1); //lo señalamos en display
   lcd.info("\"Ardomo\" activado", 3);
 }
@@ -130,7 +130,7 @@ void setupRedWM(Config_parm &config, S_initFlags &initFlags)
   custom_timezone.setValue(config.TZ, 100);
   if(noWIFI) return;
   lcd.infoclear("conectando WIFI");
-  tic_WifiLed.attach(0.2, parpadeoLedWifi); // Empezamos el temporizador que hará parpadear el LED indicador de wifi
+  tic_WifiLed.attach(RAPIDO, parpadeoLedWifi); // Empezamos el temporizador que hará parpadear el LED indicador de wifi
   ledPWM(LEDR,OFF);   // y apagamos LEDR
   // activamos conexion wifi y comprobamos si se establece
   if(!wm.autoConnect("Ardomo")) {
@@ -155,7 +155,7 @@ void setupRedWM(Config_parm &config, S_initFlags &initFlags)
     LOG_INFO("Hay wifi salvada -> reintentamos la conexion");
     int j=0;
     recoverableError = false;
-    tic_WifiLed.attach(0.2, parpadeoLedWifi);
+    tic_WifiLed.attach(RAPIDO, parpadeoLedWifi);
     while(WiFi.status() != WL_CONNECTED) {
       Serial.print(F("."));
       WiFi.reconnect(); 
@@ -221,7 +221,7 @@ void starConfigPortal(Config_parm &config)
 
 // verificacion estado de la conexion wifi
 int checkWifi(bool level) {
-  LOG_TRACE("in checkWifi");
+  //LOG_TRACE("in checkWifi");
   if(WiFi.status() == WL_CONNECTED) {
     tic_WifiLed.detach();  // detenemos su parpadeo por si lo tuviera activo
     ledPWM(LEDG,ON);  // Encendemos el LED indicador de wifi
@@ -238,7 +238,7 @@ int checkWifi(bool level) {
 
 bool wifiReconnect () {
     LOG_WARN("----  INTENTANDO RECONEXION WIFI  ----");
-    tic_WifiLed.attach(0.2, parpadeoLedWifi);
+    tic_WifiLed.attach(RAPIDO, parpadeoLedWifi);
     lcd.info("conectando WIFI",1);
     // WiFi.reconnect(); 
     WiFi.disconnect();
@@ -254,7 +254,7 @@ bool wifiReconnect () {
 }    
 
 void wifiVerifyRecovery(Config_parm &config, S_Estado &Estado) {
-  LOG_TRACE("");
+  //LOG_TRACE("");
   //en modoDEMO sin conexion no verificamos (DEMO sin wifi)
   if (modoDEMO && !connected) return;
   lcd.displayON(); //por si estuviera parpadeando(apagado) por error en pantalla
@@ -273,9 +273,13 @@ void wifiVerifyRecovery(Config_parm &config, S_Estado &Estado) {
     Verificamos estado actual de la wifi 
     (y display wifi level si procede)
   */  
+    #ifdef DEVELOP
+    int wifilevel = checkWifi(true); // conectado a wifi?
+    #else
     int wifilevel = checkWifi(config.showwifilevel); // conectado a wifi?
+    #endif
     if(wifilevel) {
-      LOG_DEBUG("Wifi verificada OK, nivel=",wifilevel);
+      LOG_DEBUG("Wifi verificada OK, nivel=",wifilevel,"%");
       if (config.showwifilevel && Estado.estado == STANDBY) {
          LOG_DEBUG("showwifilevel=",config.showwifilevel,"wifilevel=",wifilevel);
          if(wifilevel==100) wifilevel=99; 

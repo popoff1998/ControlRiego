@@ -18,8 +18,8 @@
   #ifdef DEVELOP
     //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
     //#define DEBUGLOG_DEFAULT_LOG_LEVEL_WARN
-    #define DEBUGLOG_DEFAULT_LOG_LEVEL_TRACE
-    //#define DEBUGLOG_DEFAULT_LOG_LEVEL_DEBUG
+    //#define DEBUGLOG_DEFAULT_LOG_LEVEL_TRACE
+    #define DEBUGLOG_DEFAULT_LOG_LEVEL_DEBUG
     //#define EXTRADEBUG
     //#define EXTRADEBUG2
     //#define EXTRATRACE
@@ -194,7 +194,11 @@
   #define BORRA2H 2
   #define LCDON 0
   #define RECUPERABLE 1
+  #define INICIO 0
   #define RESUME 1
+  #define LENTO 0.8
+  #define NORMAL 0.4
+  #define RAPIDO 0.2
 
   //Enums
 
@@ -619,13 +623,14 @@
   void endWS(void);
   static const char* errorToString(uint8_t);
   void filesInfo(void);
-  void finalTimeLastRiego(S_timeRiego&, int);
+  void finalTimeGrupo(S_timeRiego&, time_t tZona = 0); 
+  void finalTimeLastRiego(S_timeRiego&);
   void flagVerificaciones(void);
   int  getFactor(uint16_t);
   float getTemperatureDomoticz(uint16_t);
   uint16_t getMultiStatus(void);
   String *httpGetDomoticz(String *);
-  void inicioTimeLastRiego(S_timeRiego&, int, bool);
+  void inicioTimeLastRiego(S_timeRiego&, const char* texto = nullptr, bool resume=false);
   void initEncoder(void);
   void initFactorRiegos(void);
   void initGPIOs(void);
@@ -691,7 +696,7 @@
   void setEncoderMenu(int menuitems, int currentitem = 0);
   void setEncoderTime(void);
   void setEncoderRange(int , int , int , int);
-  void setEstado(uint8_t estado, int bnum = 0);
+  void setEstado(uint8_t estado, int bnum = 0, int tipo = LOCAL);
   void setledRGB(void);
   void showTemp(void);
   int  setMultibyId(uint16_t , Config_parm&);

@@ -335,7 +335,7 @@ void procesaBotonPause(void)
         else initRiego(RESUME);        // reanudamos riego que estaba parado 
         if(Estado.estado == ERROR) { // caso de error al reanudar el riego seguimos en PAUSE y señalamos con blink rapido zona
           ledID = ultimoBotonZona->led;
-          tic_parpadeoLedZona.attach(0.2, parpadeoLedZona, ledID);
+          tic_parpadeoLedZona.attach(RAPIDO, parpadeoLedZona, ledID);
           LOG_WARN("error al salir de PAUSE errorText :",errorText,"Estado.error :",Estado.error );
           refreshTime();
           setEstado(PAUSE,1);
@@ -472,7 +472,6 @@ void procesaBotonMultiriego(void)
     #endif
     if (n_grupo == 0) return; //error en setup de apuntadores 
     LOG_DEBUG("en MULTIRRIEGO, setMultibyId devuelve: Grupo", n_grupo,"(",multi.desc,") multi.size=" , *multi.size);
-    for (int k=0; k < *multi.size; k++) LOG_DEBUG( "       multi.serie: x" ,DebugLogBase::HEX, multi.serie[k]);
     for (int k=0; k < *multi.size; k++) LOG_DEBUG( "       multi.zserie: x" , multi.zserie[k]);
     LOG_DEBUG("en MULTIRRIEGO, encoderSW status  :", encoderSW );
     // si esta pulsado el boton del encoder --> solo hacemos encendido de los leds del grupo
@@ -490,9 +489,11 @@ void procesaBotonMultiriego(void)
     else {
       //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
       //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
-      if(setMultirriego(config)) inicioTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1, false); //inicializamos el tiempo de riego del grupo
+      char grupoText[7];
+      snprintf(grupoText, sizeof(grupoText), "GRUPO%d", n_grupo);
+      if(setMultirriego(config)) inicioTimeLastRiego(lastGrupos[n_grupo-1], grupoText, INICIO); //inicializamos el tiempo de riego del grupo
     }
-  }
+  }  
 } //fin de procesaBotonMultiriego
 
 
@@ -522,7 +523,7 @@ void procesaBotonZona(void)
           lcd.info("IDX/factor:     -00-",4);
           return;
         }
-        if(initRiego()) { //comenzamos el riego de la zona
+        if(initRiego(INICIO)) { //comenzamos el riego de la zona
           setEstado(REGANDO);
           //inicializamos el timer de cuenta atras
           T.SetTimer(0,fminutes,fseconds);
@@ -693,19 +694,21 @@ void procesaEstadoRegando(void)
   // verificamos periodicamente que el riego sigue activo en Domoticz
   else if(flagV && VERIFY && (!modoDEMO || simular.all_simFlags)) { 
     ledID = ultimoBotonZona->led;
-    tic_parpadeoLedZona.detach(); //detiene posible parpadeo led zona
-    led(ledID,ON);                //y lo dejamos fijo
+    if (Estado.tipo != REMOTO) {
+      tic_parpadeoLedZona.detach(); //detiene posible parpadeo led zona
+      led(ledID,ON); //y lo dejamos fijo
+    }               
     if(queryStatus(config.zona[ultimoBotonZona->znumber-1].idx, (char *)"On")) return;
     else {
       if(!Estado.error) { //riego zona parado: entramos en PAUSE y blink lento zona pausada remotamente 
         T.PauseTimer();
-        tic_parpadeoLedZona.attach(0.8, parpadeoLedZona, ledID);
+        finalTimeLastRiego(lastRiegos[ultimoBotonZona->znumber-1]); //actualizamos tiempo de riego de la zona
+        tic_parpadeoLedZona.attach(LENTO, parpadeoLedZona, ledID);
         LOG_WARN(">>>>>>>>>> procesaEstadoRegando zona:", config.zona[ultimoBotonZona->znumber-1].desc, "en PAUSA remota <<<<<<<<");
-        Estado.tipo = REMOTO;
-        setEstado(PAUSE,1);
+        setEstado(PAUSE,1,REMOTO); //pasamos a PAUSE remoto
       }
       else {  // si no hemos podido verificar estado, señalamos zona blink rapido y continuamos
-        tic_parpadeoLedZona.attach(0.4, parpadeoLedZona, ledID);
+        tic_parpadeoLedZona.attach(NORMAL, parpadeoLedZona, ledID);
         Estado.error = NOERROR; // si no hemos podido verificar estado, ignoramos el error
         sonido.bip(2);
         LOG_ERROR("** SE HA DEVUELTO ERROR al verificar estado riego");
@@ -726,6 +729,8 @@ void procesaEstadoTerminando(void)
   led(ultimoBotonZona->led,OFF);  // apaga led zona
   //Comprobamos si estamos en un multirriego
   if (multi.riegoON) {
+    //sumamos tiempo riego zona terminada al tiempo de riego del grupo
+    if(!multi.temporal) finalTimeGrupo(lastGrupos[multi.ngrupo-1], lastRiegos[ultimoBotonZona->znumber-1].total); 
     multi.actual++;
     if (multi.actual < *multi.size) {  // pasamos a regar la siguiente zona del grupo
       //Simular la pulsacion del siguiente boton de la serie de multirriego
@@ -735,7 +740,7 @@ void procesaEstadoTerminando(void)
       displayLCDGrupo(RESTO, 2);  //  display zonas quedan por regar
     }
     else {         // señalamos fin del multirriego y actualizamos timestamp de finalizacion
-      if(!multi.temporal) finalTimeLastRiego(lastGrupos[multi.ngrupo-1], multi.ngrupo-1);
+      if(!multi.temporal) finalTimeGrupo(lastGrupos[multi.ngrupo-1]);
       lcd.info("multirriego",1);
       int msgl = snprintf(buff, MAXBUFF, "%s finalizado", multi.desc);
       lcd.info(buff, 2, msgl);
@@ -803,11 +808,13 @@ void procesaEstadoPause(void) {
       if(!Estado.error) { //riego zona activo: salimos del PAUSE y blink lento zona activada remotamente 
         sonido.bip(2);
         ledID = ultimoBotonZona->led;
-        tic_parpadeoLedZona.attach(0.8, parpadeoLedZona, ledID);
+        tic_parpadeoLedZona.attach(LENTO, parpadeoLedZona, ledID);
         LOG_WARN(">>>>>>>>>> procesaEstadoPause zona:", config.zona[ultimoBotonZona->znumber-1].desc,"activada REMOTAMENTE <<<<<<<");
         T.ResumeTimer();
-        Estado.tipo = REMOTO;
-        setEstado(REGANDO);
+        char zonaText[7];
+        snprintf(zonaText, sizeof(zonaText), "ZONA%d", ultimoBotonZona->znumber);
+        inicioTimeLastRiego(lastRiegos[ultimoBotonZona->znumber-1], zonaText, RESUME); //actualizamos tiempo de riego de la zona
+        setEstado(REGANDO,1,REMOTO); //pasamos a REGANDO remoto
       }
       else Estado.error = NOERROR; // si no hemos podido verificar estado, ignoramos el error
     }
@@ -872,9 +879,9 @@ bool procesaDynamic(void)
 /**---------------------------------------------------------------
  * Pone estado pasado y sus indicadores opcionales
  */
-void setEstado(uint8_t estado, int bnum)
+void setEstado(uint8_t estado, int bnum, int tipo)
 {
-  LOG_DEBUG( "recibido ", nEstado[estado], "bnum=", bnum);
+  LOG_DEBUG( "recibido ", nEstado[estado], "bnum=", bnum, " tipo=", tipo);
   // setup y reseteos varios
   Estado.estado = estado;
   Estado.error = NOERROR;
@@ -886,11 +893,10 @@ void setEstado(uint8_t estado, int bnum)
   rotaryEncoder.disable();  // para que no cuente pasos salvo que lo habilitemos
   lcd.displayON();
   setledRGB();   // led RGB segun status wifi y nonetwork
-  LOG_DEBUG( "Estado.tipo =", Estado.tipo);
   lcd.setCursor(17, 1);
-  if (Estado.tipo==REMOTO) lcd.print("(R)");
-  else lcd.print("   ");
-  Estado.tipo = LOCAL;
+  if (tipo == REMOTO) {Estado.tipo = REMOTO; lcd.print("(R)");}
+  else {Estado.tipo = LOCAL; lcd.print("   ");}
+  LOG_DEBUG( ">>>> Estado.tipo =", Estado.tipo);
   if((estado==REGANDO || estado==TERMINANDO ) && ultimoBotonZona != NULL) {
     lcd.infoEstado(nEstado[estado], config.zona[ultimoBotonZona->znumber-1].desc);
     if(modoDEMO) displayDemo(); 
@@ -972,7 +978,7 @@ void initFactorRiegos()
     if(Estado.estado == ERROR) {  //al primer error salimos
       if(Estado.error == E3) {    // y señalamos zona que falla si no es error general de conexion
         ledID = Boton[bIndex].led;
-        tic_parpadeoLedZona.attach(0.4, parpadeoLedZona, ledID);
+        tic_parpadeoLedZona.attach(NORMAL, parpadeoLedZona, ledID);
       }
       break;
     }
@@ -1126,19 +1132,19 @@ void ultimosRiegos(int modo)
   }
 }
 
-void inicioTimeLastRiego(S_timeRiego &timeRiego, int index, bool resume) 
+void inicioTimeLastRiego(S_timeRiego &timeRiego, const char* texto, bool resume) 
 {
   time_t t = tLoc();
   if (resume)
   {
     // si estamos reanudando un riego, mantenemos el inicio del riego anterior
-    LOG_DEBUG("actualizo lastriegos: reanudando riego zona/grupo ", index+1, "timestamp:", t);
+    LOG_DEBUG("actualizo lastriegos: reanudando riego ", texto, "timestamp:", t);
     timeRiego.reinicio = t;
   }
   else
   {
     // si estamos iniciando, actualizamos el inicio del riego
-    LOG_DEBUG("actualizo lastriegos: iniciando riego zona/grupo ", index+1, "timestamp:", t);
+    LOG_DEBUG("actualizo lastriegos: iniciando riego ", texto, "timestamp:", t);
     timeRiego.inicio = t;
     timeRiego.final = 0;
     timeRiego.reinicio = t;
@@ -1146,13 +1152,33 @@ void inicioTimeLastRiego(S_timeRiego &timeRiego, int index, bool resume)
   }
 }  
 
-void finalTimeLastRiego(S_timeRiego &timeRiego, int index) 
+void finalTimeLastRiego(S_timeRiego &timeRiego) 
 {
   time_t t = tLoc();
-  LOG_DEBUG("actualizo lastriegos fin zona/grupo ", index+1, "timestamp:", t);
+  char zonaText[7];
+  snprintf(zonaText, sizeof(zonaText), "ZONA%d", ultimoBotonZona->znumber);
+  LOG_DEBUG("actualizo lastriegos fin ", zonaText, "timestamp:", t);
   timeRiego.final = t;
-  timeRiego.total = timeRiego.total + (timeRiego.final - timeRiego.reinicio); //total = tiempo regado hasta ahora
-  LOG_DEBUG("tiempo total regado hasta ahora zona/grupo ", index+1, "total:", timeRiego.total / 60.0, "minutos");
+  timeRiego.total = timeRiego.total + (timeRiego.final - timeRiego.reinicio); //acumulado = acumulado + (intervalo regado)
+  LOG_DEBUG("tiempo total regado hasta ahora ", zonaText, "total:", timeRiego.total / 60.0, "minutos");
+}  
+
+void finalTimeGrupo(S_timeRiego &timeRiego, time_t tZona) 
+{
+  char grupoText[7];
+  snprintf(grupoText, sizeof(grupoText), "GRUPO%d", multi.ngrupo);
+  // si tZona no es 0, es el tiempo de regado de una zona del grupo -> acumulamos el tiempo de la zona al total del grupo
+  if (tZona) {
+    timeRiego.total = timeRiego.total + tZona; //total = acumulado hasta ahora + tiempo ultima zona regada
+    LOG_DEBUG("tiempo regado hasta ahora ", grupoText, "acumulado:", timeRiego.total / 60.0, "minutos");
+  }
+  // si tZona es 0, significa que estamos en fin de riego de grupo -> registramos el timestamp final del grupo
+  else {
+    time_t t = tLoc();
+    LOG_DEBUG("actualizo lastriegos fin ", grupoText, "timestamp:", t);
+    timeRiego.final = t;
+    LOG_DEBUG("tiempo total riego ", grupoText, "total:", timeRiego.total / 60.0, "minutos");
+  }
 }  
 
 void showTimeLastRiego(S_timeRiego &timeRiego, int index, int tipo) 
@@ -1161,8 +1187,9 @@ void showTimeLastRiego(S_timeRiego &timeRiego, int index, int tipo)
   time_t t2=timeRiego.final;
   LOG_DEBUG("Zona/Grupo:", index+1 , "time.inicio", t1, "time.final", t2);
   if (t1 && t2-t1 > 0) { // si tenemos inicio y finalizacion del riego
-    if (tipo == ZONA) snprintf(buff, MAXBUFF, "-ultimo riego:   %02dm", (timeRiego.total+20)/60);
-    if (tipo == GRUPO) snprintf(buff, MAXBUFF, "-ultimo riego grupo:");
+    snprintf(buff, MAXBUFF, "-ultimo riego:   %02dm", (timeRiego.total+20)/60);
+    // if (tipo == ZONA) snprintf(buff, MAXBUFF, "-ultimo riego:   %02dm", (timeRiego.total+20)/60);
+    // if (tipo == GRUPO) snprintf(buff, MAXBUFF, "-ultimo riego grupo:");
     lcd.info(buff,3);
     snprintf(buff, MAXBUFF, " %d/%02d %d:%02d (%d:%02d)", day(t1), month(t1), hour(t1), minute(t1), hour(t2), minute(t2));
     lcd.info(buff,4);
@@ -1304,9 +1331,12 @@ bool initRiego(bool resume)
   if (zIndex < 0) return false; //el boton no es de ZONA o error en la matriz Boton[]
   led(ultimoBotonZona->led,ON);
   LOG_DEBUG("Boton:",config.zona[zIndex].desc,"zona:",ultimoBotonZona->znumber,"IDX:",config.zona[zIndex].idx);
-  LOG_INFO( "Iniciando riego: ", config.zona[zIndex].desc);
+  if (resume) LOG_INFO( "Continuando riego: ", config.zona[zIndex].desc);
+  else LOG_INFO( "Iniciando riego: ", config.zona[zIndex].desc);
   if (domoticzSwitch(config.zona[zIndex].idx, (char *)"On", DEFAULT_SWITCH_RETRIES)) {
-    inicioTimeLastRiego(lastRiegos[zIndex], zIndex, resume);
+    char zonaText[7];
+    snprintf(zonaText, sizeof(zonaText), "ZONA%d", zIndex+1);
+    inicioTimeLastRiego(lastRiegos[zIndex], zonaText, resume);
       #ifdef EXTRADEBUG
           for(uint i=0;i<NUMZONAS;i++) {
                 LOG_DEBUG("[ULTIMOSRIEGOS] inicio zona:", i+1, "time:",lastRiegos[i].inicio);
@@ -1327,7 +1357,7 @@ bool stopRiego(uint16_t id, bool update)
   if (domoticzSwitch(config.zona[zIndex].idx, (char *)"Off", DEFAULT_SWITCH_RETRIES)) {
     LOG_INFO( "Terminado OK riego: " , config.zona[zIndex].desc );
     // solo actualizamos hora de fin si no hemos sido llamado desde stopAllRiego :
-    if(update) finalTimeLastRiego(lastRiegos[zIndex], zIndex);
+    if(update) finalTimeLastRiego(lastRiegos[zIndex]);
         #ifdef EXTRADEBUG
             for(uint i=0;i<NUMZONAS;i++) {
                   LOG_DEBUG("[ULTIMOSRIEGOS] fin zona:", i+1, "time:",lastRiegos[i].final);
@@ -1337,8 +1367,8 @@ bool stopRiego(uint16_t id, bool update)
   } else {    //avisa de que no se ha podido terminar un riego
       if (!errorOFF) { //para no repetir bips en caso de stopAllRiego
         errorOFF = true;  // recordatorio error
-        tic_parpadeoLedError.attach(0.2,parpadeoLedError);
-        tic_parpadeoLedZona.attach(0.4, parpadeoLedZona, ledID);
+        tic_parpadeoLedError.attach(RAPIDO,parpadeoLedError);
+        tic_parpadeoLedZona.attach(RAPIDO, parpadeoLedZona, ledID);
       } 
       return false;
     }  
@@ -1584,7 +1614,7 @@ int getFactor(uint16_t idx)
 bool checkDomoticz()
 {
   LOG_TRACE("");
-  tic_parpadeoLedRecon.attach(0.2, parpadeoLedAP);
+  tic_parpadeoLedRecon.attach(RAPIDO, parpadeoLedAP);
   LOG_INFO("----  VERIFICANDO RECONEXION DOMOTICZ  ----");
   String response = deviceInfo(0); //leemos el idx=0 para comprobar que hay conexion
   tic_parpadeoLedRecon.detach();
