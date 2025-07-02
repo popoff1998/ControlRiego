@@ -77,22 +77,25 @@
   #endif  
   #define WSPORT 8080
 
+  //------------------------------  API con Domoticz -------------------------------------
+  #define COMMANDPRF    "/json.htm?type=command&param="
+  #define SWITCHDEVICE  "switchlight&idx=%d&switchcmd=%s"
   #ifdef DOMOTICZV3
-    #define QUERYDEVICE "/json.htm?type=devices&rid=%d"  //formato antiguo v3.0.0 Domoticz
+    #define QUERYDEVICE "/json.htm?type=devices&rid=%d"  //formato antiguo Domoticz < v2023.2
   #else
-    #define QUERYDEVICE "/json.htm?type=command&param=getdevices&rid=%d" //nuevo formato v4.0.0 Domoticz
-  #endif  
-
-  //#define CONFIG_LITTLEFS_SPIFFS_COMPAT 1  // modo compatibilidad con SPIFFS
-
+    #define QUERYDEVICE "/json.htm?type=command&param=getdevices&rid=%d" //nuevo formato v2023.2 en adelante
+  #endif
+  //---------------------------------------------------------------------------------------
+  
   /* You only need to format LittleFS the first time you run a
-   test or else use the LITTLEFS plugin to create a partition
-   https://github.com/lorol/arduino-esp32littlefs-plugin */
-   
+  test or else use the LITTLEFS plugin to create a partition
+  https://github.com/lorol/arduino-esp32littlefs-plugin */
+  
   #define FORMAT_LITTLEFS_IF_FAILED true
   #ifndef clean_FS
     #define clean_FS false
   #endif
+  //#define CONFIG_LITTLEFS_SPIFFS_COMPAT 1  // modo compatibilidad con SPIFFS
 
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0]))
        

@@ -1532,7 +1532,7 @@ String httpGetDomoticz(String message)
  */
 String deviceInfo(int idx)
 {
-  char message[250];
+  char message[150];
   sprintf(message,QUERYDEVICE,idx);
   return httpGetDomoticz(message);
 }
@@ -1542,7 +1542,7 @@ String deviceInfo(int idx)
  */
 String deviceInfo(int idx, char *campo)
 {
-  char message[250];
+  char message[150];
   sprintf(message,QUERYDEVICE,idx);
   String response = httpGetDomoticz(message);
     //procesamos la respuesta para ver si se ha producido error:
@@ -1725,9 +1725,8 @@ bool domoticzSwitch(int idx, char *msg, int retries)
     statusError(E1);
     return false;
   }
-  char JSONMSG[200]="/json.htm?type=command&param=switchlight&idx=%d&switchcmd=%s";
-  char message[250];
-  sprintf(message,JSONMSG,idx,msg);
+  char message[150];
+  sprintf(message,COMMANDPRF SWITCHDEVICE,idx,msg);
   String response;
   for(int i=0; i<retries; i++) {
      if ((simular.ErrorON && strcmp(msg,"On")==0) || (simular.ErrorOFF && strcmp(msg,"Off")==0)) response = "ErrX"; // simulamos el error
