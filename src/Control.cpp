@@ -1533,7 +1533,7 @@ String httpGetDomoticz(String message)
 String deviceInfo(int idx)
 {
   char message[150];
-  sprintf(message,QUERYDEVICE,idx);
+  sprintf(message,COMMANDPRF QUERYDEVICE,idx);
   return httpGetDomoticz(message);
 }
 
@@ -1543,7 +1543,7 @@ String deviceInfo(int idx)
 String deviceInfo(int idx, char *campo)
 {
   char message[150];
-  sprintf(message,QUERYDEVICE,idx);
+  sprintf(message,COMMANDPRF QUERYDEVICE,idx);
   String response = httpGetDomoticz(message);
     //procesamos la respuesta para ver si se ha producido error:
     if (response.startsWith("Err")) {

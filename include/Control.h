@@ -77,14 +77,11 @@
   #endif  
   #define WSPORT 8080
 
-  //------------------------------  API con Domoticz -------------------------------------
+  //-----------------------  API con Domoticz ------nuevo formato v2023.2 en adelante------
   #define COMMANDPRF    "/json.htm?type=command&param="
   #define SWITCHDEVICE  "switchlight&idx=%d&switchcmd=%s"
-  #ifdef DOMOTICZV3
-    #define QUERYDEVICE "/json.htm?type=devices&rid=%d"  //formato antiguo Domoticz < v2023.2
-  #else
-    #define QUERYDEVICE "/json.htm?type=command&param=getdevices&rid=%d" //nuevo formato v2023.2 en adelante
-  #endif
+  #define QUERYDEVICE   "getdevices&rid=%d"
+  #define GETSWITCHLOG  "getlightlog&idx=%d"
   //---------------------------------------------------------------------------------------
   
   /* You only need to format LittleFS the first time you run a
