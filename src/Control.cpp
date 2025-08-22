@@ -770,18 +770,16 @@ void procesaEstadoStandby(void)
   // leemos encoder
   procesaEncoderClock();
   // verificaciones en STANDBY cada VERIFY_INTERVAL segundos
-  //  - actualiza y muestra temperatura ambiente
   //  - verificacion de wifi y recuperacion si procede
+  //  - actualiza y muestra temperatura ambiente
   //  - actualizacion de hora por NTP si no la tenemos actualizada
   if (flagV) { 
     LOG_TRACE(".");
     if (multi.riegoON) return; //no se hacen verificaciones/acciones con multirriego en curso
-    showTemp();  // muestra temperatura ambiente en standby
-    wifiVerifyRecovery(config, Estado); //verificacion de wifi y recuperacion si procede
-    // si tenemos conexion y no hemos recibido time por NTP -> actualizamos time del sistema con el del servidor NTP
-    if (connected && !timeOK) {
-        LOG_TRACE("LLamando a setClock");
-        setClock();
+    if (wifiVerifyRecovery(config, Estado)) { //verificacion de wifi y recuperacion si procede
+      lcd.info("STANDBY",1);  //restaura pantalla (en caso de msg de reconexion)
+      showTemp();  // muestra temperatura ambiente en standby
+      if (!timeOK) setClock(); // si no hemos recibido time por NTP -> actualizamos time del sistema con el del servidor NTP
       }
   }   
 
@@ -1112,11 +1110,14 @@ void ultimosRiegos(int modo)
     lcd.infoclear("Hora actual:");
     if (timeOK) {
         time_t t = tLoc();
-        for(uint i=0;i<NUMZONAS;i++) {
+        for(uint i=0;i<NUMZONAS;i++) { // enciende leds zonas regadas desde medianoche
           if(lastRiegos[i].inicio > previousMidnight(t)) {
               LOG_DEBUG("[ULTIMOSRIEGOS] zona:", i+1, "time:",lastRiegos[i].inicio);
               led(Boton[bID2bIndex(ZONAS[i])].led,ON);
           }
+        }
+        if (config.lastr24) { //activa parpadeo leds zonas regadas entre 24h y medianoche
+          tic_parpadeoLedZonas24h.attach(RAPIDO, parpadeoLedZonas24h, t);
         }
         sprintf(buff, " %d", day(t));
         lcd.info(buff,3);
@@ -1125,10 +1126,23 @@ void ultimosRiegos(int modo)
       } else {lcd.info("   <<< NO TIME >>>",3); sonido.bipKO();}
       break;
     case HIDE:
+      tic_parpadeoLedZonas24h.detach();
       for(unsigned int i=0;i<NUMZONAS;i++) {
         led(Boton[bID2bIndex(ZONAS[i])].led,OFF);
       }
       break;
+  }
+}
+
+void parpadeoLedZonas24h(time_t t)
+{
+  for(uint i=0;i<NUMZONAS;i++) { // enciende leds zonas regadas ultimas 24h hasta medianoche
+    if(lastRiegos[i].inicio > (t-SECS_PER_DAY) && lastRiegos[i].inicio <= previousMidnight(t)) {
+        LOG_DEBUG("[ULTIMOSRIEGOS 24H] zona:", i+1, "time:",lastRiegos[i].inicio);
+        int ledid = Boton[bID2bIndex(ZONAS[i])].led;
+        byte estado = ledStatusId(ledid);
+        led(ledid,!estado);
+    }
   }
 }
 

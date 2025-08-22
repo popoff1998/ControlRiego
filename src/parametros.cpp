@@ -90,6 +90,7 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
   config.xname = doc["xname"] | false;
   config.verify = doc["verify"] | true;
   config.dynamic = doc["dynamic"] | false;
+  config.lastr24 = doc["lastr24"] | false;
   //-------------------------------------------------------------------------------------------
   file.close();
   // LittleFS.end();
@@ -148,6 +149,7 @@ bool saveConfigFile(const char *p_filename, Config_parm &config)
   doc["xname"]              = config.xname;
   doc["verify"]             = config.verify;
   doc["dynamic"]            = config.dynamic;
+  doc["lastr24"]            = config.lastr24;
 
   // Serialize JSON to file
   #ifdef EXTRADEBUG 
@@ -267,6 +269,7 @@ void printParms(Config_parm &config) {
   Serial.printf("\txname= %d \n", config.xname);
   Serial.printf("\tverify= %d \n", config.verify);
   Serial.printf("\tdynamic= %d \n", config.dynamic);
+  Serial.printf("\tlastr24= %d \n", config.lastr24);
   Serial.println("----------------------------------------------------------------");
 }
 

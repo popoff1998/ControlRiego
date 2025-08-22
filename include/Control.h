@@ -434,6 +434,7 @@
     bool xname = false;                         // actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
     bool verify = true;                         // verifica estado dispositivo en el Domoticz
     bool dynamic = false;                       // si true permite añadir/eliminar zonas durante el riego
+    bool lastr24 = false;                       // muestra leds ultimos riegos desde las 0h (false) o ultimas 24h (true)
   };
 
   // estructura del multirriego activo 
@@ -559,6 +560,7 @@
     Ticker tic_parpadeoLedRecon;    //para parpadeo led LEDB con LEDR activo (morado)
     Ticker tic_parpadeoLedError;    //para parpadeo led ERROR (LEDR)
     Ticker tic_parpadeoLedZona;  //para parpadeo led zona de riego
+    Ticker tic_parpadeoLedZonas24h;  //para parpadeo led zonas regadas ultimas 24h
     Ticker tic_verificaciones;   //para verificaciones periodicas
     S_timeRiego lastRiegos[NUMZONAS];
     S_timeRiego lastGrupos[NUMGRUPOS];
@@ -657,6 +659,7 @@
   void parpadeoLedError(void);
   void parpadeoLedWifi(void);
   void parpadeoLedZona(int);
+  void parpadeoLedZonas24h(time_t);
   void parpadeoLedAP(void);
   S_BOTON *parseInputs(bool);
   void printCharArray(char*, size_t);
@@ -726,7 +729,7 @@
   void Verificaciones(void);
   void wifiClearSignal(uint);
   bool wifiReconnect(void);
-  void wifiVerifyRecovery(Config_parm&, S_Estado&);
+  bool wifiVerifyRecovery(Config_parm&, S_Estado&);
   void zeroConfig(Config_parm&);
   int  zNumber2bIndex(uint16_t);
 

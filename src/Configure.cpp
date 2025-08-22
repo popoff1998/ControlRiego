@@ -360,6 +360,7 @@ int Configure::showMenu(int opcion)
       opcionesMenuConf[XNAME_ONOFF]   = "XNAME: ";
       opcionesMenuConf[VERIFY_ONOFF]  = "VERIFY: ";
       opcionesMenuConf[DYNAMIC]       = "DYNAMIC: ";
+      opcionesMenuConf[LASTRIEGOS24]  = "RIEGOS 24H: ";
       opcionesMenuConf[__ENDLINE__]   = "-----------------";
                                     /*   <------17------->     maxima longitud */ 
 
@@ -393,6 +394,7 @@ int Configure::showMenu(int opcion)
       opcionesMenuConf[XNAME_ONOFF] += (config.xname ? "ON" : "OFF");
       opcionesMenuConf[VERIFY_ONOFF] += (config.verify ? "ON" : "OFF");
       opcionesMenuConf[DYNAMIC] += (config.dynamic ? "ON" : "OFF");
+      opcionesMenuConf[LASTRIEGOS24] += (config.lastr24 ? "ON" : "OFF");
 
 
       LOG_DEBUG("opcion=",opcion,"_currentitem=",_currentItem,"MAXOPCIONES=",MAXOPCIONES);
@@ -533,6 +535,12 @@ void Configure::procesaSelectMenu()
                 break;
         case DYNAMIC :   // toggle añadido/borrado dinamico de zonas durante el riego
                 config.dynamic = !config.dynamic;
+                sonido.bip(2);
+                saveConfig = true;
+                this->menu();  // vuelve a mostrar menu de configuracion
+                break;
+        case LASTRIEGOS24 :   // toggle ultimos riegos desde 0:00h o ultimas 24h
+                config.lastr24 = !config.lastr24;
                 sonido.bip(2);
                 saveConfig = true;
                 this->menu();  // vuelve a mostrar menu de configuracion

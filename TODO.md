@@ -74,6 +74,7 @@
 - Time, timezone, NTP con funciones nativas de C (ctime) y ESP32. V3.2
 - Timezone configurable desde webserver (fichero de parametros) y desde modo AP (menu Setup) V3.2
 - en info de zona y grupo: minutos de tiempo de riego real (excluidas pausas) V3.2
+- opcion configurable lastr24 muestra zonas regadas últimas 24h
 
 
 

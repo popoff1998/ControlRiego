@@ -253,10 +253,10 @@ bool wifiReconnect () {
     } else return false;
 }    
 
-void wifiVerifyRecovery(Config_parm &config, S_Estado &Estado) {
+bool wifiVerifyRecovery(Config_parm &config, S_Estado &Estado) {
   //LOG_TRACE("");
   //en modoDEMO sin conexion no verificamos (DEMO sin wifi)
-  if (modoDEMO && !connected) return;
+  if (modoDEMO && !connected) return true;
   lcd.displayON(); //por si estuviera parpadeando(apagado) por error en pantalla
   /*
     Si no estamos conectados a la wifi, intentamos reconexion cada RECONNECTINTERVAL minutos.
@@ -300,4 +300,6 @@ void wifiVerifyRecovery(Config_parm &config, S_Estado &Estado) {
       initFactorRiegos(); //en caso de producirse error con esta funcion ya dejara este activado
       setupEstado();
     }
+    if (connected && !Estado.error) return true;
+      else return false;
 }  
