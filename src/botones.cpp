@@ -167,10 +167,16 @@ void ledYellow(int estado)
 // deja led RGB segun estado wifi y modoDEMO
 void setledRGB()
 {
-    ledPWM(LEDR,OFF);                   
-    checkWifi();
-    modoDEMO ? ledPWM(LEDB,ON) : ledPWM(LEDB,OFF);
+    ledRGB(OFF,checkWifi(),modoDEMO);                 
 }  
+
+// // deja led RGB segun estado wifi y modoDEMO
+// void setledRGB()
+// {
+//     ledPWM(LEDR,OFF);                   
+//     checkWifi();
+//     modoDEMO ? ledPWM(LEDB,ON) : ledPWM(LEDB,OFF);
+// }  
 
 
 // enciende o apaga un led controlado por PWM

@@ -890,7 +890,7 @@ void setEstado(uint8_t estado, int bnum, int tipo)
   if(reposo) reposoOFF();     //por si salimos de stop antinenes
   rotaryEncoder.disable();  // para que no cuente pasos salvo que lo habilitemos
   lcd.displayON();
-  setledRGB();   // led RGB segun status wifi y nonetwork
+  setledRGB();   // led RGB segun status wifi y modoDEMO
   lcd.setCursor(17, 1);
   if (tipo == REMOTO) {Estado.tipo = REMOTO; lcd.print("(R)");}
   else {Estado.tipo = LOCAL; lcd.print("   ");}
@@ -1398,6 +1398,7 @@ void resetLeds()
   }
   //Apago los leds de riego y posible parpadeo
   tic_parpadeoLedZona.detach();
+  tic_parpadeoLedZonas24h.detach();
   for(unsigned int i=0;i<NUMZONAS;i++) {
     led(Boton[bID2bIndex(ZONAS[i])].led,OFF);
   }
@@ -1836,8 +1837,8 @@ void showTemp() {
     float temperatura = readTemp();
     LOG_TRACE("tempOK=",tempOK,"temperatura=",temperatura);
     if(tempOK) {
-      temperatura = temperatura + ((float)config.tempOffset/2); // offset correccion de medio en medio grado
-      LOG_TRACE("temp OFFSET=",config.tempOffset,"temperatura corregida=",temperatura);
+      temperatura = temperatura + ((float)config.tempOffset*(TEMP_OFFSET_FACTOR/100.0)); // offset correccion
+      LOG_TRACE("temp OFFSET=",config.tempOffset,"TEMP_OFFSET_FACTOR %=",TEMP_OFFSET_FACTOR,"temperatura corregida=",temperatura);
       int temp_round = (temperatura < 0 ? (temperatura - 0.5) : (temperatura + 0.5)); //redondeo al entero mas cercano
       lcd.displayTemp(temp_round, config.warnESP32temp);
     }  

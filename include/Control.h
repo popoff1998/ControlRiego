@@ -49,17 +49,17 @@
   #include <Wire.h>
   
   #ifdef ESP32
-  #include <HTTPClient.h>
-  #include <WiFi.h>
-  #include <WebServer.h>
-  #ifdef WEBSERVER
-  #include <ESPmDNS.h>
-  #include "HTTPUpdateServerLittleFs.h"
-  #endif
-  #ifdef TEMPLOCAL
-  #include <Adafruit_Sensor.h>
-  #include <DHT.h>
-  #endif
+    #include <HTTPClient.h>
+    #include <WiFi.h>
+    #include <WebServer.h>
+    #ifdef WEBSERVER
+      #include <ESPmDNS.h>
+      #include "HTTPUpdateServerLittleFs.h"
+    #endif
+    #ifdef TEMPLOCAL
+      #include <Adafruit_Sensor.h>
+      #include <DHT.h>
+    #endif
   #endif
   
   #include "AiEsp32RotaryEncoder.h" // libreria para el encoder rotatorio AiEsp32RotaryEncoder
@@ -97,7 +97,7 @@
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0]))
        
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.2"
+                            #define VERSION  "3.2.1"   // version del software
   //-------------------------------------------------------------------------------------
 
   //Comportamiento General
@@ -115,8 +115,7 @@
   #define TZ_Europe_Madrid    "CET-1CEST,M3.5.0,M10.5.0/3"  // time zone en formato TZ posix
   #define NTP_TIMEOUT         7000    // tiempo de espera para recibir respuesta del servidor NTP en mseg
   #define STANDBYSECS         30      // tiempo en segundos para pasar a reposo desde standby (apagar pantalla y atenuar leds)
-  #define NTPUPDATEINTERVAL   600     // tiempo en minutos para resincronizar el reloj del sistema con el servidor NTP
-  #define DEFAULTBLINK        4       // numero de parpadeos de la pantalla
+  #define DEFAULTBLINK        3       // numero de parpadeos de la pantalla
   #define DEFAULTBLINKMILLIS  500     // mseg entre parpadeo de la pantalla
   #define MSGDISPLAYMILLIS    1000    // * mseg se mantienen mensajes informativos
   #define MAXMINUTES          59      // corte automatico de seguridad a los 60 min. en los arduinos
@@ -585,8 +584,6 @@
     char errorText[7];
     unsigned long currentMillisLoop = 0;
     unsigned long lastMillisLoop = 0;
-    unsigned long lastMillisVerify = 0;
-    unsigned long NTPlastUpdate = 0;
     int numloops = 0;
 
     #ifdef TEMPLOCAL 
