@@ -1,10 +1,17 @@
-PENDIENTES
-==========
+# PENDIENTES
+============
 - boton Pause reflejado en Domoticz (en ambos sentidos)
-- Si estado REGANDO tiempo de riego restante reflejado en Domoticz
+- tablas de riego persistentes ?
+- en Standby añadir a PAUSA comprobar zonas en off (si VERIFY ON)
+- Explorar API domoticz:
+    - en webserver poder ver log riegos de una zona del domoticz (getlightlog) 
+- Persistencia del estado de riego de la zona en curso:
+    - Si se cancela dar opcion a continuarla al finalizar grupo
+    - Si error de conexion durante el riego dar opcion de continuarlo al recuperarla
 
-HECHOS
-======
+# HECHOS
+========
+## Version 1:
 - el modo CONFIGURACION debe permitir definir los botones que pertenecen a un grupo de riegos, incluido su orden (en modo ConF pulsar multirriego). V1.2
 - Paso de modo NORMAL a modo NONETWORK y viceversa para pruebas o demo (encoderSW + PAUSA). V1.2
 - encoderSW + boton de riego -> muestra factor de riego asociado a ese boton. V1.2
@@ -28,8 +35,8 @@ HECHOS
 - permite configurar boton con IDX=0 para desactivarlo V1.4
 - debug trace si Exception en modo DEVELOP (platformio.ini) V1.4
 - no modifica parámetros de conexión (ip domoticz) el restaurar valores por defecto V1.4
-- VERIFY completo al salir de modo DEMO (NONETWORK): conexion wifi y con Domoticz, parada todos los riegos) V1.4
-**Version 2:**
+- VERIFY completo al salir de modo DEMO (NONETWORK): conexion wifi y con Domoticz, parada todos los riegos V1.4
+## Version 2:
 - fichero parámetros en lugar de variables del pgm y eeprom (parmConfig.json) V2.0
 - si error, parpadeo led zona que falla V2.0
 - en modo configuración salvado parametros como default ((ConF + encoderSW +
@@ -45,8 +52,32 @@ HECHOS
 - verifica periódicamente si el riego en curso esta activo o en pause en Domoticz y lo refleja V2.5
 - si al lanzar o detener un riego Domoticz informa de error, se reintenta varias veces antes de dar error V2.5
 - mejoras en menu de servicio (webserver): posibilida de ver, borrar y actualizar ficheros individuales del file system V2.5
-**Version 3:**
-- adaptacion para ESP32 y expansores I/O MCP23017
-- cambio libreria encoder por una que soporta interrupciones
-- sustitucion display led de 7 segmentos por pantalla LCD de 20 caracteres x 4 lineas (bus I2C)
+## Version 3:
+- Nuevo HW: ESP32, expansores I/O MCP23017, pantalla LCD de 20 caracteres x 4 lineas (bus I2C)
+- Cambio libreria encoder por una que soporta interrupciones
+- Opciones de inicio por pantalla (borrar wifi o cargar parametros defecto) V3.1
+- Ampliacion a 9 zonas / 4 grupos V3.1
+- Leds de RED y de WIFI fusionados en led STATUS RGB V3.1
+- Muestra dia/mes al mostrar hora actual. Sincronizacion del time por NTP periodicamente V3.1
+- Modo configuracion por menu en pantalla V3.1
+- Pseudogrupo riego temporal V3.1
+- Refactoring  de procesaEstadoConfigurando y clase Configure  V3.1
+- Mejoras información en pantalla (DEMO, zonas pendientes riego, temperatura ambiente, timestamp riegos) V3.1
+- Simplificacion fichero de configuracion V3.1
+- Configurando grupo, enc+pause vacia grupo V3.1
+- Nuevo formato mandato comunicacion con Domoticz v3.1
+- Mejoras información en pantalla (*Mtemp, -NF-) V3.2
+- Si parametro dynamic=true se permite añadido/baja zonas durante el riego en pausa V3.2
+- Menu configuracion: rangos ajustables sobre linea del menu V3.2
+- Opciones de inicio por pantalla: reset parametros (borrado ficheros parm y backup) V3.2
+- Volumen sonidos y melodia fin riego de grupo configurables por parametros en menu V3.2
+- Si error de conexión en el arranque (wifi o Domoticz) se reintenta recuperarla periodicamente V3.2
+- Webserver: gestion del fichero de parámetros (ver, descargar, crear, editar, etc) V3.2
+- Webserver: menú de mantenimiento avanzado (Sysinfo,Files,Upload files, OTA update) V3.2
+- Time, timezone, NTP con funciones nativas de C (ctime) y ESP32. V3.2
+- Timezone configurable desde webserver (fichero de parametros) y desde modo AP (menu Setup) V3.2
+- en info de zona y grupo: minutos de tiempo de riego real (excluidas pausas) V3.2
+- opcion configurable lastr24 muestra zonas regadas últimas 24h V3.2
+
+
 

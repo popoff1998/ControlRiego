@@ -1,5 +1,4 @@
 {
-  "numzonas": 8,	
   "botones": [
     {
       "zona": 1,
@@ -36,41 +35,65 @@
       "idx": 0,
       "nombre": "ZONA7"
     },
-	{
+    {
       "zona": 8,
       "idx": 0,
       "nombre": "ZONA8"
+    },
+    {
+      "zona": 9,
+      "idx": 0,
+      "nombre": "ZONA9"
     }
-
   ],
-  "tiempo" : {
-    "minutos": 0,
-    "segundos": 10
-    },
-  "domoticz" : {	
-    "ip": "192.168.xxx.xxx",
-    "port": "xxxx"
-    },
-  "ntpServer": "es.pool.ntp.org",
-  "numgroups": 3,
   "grupos": [
     {
       "grupo": 1,
       "desc": "GRUPO1",
-      "size": 1,
-      "zonas": [1]
+      "zonas": []
     },
     {
       "grupo": 2,
       "desc": "GRUPO2",
-      "size": 1,
-      "zonas": [2]
+      "zonas": []
     },
     {
       "grupo": 3,
       "desc": "GRUPO3",
-      "size": 1,
-      "zonas": [3]
+      "zonas": []
+    },
+    {
+      "grupo": 4,
+      "desc": "GRUPO4",
+      "zonas": []
     }
-  ]  
+  ],
+  "tiempo": {
+    "minutos": 10,
+    "segundos": 0
+  },
+  "domoticz": {
+    "ip": "192.168.xxx.xxx",
+    "port": "xxxx"
+  },
+  "time": {
+	  "ntpServer": "es.pool.ntp.org",
+	  "timeZone": "CET-1CEST,M3.5.0,M10.5.0/3"
+  },
+  "warnESP32temp": 80,
+  "ledRGB": {
+    "maxledlevel": 255,
+    "dimmlevel": 50
+  },
+  "tempOffset": 0,
+  "tempRemote": 0,
+  "tempRemoteIdx": 0,
+  "msgdisplaymillis": 1000,
+  "mute": false,
+  "volume": 8,
+  "finMelody": 2,
+  "showwifilevel": false,
+  "xname": false,
+  "verify": true,
+  "dynamic": false
 }

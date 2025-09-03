@@ -1,95 +1,106 @@
 
 #include "Control.h"
 
-bool loadConfigFile(const char *p_filename, Config_parm &cfg)
+bool loadConfigFile(const char *p_filename, Config_parm &config)
 {
   LOG_TRACE("");
-  if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
-    LOG_ERROR("An Error has occurred while mounting LittleFS");
-    return false;
-  }
+  // if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
+  //   LOG_ERROR("An Error has occurred while mounting LittleFS");
+  //   return false;
+  // }
   File file = LittleFS.open(p_filename, "r");
   if(!file){
     LOG_ERROR("Failed to open file for reading");
     return false;
   }
   size_t size = file.size();
-  if (size > 2048) {
+  LOG_INFO("\t tamaño de", p_filename, "-->", size, "bytes");
+  if (size > 4096) {
     LOG_ERROR("Config file size is too large");
     return false;
   }
-  LOG_INFO("\t tamaño de", p_filename, "-->", size, "bytes");
 
-  DynamicJsonDocument doc(1536);
+  JsonDocument doc;
   DeserializationError error = deserializeJson(doc, file);
 
   if (error) {
-    LOG_ERROR("\t  deserializeJson() failed: ", error.f_str());
+    LOG_ERROR("\t  deserializeJson() failed: ", error.c_str());
     return false;
   }
-  Serial.printf("\t memoria usada por el jsondoc: (%d) \n" , doc.memoryUsage());  //TODO ¿eliminar msg?
-  //--------------  procesa botones (IDX)  --------------------------------------------------
-  int numzonas = doc["numzonas"] | 0; // carga 0 si no viene este elemento
-  if (numzonas != cfg.n_Zonas) {
-    LOG_ERROR("ERROR numero de zonas incorrecto");
-    return false;
-  }  
-  for (JsonObject botones_item : doc["botones"].as<JsonArray>()) {
-    int i = botones_item["zona"] | 1; 
-    cfg.botonConfig[i-1].idx = botones_item["idx"] | 0;
-    strlcpy(cfg.botonConfig[i-1].desc, botones_item["nombre"] | "", sizeof(cfg.botonConfig[i-1].desc));
-    i++;
+  LOG_TRACE("procesa zonas");
+  //--------------  procesa botones zona (IDX)  --------------------------------------------------
+  for (JsonObject botones : doc["botones"].as<JsonArray>()) {
+      int numzonas = botones.size(); // cantidad de zonas que vienen definidas en el fichero
+      int i = botones["zona"] | 1;   // numero de la zona definida
+      if (numzonas > NUMZONAS || i > NUMZONAS || i <= 0) {
+        LOG_ERROR("ERROR cantidad de zonas o numero de la zona incorrecta. Mayor que:", NUMZONAS);
+        return false;
+      }  
+      config.zona[i-1].idx = botones["idx"] | 0;
+      strlcpy(config.zona[i-1].desc, botones["nombre"] | "", sizeof(config.zona[i-1].desc));
+      i++;
   }
-  //--------------  procesa parametro individuales   ----------------------------------------
-  cfg.minutes = doc["tiempo"]["minutos"] | 0; // 0
-  cfg.seconds = doc["tiempo"]["segundos"] | 10; // 10
-  strlcpy(cfg.domoticz_ip, doc["domoticz"]["ip"] | "", sizeof(cfg.domoticz_ip));
-  strlcpy(cfg.domoticz_port, doc["domoticz"]["port"] | "", sizeof(cfg.domoticz_port));
-  strlcpy(cfg.ntpServer, doc["ntpServer"] | "", sizeof(cfg.ntpServer));
-  int numgroups = doc["numgroups"] | 1;
-  if (numgroups != cfg.n_Grupos) {
-    LOG_ERROR("ERROR numero de grupos incorrecto");
-    return false;
-  }  
+  LOG_TRACE("procesa grupos");
   //--------------  procesa grupos  ---------------------------------------------------------
-  for (JsonObject groups_item : doc["grupos"].as<JsonArray>()) {
-    int i = groups_item["grupo"] | 1; // 1, 2, 3
-    cfg.groupConfig[i-1].id = GRUPOS[i-1];  //obtiene el id del boton de ese grupo (ojo: no viene en el json)
-    cfg.groupConfig[i-1].size = groups_item["size"] | 1;
-    if (cfg.groupConfig[i-1].size == 0) {
-      cfg.groupConfig[i-1].size =1;
-      LOG_ERROR("ERROR tamaño del grupo incorrecto, es 0 -> ponemos 1");
-    }
-    //Serial.printf("[loadConfigFile] procesando GRUPO%d size=%d id=x%x \n",i,cfg.groupConfig[i-1].size,cfg.groupConfig[i-1].id); //DEBUG
-    strlcpy(cfg.groupConfig[i-1].desc, groups_item["desc"] | "", sizeof(cfg.groupConfig[i-1].desc)); 
-    JsonArray array = groups_item["zonas"].as<JsonArray>();
-    int count = array.size();
-    if (count != cfg.groupConfig[i-1].size) {
-      LOG_ERROR("ERROR tamaño del grupo incorrecto");
-      return false;
-    }  
-    int j = 0;
-    for(JsonVariant zonas_item_elemento : array) {
-      cfg.groupConfig[i-1].serie[j] = zonas_item_elemento.as<int>();
-      j++;
-    }
-    i++;
-  cfg.initialized = 1; //solo marcamos como init config si pasa por este bucle
+  for (JsonObject grupos : doc["grupos"].as<JsonArray>()) {
+      int numgroups = grupos.size(); // cantidad de grupos que vienen definidas en el fichero
+      int i = grupos["grupo"] | 1;   // numero del grupo definido
+      if (numgroups > NUMGRUPOS || i > NUMGRUPOS || i <= 0) {
+        LOG_ERROR("ERROR cantidad de grupos o numero del grupo incorrecto. Mayor que:", NUMGRUPOS);
+        LOG_TRACE("check numgroups", numgroups,"i=",i);
+        return false;
+      }  
+      strlcpy(config.group[i-1].desc, grupos["desc"] | "", sizeof(config.group[i-1].desc)); 
+      JsonArray zonas = grupos["zonas"].as<JsonArray>();
+      int count = zonas.size();
+      if (count > ZONASXGRUPO) {
+        LOG_ERROR("ERROR zonas en el grupo", i,"mayor que:", ZONASXGRUPO);
+        LOG_TRACE("check count zonas", count,"i=",i);
+        return false;
+      }  
+      config.group[i-1].size = count;  //tamaño del grupo 
+      int j = 0;
+      for(JsonVariant zonas_item_elemento : zonas) {
+        config.group[i-1].zNumber[j] = zonas_item_elemento;
+        j++;
+      }
+      i++;
+      LOG_TRACE("config initialized");
+      config.initialized = 1; //solo marcamos como init config si pasa por este bucle
   }
+  LOG_TRACE("procesa resto de parametros");
+  //--------------  procesa parametro individuales   ----------------------------------------
+  config.minutes = doc["tiempo"]["minutos"] | DEFAULTMINUTES;
+  config.seconds = doc["tiempo"]["segundos"] | DEFAULTSECONDS;
+  strlcpy(config.domoticz_ip, doc["domoticz"]["ip"] | "", sizeof(config.domoticz_ip));
+  strlcpy(config.domoticz_port, doc["domoticz"]["port"] | "", sizeof(config.domoticz_port));
+  strlcpy(config.ntpServer, doc["time"]["ntpServer"] | NTPSERVER_SPAIN, sizeof(config.ntpServer));
+  strlcpy(config.TZ, doc["time"]["timeZone"] | TZ_Europe_Madrid, sizeof(config.TZ));
+  config.warnESP32temp = doc["warnESP32temp"] | MAX_ESP32_TEMP; 
+  config.maxledlevel = doc["ledRGB"]["maxledlevel"] | MAXLEDLEVEL; 
+  config.dimmlevel = doc["ledRGB"]["dimmlevel"] | DIMMLEVEL; 
+  config.tempOffset = doc["tempOffset"] | TEMP_OFFSET; 
+  config.tempRemote = doc["tempRemote"] | TEMP_DATA_REMOTE; 
+  config.tempRemoteIdx = doc["tempRemoteIdx"] | 0; 
+  config.msgdisplaymillis = doc["msgdisplaymillis"] | MSGDISPLAYMILLIS; 
+  config.mute = doc["mute"] | false; 
+  config.volume = doc["volume"] | DEFAULTVOLUME; 
+  config.finMelody = doc["finMelody"] | DEFAULTFINMELODY; 
+  config.showwifilevel = doc["showwifilevel"] | false; 
+  config.xname = doc["xname"] | false;
+  config.verify = doc["verify"] | true;
+  config.dynamic = doc["dynamic"] | false;
+  config.lastr24 = doc["lastr24"] | false;
+  //-------------------------------------------------------------------------------------------
   file.close();
-  LittleFS.end();
-  if (cfg.initialized) return true;
-  else return false;
+  // LittleFS.end();
+  if (!config.initialized) return false;
+  return true;
 }
 
-bool saveConfigFile(const char *p_filename, Config_parm &cfg)
+bool saveConfigFile(const char *p_filename, Config_parm &config)
 {
   LOG_TRACE("TRACE: in saveConfigFile");
-  //memoryInfo();
-  if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
-    LOG_ERROR("An Error has occurred while mounting LittleFS");
-    return false;
-  }
   // Delete existing file, otherwise the configuration is appended to the file
   LittleFS.remove(p_filename);
   File file = LittleFS.open(p_filename, "w");
@@ -97,44 +108,62 @@ bool saveConfigFile(const char *p_filename, Config_parm &cfg)
     LOG_ERROR("Failed to open file for writing");
     return false;
   }
-  DynamicJsonDocument doc(2048);
+  JsonDocument doc;
   //--------------  procesa botones (IDX)  --------------------------------------------------
-  doc["numzonas"] = NUMZONAS;
   doc["botones"].as<JsonArray>();
-  JsonArray array_botones = doc.createNestedArray("botones");
+  JsonArray botones = doc["botones"].to<JsonArray>();
   for (int i=0; i<NUMZONAS; i++) {
-    array_botones[i]["zona"]   = i+1;
-    array_botones[i]["idx"]    = cfg.botonConfig[i].idx;
-    array_botones[i]["nombre"] = cfg.botonConfig[i].desc;
+    botones[i]["zona"]   = i+1;
+    botones[i]["idx"]    = config.zona[i].idx;
+    botones[i]["nombre"] = config.zona[i].desc;
   }
-  //--------------  procesa parametro individuales   ----------------------------------------
-  doc["tiempo"]["minutos"]  = cfg.minutes; 
-  doc["tiempo"]["segundos"] = cfg.seconds;
-  doc["domoticz"]["ip"]     = cfg.domoticz_ip;
-  doc["domoticz"]["port"]   = cfg.domoticz_port;
-  doc["ntpServer"]          = cfg.ntpServer;
   //--------------  procesa grupos  ---------------------------------------------------------
-  doc["numgroups"]          = NUMGRUPOS;
-  JsonArray array_grupos = doc.createNestedArray("grupos");
+  JsonArray grupos = doc["grupos"].to<JsonArray>();
   for (int i=0; i<NUMGRUPOS; i++) {
-    array_grupos[i]["grupo"]   = i+1;
-    array_grupos[i]["desc"]    = cfg.groupConfig[i].desc;
-    array_grupos[i]["size"]    = cfg.groupConfig[i].size;
-    JsonArray array_zonas = array_grupos[i].createNestedArray("zonas");
-    for(int j=0; j<cfg.groupConfig[i].size; j++) {
-      array_zonas[j] = cfg.groupConfig[i].serie[j];
+    grupos[i]["grupo"]   = i+1;
+    grupos[i]["desc"]    = config.group[i].desc;
+    JsonArray zonas = grupos[i]["zonas"].to<JsonArray>();
+    for(int j=0; j<config.group[i].size; j++) {
+      //zonas[j] = config.group[i].zNumber[j];  // otra forma de hacer lo mismo
+      zonas.add(config.group[i].zNumber[j]);
     }  
   }
+  //--------------  procesa parametro individuales   ----------------------------------------
+  doc["tiempo"]["minutos"]  = config.minutes; 
+  doc["tiempo"]["segundos"] = config.seconds;
+  doc["domoticz"]["ip"]     = config.domoticz_ip;
+  doc["domoticz"]["port"]   = config.domoticz_port;
+  doc["time"]["ntpServer"]  = config.ntpServer;
+  doc["time"]["timeZone"]   = config.TZ;
+  doc["warnESP32temp"]      = config.warnESP32temp; 
+  doc["ledRGB"]["maxledlevel"]  = config.maxledlevel; 
+  doc["ledRGB"]["dimmlevel"]    = config.dimmlevel; 
+  doc["tempOffset"]         = config.tempOffset;
+  doc["tempRemote"]         = config.tempRemote; 
+  doc["tempRemoteIdx"]      = config.tempRemoteIdx; 
+  doc["msgdisplaymillis"]   = config.msgdisplaymillis; 
+  doc["mute"]               = config.mute;
+  doc["volume"]             = config.volume;
+  doc["finMelody"]          = config.finMelody;
+  doc["showwifilevel"]      = config.showwifilevel;
+  doc["xname"]              = config.xname;
+  doc["verify"]             = config.verify;
+  doc["dynamic"]            = config.dynamic;
+  doc["lastr24"]            = config.lastr24;
+
   // Serialize JSON to file
   #ifdef EXTRADEBUG 
     serializeJsonPretty(doc, Serial); 
   #endif
-  int docsize = serializeJson(doc, file);
-  if (docsize == 0) LOG_ERROR("Failed to write to file");
+  //int docsize = serializeJson(doc, file);
+  int docsize = serializeJsonPretty(doc, file);
+  if (docsize == 0) {
+    LOG_ERROR("Failed to write to file");
+    return false;
+  }
   else LOG_DEBUG("    tamaño del jsondoc: (",docsize,")");
-  LOG_DEBUG("    memoria usada por el jsondoc: (",doc.memoryUsage(),")");
   file.close();
-  LittleFS.end();
+  // LittleFS.end();
   #ifdef EXTRADEBUG
     printFile(p_filename);
   #endif
@@ -146,18 +175,19 @@ bool saveConfigFile(const char *p_filename, Config_parm &cfg)
 bool copyConfigFile(const char *fileFrom, const char *fileTo)
 {
   LOG_TRACE("in copyConfigFile");
-  if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)) {
-  LOG_ERROR("An Error has occurred while mounting LittleFS");
-  return false;
-  }
-  // Delete existing file, otherwise the configuration is appended to the file
-  LittleFS.remove(fileTo);
+  // if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)) {
+  // LOG_ERROR("An Error has occurred while mounting LittleFS");
+  // return false;
+  // }
   File origen = LittleFS.open(fileFrom, "r");
   if (!origen) {
     LOG_ERROR("- failed to open file ",fileFrom);
     return false;
   }
   else{
+    // Delete existing file, otherwise the configuration is appended to the file
+    LOG_DEBUG("borrando file destino",fileTo);
+    if (LittleFS.exists(fileTo)) LittleFS.remove(fileTo);
     LOG_INFO("copiando",fileFrom,"en",fileTo);
     File destino = LittleFS.open(fileTo, "w+");
     if(!destino){
@@ -171,18 +201,31 @@ bool copyConfigFile(const char *fileFrom, const char *fileTo)
       destino.close(); 
     }
     origen.close();  
-    LittleFS.end();  
+    LOG_TRACE("copiado ",fileFrom," en ",fileTo, "OK returning true");
+    // LittleFS.end();  
     return true;
   } 
 }
 
+//borrado de los ficheros de parametros y backup para resetear la configuracion
+bool deleteParmFiles()
+{
+  LOG_TRACE("in deleteParmFiles");
+  // if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)) {
+  // LOG_ERROR("An Error has occurred while mounting LittleFS");
+  // return false;
+  // }
+  if (LittleFS.exists(parmFile)) LittleFS.remove(parmFile);
+  if (LittleFS.exists(backupParmFile)) LittleFS.remove(backupParmFile);
+  return true;
+}
+
 //init minimo de config para evitar fallos en caso de no poder cargar parametros de ficheros
-void zeroConfig(Config_parm &cfg) {
+void zeroConfig(Config_parm &config) {
   LOG_TRACE("");
-  for (int j=0; j<cfg.n_Grupos; j++) {
-    cfg.groupConfig[j].id = GRUPOS[j];
-    cfg.groupConfig[j].size = 1;
-    cfg.groupConfig[j].serie[0]=j+1;
+  for (int j=0; j<config.n_Grupos; j++) {
+    config.group[j].bID = GRUPOS[j];
+    config.group[j].size = 0;
   }  
 }
 
@@ -192,31 +235,47 @@ void cleanFS() {
   LOG_WARN("Done!");
 }
 
-void printParms(Config_parm &cfg) {
+void printParms(Config_parm &config) {
   Serial.println(F("contenido estructura parametros configuracion: "));
   //--------------  imprime array botones (IDX)  --------------------------------------------------
-  Serial.printf("\tnumzonas= %d \n", cfg.n_Zonas);
+  Serial.printf("\tnumzonas= %d \n", config.n_Zonas);
   Serial.println(F("\tBotones: "));
-  for(int i=0; i<7; i++) {
-    Serial.printf("\t\t Zona%d: IDX=%d (%s) l=%d \n", i+1, cfg.botonConfig[i].idx, cfg.botonConfig[i].desc, sizeof(cfg.botonConfig[i].desc));
+  for(int i=0; i<config.n_Zonas; i++) {
+    Serial.printf("\t\t Zona%d: IDX=%d (%s) l=%d \n", i+1, config.zona[i].idx, config.zona[i].desc, sizeof(config.zona[i].desc));
   }
-  //--------------  imprime parametro individuales   ----------------------------------------
-  Serial.printf("\tminutes= %d seconds= %d \n", cfg.minutes, cfg.seconds);
-  Serial.printf("\tdomoticz_ip= %s domoticz_port= %s \n", cfg.domoticz_ip, cfg.domoticz_port);
-  Serial.printf("\tntpServer= %s \n", cfg.ntpServer);
-  Serial.printf("\tnumgroups= %d \n", cfg.n_Grupos);
   //--------------  imprime array y subarray de grupos  ----------------------------------------------
-  for(int i = 0; i < cfg.n_Grupos; i++) {
-    Serial.printf("\tGrupo%d: size=%d (%s)\n", i+1, cfg.groupConfig[i].size, cfg.groupConfig[i].desc);
-    for(int j = 0; j < cfg.groupConfig[i].size; j++) {
-      Serial.printf("\t\t Zona%d \n", cfg.groupConfig[i].serie[j]);
+  Serial.printf("\tnumgroups= %d \n", config.n_Grupos);
+  for(int i = 0; i < config.n_Grupos; i++) {
+    Serial.printf("\tGrupo%d: size=%d (%s)\n", i+1, config.group[i].size, config.group[i].desc);
+    for(int j = 0; j < config.group[i].size; j++) {
+      Serial.printf("\t\t Zona%d \n", config.group[i].zNumber[j]);
     }
   }
+  //--------------  imprime parametro conexion   ----------------------------------------
+  Serial.printf("\tdomoticz_ip= %s / domoticz_port= %s \n", config.domoticz_ip, config.domoticz_port);
+  Serial.printf("\tntpServer= %s / timezone= %s \n", config.ntpServer, config.TZ);
+  //--------------  imprime parametro individuales   ----------------------------------------
+  Serial.printf("\tminutes= %d / seconds= %d \n", config.minutes, config.seconds);
+  Serial.printf("\twarnESP32temp= %d \n", config.warnESP32temp);
+  Serial.printf("\tmaxledlevel= %d / dimmlevel= %d \n", config.maxledlevel, config.dimmlevel);
+  Serial.printf("\ttempOffset= %d \n", config.tempOffset);
+  Serial.printf("\ttemp (0 LOCAL / 1 REMOTE)= %d \n", config.tempRemote);
+  Serial.printf("\ttempRemoteIdx= %d \n", config.tempRemoteIdx);
+  Serial.printf("\tmsgdisplaymillis= %d \n", config.msgdisplaymillis);
+  Serial.printf("\tmute= %d \n", config.mute);
+  Serial.printf("\tvolume= %d \n", config.volume);
+  Serial.printf("\tfinMelody= %d \n", config.finMelody);
+  Serial.printf("\tshowwifilevel= %d \n", config.showwifilevel);
+  Serial.printf("\txname= %d \n", config.xname);
+  Serial.printf("\tverify= %d \n", config.verify);
+  Serial.printf("\tdynamic= %d \n", config.dynamic);
+  Serial.printf("\tlastr24= %d \n", config.lastr24);
+  Serial.println("----------------------------------------------------------------");
 }
 
 void filesInfo() 
 {
-  LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED);
+  // LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED);
   float fileTotalKB = (float)LittleFS.totalBytes() / 1024.0; 
   float fileUsedKB = (float)LittleFS.usedBytes() / 1024.0; 
   Serial.print("__________________________\n");
@@ -225,7 +284,7 @@ void filesInfo()
   Serial.print(F("    Used KB: ")); Serial.print(fileUsedKB); Serial.println(F(" KB"));
   Serial.print("__________________________\n");
   listDir(LittleFS, "/", 1); // List the directories up to one level beginning at the root directory
-  LittleFS.end();
+  // LittleFS.end();
 }
 
 void listDir(fs::FS &fs, const char * dirname, uint8_t levels){
@@ -264,17 +323,59 @@ void listDir(fs::FS &fs, const char * dirname, uint8_t levels){
     }
 }
 
+String sysInfo() {
+  
+  int sketchPercentUsed = ((float) ESP.getSketchSize() / (float) ESP.getFreeSketchSpace()) * 100;
+  int filesPercentUsed = ((float) LittleFS.usedBytes() / (float) LittleFS.totalBytes()) * 100;
 
+  String result;
+  result += "{\n";
+  result += "  \"FW version\": \"" + String(VERSION) + " Built on " __DATE__ " at " __TIME__ + "\",\n";
+  result += "  \"esp_idf_version\": \"" + String(esp_get_idf_version()) + "\",\n";
+  result += "  \"arduino_version\": \"" + String(ESP_ARDUINO_VERSION_MAJOR) + "." + String(ESP_ARDUINO_VERSION_MINOR) + "." + String(ESP_ARDUINO_VERSION_PATCH) + "\",\n";
+  result += "  \"Chip Model\": \"" + String(ESP.getChipModel()) + "\",\n";
+  result += "  \"Chip Cores\": " + String(ESP.getChipCores()) + ",\n";
+  result += "  \"Chip Revision\": " + String(ESP.getChipRevision()) + ",\n";
+  result += "  \"FlashSize\": \"" + convertFileSize(ESP.getFlashChipSize()) + "\",\n";
+  result += "  \"SketchSpace \": \"" + convertFileSize(ESP.getFreeSketchSpace()) + "\",\n";
+  result += "  \"SketchSize  (percent used)\": \"" + String(ESP.getSketchSize()) + "   (" + String(sketchPercentUsed) + "%)\",\n";
+  result += "  \"HeapSize\": " + String(ESP.getHeapSize()) + ",\n";
+  result += "  \"FreeHeap\": " + String(ESP.getFreeHeap()) + ",\n";
+  result += "  \"MaxAllocHeap (largest free block)\": " + String(ESP.getMaxAllocHeap()) + ",\n";
+  result += "  \"MinFreeHeap (lowes since boot)\": " + String(ESP.getMinFreeHeap()) + ",\n";
+  result += "  \"File System Total\": \"" + convertFileSize(LittleFS.totalBytes()) + "\",\n";
+  result += "  \"File System Used (percent used)\": \"" + convertFileSize(LittleFS.usedBytes()) + "   (" + String(filesPercentUsed) + "%)\",\n";
+  result += "  \"ESP32 temperature\": \"" + String(temperatureRead()) + " ºC\"\n";
+  result += "}";
+  return result;
+} // sysInfo()
+
+
+  String convertFileSize(const size_t bytes)
+  {
+    if(bytes < 1024)
+    {
+      return String(bytes) + " B";
+    }
+    else if (bytes < 1048576)
+    {
+      return String(bytes / 1024) + " KB";  //sin decimales
+      //return String(bytes / 1024.0) + " KB";
+    }
+    return String(bytes / 1048576.0) + " MB";
+  }
+
+  
 // funciones solo usadas en DEVELOP
 #ifdef EXTRADEBUG
 
 // Prints the content of a file to the Serial 
 void printFile(const char *p_filename) {
   LOG_TRACE("printFile (",p_filename,")");
-  if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
-    LOG_ERROR("An Error has occurred while mounting LittleFS");
-  return;
-  }
+  // if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
+  //   LOG_ERROR("An Error has occurred while mounting LittleFS");
+  // return;
+  // }
   // Open file for reading
   File file = LittleFS.open(p_filename, "r");
   if (!file) {
@@ -287,7 +388,7 @@ void printFile(const char *p_filename) {
   }
   Serial.println(F("\n\n"));
   file.close();
-  LittleFS.end();
+  // LittleFS.end();
 }
 
 void memoryInfo() 
@@ -309,7 +410,7 @@ void memoryInfo()
   Serial.printf("free RAM (max Head size): %d KB  <<<<<<<<<<<<<<<<<<<\n\n", freeHeadSize);
   Serial.printf("free SketchSpace: %f KB\n\n", freeSketchSize);
   Serial.println(F("#####################"));
-  LittleFS.end();
+  // LittleFS.end();
 }
 
 void printCharArray(char *arr, size_t len)

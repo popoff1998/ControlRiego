@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Advanced</title>
+  <link Content-Type="text/css" href="/style_base.css" rel="stylesheet" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<style>
+  body {
+    max-width: 55%;
+    background-color: rgb(234, 255, 255);
+  }
+  /* Aumentar el tamaño de la letra en todos los elementos excepto h1 
+  body *:not(h1) {
+    font-size: 1em;  
+  } 
+  */
+  a {
+    text-decoration: none; /* Elimina el subrayado */
+    font-size: 1.2em; /* Mantiene el tamaño de letra */
+    color: #007BFF; /* Color del enlace */
+  }
+
+  a:hover {
+    text-decoration: underline; /* Opcional: subrayado al pasar el cursor */
+  }
+</style>
+
+<body>
+ 
+  <h1>Ardomo Webserver Maintenance Menu</h1>
+  <img src="logo_Ardomo.png" style="margin-right: 40px;" align="right">
+
+
+  <p>The following pages are available:</p>
+  <ul>
+    <li><a href="/index.htm">HOME</a> - HomePage</li>
+    <li><a href="/sysinfo.htm">SYSINFO</a> - System Information </li>
+
+    <p>OTA & File management:</p>
+    <p style="color: red;">(ATENCION: Estas opciones pueden alterar el funcionamiento del sistema)</p>
+    <li><a href="/files.htm">FILES</a> - Manage files on the server (browse, download or delete)</li>
+    <li><a href="/$upload.htm">UPLOAD</a> - Upload individual files</a></li>
+    <li><a href="/$update">OTA update</a> - Update Firmware or Filesystem</a></li>
+  </ul>
+  
+  <ul id="testingSection">
+    <p>Testing:</p>
+    <li><a href="/parmfile.htm">/parmfile.htm</a> - Manage configuration file</li>
+    <li><a href="/parmfile_edit.htm">/parmfile_edit.htm</a> - Edit configuration file</li>
+    <li><a href="/parmfile_edit.htm?file=sampleParm.json">/parmfile_edit.htm?file=sampleParm.json</a> - New configuration file</li>
+    
+    <p>The following REST services are available:</p>
+    <li><a href="/$sysinfo">/$sysinfo</a> - Some system level information</a></li>
+    <li><a href="/$list">/$list</a> - Array of all files</a></li>
+    <li><a href="/$list?dir=/backup">/$list?dir=/backup</a> - Array of all files in backup directory</a></li>
+  </ul>
+
+  <script>
+    var showtestValue = (typeof showtest !== "undefined") ? showtest : "undefined";
+    if (showtestValue && showtestValue !== "undefined") {
+      document.getElementById("testingSection").style.display = "";
+    } else {
+      document.getElementById("testingSection").style.display = "none";
+    }
+    // Mostrar el valor de showtest en la página
+    var info = document.createElement("p");
+    info.textContent = "Valor de showtest: " + showtestValue;
+    document.body.appendChild(info);
+  </script>
+  </body>
+</html>
+
