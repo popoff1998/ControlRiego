@@ -5,6 +5,9 @@
 - en Standby añadir a PAUSA comprobar zonas en off (si VERIFY ON)
 - Explorar API domoticz:
     - en webserver poder ver log riegos de una zona del domoticz (getlightlog) 
+- Persistencia del estado de riego de la zona en curso:
+    - Si se cancela dar opcion a continuarla al finalizar grupo
+    - Si error de conexion durante el riego dar opcion de continuarlo al recuperarla
 
 # HECHOS
 ========
@@ -55,7 +58,7 @@
 - Opciones de inicio por pantalla (borrar wifi o cargar parametros defecto) V3.1
 - Ampliacion a 9 zonas / 4 grupos V3.1
 - Leds de RED y de WIFI fusionados en led STATUS RGB V3.1
-- Muestra dia/mes al mostrar hora actual. Sincronizacion del time por NTP cada 10 horas V3.1
+- Muestra dia/mes al mostrar hora actual. Sincronizacion del time por NTP periodicamente V3.1
 - Modo configuracion por menu en pantalla V3.1
 - Pseudogrupo riego temporal V3.1
 - Refactoring  de procesaEstadoConfigurando y clase Configure  V3.1
@@ -74,7 +77,7 @@
 - Time, timezone, NTP con funciones nativas de C (ctime) y ESP32. V3.2
 - Timezone configurable desde webserver (fichero de parametros) y desde modo AP (menu Setup) V3.2
 - en info de zona y grupo: minutos de tiempo de riego real (excluidas pausas) V3.2
-- opcion configurable lastr24 muestra zonas regadas últimas 24h
+- opcion configurable lastr24 muestra zonas regadas últimas 24h V3.2
 
 
 
