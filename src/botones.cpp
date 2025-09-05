@@ -167,7 +167,7 @@ void ledYellow(int estado)
 // deja led RGB segun estado wifi y modoDEMO
 void setledRGB()
 {
-    ledRGB(OFF,checkWifi(),modoDEMO);                 
+    ledRGB(OFF,connected,modoDEMO);                 
 }  
 
 // // deja led RGB segun estado wifi y modoDEMO

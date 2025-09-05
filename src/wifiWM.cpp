@@ -65,22 +65,16 @@ void preOtaUpdateCallback()
   lcd.infoclear("OTA in progress", DEFAULTBLINK, LOWBIP, 1);
 }
 
+//evento llamado en caso de desconexion de la wifi
+void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
+  if (connected) LOG_ERROR("WiFi lost connection. Reason: ", info.wifi_sta_disconnected.reason);
+  setConnected(false);
+}
+
 //evento llamado en caso de conexion de la wifi
 void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info){
  LOG_INFO("    <<<<---  WiFi conectada  --->>>>");
- connected = true;
-}
-
-//evento llamado en caso de desconexion de la wifi
-void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
- LOG_ERROR("WiFi lost connection. Reason: ", info.wifi_sta_disconnected.reason);
-//  WiFi.reconnect();
-//  if (checkWifi()) {
-//   LOG_INFO("Trying to Reconnect: success");
-//   return;
-//  } 
-//  else LOG_ERROR("Trying to Reconnect: failed");
-//  delay(3000);
+ setConnected(true);
 }
 
 // conexion a la red por medio de WifiManager
@@ -189,7 +183,7 @@ void setupRedWM(Config_parm &config, S_initFlags &initFlags)
     strcpy(config.TZ, custom_timezone.getValue());
   }
   //dejamos activado evento de desconexion o conexion ?? (wifi events):
-  // WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+  WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
   WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_CONNECTED);
   // WiFi.removeEvent(WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
 } //fin setupRedWM
@@ -216,7 +210,13 @@ void starConfigPortal(Config_parm &config)
   modoDEMO ? ledPWM(LEDB,ON) : ledPWM(LEDB,OFF);
   lcd.infoclear("reconectando WIFI");
   tic_WifiLed.detach();
-  checkWifi();
+  checkWifi();  // ¿TODO es necesario?
+}
+
+//set del estado de la conexion wifi y del led indicador si procede
+void setConnected(bool state) {
+  connected = state;
+  if (Estado.estado != ERROR && Estado.estado != PAUSE && Estado.estado != CONFIGURANDO) ledPWM(LEDG,state);
 }
 
 // verificacion estado de la conexion wifi
@@ -253,7 +253,7 @@ bool wifiReconnect () {
     } else return false;
 }    
 
-bool wifiVerifyRecovery(Config_parm &config, S_Estado &Estado) {
+bool wifiVerifyRecovery(Config_parm &config) {
   //LOG_TRACE("");
   //en modoDEMO sin conexion no verificamos (DEMO sin wifi)
   if (modoDEMO && !connected) return true;

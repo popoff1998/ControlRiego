@@ -97,7 +97,7 @@
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0]))
        
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.2.1"   // version del software
+                            #define VERSION  "3.3-alpha.1"   // version del software
   //-------------------------------------------------------------------------------------
 
   //Comportamiento General
@@ -505,6 +505,7 @@
 
     S_MULTI multi;  //estructura con variables del grupo de multirriego activo
     S_BOTON  *boton;
+    S_Estado Estado;
     S_tm tm;          // variables contador de tiempo
     bool connected;
     bool modoDEMO;
@@ -515,7 +516,7 @@
     
     const char *parmFile = "/config_parm.json";       // fichero de parametros activos
     const char *backupParmFile = "/config_backup.json"; // fichero de respaldo de los parametros
-
+    
     DisplayLCD lcd(LCD2004_address, 20, 4);  // 20 caracteres x 4 lineas
     char buff[MAXBUFF];
     bool checkReconInterval = false; // verificaciones de conexion cada RECONNECTINTERVAL minutosº
@@ -526,6 +527,7 @@
     extern S_BOTON Boton [];
     extern S_MULTI multi;
     extern S_BOTON  *boton;
+    extern S_Estado Estado;
     extern S_tm tm;
     extern bool connected;
     extern bool modoDEMO;
@@ -551,7 +553,6 @@
     HTTPClient httpclient;
     CountUpDownTimer T(DOWN);
     S_BOTON  *ultimoBotonZona;
-    S_Estado Estado;
     S_simFlags simular; // estructura flags para simular errores
     Configure    *configure;
     AiEsp32RotaryEncoder rotaryEncoder(ENCDT,ENCCLK,-1, -1, ROTARY_ENCODER_STEPS);
@@ -693,6 +694,7 @@
   bool serialDetect(void);
   void setbIDgrupos(Config_parm&);
   void setClock(void);
+  void setConnected(bool);
   void setEncoderMenu(int menuitems, int currentitem = 0);
   void setEncoderTime(void);
   void setEncoderRange(int , int , int , int);
@@ -726,7 +728,7 @@
   void Verificaciones(void);
   void wifiClearSignal(uint);
   bool wifiReconnect(void);
-  bool wifiVerifyRecovery(Config_parm&, S_Estado&);
+  bool wifiVerifyRecovery(Config_parm&);
   void zeroConfig(Config_parm&);
   int  zNumber2bIndex(uint16_t);
 

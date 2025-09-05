@@ -218,7 +218,7 @@ void setupEstado()
     return;
   }
   // Si estamos conectados pasamos a STANDBY o STOP (caso de estar pulsado este al inicio)
-  if (checkWifi()) {
+  if (connected) {
     if (testButton(bSTOP,ON))  setEstado(STOP,1);
     else setEstado(STANDBY,1);
     return;
@@ -658,7 +658,7 @@ void procesaEstadoError(void)
   if (flagV) {   // acciones cada VERIFY_INTERVAL en estado ERROR
     if(errorOFF) sonido.bip(2);  //recordatorio error grave al parar un riego
     //se intenta recuperar error si en el SETUP no hemos podido conectar con la wifi o con domoticz
-    if(Estado.error == E1 && recoverableError) wifiVerifyRecovery(config, Estado);
+    if(Estado.error == E1 && recoverableError) wifiVerifyRecovery(config);
     if(Estado.error == E2 && recoverableError && checkReconInterval) domoticzVerifyRecovery();
   }
   if(boton == NULL) return;  // si no se ha pulsado ningun boton salimos
@@ -776,7 +776,7 @@ void procesaEstadoStandby(void)
   if (flagV) { 
     LOG_TRACE(".");
     if (multi.riegoON) return; //no se hacen verificaciones/acciones con multirriego en curso
-    if (wifiVerifyRecovery(config, Estado)) { //verificacion de wifi y recuperacion si procede
+    if (wifiVerifyRecovery(config)) { //verificacion de wifi y recuperacion si procede
       lcd.info("STANDBY",1);  //restaura pantalla (en caso de msg de reconexion)
       showTemp();  // muestra temperatura ambiente en standby
       if (!timeOK) setClock(); // si no hemos recibido time por NTP -> actualizamos time del sistema con el del servidor NTP
@@ -1594,7 +1594,7 @@ int getFactor(uint16_t idx)
   LOG_TRACE("");
   if(idx == 0) return 100; //si el IDX es 0 devolvemos 100 sin procesarlo (boton no asignado)
   factorRiegosOK = false;
-  if(WiFi.status() != WL_CONNECTED) {
+  if(!connected) {
     if(modoDEMO) return 999; //si estamos en modoDEMO sin conexion devolvemos 999 y no damos error
     else {
       statusError(E1, RECUPERABLE); //error de conexion recuperable
@@ -1651,7 +1651,7 @@ void domoticzVerifyRecovery()
 {  //verificamos que hay wifi y el Domoticz esta conectado, solo en este caso reintentamos leer factores de riego
   LOG_TRACE("");
   lcd.displayON(); //por si estuviera parpadeando(apagado) por error en pantalla
-  if(WiFi.status() == WL_CONNECTED) {
+  if(connected) {
     if (checkDomoticz()) {
       LOG_INFO("Domoticz conectado OK");
       initFactorRiegos(); //en caso de producirse error con esta funcion ya dejara este activado
@@ -1700,7 +1700,7 @@ bool queryStatus(uint16_t idx, char *status)
   if(simular.ErrorVerifyOFF) {   // simulamos EV no esta OFF en Domoticz
     if(strcmp(status, "Off") == 0) return false; else return true; 
   } 
-  if(!checkWifi()) {
+  if(!connected) {
     if(modoDEMO) return true; //si estamos en modoDEMO devolvemos true y no damos error
     else {
       Estado.error=E1;
@@ -1736,7 +1736,7 @@ bool domoticzSwitch(int idx, char *msg, int retries)
 {
   LOG_TRACE("idx:", idx, " ", msg, "(", retries, "intentos)");
   if(idx == 0) return true; //simulamos que ha ido OK
-  if(!checkWifi() && !modoDEMO) {
+  if(!connected && !modoDEMO) {
     statusError(E1);
     return false;
   }
