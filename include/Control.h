@@ -116,7 +116,7 @@
   #define NTP_TIMEOUT         7000    // tiempo de espera para recibir respuesta del servidor NTP en mseg
   #define STANDBYSECS         30      // tiempo en segundos para pasar a reposo desde standby (apagar pantalla y atenuar leds)
   #define NTPUPDATEINTERVAL   600     // tiempo en minutos para resincronizar el reloj del sistema con el servidor NTP
-  #define DEFAULTBLINK        4       // numero de parpadeos de la pantalla
+  #define DEFAULTBLINK        3       // numero de parpadeos de la pantalla
   #define DEFAULTBLINKMILLIS  500     // mseg entre parpadeo de la pantalla
   #define MSGDISPLAYMILLIS    1000    // * mseg se mantienen mensajes informativos
   #define MAXMINUTES          59      // corte automatico de seguridad a los 60 min. en los arduinos
@@ -124,8 +124,8 @@
   #define HOLDTIME            3000    // mseg que hay que mantener PAUSE pulsado para ciertas acciones
   #define MAXCONNECTRETRY     10      // numero maximo de reintentos de reconexion a la wifi tras el fallo en inicio
   #define VERIFY_INTERVAL     15      // intervalo en segundos entre verificaciones periodicas
-  #define DEFAULT_SWITCH_RETRIES 5    // numero de reintentos para parar o encender una zona de riego en el Domoticz
-  #define DELAYRETRY          2000    // mseg de retardo entre reintentos
+  #define DEFAULT_SWITCH_RETRIES 3    // numero de reintentos para parar o encender una zona de riego en el Domoticz
+  #define DELAYRETRY          1500    // mseg de retardo entre reintentos
   #define MAXLEDLEVEL         255     // * nivel maximo leds RGB (0 a 255)
   #define DIMMLEVEL           50      // * nivel atenuacion leds RGB (0 a 255)
   #define DEFAULTVOLUME       8       // * volumen por defecto (0 a 10)
