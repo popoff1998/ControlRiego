@@ -337,6 +337,9 @@ void procesaBotonPause(void)
           ledID = ultimoBotonZona->led;
           tic_parpadeoLedZona.attach(RAPIDO, parpadeoLedZona, ledID);
           LOG_WARN("error al salir de PAUSE errorText :",errorText,"Estado.error :",Estado.error );
+          lcd.displayON();
+          delay(MSGDISPLAYMILLIS);
+          lcd.clear(BORRA2H); //borra msgs de error
           refreshTime();
           setEstado(PAUSE,1);
           break;

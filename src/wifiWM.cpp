@@ -297,6 +297,9 @@ bool wifiVerifyRecovery(Config_parm &config) {
     if (connected && recoverableError) {
       LOG_INFO("conexion Wifi recuperada despues Setup, leemos factor riegos");
       ledPWM(LEDG,OFF);
+      Estado.estado = STANDBY; //borramos estado ERROR
+      Estado.error = NOERROR; //reseteamos error
+      recoverableError = false; //reseteamos error recuperable
       initFactorRiegos(); //en caso de producirse error con esta funcion ya dejara este activado
       setupEstado();
     }

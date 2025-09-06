@@ -123,8 +123,8 @@
   #define HOLDTIME            3000    // mseg que hay que mantener PAUSE pulsado para ciertas acciones
   #define MAXCONNECTRETRY     10      // numero maximo de reintentos de reconexion a la wifi tras el fallo en inicio
   #define VERIFY_INTERVAL     15      // intervalo en segundos entre verificaciones periodicas
-  #define DEFAULT_SWITCH_RETRIES 5    // numero de reintentos para parar o encender una zona de riego en el Domoticz
-  #define DELAYRETRY          2000    // mseg de retardo entre reintentos
+  #define DEFAULT_SWITCH_RETRIES 3    // numero de reintentos para parar o encender una zona de riego en el Domoticz
+  #define DELAYRETRY          1500    // mseg de retardo entre reintentos
   #define MAXLEDLEVEL         255     // * nivel maximo leds RGB (0 a 255)
   #define DIMMLEVEL           50      // * nivel atenuacion leds RGB (0 a 255)
   #define DEFAULTVOLUME       8       // * volumen por defecto (0 a 10)
