@@ -429,8 +429,8 @@ void procesaBotonStop(void)
         return; 
       }
       lcd.infoclear("STOP riegos OK", DEFAULTBLINK, BIP, 0);
-      setEstado(STOP,1);
       resetFlags();
+      setEstado(STOP,1);
     }
     if (Estado.estado == STANDBY) { //Lo hemos pulsado en standby
       if (encoderSW) {  // activar configuracion de grupo multirriego temporal
@@ -672,10 +672,9 @@ void procesaEstadoError(void)
     LOG_INFO("estado en ERROR y PAUSA pulsada pasamos a modoDEMO y reset del error");
     modoDEMO = true;
     sonido.bip(2);
+    resetFlags();   //reset flags de status
     if (Boton[bID2bIndex(bSTOP)].estado) setEstado(STOP,1);
     else setEstado(STANDBY);
-    //reseteos varios:
-    resetFlags();   //reset flags de status
   }
   if(boton->bID == bSTOP) {
   //Si estamos en ERROR y pulsamos o liberamos STOP, reseteamos
