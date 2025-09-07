@@ -97,7 +97,7 @@
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0]))
        
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.3-alpha.1"   // version del software
+                            #define VERSION  "3.3-alpha.2"   // version del software
   //-------------------------------------------------------------------------------------
 
   //Comportamiento General
@@ -105,8 +105,8 @@
     #define DEFAULTMINUTES      10    // * tiempo de riego por defecto (minutos)
     #define DEFAULTSECONDS      0     // * tiempo de riego por defecto (segundos)
     #define RECONNECTINTERVAL   2       // tiempo en minutos para intentar reconexion a la wifi
-    #endif
-    #ifdef DEVELOP
+  #endif
+  #ifdef DEVELOP
     #define DEFAULTMINUTES      0
     #define DEFAULTSECONDS      10
     #define RECONNECTINTERVAL   1       // tiempo en minutos para intentar reconexion a la wifi
@@ -732,17 +732,18 @@
   void zeroConfig(Config_parm&);
   int  zNumber2bIndex(uint16_t);
 
-// **************************************************************************
-// funciones para gestion de las tablas de registro de riegos de zonas y grupos
-// **************************************************************************
+// *****************************************************************************************
+// Funciones (templates) para gestion de las tablas de registro de riegos de zonas y grupos
+// ***************************************************************************************** 
 
 template<typename T>
 void saveTablaToFile(const char* filename, const char* arrayName, T* tabla, size_t size) {
     JsonDocument doc;
-    JsonArray arr = doc.add<JsonArray>(); // Usar add<JsonArray>() en vez de createNestedArray()
-    doc[arrayName] = arr; // Asignar el array al nombre deseado
+    // JsonArray arr = doc.createNestedArray(arrayName); // Esto crea {"lastRiegos":[...]} correctamente
+    JsonArray arr = doc[arrayName].to<JsonArray>(); // Forma recomendada en ArduinoJson v7
 
     for (size_t i = 0; i < size; i++) {
+        // JsonObject obj = arr.createNestedObject();
         JsonObject obj = arr.add<JsonObject>(); // Usar add<JsonObject>() en vez de createNestedObject()
         obj["inicio"] = tabla[i].inicio;
         obj["final"]  = tabla[i].final;

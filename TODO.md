@@ -1,7 +1,6 @@
 # PENDIENTES
 ============
 - boton Pause reflejado en Domoticz (en ambos sentidos)
-- tablas de riego persistentes ?
 - en Standby añadir a PAUSA comprobar zonas en off (si VERIFY ON)
 - Explorar API domoticz:
     - en webserver poder ver log riegos de una zona del domoticz (getlightlog) 
@@ -76,8 +75,9 @@
 - Webserver: menú de mantenimiento avanzado (Sysinfo,Files,Upload files, OTA update) V3.2
 - Time, timezone, NTP con funciones nativas de C (ctime) y ESP32. V3.2
 - Timezone configurable desde webserver (fichero de parametros) y desde modo AP (menu Setup) V3.2
-- en info de zona y grupo: minutos de tiempo de riego real (excluidas pausas) V3.2
-- opcion configurable lastr24 muestra zonas regadas últimas 24h V3.2
+- En info de zona y grupo: minutos de tiempo de riego real (excluidas pausas) V3.2
+- Opcion configurable lastr24 muestra zonas regadas últimas 24h V3.2
+- Las tablas de ultimos riegos de zonas y grupos se salvan y no se pierden con reset o apagado V3.3
 
 
 
