@@ -35,8 +35,8 @@ int setMultibyId(uint16_t id, Config_parm &config)
           //Serial.println(Boton[zNumber2bIndex(config.group[i].zNumber[j])].bID,HEX); // bId(boton) asociado a la zona
         #endif  
       }
-      LOG_DEBUG("[setMultibyId] devuelve GRUPO", i+1);
-      return i+1;
+      LOG_DEBUG("[setMultibyId] devuelve GRUPO", multi.ngrupo,"(",multi.desc,") con",*multi.size,"zonas");
+      return multi.ngrupo;
     }
   }
   LOG_ERROR(" ** [ERROR] setMultibyID devuelve -not found-");

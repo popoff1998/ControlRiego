@@ -319,7 +319,7 @@ void Configure::exit()
         }  
         saveConfig = false;
       }
-      LittleFS.end();
+      // LittleFS.end();
       #ifdef WEBSERVER
         if (webServerAct) {
           endWS();           //al salir de modo ConF no procesaremos peticiones al webserver

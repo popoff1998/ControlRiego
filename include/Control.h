@@ -732,4 +732,65 @@
   void zeroConfig(Config_parm&);
   int  zNumber2bIndex(uint16_t);
 
+// **************************************************************************
+// funciones para gestion de las tablas de registro de riegos de zonas y grupos
+// **************************************************************************
+
+template<typename T>
+void saveTablaToFile(const char* filename, const char* arrayName, T* tabla, size_t size) {
+    JsonDocument doc;
+    JsonArray arr = doc.add<JsonArray>(); // Usar add<JsonArray>() en vez de createNestedArray()
+    doc[arrayName] = arr; // Asignar el array al nombre deseado
+
+    for (size_t i = 0; i < size; i++) {
+        JsonObject obj = arr.add<JsonObject>(); // Usar add<JsonObject>() en vez de createNestedObject()
+        obj["inicio"] = tabla[i].inicio;
+        obj["final"]  = tabla[i].final;
+        obj["total"]  = tabla[i].total;
+    }
+
+    File file = LittleFS.open(filename, "w");
+    if (!file) {
+        LOG_ERROR("Error abriendo el fichero para guardar", arrayName);
+        return;
+    }
+    serializeJson(doc, file);
+    file.close();
+    LOG_INFO(arrayName, "guardado correctamente.");
+}
+
+template<typename T>
+bool loadTablaFromFile(const char* filename, const char* arrayName, T* tabla, size_t size) {
+    File file = LittleFS.open(filename, "r");
+    if (!file) {
+        LOG_WARN("Error abriendo el fichero para leer", arrayName);
+        return false;
+    }
+
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, file);
+    file.close();
+
+    if (error) {
+        LOG_ERROR("Error al deserializar JSON:", error.c_str());
+        return false;
+    }
+
+    JsonArray arr = doc[arrayName];
+    if (!arr) {
+        LOG_ERROR("No se encontró el array", arrayName, "en el fichero", filename);
+        return false;
+    }
+
+    for (size_t i = 0; i < size && i < arr.size(); i++) {
+        JsonObject obj = arr[i];
+        tabla[i].inicio = obj["inicio"] | 0;
+        tabla[i].final  = obj["final"]  | 0;
+        tabla[i].total  = obj["total"]  | 0;
+    }
+
+    LOG_INFO(arrayName, "cargado correctamente.");
+    return true;
+}
+
 #endif  // control_h

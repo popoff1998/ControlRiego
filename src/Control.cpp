@@ -70,6 +70,9 @@ void setup()
   #ifdef EXTRADEBUG
    printFile(parmFile);
   #endif
+  //Recuperamos lastRiegos y lastGrupos (registro fecha/hora y riego realizado)
+  initLastRiegos();
+  initLastGrupos();
   //Chequeo de perifericos de salida (leds, display, buzzer)
   check();
   //Para la red
@@ -80,13 +83,10 @@ void setup()
     else sonido.bipKO();
     saveConfig = false;
   }
-  LittleFS.end();
+  // LittleFS.end();
   delay(1000);
   //Obtenemos hora del servidor ntp y ajustamos hora del sistema y timezone
   setClock();
-  //Inicializamos lastRiegos y lastGrupos (registro fecha/hora y riego realizado)
-  initLastRiegos();
-  initLastGrupos();
   //Cargamos factorRiegos
   initFactorRiegos();
   //Estado final en funcion de la conexion
@@ -751,8 +751,11 @@ void procesaEstadoTerminando(void)
       LOG_INFO("MULTIRRIEGO", multi.desc, "terminado");
       delay(config.msgdisplaymillis*3);
       led(Boton[bID2bIndex(*multi.id)].led,OFF);  // apaga led grupo
+      saveTablaToFile("/lastGrupos.json", "lastGrupos", lastGrupos, NUMGRUPOS);  //guardamos en fichero tabla de ultimos riegos de grupos
+      saveTablaToFile("/lastRiegos.json", "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
     }
   }
+  else saveTablaToFile("/lastRiegos.json", "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
   LOG_TRACE("[poniendo estado STANDBY]");
   setEstado(STANDBY);
 }; //fin de procesaEstadoTerminando
@@ -1326,17 +1329,27 @@ void procesaEncoderClock()
 
 void initLastRiegos()
 {
+  if (loadTablaFromFile("/lastRiegos.json", "lastRiegos", lastRiegos, NUMZONAS)) {
+    Serial.println("Ultimos riegos de zonas leidos de lastRiegos.json");
+    return;
+  }
   for(uint i=0;i<NUMZONAS;i++) {
    lastRiegos[i].inicio = 0;
    lastRiegos[i].final = 0;
+   lastRiegos[i].total = 0;
   }
 }
 
 void initLastGrupos()
 {
+  if (loadTablaFromFile("/lastGrupos.json", "lastGrupos", lastGrupos, NUMGRUPOS)) {
+    Serial.println("Ultimos riegos de grupos leidos de lastGrupos.json \n");
+    return;
+  }
   for(uint i=0;i<NUMGRUPOS;i++) {
    lastGrupos[i].inicio = 0;
    lastGrupos[i].final = 0;
+   lastGrupos[i].total = 0;
   }
 }
 
@@ -2018,8 +2031,10 @@ bool serialDetect() {
   return false;
 }    
 
+// **************************************************************************
 // funciones solo usadas en DEVELOP
 // (es igual, el compilador no las incluye si no son llamadas)
+// **************************************************************************
 #ifdef DEVELOP
   //imprime contenido actual de la estructura multi
   void printMulti()
