@@ -263,16 +263,12 @@ bool wifiVerifyRecovery(Config_parm &config) {
     Normalmente no se ejecutara, ya que el evento WiFiStationConnected se ejecutara
     cuando se recupere la conexion a la wifi, pero por si acaso lo dejamos (algunos fallos wifi del ESP32
     no generan el evento de conexion y no se recupera la conexion automaticamente).
-
-  */
+    */
     if(!connected && checkReconInterval) {
       if(wifiReconnect()) LOG_INFO("Wifi reconectada OK"); //reconectamos a la wifi
-        else LOG_WARN("Reconnect failed, esperando ",RECONNECTINTERVAL," minutos para volver a intentar");
+      else LOG_WARN("Reconnect failed, esperando ",RECONNECTINTERVAL," minutos para volver a intentar");
     }
-  /*
-    Verificamos estado actual de la wifi 
-    (y display wifi level si procede)
-  */  
+  //  Verificamos estado actual de la wifi (y display wifi level si procede)
     #ifdef DEVELOP
     int wifilevel = checkWifi(true); // conectado a wifi?
     #else
