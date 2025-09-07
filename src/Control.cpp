@@ -934,13 +934,6 @@ void setEstado(uint8_t estado, int bnum, int tipo)
     ledYellow(ON);
     boton = NULL;
     holdPause = false;
-    if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
-      LOG_ERROR("An Error has occurred while mounting LittleFS");
-      lcd.infoclear("No se ha podido montar el sistema de ficheros",1,BIPKO);
-      delay(config.msgdisplaymillis*3);
-      return;
-    }
-  
     return;
   }
 } //fin setEstado
