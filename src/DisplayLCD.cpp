@@ -28,7 +28,7 @@ char bn2[] = {
 
 
 
-DisplayLCD::DisplayLCD(uint8_t lcd_Addr,uint8_t lcd_cols,uint8_t lcd_rows) : lcdDisp(lcd_Addr, lcd_cols, lcd_rows)
+DisplayLCD::DisplayLCD(uint8_t lcd_Addr,uint8_t lcd_cols,uint8_t lcd_rows) : LiquidCrystal_I2C(lcd_Addr, lcd_cols, lcd_rows)
 { 
   #ifdef EXTRADEBUG
    Serial.printf( "soy el Constructor de DisplayLCD numeros pasados: 0x%x %d %d\n", lcd_Addr , lcd_cols , lcd_rows );
@@ -38,7 +38,7 @@ DisplayLCD::DisplayLCD(uint8_t lcd_Addr,uint8_t lcd_cols,uint8_t lcd_rows) : lcd
 
 void DisplayLCD::initLCD() {
   LOG_TRACE("[LCD] ");
-  lcdDisp.init();
+  LiquidCrystal_I2C::init();
   clear();
   setBacklight(ON);
 
@@ -62,50 +62,50 @@ void DisplayLCD::clear(int mitad)
 {
   if(!mitad) {
     LOG_TRACE("[LCD] BORRA lcd");
-    lcdDisp.clear();
+    LiquidCrystal_I2C::clear();
     return;
   }
   LOG_TRACE("[LCD] borra ",mitad,"ª mitad lcd");
   if(mitad == BORRA1H) {
     setCursor(0, 0);
-    lcdDisp.print(_blankline);
+    LiquidCrystal_I2C::print(_blankline);
     setCursor(0, 1);
-    lcdDisp.print(_blankline);
+    LiquidCrystal_I2C::print(_blankline);
     return;
   }
   if(mitad == BORRA2H) {
     setCursor(0, 2);
-    lcdDisp.print(_blankline);
+    LiquidCrystal_I2C::print(_blankline);
     setCursor(0, 3);
-    lcdDisp.print(_blankline);
+    LiquidCrystal_I2C::print(_blankline);
   }
 }
 
 void DisplayLCD::setCursor(uint8_t col, uint8_t row)
 {
-  lcdDisp.setCursor(col, row);
-  lcdDisp.noBlink();
-  lcdDisp.noCursor();
+  LiquidCrystal_I2C::setCursor(col, row);
+  LiquidCrystal_I2C::noBlink();
+  LiquidCrystal_I2C::noCursor();
 }
 
 
 void DisplayLCD::setCursorBlink(uint8_t col, uint8_t row)
 {
-  lcdDisp.setCursor(col, row);
-  lcdDisp.blink();
-  //lcdDisp.cursor();
+  LiquidCrystal_I2C::setCursor(col, row);
+  LiquidCrystal_I2C::blink();
+  //LiquidCrystal_I2C::cursor();
 }
 
 
 void DisplayLCD::displayON()
 {
-  lcdDisp.display();
+  LiquidCrystal_I2C::display();
   _displayOff = false;
 }
 
 void DisplayLCD::displayOFF()
 {
-  lcdDisp.noDisplay();
+  LiquidCrystal_I2C::noDisplay();
   _displayOff = true;
 }
 
@@ -117,35 +117,9 @@ bool DisplayLCD::get__displayOff(void)
 void DisplayLCD::setBacklight(bool value)				// alias for backlight() and nobacklight()
 {
   LOG_TRACE("[LCD] backlight:", value);
-  lcdDisp.setBacklight(value);
+  LiquidCrystal_I2C::setBacklight(value);
 }
 
-void DisplayLCD::print(const char * text) {
-  LOG_TRACE("[LCD] recibido: '",text,"'");
-  lcdDisp.print(text);
-}
-
-void DisplayLCD::print(const String &s) {
-  lcdDisp.print(s);
-}
-
-void DisplayLCD::print(const int numero) {
-  lcdDisp.print(numero);
-}
-
-/* 
-void DisplayLCD::blinkLCD(const char *info,int veces) //muestra texto recibido parpadeando n veces
-{
-    LOG_TRACE("[LCD] '",info, "' x",veces);
-    for (int i=0; i<veces; i++) {
-      clear();
-      delay(DEFAULTBLINKMILLIS);
-      setCursor(7, 1);
-      lcdDisp.print(info);
-      delay(DEFAULTBLINKMILLIS);
-    }
-}
- */
 
 void DisplayLCD::blinkLCD(int veces) //parpadea contenido actual de la pantalla n veces
 {
@@ -165,9 +139,9 @@ void DisplayLCD::blinkLCD(int veces) //parpadea contenido actual de la pantalla 
 void DisplayLCD::infoEstado(const char *estado, const char *zona) {
     LOG_DEBUG("[LCD]  Recibido: ", estado, zona);
     setCursor(0, 0);
-    lcdDisp.print(_blankline);
+    LiquidCrystal_I2C::print(_blankline);
     setCursor(0, 0);
-    lcdDisp.print(estado);
+    LiquidCrystal_I2C::print(estado);
     setCursor(11, 0);
     infoCut(zona, 9); // muestra el nombre de la zona con un maximo de 9 caracteres
 }    
@@ -180,9 +154,9 @@ void DisplayLCD::infoCut(const char *texto, uint8_t max) {
       LOG_DEBUG("* texto recibido de longitud =",size);
       strlcpy(infocut, texto, sizeof(infocut)); 
       LOG_DEBUG("* texto acortado a =", static_cast<const char*>(infocut));
-      lcdDisp.print(infocut);
+      LiquidCrystal_I2C::print(infocut);
     }
-    else lcdDisp.print(texto);  
+    else LiquidCrystal_I2C::print(texto);  
 }
 
 // muestra info (hasta un maximo de 20 caracteres) en la linea pasada (1, 2 ,3 o 4)
@@ -201,9 +175,9 @@ void DisplayLCD::info(const char* info, int line) {
 void DisplayLCD::info(const char* info, int line, int size) {
     LOG_DEBUG("[LCD]  Recibido: '", info, "'   (longitud original: ", size, " linea: ", line, ")");
     setCursor(0, line-1);
-    lcdDisp.print(_blankline);
+    LiquidCrystal_I2C::print(_blankline);
     setCursor(0, line-1);
-    lcdDisp.print(info);
+    LiquidCrystal_I2C::print(info);
 }    
 void DisplayLCD::infoclear(const char *info, int line) {
     LOG_DEBUG("[LCD]  Recibido: ", info, "linea: ", line);
@@ -224,7 +198,7 @@ void DisplayLCD::infoclear(const char *info, int dnum, int btype, int bnum) {
     clear();
     if(info=="STOP") setCursor(8,1);
     else setCursor(0, 0);
-    lcdDisp.print(info);
+    LiquidCrystal_I2C::print(info);
       if (btype == LONGBIP) sonido.longbip(bnum);
       if (btype == LOWBIP) sonido.lowbip(bnum);
       if (btype == BIP) sonido.bip(bnum);
@@ -244,7 +218,7 @@ void DisplayLCD::displayTemp(int temperature, int warnESP32temp)
   else {
     setCursor(14, 0);
     if (temperature == 999) print(" --");
-    else lcdDisp.printf(" %2d",temperature);
+    else LiquidCrystal_I2C::printf(" %2d",temperature);
   }  
   setCursor(17, 0); print("\xDF" "C"); // xDF = caracter grado centigrado
 }
@@ -260,14 +234,14 @@ void DisplayLCD::displayTime(uint8_t minute, uint8_t second, uint8_t col, uint8_
 
 void DisplayLCD::DefineLargeChar()    // send custom characters to the display 
 { 
-    lcdDisp.createChar(1, cc1);
-    lcdDisp.createChar(2, cc2);
-    lcdDisp.createChar(3, cc3);
-    lcdDisp.createChar(4, cc4);
-    lcdDisp.createChar(5, cc5);
-    lcdDisp.createChar(6, cc6);
-    lcdDisp.createChar(7, cc7);
-    lcdDisp.createChar(8, cc8);
+    LiquidCrystal_I2C::createChar(1, cc1);
+    LiquidCrystal_I2C::createChar(2, cc2);
+    LiquidCrystal_I2C::createChar(3, cc3);
+    LiquidCrystal_I2C::createChar(4, cc4);
+    LiquidCrystal_I2C::createChar(5, cc5);
+    LiquidCrystal_I2C::createChar(6, cc6);
+    LiquidCrystal_I2C::createChar(7, cc7);
+    LiquidCrystal_I2C::createChar(8, cc8);
 }
 
 void DisplayLCD::printTwoNumber(uint8_t number, uint8_t position, uint8_t line)  // muestra dos digitos en bigchar
@@ -279,41 +253,41 @@ void DisplayLCD::printTwoNumber(uint8_t number, uint8_t position, uint8_t line) 
   digit1 = number / 10;
 
   // Line 1 of the two-digit number
-  //lcdDisp.setCursor(position, 0);
-  lcdDisp.setCursor(position, line);  //linea superior 1 = segunda linea
-  lcdDisp.write(bn1[digit1 * 3]);
-  lcdDisp.write(bn1[digit1 * 3 + 1]);
-  lcdDisp.write(bn1[digit1 * 3 + 2]);
-  //lcdDisp.write(B); // Blank
-  lcdDisp.write(bn1[digit0 * 3]);
-  lcdDisp.write(bn1[digit0 * 3 + 1]);
-  lcdDisp.write(bn1[digit0 * 3 + 2]);
+  //LiquidCrystal_I2C::setCursor(position, 0);
+  LiquidCrystal_I2C::setCursor(position, line);  //linea superior 1 = segunda linea
+  LiquidCrystal_I2C::write(bn1[digit1 * 3]);
+  LiquidCrystal_I2C::write(bn1[digit1 * 3 + 1]);
+  LiquidCrystal_I2C::write(bn1[digit1 * 3 + 2]);
+  //LiquidCrystal_I2C::write(B); // Blank
+  LiquidCrystal_I2C::write(bn1[digit0 * 3]);
+  LiquidCrystal_I2C::write(bn1[digit0 * 3 + 1]);
+  LiquidCrystal_I2C::write(bn1[digit0 * 3 + 2]);
 
   // Line 2 of the two-digit number
-  //lcdDisp.setCursor(position, 1);
-  lcdDisp.setCursor(position, line+1);  //linea inferior 2 = tercera linea
-  lcdDisp.write(bn2[digit1 * 3]);
-  lcdDisp.write(bn2[digit1 * 3 + 1]);
-  lcdDisp.write(bn2[digit1 * 3 + 2]);
-  //lcdDisp.write(B); // Blank
-  lcdDisp.write(bn2[digit0 * 3]);
-  lcdDisp.write(bn2[digit0 * 3 + 1]);
-  lcdDisp.write(bn2[digit0 * 3 + 2]);
+  //LiquidCrystal_I2C::setCursor(position, 1);
+  LiquidCrystal_I2C::setCursor(position, line+1);  //linea inferior 2 = tercera linea
+  LiquidCrystal_I2C::write(bn2[digit1 * 3]);
+  LiquidCrystal_I2C::write(bn2[digit1 * 3 + 1]);
+  LiquidCrystal_I2C::write(bn2[digit1 * 3 + 2]);
+  //LiquidCrystal_I2C::write(B); // Blank
+  LiquidCrystal_I2C::write(bn2[digit0 * 3]);
+  LiquidCrystal_I2C::write(bn2[digit0 * 3 + 1]);
+  LiquidCrystal_I2C::write(bn2[digit0 * 3 + 2]);
 }
 
 void DisplayLCD::printColons(uint8_t position, uint8_t line)
 {
-  lcdDisp.setCursor(position, line);
-  lcdDisp.write (C);
-  lcdDisp.setCursor(position, line+1);
-  lcdDisp.write (C);
+  LiquidCrystal_I2C::setCursor(position, line);
+  LiquidCrystal_I2C::write (C);
+  LiquidCrystal_I2C::setCursor(position, line+1);
+  LiquidCrystal_I2C::write (C);
 }
 
 void DisplayLCD::printNoColons(uint8_t position, uint8_t line)
 {
-  lcdDisp.setCursor(position, line);
-  lcdDisp.write (B);
-  lcdDisp.setCursor(position, line+1);
-  lcdDisp.write (B);
+  LiquidCrystal_I2C::setCursor(position, line);
+  LiquidCrystal_I2C::write (B);
+  LiquidCrystal_I2C::setCursor(position, line+1);
+  LiquidCrystal_I2C::write (B);
 }
 

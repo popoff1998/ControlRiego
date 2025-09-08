@@ -8,10 +8,9 @@
   #define LCDMAXLEN 20          // numero maximo de caracteres por linea pantalla lcd
   #define MAXBUFF LCDMAXLEN+1   // tamaño maximo del buffer (mas 0 terminacion)
 
-  class DisplayLCD
+  class DisplayLCD : public  LiquidCrystal_I2C
   {
    private:
-      LiquidCrystal_I2C lcdDisp;
       bool _displayOff;
       unsigned long _lastBlinkPause;
       const char* _blankline = "                    ";
@@ -25,10 +24,7 @@
       void initLCD(void);
       void blinkLCD(int);
       void clear(int mitad=0);
-      void print(const char *);
-      void print(const String &s);
-      void print(int);
-      void setCursor(uint8_t, uint8_t);
+      void setCursor(uint8_t, uint8_t);  // sobreescibe a LiquidCrystal_I2C::setCursor
       void setCursorBlink(uint8_t, uint8_t);
       void setBacklight(bool);	// alias for backlight() and nobacklight()
       void displayON(void);      // muestra texto del display
@@ -42,6 +38,10 @@
       void info(const char* info, int line, int size);
       void infoCut(const char *texto, uint8_t max);
       bool get__displayOff(void);
-  };
+      // template para imprimir diferentes tipos de datos que admita LiquidCrystal_I2C::print() cuando es privada
+      // template<typename T>
+      // void print(const T& value) {LiquidCrystal_I2C::print(value);}
+};
+
 
 #endif  /*DisplayLCD_h*/

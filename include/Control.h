@@ -97,7 +97,7 @@
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0]))
        
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.3-alpha.2"   // version del software
+                            #define VERSION  "3.3-alpha.2.1"   // version del software
   //-------------------------------------------------------------------------------------
 
   //Comportamiento General
@@ -793,5 +793,25 @@ bool loadTablaFromFile(const char* filename, const char* arrayName, T* tabla, si
     LOG_INFO(arrayName, "cargado correctamente.");
     return true;
 }
+
+// *****************************************************************************************
+// Ejemplo de template con proceso variable al que se le pasa la funcion a ejecutar
+// que puede tener varias instrucciones (lambda function)
+// ***************************************************************************************** 
+
+template<typename T, typename F>
+void procesaArray(T* array, size_t size, F func) {
+    for (size_t i = 0; i < size; ++i) {
+        func(array[i]);
+    }
+}
+
+// EJEMPLO llamada con varias instrucciones en el callback:
+// procesaArray(lastRiegos, NUMZONAS, [](S_timeRiego& r){
+//     r.inicio = 0;
+//     r.final = 0;
+//     r.total = 0;
+//     Serial.println("Elemento reseteado");
+// });
 
 #endif  // control_h

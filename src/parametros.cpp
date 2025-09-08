@@ -243,7 +243,7 @@ void printParms(Config_parm &config) {
   Serial.printf("\tminutes= %d / seconds= %d \n", config.minutes, config.seconds);
   Serial.printf("\twarnESP32temp= %d \n", config.warnESP32temp);
   Serial.printf("\tmaxledlevel= %d / dimmlevel= %d \n", config.maxledlevel, config.dimmlevel);
-  Serial.printf("\ttempOffset= %d \n", config.tempOffset);
+  Serial.printf("\ttempOffset (x %.1f)= %d \n", TEMP_OFFSET_FACTOR/100.0, config.tempOffset);
   Serial.printf("\ttemp (0 LOCAL / 1 REMOTE)= %d \n", config.tempRemote);
   Serial.printf("\ttempRemoteIdx= %d \n", config.tempRemoteIdx);
   Serial.printf("\tmsgdisplaymillis= %d \n", config.msgdisplaymillis);
