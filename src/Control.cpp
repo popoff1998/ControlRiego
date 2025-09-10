@@ -224,9 +224,8 @@ void setupEstado()
     return;
   }
   //si no estamos conectados a la red y no estamos en modoDEMO pasamos a estado ERROR
-  //TODO: ¿podemos llegar aqui?
   statusError(E1, RECUPERABLE); //error de conexion wifi recuperable
-  LOG_TRACE("salida por estado ERROR(E1)"); 
+  LOG_DEBUG("setupEstado salida por estado ERROR(E1)"); 
 }
 
 #ifdef GRP4
@@ -360,12 +359,17 @@ void procesaBotonPause(void)
                 noWIFI = false;
                 LOG_INFO("encoderSW+PAUSE pasamos a modo NORMAL y leemos factor riegos");
                 sonido.bip(2);
-                ledPWM(LEDB,OFF);
-                lcd.clear();
+                lcd.infoclear("Saliendo de DEMO");
                 if (!checkWifi()) wifiReconnect();
-                initFactorRiegos();
+                if (connected) { 
+                    initFactorRiegos();
+                    if(VERIFY && Estado.estado != ERROR) {
+                      lcd.info("..y parando riegos",2);
+                      stopAllRiego(); //verificamos operativa OFF para los IDX's
+                    }    
+                    ledPWM(LEDB,OFF);
+                }    
                 setupEstado();
-                if(VERIFY && Estado.estado != ERROR) stopAllRiego(); //verificamos operativa OFF para los IDX's 
             }
             else {
                 modoDEMO = true;

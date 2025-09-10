@@ -62,6 +62,7 @@
     #endif
   #endif
   
+  // librerias de terceros locales en carpeta /lib
   #include "AiEsp32RotaryEncoder.h" // libreria para el encoder rotatorio AiEsp32RotaryEncoder
   #include "MCP23017.h"  // expansor E/S MCP23017
   #include "pitches.h"   // notas musicales
