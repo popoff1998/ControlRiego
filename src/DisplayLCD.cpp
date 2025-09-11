@@ -48,13 +48,17 @@ void DisplayLCD::initLCD() {
   print("Ardomo Aqua");
   setCursor(0, 2);
   print("Inicializando");
+  int longitud = strlen(VERSION);
   #ifdef DEVELOP
-    setCursor(0, 3);
+    longitud>13 ? setCursor(15,2) : setCursor(0, 3);
     print("(dev)");
   #endif
-  int longitud = strlen(VERSION);
-  setCursor(LCDMAXLEN-(longitud+1), 3);
-  print("v" VERSION);
+  if (longitud<19) {
+    setCursor(LCDMAXLEN-(longitud+1), 3);
+    print("v" VERSION);
+  } else {
+    info("v" VERSION, 4);  // si VERSION es muy larga la truncamos
+  }  
 }
 
 

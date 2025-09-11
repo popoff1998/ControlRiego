@@ -677,6 +677,7 @@ void procesaEstadoError(void)
     modoDEMO = true;
     sonido.bip(2);
     resetFlags();   //reset flags de status
+    resetLeds();    //reset leds
     if (Boton[bID2bIndex(bSTOP)].estado) setEstado(STOP,1);
     else setEstado(STANDBY);
   }
