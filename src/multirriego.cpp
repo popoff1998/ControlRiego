@@ -87,26 +87,29 @@ void displayGrupo(uint16_t *serie, int serieSize)
   led(Boton[bID2bIndex(*multi.id)].led,OFF);
 }
 
-void displayLCDGrupo(bool full, int line)
+int displayLCDGrupo(bool full, int line)
 {
   LOG_DEBUG("recibido full=",full,"line=",line);
-  if(full) displayLCDGrupo(multi.zserie, *multi.size, line, 0);
+  int posicion = 0;
+  if(full) posicion = displayLCDGrupo(multi.zserie, *multi.size, line, 0);
   else if( multi.actual+1 == *multi.size) lcd.info("", line);   // ultima zona por regar
-       else displayLCDGrupo(multi.zserie, *multi.size, line, multi.actual+1);  //  display zonas quedan por regar
+       else posicion = displayLCDGrupo(multi.zserie, *multi.size, line, multi.actual+1);  //  display zonas quedan por regar
+  return posicion;     
 }
 
-void displayLCDGrupo(uint16_t *serieZonas, int serieSize, int line, int start)
+int displayLCDGrupo(uint16_t *serieZonas, int serieSize, int line, int start)
 {
   LOG_DEBUG("recibido serieSize=",serieSize,"line=",line,"start=",start);
-  int i,n = 0;
+  int i,posicion = 0;
   if(serieSize > 0) {
       for(i=start; i<serieSize; i++) {
-        if(i == serieSize-1) n += snprintf (&buff[n], MAXBUFF, "%d", serieZonas[i]);
-        else n += snprintf (&buff[n], MAXBUFF, "%d-", serieZonas[i]);
-        if (n >= LCDMAXLEN) break; // max 20 char alcanzados
+        if(i == serieSize-1) posicion += snprintf (&buff[posicion], MAXBUFF, "%d", serieZonas[i]);
+        else posicion += snprintf (&buff[posicion], MAXBUFF, "%d-", serieZonas[i]);
+        if (posicion >= LCDMAXLEN) break; // max 20 char alcanzados
       } 
       lcd.info(buff,line);
-  }
+    }
+    return posicion;
 }
 
 //imprime contenido actual de la estructura multiGroup

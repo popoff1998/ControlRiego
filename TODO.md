@@ -4,9 +4,7 @@
 - en Standby añadir a PAUSA comprobar zonas en off (si VERIFY ON)
 - Explorar API domoticz:
     - en webserver poder ver log riegos de una zona del domoticz (getlightlog) 
-- Persistencia del estado de riego de la zona en curso:
-    - Si se cancela dar opcion a continuarla al finalizar grupo
-    - Si error de conexion durante el riego dar opcion de continuarlo al recuperarla
+- Si error de conexion durante el riego dar opcion de continuarlo al recuperarla ?
 
 # HECHOS
 ========
@@ -78,6 +76,7 @@
 - En info de zona y grupo: minutos de tiempo de riego real (excluidas pausas) V3.2
 - Opcion configurable lastr24 muestra zonas regadas últimas 24h V3.2
 - Las tablas de ultimos riegos de zonas y grupos se salvan y no se pierden con reset o apagado V3.3
+- Puede continuarse riego primera zona cancelada de un multirriego al final de este (queda en PAUSA) V3.3
 
 
 

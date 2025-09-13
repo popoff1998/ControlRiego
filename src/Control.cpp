@@ -226,7 +226,7 @@ void setupEstado()
   //si no estamos conectados a la red y no estamos en modoDEMO pasamos a estado ERROR
   statusError(E1, RECUPERABLE); //error de conexion wifi recuperable
   LOG_DEBUG("setupEstado salida por estado ERROR(E1)"); 
-}
+}  //fin de setupEstado
 
 #ifdef GRP4
   /**---------------------------------------------------------------
@@ -317,6 +317,12 @@ void procesaBotonPause(void)
         if(encoderSW) {  //si pulsamos junto con encoderSW terminamos el riego (pasaria al siguiente en caso de multirriego)
           setEstado(TERMINANDO);
           LOG_INFO("encoderSW+PAUSE terminamos riego de zona en curso");
+          // si estamos en un multirriego y no es la ultima zona y todavia no hemos salvado el riego actual
+          // --> salvamos el riego en curso en riegoSaved para poder continuarlo despues del multirriego
+          if (multi.riegoON && (multi.actual < *multi.size) && !riegoSaved.zonevalid) {
+            saveRiego(ultimoBotonZona->znumber, ultimoBotonZona->bID, T.ShowMinutes(), T.ShowSeconds());
+            LOG_INFO("salvando riego de zona en curso en riegoSaved");
+          }
         }
         else {    //pausa el riego en curso
           setEstado(PAUSE,1);
@@ -417,7 +423,6 @@ void procesaBotonPause(void)
   }
 }; //fin de procesaBotonPause
 
-
 void procesaBotonStop(void)
 {
   if (boton->estado) {  //si hemos PULSADO STOP
@@ -428,7 +433,8 @@ void procesaBotonStop(void)
       T.StopTimer();
       tic_CountDownTimer.detach(); //detiene actualizacion periodica del temporizador
       // paramos riego en curso y todas las zonas
-      if (!stopRiego(ultimoBotonZona->bID) || !stopAllRiego()) {   //error al parar riegos
+      bool updateTimeFin = (Estado.estado == PAUSE? false : true); // si estamos en PAUSE no actualizamos tiempo fin
+      if (!stopRiego(ultimoBotonZona->bID, updateTimeFin) || !stopAllRiego()) {   //error al parar riegos
         boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
         return; 
       }
@@ -744,7 +750,11 @@ void procesaEstadoTerminando(void)
       boton = &Boton[bID2bIndex(multi.serie[multi.actual])];
       multi.semaforo = true;
       //muestra en pantalla las zonas que restan por regar del grupo (excluida la zona en curso):
-      displayLCDGrupo(RESTO, 2);  //  display zonas quedan por regar
+      int posicion = displayLCDGrupo(RESTO, 2);  //  display zonas quedan por regar
+      if (riegoSaved.zonevalid) {  // si hay zona salvada la mostramos con "+" a continuacion
+        lcd.setCursor(posicion, 1);
+        lcd.printf("+%d", riegoSaved.znumber);
+      }
     }
     else {         // señalamos fin del multirriego y actualizamos timestamp de finalizacion
       if(!multi.temporal) finalTimeGrupo(lastGrupos[multi.ngrupo-1]);
@@ -761,8 +771,9 @@ void procesaEstadoTerminando(void)
     }
   }
   else saveTablaToFile("/lastRiegos.json", "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
-  LOG_TRACE("[poniendo estado STANDBY]");
-  setEstado(STANDBY);
+  // si hay riego salvado y no estamos en multirriego lo recuperamos en pausa
+  if (riegoSaved.zonevalid && !multi.riegoON) restoreRiego();
+  else setEstado(STANDBY);
 }; //fin de procesaEstadoTerminando
 
 
@@ -792,7 +803,6 @@ void procesaEstadoStandby(void)
       if (!timeOK) setClock(); // si no hemos recibido time por NTP -> actualizamos time del sistema con el del servidor NTP
       }
   }   
-
 }; //fin de procesaEstadoStandby
 
 
@@ -1400,6 +1410,32 @@ bool stopRiego(uint16_t id, bool update)
       return false;
     }  
 }
+
+
+//Guarda el estado del riego en curso para una posible reanudacion
+void saveRiego(int znumber, int bID, int minutes, int seconds)
+{
+  LOG_INFO("salvando estado riego zona :",znumber," tiempo restante: ", minutes, ":", seconds);
+  riegoSaved.zonevalid = true;
+  riegoSaved.znumber = znumber;
+  riegoSaved.bID = bID;
+  riegoSaved.minutes = minutes;
+  riegoSaved.seconds = seconds;
+}
+
+//Recupera el estado del riego salvado dejandolo en PAUSE para que el usuario confirme el reinicio
+void restoreRiego(void)
+{
+    LOG_INFO("recuperando riego salvado de zona:", riegoSaved.znumber);
+    riegoSaved.zonevalid = false; //ya no es valida    
+    ultimoBotonZona = &Boton[bID2bIndex(riegoSaved.bID)];
+    led(ultimoBotonZona->led,ON); //encendemos led de la zona
+    T.SetTimer(0,riegoSaved.minutes,riegoSaved.seconds);  //inicializamos el timer de cuenta atras
+    lcd.displayTime(T.ShowMinutes(), T.ShowSeconds());
+    setEstado(PAUSE); //ponemos en PAUSE para que el usuario confirme el inicio del riego salvado
+    // if(initRiego(RESUME)) setEstado(REGANDO); //ponemos en REGANDO directamente
+}    
+
 
 
 //Pone a off todos los leds de zonas y grupos y restablece estado led RGB

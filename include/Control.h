@@ -98,7 +98,7 @@
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0]))
        
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.3-alpha.2.1"   // version del software
+                            #define VERSION  "3.3-beta1"   // version del software
   //-------------------------------------------------------------------------------------
 
   //Comportamiento General
@@ -455,6 +455,18 @@
     char *desc;             //apuntador a config con la descripcion del grupo
   } ;
 
+  // estructura para salvar el estado de un riego en curso
+  struct S_Riego_estado {
+    bool zonevalid = false;     // flag de datos riego en curso validos
+    uint16_t bID;                // id del boton de la zona en curso (bZona_x)
+    uint16_t znumber;           // numero de la zona en curso (Zona_x)
+    uint8_t minutes = 0;        // minutos restantes del riego en curso
+    uint8_t seconds = 0;        // segundos restantes del riego en curso
+    // CountUpDownTimer timer;         // temporizador del riego en curso ??
+    // bool groupvalid = false;        // flag de datos grupo en curso validos
+    // S_MULTI multirriego;            // estructura con los datos del multirriego en curso (si lo hay)
+  };
+
   const char MESES[][12] = {"Ene.", "Feb.", "Mar.", "Abr.", "May.", "Jun.", "Jul.", "Ago.", "Sep.", "Oct.", "Nov.", "Dic."};
 
    //Globales a todos los módulos
@@ -565,6 +577,7 @@
     Ticker tic_verificaciones;   //para verificaciones periodicas
     S_timeRiego lastRiegos[NUMZONAS];
     S_timeRiego lastGrupos[NUMGRUPOS];
+    S_Riego_estado riegoSaved; // estructura con el estado del riego en curso
     uint factorRiegos[NUMZONAS];
     uint8_t prevseconds;
     uint8_t prevminutes;
@@ -613,8 +626,8 @@
   void dimmerLeds(bool);
   void displayDemo(void);
   void displayGrupo(uint16_t *, int);
-  void displayLCDGrupo(bool, int line=4);
-  void displayLCDGrupo(uint16_t *, int, int , int );
+  int displayLCDGrupo(bool, int line=4);
+  int displayLCDGrupo(uint16_t *, int, int , int );
   void displayMultiTemporal(void);
   void displayNoFactorizado(void);
   void displayTimer(uint8_t, uint8_t, uint8_t, uint8_t);
@@ -691,7 +704,9 @@
   void resetFlags(void);
   void resetLCD(void);
   void resetLeds(void);
+  void restoreRiego(void);
   bool saveConfigFile(const char*, Config_parm&);
+  void saveRiego(int znumber, int bID, int minutes, int seconds);
   bool serialDetect(void);
   void setbIDgrupos(Config_parm&);
   void setClock(void);
