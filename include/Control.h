@@ -362,13 +362,13 @@
   };
 
   struct S_BOTON {
-    uint16_t   bID;
+    uint16_t   bID;       // ID del boton (bitmask)
     bool   estado;
     bool   ultimo_estado;
-    int   led;
-    S_bFLAGS  flags;
-    char  desc[20];
-    uint16_t   znumber;
+    int   led;            // pin del led asociado al boton (0 si no tiene)
+    S_bFLAGS  flags;      // flags varios
+    char  desc[20];       // descripcion por defecto del boton
+    uint16_t   znumber;   // numero de zona (1 a n) o 0 si no es zona
   } ;
 
   struct S_Estado {
@@ -474,21 +474,21 @@
     #ifdef GRP4     // matriz Boton para caso de 9 zonas y 4 botones de grupos multirriego
       S_BOTON Boton [] =  { 
         //bID         S   uS  LED          FLAGS                             DESC     NUMBER  
-        {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "ZONA1",        },
-        {bZONA2 ,     0,  0,  lZONA2 ,     ENABLED | ACTION,                 "ZONA2",        },
-        {bZONA3    ,  0,  0,  lZONA3    ,  ENABLED | ACTION,                 "ZONA3",        },
-        {bZONA4    ,  0,  0,  lZONA4    ,  ENABLED | ACTION,                 "ZONA4",        },
-        {bZONA5    ,  0,  0,  lZONA5    ,  ENABLED | ACTION,                 "ZONA5",        },
-        {bZONA6 ,     0,  0,  lZONA6 ,     ENABLED | ACTION,                 "ZONA6",        },
-        {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ZONA7",        },
-        {bZONA8  ,    0,  0,  lZONA8  ,    ENABLED | ACTION,                 "ZONA8",        },
-        {bZONA9,      0,  0,  lZONA9  ,    ENABLED | ACTION,                 "ZONA9",        },
-        {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ACTION,                 "GRUPO1",       },
-        {bGRUPO2  ,   0,  0,  lGRUPO2  ,   ENABLED | ACTION,                 "GRUPO2",       },
-        {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ACTION,                 "GRUPO3",       },
-        {bGRUPO4,     0,  0,  lGRUPO4,     ENABLED | ACTION,                 "GRUPO4",       },
-        {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE",        },
-        {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",         }
+        {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "ZONA1",   0    },
+        {bZONA2   ,   0,  0,  lZONA2   ,   ENABLED | ACTION,                 "ZONA2",   0    },
+        {bZONA3   ,   0,  0,  lZONA3   ,   ENABLED | ACTION,                 "ZONA3",   0    },
+        {bZONA4   ,   0,  0,  lZONA4   ,   ENABLED | ACTION,                 "ZONA4",   0    },
+        {bZONA5   ,   0,  0,  lZONA5   ,   ENABLED | ACTION,                 "ZONA5",   0    },
+        {bZONA6   ,   0,  0,  lZONA6   ,   ENABLED | ACTION,                 "ZONA6",   0    },
+        {bZONA7   ,   0,  0,  lZONA7   ,   ENABLED | ACTION,                 "ZONA7",   0    },
+        {bZONA8   ,   0,  0,  lZONA8   ,   ENABLED | ACTION,                 "ZONA8",   0    },
+        {bZONA9   ,   0,  0,  lZONA9   ,   ENABLED | ACTION,                 "ZONA9",   0    },
+        {bGRUPO1  ,   0,  0,  lGRUPO1  ,   ENABLED | ACTION,                 "GRUPO1",  0    },
+        {bGRUPO2  ,   0,  0,  lGRUPO2  ,   ENABLED | ACTION,                 "GRUPO2",  0    },
+        {bGRUPO3  ,   0,  0,  lGRUPO3  ,   ENABLED | ACTION,                 "GRUPO3",  0    },
+        {bGRUPO4  ,   0,  0,  lGRUPO4  ,   ENABLED | ACTION,                 "GRUPO4",  0    },
+        {bPAUSE   ,   0,  0,  0        ,   ENABLED | ACTION | DUAL | HOLD,   "PAUSE",   0    },
+        {bSTOP    ,   0,  0,  0        ,   ENABLED | ACTION | DUAL,          "STOP",    0    }
       };
     #endif
     
@@ -527,8 +527,10 @@
     bool webServerAct = false;
     bool saveConfig = false;
     
-    const char *parmFile = "/config_parm.json";       // fichero de parametros activos
+    const char *parmFile = "/config_parm.json";         // fichero de parametros activos
     const char *backupParmFile = "/config_backup.json"; // fichero de respaldo de los parametros
+    const char *lastRiegosFile = "/lastRiegos.json";        // fichero de ultimos riegos de zonas
+    const char *lastGruposFile = "/lastGrupos.json";        // fichero de ultimos riegos de grupos
     
     DisplayLCD lcd(LCD2004_address, 20, 4);  // 20 caracteres x 4 lineas
     char buff[MAXBUFF];
@@ -550,6 +552,8 @@
     extern bool saveConfig;
     extern const char *parmFile; 
     extern const char *backupParmFile;
+    extern const char *lastRiegosFile;
+    extern const char *lastGruposFile;
     extern DisplayLCD lcd;
     extern char buff[];
     extern bool checkReconInterval;

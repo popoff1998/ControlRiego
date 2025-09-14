@@ -196,13 +196,16 @@ bool copyConfigFile(const char *fileFrom, const char *fileTo)
   } 
 }
 
-//borrado de los ficheros de parametros y backup para resetear la configuracion
+//borrado de los ficheros de parametros,backup y riegos para resetear la configuracion
 bool deleteParmFiles()
 {
   LOG_TRACE("in deleteParmFiles");
-  if (LittleFS.exists(parmFile)) LittleFS.remove(parmFile);
-  if (LittleFS.exists(backupParmFile)) LittleFS.remove(backupParmFile);
-  return true;
+  bool bRC = true;
+  if (LittleFS.exists(parmFile) && bRC) bRC = LittleFS.remove(parmFile);
+  if (LittleFS.exists(backupParmFile) && bRC) bRC = LittleFS.remove(backupParmFile);
+  if (LittleFS.exists(lastRiegosFile) && bRC) bRC = LittleFS.remove(lastRiegosFile);
+  if (LittleFS.exists(lastGruposFile) && bRC) bRC = LittleFS.remove(lastGruposFile);
+  return bRC;
 }
 
 //init minimo de config para evitar fallos en caso de no poder cargar parametros de ficheros
@@ -255,7 +258,7 @@ void printParms(Config_parm &config) {
   Serial.printf("\tverify= %d \n", config.verify);
   Serial.printf("\tdynamic= %d \n", config.dynamic);
   Serial.printf("\tlastr24= %d \n", config.lastr24);
-  Serial.println("----------------------------------------------------------------");
+  Serial.println("----------------------------------------------------------------\n");
 }
 
 void filesInfo() 

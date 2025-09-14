@@ -766,11 +766,11 @@ void procesaEstadoTerminando(void)
       LOG_INFO("MULTIRRIEGO", multi.desc, "terminado");
       delay(config.msgdisplaymillis*3);
       led(Boton[bID2bIndex(*multi.id)].led,OFF);  // apaga led grupo
-      saveTablaToFile("/lastGrupos.json", "lastGrupos", lastGrupos, NUMGRUPOS);  //guardamos en fichero tabla de ultimos riegos de grupos
-      saveTablaToFile("/lastRiegos.json", "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
+      saveTablaToFile(lastGruposFile, "lastGrupos", lastGrupos, NUMGRUPOS);  //guardamos en fichero tabla de ultimos riegos de grupos
+      saveTablaToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
     }
   }
-  else saveTablaToFile("/lastRiegos.json", "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
+  else saveTablaToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
   // si hay riego salvado y no estamos en multirriego lo recuperamos en pausa
   if (riegoSaved.zonevalid && !multi.riegoON) restoreRiego();
   else setEstado(STANDBY);
@@ -1052,9 +1052,9 @@ void setClock()
   }
   timeOK = true;
   char message[150];
-  strftime(message, sizeof(message), ">>> TIME SET by NTP <<<   Local time: %A, %B %d %Y %H:%M:%S (zone %Z %z)", &timeinfo);
-  LOG_INFO(message);
-  LOG_INFO("NTP update every ", sntp_get_sync_interval()/(1000*60), " minutos");
+  strftime(message, sizeof(message), "\n>>> TIME SET by NTP <<<   Local time: %A, %B %d %Y %H:%M:%S (zone %Z %z)", &timeinfo);
+  PRINTLN(message);
+  PRINTLN("NTP update every ", sntp_get_sync_interval()/(1000*60), " minutos\n");
 }
 
 time_t tLoc()
@@ -1338,7 +1338,7 @@ void procesaEncoderClock()
 void initLastRiegos()
 {
   if (loadTablaFromFile("/lastRiegos.json", "lastRiegos", lastRiegos, NUMZONAS)) {
-    Serial.println("Ultimos riegos de zonas leidos de lastRiegos.json");
+    Serial.println("Ultimos riegos de zonas leidos de " + String(lastRiegosFile));
     return;
   }
   for(uint i=0;i<NUMZONAS;i++) {
@@ -1350,8 +1350,8 @@ void initLastRiegos()
 
 void initLastGrupos()
 {
-  if (loadTablaFromFile("/lastGrupos.json", "lastGrupos", lastGrupos, NUMGRUPOS)) {
-    Serial.println("Ultimos riegos de grupos leidos de lastGrupos.json \n");
+  if (loadTablaFromFile(lastGruposFile, "lastGrupos", lastGrupos, NUMGRUPOS)) {
+    Serial.println("Ultimos riegos de grupos leidos de " + String(lastGruposFile) + "\n");
     return;
   }
   for(uint i=0;i<NUMGRUPOS;i++) {
@@ -1971,12 +1971,11 @@ void setupParm()
     filesInfo();
   #endif
   if( initFlags.initParm) {
-    LOG_WARN(">>>>>>>>>>>>>>  borrando ficheros de parámetros  <<<<<<<<<<<<<<");
+    LOG_WARN(">>>>>>>>>>>>>>  borrando ficheros de parámetros y riegos  <<<<<<<<<<<<<<");
     bool bRC = deleteParmFiles();
     if(bRC) {
-      LOG_WARN("borrado ficheros de parámetros OK");
-      //señala el borrado ficheros de parámetros OK (parm y backup)
-      lcd.infoclear("RESET/ERASE parm OK",1,BIPOK);
+      LOG_WARN("borrado ficheros de parámetros y riegos OK");
+      lcd.infoclear("RESET/ERASE parm OK",1,BIPOK); //señala el borrado ficheros de parámetros OK
       delay(config.msgdisplaymillis);
     }  
     else LOG_ERROR(" **  [ERROR] en borrado ficheros de parámetros");
@@ -1992,7 +1991,7 @@ void setupParm()
   setupConfig(); //una vez cargados parametros, completa campos de config y boton
 
   #ifdef VERBOSE
-    if (config.initialized) Serial.print(F("Parametros cargados, "));
+    if (config.initialized) Serial.print(F("\nParametros cargados, "));
     else Serial.print(F("Parametros zero-config, "));
     printParms(config);
   #endif
@@ -2017,13 +2016,13 @@ void setupConfig()
   tmvalue();
   
   for(int i=0;i<NUMZONAS;i++) {
-    //si en config campo desc de la zona esta vacio se copia el de la estructura Boton:
+    //si en config campo desc de la zona esta vacio se copia el de por defecto de la estructura Boton:
     if(strlen(config.zona[i].desc) == 0) {
       strlcpy(config.zona[i].desc, Boton[zNumber2bIndex(i+1)].desc, sizeof(config.zona[i].desc));
     }  
   }
   for(int i=0;i<NUMGRUPOS;i++) {
-    //si en config campo desc del grupo esta vacio se copia el de la estructura Boton:
+    //si en config campo desc del grupo esta vacio se copia el de por defectode la estructura Boton:
     if(strlen(config.group[i].desc) == 0) {
       strlcpy(config.group[i].desc, Boton[bID2bIndex(GRUPOS[i])].desc, sizeof(config.group[i].desc));
     }  
