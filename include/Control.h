@@ -98,7 +98,7 @@
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0]))
        
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.3-beta1"   // version del software
+                            #define VERSION  "3.3-beta2"   // version del software
   //-------------------------------------------------------------------------------------
 
   //Comportamiento General
@@ -604,6 +604,7 @@
     unsigned long currentMillisLoop = 0;
     unsigned long lastMillisLoop = 0;
     int numloops = 0;
+    bool riegoFromPause = false;
 
     #ifdef TEMPLOCAL 
       DHT dht(DHTPIN, TEMPLOCAL);
@@ -647,6 +648,15 @@
   int  getFactor(uint16_t);
   float getTemperatureDomoticz(uint16_t);
   uint16_t getMultiStatus(void);
+  void handleEncPauseInPause();
+  void handleEncPauseInRegando();
+  void handleEncPauseInStandby();
+  bool handleHoldPause();
+  void handlePauseInPause();
+  void handlePauseInRegando();
+  void handlePauseInStandby();
+  void handleEncPauseInStop();
+  void handlePauseInStop();
   String *httpGetDomoticz(String *);
   void inicioTimeLastRiego(S_timeRiego&, const char* texto = nullptr, bool resume=false);
   void initEncoder(void);

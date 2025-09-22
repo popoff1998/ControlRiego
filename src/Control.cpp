@@ -306,122 +306,160 @@ void setupEstado()
       }
     }
   };
-#endif // GRP4
-
-void procesaBotonPause(void)
-{
-  if (Estado.estado != STOP) {
-    if(!boton->estado) return; //No procesamos los release del boton salvo en STOP
+  #endif // GRP4
+  
+  void procesaBotonPause(void)
+  {
+    if(!boton->estado && Estado.estado != STOP) return; //No procesamos los release del boton salvo en STOP
     switch (Estado.estado) {
       case REGANDO:
-        if(encoderSW) {  //si pulsamos junto con encoderSW terminamos el riego (pasaria al siguiente en caso de multirriego)
-          setEstado(TERMINANDO);
-          LOG_INFO("encoderSW+PAUSE terminamos riego de zona en curso");
-          // si estamos en un multirriego y no es la ultima zona y todavia no hemos salvado el riego actual
-          // --> salvamos el riego en curso en riegoSaved para poder continuarlo despues del multirriego
-          if (multi.riegoON && (multi.actual < *multi.size) && !riegoSaved.zonevalid) {
-            saveRiego(ultimoBotonZona->znumber, ultimoBotonZona->bID, T.ShowMinutes(), T.ShowSeconds());
-            LOG_INFO("salvando riego de zona en curso en riegoSaved");
-          }
-        }
-        else {    //pausa el riego en curso
-          setEstado(PAUSE,1);
-          tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
-          led(ultimoBotonZona->led,ON);// y lo deja fijo
-          if (stopRiego(ultimoBotonZona->bID)) T.PauseTimer();
-          else { //error al parar riego
-              boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
-              LOG_WARN("error al pausar riego de zona en curso errorText :",errorText,"zona :",ultimoBotonZona->desc );
-            }
-          }
+        if(encoderSW) handleEncPauseInRegando();  //cancela riego zona en curso
+        else handlePauseInRegando();              //pausa riego zona en curso
         break;
       case PAUSE:
-        if(simular.ErrorPause) statusError(E2); //simulamos error al salir del PAUSE
-        else initRiego(RESUME);        // reanudamos riego que estaba parado 
-        if(Estado.estado == ERROR) { // caso de error al reanudar el riego seguimos en PAUSE y señalamos con blink rapido zona
-          ledID = ultimoBotonZona->led;
-          tic_parpadeoLedZona.attach(RAPIDO, parpadeoLedZona, ledID);
-          LOG_WARN("error al salir de PAUSE errorText :",errorText,"Estado.error :",Estado.error );
-          lcd.displayON();
-          delay(MSGDISPLAYMILLIS);
-          lcd.clear(BORRA2H); //borra msgs de error
-          refreshTime();
-          setEstado(PAUSE,1);
-          break;
-        }
-        sonido.bip(2);
-        lcd.clear(BORRA2H); //por si hubiera msgs de error (caso error al salir del pause previo)
-        setEstado(REGANDO);
-        T.ResumeTimer(); // reanudamos el timer de cuenta atras
-        refreshTime(); //actualizamos tiempo de cuenta atras
-        tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
-        led(ultimoBotonZona->led,ON);// y lo deja fijo
+        if(encoderSW) handleEncPauseInPause();    //cancela riego zona en curso
+        else handlePauseInPause();                //reanuda riego zona en curso
         break;
       case STANDBY:
-          boton = NULL; //lo borramos para que no sea tratado más adelante en procesaEstados
-          if(encoderSW) {  //si encoderSW+Pause --> conmutamos estado modoDEMO
-            if (modoDEMO) {
-                modoDEMO = false;
-                noWIFI = false;
-                LOG_INFO("encoderSW+PAUSE pasamos a modo NORMAL y leemos factor riegos");
-                sonido.bip(2);
-                lcd.infoclear("Saliendo de DEMO");
-                if (!checkWifi()) wifiReconnect();
-                if (connected) { 
-                    initFactorRiegos();
-                    if(VERIFY && Estado.estado != ERROR) {
-                      lcd.info("..y parando riegos",2);
-                      stopAllRiego(); //verificamos operativa OFF para los IDX's
-                    }    
-                    ledPWM(LEDB,OFF);
-                }    
-                setupEstado();
-            }
-            else {
-                modoDEMO = true;
-                LOG_INFO("encoderSW+PAUSE pasamos a modoDEMO (DEMO)");
-                sonido.bip(2);
-                ledPWM(LEDB,ON);
-                displayDemo();
-            }
-          }
-          else {    // muestra hora y ultimos riegos
-            ultimosRiegos(SHOW);
-            delay(config.msgdisplaymillis*3);
-            ultimosRiegos(HIDE);
-            LOG_TRACE("[poniendo estado STANDBY]");
-            setEstado(STANDBY);  // para restaurar pantalla
-          }
-          standbyTime = millis();
+        if(encoderSW) handleEncPauseInStandby();  //conmuta modoDEMO
+        else handlePauseInStandby();              //muestra ultimos riegos y hora
+        break;
+      case STOP:
+        if(encoderSW) handleEncPauseInStop ();    //resetea el ESP32
+        else handlePauseInStop();                 //pasa a CONFIGURANDO
+        break;
     }
+    //boton = NULL; //TODO ¿aqui o en general? lo borramos para que no sea tratado más adelante en procesaEstados
+    standbyTime = millis(); //TODO: ¿en general en procesaBotones? reiniciamos contador de tiempo para reposo
+  }; //fin de procesaBotonPause
+  
+// Si pulsamos junto con encoderSW terminamos el riego (pasaria al siguiente en caso de multirriego)
+void handleEncPauseInRegando() {
+  setEstado(TERMINANDO);
+  LOG_INFO("encoderSW+PAUSE terminamos riego de zona en curso");
+  // si estamos en un multirriego y no es la ultima zona y todavia no hemos salvado el riego actual
+  // --> salvamos el riego en curso en riegoSaved para poder continuarlo despues del multirriego
+  if (multi.riegoON && (multi.actual < *multi.size) && !riegoSaved.zonevalid) {
+    saveRiego(ultimoBotonZona->znumber, ultimoBotonZona->bID, T.ShowMinutes(), T.ShowSeconds());
+    LOG_INFO("salvando riego de zona en curso en riegoSaved");
   }
-  //en estado STOP procesamos el posible hold del boton pause  
-  else {
+}
+
+// Pausa el riego en curso
+void handlePauseInRegando() {
+  setEstado(PAUSE,1);
+  tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
+  led(ultimoBotonZona->led,ON);// y lo deja fijo
+  if (stopRiego(ultimoBotonZona->bID)) T.PauseTimer();
+  else { //error al parar riego
+    boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
+    LOG_WARN("error al pausar riego de zona en curso errorText :",errorText,"zona :",ultimoBotonZona->desc );
+  }  
+}  
+
+// Si pulsamos junto con encoderSW terminamos el riego (pasaria al siguiente en caso de multirriego)
+void handleEncPauseInPause() {
+  // TODO: OJO revisar no salvado el riego en curso en riegoSaved
+  riegoFromPause = true; // para que no actualize tiempo final riego en procesaEstadoTerminando
+  handleEncPauseInRegando();
+}
+
+// Reanudamos riego que estaba parado
+void handlePauseInPause() {
+  if(simular.ErrorPause) statusError(E2); //simulamos error al salir del PAUSE
+  else initRiego(RESUME);         
+  if(Estado.estado == ERROR) { // caso de error al reanudar el riego seguimos en PAUSE y señalamos con blink rapido zona
+    ledID = ultimoBotonZona->led;
+    tic_parpadeoLedZona.attach(RAPIDO, parpadeoLedZona, ledID);
+    LOG_WARN("error al salir de PAUSE errorText :",errorText,"Estado.error :",Estado.error );
+    lcd.displayON();
+    delay(MSGDISPLAYMILLIS);
+    lcd.clear(BORRA2H); //borra msgs de error
+    refreshTime();
+    setEstado(PAUSE,1);
+  } else {
+    sonido.bip(2);
+    lcd.clear(BORRA2H); //por si hubiera msgs de error (caso error al salir del pause previo)
+    setEstado(REGANDO);
+    T.ResumeTimer(); // reanudamos el timer de cuenta atras
+    refreshTime(); //actualizamos tiempo de cuenta atras
+    tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
+    led(ultimoBotonZona->led,ON);// y lo deja fijo
+  }
+}  
+
+// Si encoderSW+Pause --> conmutamos estado modoDEMO
+void handleEncPauseInStandby() {
+    if (modoDEMO) {
+      modoDEMO = false;
+      noWIFI = false;
+      LOG_INFO("encoderSW+PAUSE pasamos a modo NORMAL y leemos factor riegos");
+      sonido.bip(2);
+      lcd.infoclear("Saliendo de DEMO");
+      if (!checkWifi()) wifiReconnect();
+      if (connected) { 
+        initFactorRiegos();
+        if(VERIFY && Estado.estado != ERROR) {
+          lcd.info("..y parando riegos",2);
+          stopAllRiego(); //verificamos operativa OFF para los IDX's
+        }    
+        ledPWM(LEDB,OFF);
+      }    
+      setupEstado();
+    }
+    else {
+      modoDEMO = true;
+      LOG_INFO("encoderSW+PAUSE pasamos a modoDEMO (DEMO)");
+      sonido.bip(2);
+      ledPWM(LEDB,ON);
+      displayDemo();
+    }
+}
+      
+// Muestra hora y ultimos riegos
+void handlePauseInStandby() {
+    ultimosRiegos(SHOW);
+    delay(config.msgdisplaymillis*3);
+    ultimosRiegos(HIDE);
+    LOG_TRACE("[poniendo estado STANDBY]");
+    setEstado(STANDBY);  // para restaurar pantalla
+}  
+      
+// En estado STOP si ENC + hold del boton pause reseteamos el ESP32  
+void handleEncPauseInStop() {
+    if(handleHoldPause()) {
+            LOG_WARN("Stop + encoderSW + PAUSA --> Reset.....");
+            lcd.infoclear(">>  REINICIANDO  <<", NOBLINK, LOWBIP, 1);
+            delay(config.msgdisplaymillis);
+            ESP.restart();  // reset ESP32
+    }
+}
+
+// En estado STOP si hold del boton pause pasamos a modo Configuracion  
+void handlePauseInStop() {
+    if(handleHoldPause()) {
+      setEstado(CONFIGURANDO,1);
+      configure->menu();
+      LOG_INFO("Stop + hold PAUSA --> modo ConF()");
+    }
+}
+
+// Detecta si se mantiene pulsado el boton PAUSE
+bool handleHoldPause() {
+    bool RC = false;
     if(boton->estado) {
       if(!holdPause) {
         countHoldPause = millis();
         holdPause = true;
       }
       else {
-        if((millis() - countHoldPause) > HOLDTIME) {
-          if(!encoderSW) { //pasamos a modo Configuracion
-            setEstado(CONFIGURANDO,1);
-            configure->menu();
-            LOG_INFO("Stop + hold PAUSA --> modo ConF()");
-          }
-          else {   //si esta pulsado encoderSW hacemos un soft reset
-            LOG_WARN("Stop + encoderSW + PAUSA --> Reset.....");
-            lcd.infoclear(">>  REINICIANDO  <<", NOBLINK, LOWBIP, 1);
-            delay(config.msgdisplaymillis);
-            ESP.restart();  // reset ESP32
-          }
-        }
+        if((millis() - countHoldPause) > HOLDTIME) RC = true;
       }
     }
     //Si lo hemos soltado quitamos holdPause
     else holdPause = false;
-  }
-}; //fin de procesaBotonPause
+    return RC;
+}
 
 void procesaBotonStop(void)
 {
@@ -438,6 +476,7 @@ void procesaBotonStop(void)
         boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
         return; 
       }
+      saveTablaToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
       lcd.infoclear("STOP riegos OK", DEFAULTBLINK, BIP, 0);
       resetFlags();
       setEstado(STOP,1);
@@ -736,7 +775,9 @@ void procesaEstadoTerminando(void)
   sonido.bip(5);
   tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
   tic_CountDownTimer.detach(); //detiene actualizacion periodica del temporizador
-  stopRiego(ultimoBotonZona->bID);
+  bool updateTimeFin = (riegoFromPause? false : true); // si veniamos de PAUSE no actualizamos tiempo fin
+  stopRiego(ultimoBotonZona->bID, updateTimeFin); // paramos riego en curso
+  riegoFromPause = false; //reiniciamos flag
   if (Estado.estado == ERROR) return; //no continuamos si se ha producido error al parar el riego
   lcd.blinkLCD(DEFAULTBLINK);
   led(ultimoBotonZona->led,OFF);  // apaga led zona
@@ -904,6 +945,7 @@ void setEstado(uint8_t estado, int bnum, int tipo)
   Estado.estado = estado;
   Estado.error = NOERROR;
   recoverableError = false;
+  if(Estado.estado == !PAUSE) riegoFromPause = false; //reiniciamos flag  TODO ¿esto hay que revisarlo?
   strcpy(errorText, "");
   //Deshabilitamos el hold de Pause
   Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
