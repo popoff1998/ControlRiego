@@ -34,7 +34,7 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
       }  
       config.zona[i-1].idx = botones["idx"] | 0;
       strlcpy(config.zona[i-1].desc, botones["nombre"] | "", sizeof(config.zona[i-1].desc));
-      i++;
+      //i++;  TODO no hace falta, ya que el numero de zona viene en el fichero ¿?
   }
   LOG_TRACE("procesa grupos");
   //--------------  procesa grupos  ---------------------------------------------------------

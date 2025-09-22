@@ -77,6 +77,8 @@
 - Opcion configurable lastr24 muestra zonas regadas últimas 24h V3.2
 - Las tablas de ultimos riegos de zonas y grupos se salvan y no se pierden con reset o apagado V3.3
 - Puede continuarse riego primera zona cancelada de un multirriego al final de este (queda en PAUSA) V3.3
-
+- Si riego en pausa: ENC+PAUSA lo cancela también V3.3
+- En modo DEMO no se consolidan tiempos de riego (se recuperan los reales al salir) V3.3
+- Atajo: STOP+ENC+GRUPO1 activa Webserver V3.3
 
 

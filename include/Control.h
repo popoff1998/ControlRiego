@@ -137,6 +137,7 @@
   #define TEMP_OFFSET         0       // * correccion temperatura sensor local o remoto
   #define TEMP_OFFSET_FACTOR  50      // * correccion temperatura factor ajuste (50% = x 0.5)
   #define TEMP_DATA_REMOTE    0       // * fuente del dato de temperatura 0=local/1=remota
+  #define SHORTCUTSENABLED    true    // admite atajos en estado STOP
                                       // [*] = configurables
   // #define PARMFILE    "/config_parm.json"     // archivo de configuracion de parametros
   // #define BACKUPFILE  "/config_backup.json"   // archivo de backup de configuracion de parametros
@@ -435,6 +436,7 @@
     bool verify = true;                         // verifica estado dispositivo en el Domoticz
     bool dynamic = false;                       // si true permite añadir/eliminar zonas durante el riego
     bool lastr24 = false;                       // muestra leds ultimos riegos desde las 0h (false) o ultimas 24h (true)
+    bool shortcups = SHORTCUTSENABLED;          // admite atajos de teclas en estado STOP
   };
 
   // estructura del multirriego activo 
@@ -652,6 +654,9 @@
   void handleEncPauseInPause();
   void handleEncPauseInRegando();
   void handleEncPauseInStandby();
+  void handleEncGrupoInStandby(int n_grupo);
+  void handleGrupoInStandby(int n_grupo);
+  void handleEncGrupoInStop(int n_grupo);
   bool handleHoldPause();
   void handlePauseInPause();
   void handlePauseInRegando();
@@ -731,6 +736,7 @@
   void setEncoderTime(void);
   void setEncoderRange(int , int , int , int);
   void setEstado(uint8_t estado, int bnum = 0, int tipo = LOCAL);
+  int  setGrupo(Config_parm &config);
   void setledRGB(void);
   void showTemp(void);
   int  setMultibyId(uint16_t , Config_parm&);

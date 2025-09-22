@@ -517,40 +517,50 @@ void procesaBotonStop(void)
 
 void procesaBotonMultiriego(void)
 {
-  if (Estado.estado == STANDBY && !multi.riegoON) {
-    int n_grupo;
-    #ifdef GRP4
-      n_grupo = setMultibyId(boton->bID, config);
-    #endif
-    #ifdef M3GRP
-      n_grupo = setMultibyId(getMultiStatus(), config);
-    #endif
-    if (n_grupo == 0) return; //error en setup de apuntadores 
-    LOG_DEBUG("en MULTIRRIEGO, setMultibyId devuelve: Grupo", n_grupo,"(",multi.desc,") multi.size=" , *multi.size);
-    for (int k=0; k < *multi.size; k++) LOG_DEBUG( "       multi.zserie: x" , multi.zserie[k]);
-    LOG_DEBUG("en MULTIRRIEGO, encoderSW status  :", encoderSW );
-    // si esta pulsado el boton del encoder --> solo hacemos encendido de los leds del grupo
-    // y mostramos en el display las zonas que componen el grupo y fecha ultimo riego de este
-    if (encoderSW) {
-      LOG_DEBUG("en MULTIRRIEGO + encoderSW, display de grupo:", multi.desc,"tamaño:", *multi.size );
-      snprintf(buff, MAXBUFF, "grupo: %s", multi.desc);
-      lcd.infoclear(buff, 1);
-      displayLCDGrupo(FULL, 2);
-      showTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1, GRUPO);
-      displayGrupo(multi.serie, *multi.size);
-      delay(config.msgdisplaymillis*3);
-      setEstado(STANDBY);   //para que restaure pantalla
-    }  
-    else {
-      //Iniciamos el primer riego del MULTIRIEGO machacando la variable boton
-      //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
-      char grupoText[7];
-      snprintf(grupoText, sizeof(grupoText), "GRUPO%d", n_grupo);
-      if(setMultirriego(config)) inicioTimeLastRiego(lastGrupos[n_grupo-1], grupoText, INICIO); //inicializamos el tiempo de riego del grupo
-    }
-  }  
+  if (multi.riegoON) return; //ya hay un multirriego en curso,, ignoramos boton
+  int n_grupo = setGrupo(config); //apunta estructura multi al grupo seleccionado en el selector
+  if (n_grupo == 0) return; //error en setup de apuntadores
+  LOG_DEBUG("en MULTIRRIEGO, encoderSW status  :", encoderSW );
+  if (Estado.estado == STANDBY) {
+    if (encoderSW) handleEncGrupoInStandby(n_grupo); //muestra info del grupo
+    else handleGrupoInStandby(n_grupo); //inicia el multirriego
+  }
+  if (encoderSW && Estado.estado == STOP && config.shortcups) handleEncGrupoInStop(n_grupo); //atajos de teclas grupo  
 } //fin de procesaBotonMultiriego
 
+// Hacemos encendido de los leds del grupo y mostramos en el display info de este
+void handleEncGrupoInStandby(int n_grupo) {
+    LOG_DEBUG("en MULTIRRIEGO + encoderSW, display de grupo:", multi.desc,"tamaño:", *multi.size );
+    snprintf(buff, MAXBUFF, "grupo: %s", multi.desc);
+    lcd.infoclear(buff, 1);
+    displayLCDGrupo(FULL, 2);
+    showTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1, GRUPO);
+    displayGrupo(multi.serie, *multi.size);
+    delay(config.msgdisplaymillis*3);
+    setEstado(STANDBY);   //para que restaure pantalla
+}
+
+//Iniciamos el MULTIRRIEGO
+void handleGrupoInStandby(int n_grupo) {
+    //Iniciamos el primer riego del MULTIRRIEGO machacando la variable boton
+    //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
+    char grupoText[7];
+    snprintf(grupoText, sizeof(grupoText), "GRUPO%d", n_grupo);
+    if(setMultirriego(config)) inicioTimeLastRiego(lastGrupos[n_grupo-1], grupoText, INICIO); //inicializamos el tiempo de riego del grupo
+}
+
+// Atajos combinacion STOP+ENC+GRUPOn
+void handleEncGrupoInStop(int n_grupo) {
+    switch (n_grupo) {
+      case 1:                     //activa Webserver
+        if(connected) {
+          setEstado(CONFIGURANDO);
+          setupWS(config);
+        }  
+        else BIPKO; //no es posible
+        break;
+    }    
+}
 
 void procesaBotonZona(void)
 {
@@ -802,6 +812,7 @@ void procesaEstadoStop(void)
 {
   //En stop activamos el comportamiento hold de pausa
   Boton[bID2bIndex(bPAUSE)].flags.holddisabled = false;
+  if (reposo & encoderSW) reposoOFF(); // pulsar boton del encoder saca del reposo
   //si estamos en Stop antinenes, apagamos el display pasado 4 x STANDBYSECS
   if(reposo && !backlightOff) {
     if (millis() > standbyTime + (4 * 1000 * STANDBYSECS)) {

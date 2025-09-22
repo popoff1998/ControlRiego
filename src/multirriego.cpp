@@ -12,6 +12,21 @@
   }
 #endif
 
+// Devuelve grupo pulsado/seleccionado
+int setGrupo(Config_parm &config) {
+    int n_grupo;
+    #ifdef GRP4
+      n_grupo = setMultibyId(boton->bID, config);
+    #endif
+    #ifdef M3GRP
+      n_grupo = setMultibyId(getMultiStatus(), config);
+    #endif
+    if (n_grupo == 0) return 0; //error en setup de apuntadores 
+    LOG_DEBUG("en MULTIRRIEGO, setMultibyId devuelve: Grupo", n_grupo,"(",multi.desc,") multi.size=" , *multi.size);
+    for (int k=0; k < *multi.size; k++) LOG_DEBUG( "       multi.zserie: x" , multi.zserie[k]);
+    return n_grupo;
+}
+
 // Asigna en multi valores o apuntadores de/a config del grupo cuyo bId(boton) se recibe
 // y devuelve el numero del grupo (1...NUMGRUPOS+1) , 0 en caso de que no exista
 int setMultibyId(uint16_t id, Config_parm &config)
