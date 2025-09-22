@@ -406,6 +406,9 @@ void handleEncPauseInStandby() {
         ledPWM(LEDB,OFF);
       }    
       setupEstado();
+      //recuperamos tablas de ultimos riegos reales
+      initLastRiegos();
+      initLastGrupos();
     }
     else {
       modoDEMO = true;
