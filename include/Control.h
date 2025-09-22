@@ -690,6 +690,7 @@
   void parpadeoLedAP(void);
   S_BOTON *parseInputs(bool);
   void printCharArray(char*, size_t);
+  void printFactoresRiego();
   void printFile(const char*);
   void printMulti(void);
   void printMultiGroup(Config_parm&, int);
@@ -758,6 +759,7 @@
   String TS2Date(time_t);
   String TS2Hour(time_t);
   void ultimosRiegos(int);
+  void updateZoneDescription(int i);
   void Verificaciones(void);
   void wifiClearSignal(uint);
   bool wifiReconnect(void);

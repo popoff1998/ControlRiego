@@ -988,26 +988,12 @@ void initFactorRiegos()
     }
     factorRiegos[i] = factorR;
     LOG_TRACE("zona",i+1,"factor asignado=",factorR);
-    // si XNAME: true, leemos la descripcion de la zona del domoticz y la guardamos en config
-    // si no existe la zona en domoticz, se ignora el error y se deja la descripcion de config
-    if (config.xname) {
-      String response = deviceInfo(config.zona[i].idx, (char *)"Name");
-      if (response.startsWith("Err") || strlen(response.c_str()) == 0) {
-        LOG_WARN("Sin descripcion de zona", i+1, "idx=", config.zona[i].idx, "response:", response.c_str());
-        continue;; //error en la lectura de la descripcion, no actualizamos nada y pasamos al siguiente idx
-      }
-      LOG_INFO("\t descripcion ZONA", i+1, "actualizada en config");
-      strlcpy(config.zona[i].desc, response.c_str(), sizeof(config.zona[i].desc));
-    }
+    // si XNAME: true, leemos la descripcion de la zona del domoticz (si existe) y la guardamos en config
+    if (config.xname) updateZoneDescription(i);
   }
   LOG_DEBUG("salida  InitFactorRiegos Estado.error=", Estado.error, "recoverableError=", recoverableError, "noWIFI=", noWIFI);
   #ifdef VERBOSE
-    //Leemos los valores para comprobar que lo hizo bien
-    Serial.print(F("Factores de riego "));
-    factorRiegosOK ? Serial.println(F("leidos: ")) :  Serial.println(F("(simulados): "));
-    for(uint i=0;i<NUMZONAS;i++) {
-      Serial.printf("\tfactor ZONA%d: %d (%s) \n", i+1, factorRiegos[i], config.zona[i].desc);
-    }
+    printFactoresRiego();
   #endif
 }  //fin initFactorRiegos
 
@@ -1278,6 +1264,24 @@ void handleDynamicZoneChange() {
     }
     else {sonido.bipKO(); LOG_DEBUG("[DYNAMIC] zona pulsada:",boton->znumber," es = a zona actual:",ultimoBotonZona->znumber);}
     boton = NULL; // borrar boton pulsado
+}
+
+void updateZoneDescription(int i) {
+      String response = deviceInfo(config.zona[i].idx, (char *)"Name");
+      if (response.startsWith("Err") || strlen(response.c_str()) == 0) {
+        LOG_WARN("Sin descripcion de zona", i+1, "idx=", config.zona[i].idx, "response:", response.c_str());
+        return; //error en la lectura de la descripcion, no actualizamos nada y pasamos al siguiente idx
+      }
+      LOG_INFO("\t descripcion ZONA", i+1, "actualizada en config");
+      strlcpy(config.zona[i].desc, response.c_str(), sizeof(config.zona[i].desc));
+}
+
+void printFactoresRiego() {
+    Serial.print(F("Factores de riego "));
+    factorRiegosOK ? Serial.println(F("leidos: ")) :  Serial.println(F("(simulados): "));
+    for(uint i=0;i<NUMZONAS;i++) {
+      Serial.printf("\tfactor ZONA%d: %d (%s) \n", i+1, factorRiegos[i], config.zona[i].desc);
+    }
 }
 
 // ON/OFF atenuacion LEDG y LEDB
