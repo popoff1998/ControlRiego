@@ -648,6 +648,7 @@
   int  getFactor(uint16_t);
   float getTemperatureDomoticz(uint16_t);
   uint16_t getMultiStatus(void);
+  void handleDynamicZoneChange();
   void handleEncPauseInPause();
   void handleEncPauseInRegando();
   void handleEncPauseInStandby();
@@ -740,8 +741,10 @@
   void setupRedWM(Config_parm&, S_initFlags&);
   void setupWS(Config_parm&);
   void setzNumber(void);
+  void showInfoZona(int zIndex);
   void showTimeLastRiego(S_timeRiego&, int, int);
-  void starConfigPortal(Config_parm&);
+  void startZoneWatering();
+  void startConfigPortal(Config_parm&);
   void StaticTimeUpdate(bool);
   void statusError(uint8_t, bool recoverable=false);
   bool stopRiego(uint16_t, bool update=true);

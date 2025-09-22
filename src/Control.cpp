@@ -557,74 +557,22 @@ void procesaBotonZona(void)
   int zIndex = boton->znumber-1;
   if (zIndex < 0) return; //el boton no es de ZONA o error en la matriz Boton[]
   if (Estado.estado == STANDBY) {
-    if (!encoderSW || multi.riegoON) {  //iniciamos el riego correspondiente al boton seleccionado
-        sonido.bip(2);
-        //cambia minutes y seconds en funcion del factor de cada sector de riego
-        uint8_t fminutes=0,fseconds=0;
-        if(multi.riegoON && !multi.dynamic) {
-          timeByFactor(factorRiegos[boton->znumber-1],&fminutes,&fseconds);
-        }
-        else {
-          fminutes = tm.minutes;
-          fseconds = tm.seconds;
-        }
-        LOG_DEBUG("Minutos:",tm.minutes,"Segundos:",tm.seconds,"FMinutos:",fminutes,"FSegundos:",fseconds);
-        ultimoBotonZona = boton;
-        // si tiempo factorizado de riego es 0 o IDX=0, nos saltamos este riego
-        if ((fminutes == 0 && fseconds == 0) || config.zona[(boton->znumber)-1].idx == 0) {
-          setEstado(TERMINANDO);
-          led(boton->led,ON); //para que se vea que zona es 
-          lcd.clear(BORRA2H);
-          lcd.info("IDX/factor:     -00-",4);
-          return;
-        }
-        if(initRiego(INICIO)) { //comenzamos el riego de la zona
-          setEstado(REGANDO);
-          //inicializamos el timer de cuenta atras
-          T.SetTimer(0,fminutes,fseconds);
-          T.StartTimer();
-          tic_CountDownTimer.attach_ms(10, timerTick); // Llama a timerTick() cada 10 ms
-        }  
+    if (!encoderSW || multi.riegoON) {  // (1)
+        startZoneWatering();    //iniciamos el riego correspondiente al boton seleccionado
     }
-    else {  // mostramos en el display el factor de riego del boton pulsado y fecha ultimo riego
-      led(boton->led,ON);
-      #ifdef EXTRADEBUG
-        Serial.printf("Boton: %s Factor de riego: %d \n", config.zona[boton->znumber-1].desc,factorRiegos[zIndex]);
-        Serial.printf("          boton.led: %d \n",boton->led);
-      #endif
-      lcd.clear();
-      lcd.infoCut(config.zona[boton->znumber-1].desc, 11);
-      lcd.setCursor(12, 0);
-      snprintf(buff, MAXBUFF, "idx(%d)", config.zona[boton->znumber-1].idx);
-      lcd.print(buff);
-      snprintf(buff, MAXBUFF, "-factor riego:  %d", factorRiegos[zIndex]);
-      lcd.info(buff,2);
-      showTimeLastRiego(lastRiegos[zIndex], zIndex, ZONA);
-      delay(config.msgdisplaymillis*4);
-      led(boton->led,OFF);
-      LOG_TRACE("[poniendo estado STANDBY]");
-      setEstado(STANDBY);
+    else {  
+        showInfoZona(zIndex);   // mostramos en el display info zona
     }
     return;
   }
-  // Si config.dynamic=true se permite añadir/eliminar zonas durante un riego individual 
-  // o multirriego temporal (no durante un multirriego de grupo normal).
-  // Para ello el riego debe estar en PAUSE
-  // TODO PREGUNTA: permitir eliminar (terminar riego) de la zona en curso solamente pulsando esa zona ?
-  //                (no parece necesario ya que ya se puede hacer de forma general con encoderSW+PAUSE) 
-  //if ((Estado.estado == REGANDO || Estado.estado==PAUSE) && config.dynamic && (multi.riegoON == multi.temporal)) {
+  /* Si config.dynamic=true se permite añadir/eliminar zonas durante un riego individual o multirriego 
+     temporal (no durante un multirriego de grupo normal). Para ello el riego debe estar en PAUSE  */
   if ((Estado.estado==PAUSE) && config.dynamic && (multi.riegoON == multi.temporal)) {
-    // NOTA: la zona pulsada no puede coincidir con la actualmente en riego, se ignora en ese caso
-    if (ultimoBotonZona->bID != boton->bID) {
-      // procesar cambio dinamico y reflejarlo en el display
-      if (procesaDynamic()) displayLCDGrupo(RESTO, 2);
-      LOG_DEBUG("MULTI dynamic:",multi.dynamic,"actual:",multi.actual,"size:",*multi.size,"zona:",boton->znumber);
-    }
-    else {sonido.bipKO(); LOG_DEBUG("[DYNAMIC] zona pulsada:",boton->znumber," es = a zona actual:",ultimoBotonZona->znumber);}
-    // else { setEstado(TERMINANDO); LOG_INFO("DYNAMIC: terminamos riego de zona en curso"); }
-    boton = NULL; // borrar boton pulsado
+    handleDynamicZoneChange();
   }
-} //fin de procesaBotonZona
+  /* (1) la comprobacion de multi.riegoON es necesaria para evitar que al cancelar el riego de una zona en multirriego
+  salte a mostrar info de la siguiente al detectar el enc pulsado  */
+  } //fin de procesaBotonZona
 
 
 void procesaEstadoConfigurando()
@@ -1271,6 +1219,66 @@ void showTimeLastRiego(S_timeRiego &timeRiego, int index, int tipo)
   }  
 }
 
+void startZoneWatering() {
+    sonido.bip(2);
+    //cambia minutes y seconds en funcion del factor de cada sector de riego
+    uint8_t fminutes=0,fseconds=0;
+    if(multi.riegoON && !multi.dynamic) {
+      timeByFactor(factorRiegos[boton->znumber-1],&fminutes,&fseconds);
+    }
+    else {
+      fminutes = tm.minutes;
+      fseconds = tm.seconds;
+    }
+    LOG_DEBUG("Minutos:",tm.minutes,"Segundos:",tm.seconds,"FMinutos:",fminutes,"FSegundos:",fseconds);
+    ultimoBotonZona = boton;
+    // si tiempo factorizado de riego es 0 o IDX=0, nos saltamos este riego
+    if ((fminutes == 0 && fseconds == 0) || config.zona[(boton->znumber)-1].idx == 0) {
+      setEstado(TERMINANDO);
+      led(boton->led,ON); //para que se vea que zona es 
+      lcd.clear(BORRA2H);
+      lcd.info("IDX/factor:     -00-",4);
+      return;
+    }
+    if(initRiego(INICIO)) { //comenzamos el riego de la zona
+      setEstado(REGANDO);
+      //inicializamos el timer de cuenta atras
+      T.SetTimer(0,fminutes,fseconds);
+      T.StartTimer();
+      tic_CountDownTimer.attach_ms(10, timerTick); // Llama a timerTick() cada 10 ms
+    }  
+}
+
+// Muestra en el display info zona (idx, factor de riego, fecha y tiempo ultimo riego)
+void showInfoZona(int zIndex) {
+    led(boton->led,ON);
+    #ifdef EXTRADEBUG
+      Serial.printf("Boton: %s Factor de riego: %d \n", config.zona[boton->znumber-1].desc,factorRiegos[zIndex]);
+      Serial.printf("          boton.led: %d \n",boton->led);
+    #endif
+    lcd.clear();
+    lcd.infoCut(config.zona[boton->znumber-1].desc, 11);
+    lcd.setCursor(12, 0);
+    snprintf(buff, MAXBUFF, "idx(%d)", config.zona[boton->znumber-1].idx);
+    lcd.print(buff);
+    snprintf(buff, MAXBUFF, "-factor riego:  %d", factorRiegos[zIndex]);
+    lcd.info(buff,2);
+    showTimeLastRiego(lastRiegos[zIndex], zIndex, ZONA);
+    delay(config.msgdisplaymillis*4);
+    led(boton->led,OFF);
+    setEstado(STANDBY);
+}
+
+// Procesar cambio dinamico y reflejarlo en el display
+void handleDynamicZoneChange() {
+    // NOTA: la zona pulsada no puede coincidir con la actualmente en riego, se ignora en ese caso
+    if (ultimoBotonZona->bID != boton->bID) {
+      if (procesaDynamic()) displayLCDGrupo(RESTO, 2);
+      LOG_DEBUG("MULTI dynamic:",multi.dynamic,"actual:",multi.actual,"size:",*multi.size,"zona:",boton->znumber);
+    }
+    else {sonido.bipKO(); LOG_DEBUG("[DYNAMIC] zona pulsada:",boton->znumber," es = a zona actual:",ultimoBotonZona->znumber);}
+    boton = NULL; // borrar boton pulsado
+}
 
 // ON/OFF atenuacion LEDG y LEDB
 void dimmerLeds(bool status)

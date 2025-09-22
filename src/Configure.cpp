@@ -444,7 +444,7 @@ void Configure::procesaSelectMenu()
         case WIFI_PARM :   // activamos AP y portal de configuracion (bloqueante)
                 LOG_INFO("[ConF]  activamos AP y portal de configuracion");
                 ledYellow(OFF);
-                starConfigPortal(config);
+                startConfigPortal(config);
                 ledYellow(ON);
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break; 

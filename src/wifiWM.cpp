@@ -193,7 +193,7 @@ void setupRedWM(Config_parm &config, S_initFlags &initFlags)
  * 
  * @param config 
  */
-void starConfigPortal(Config_parm &config) 
+void startConfigPortal(Config_parm &config) 
 {
   wm.setConfigPortalTimeout(timeout);
   if (!wm.startConfigPortal("Ardomo")) {
