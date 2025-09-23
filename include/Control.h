@@ -781,12 +781,10 @@ template<typename T>
 void saveTablaToFile(const char* filename, const char* arrayName, T* tabla, size_t size) {
     if(modoDEMO) return; // no guardar en modo demo
     JsonDocument doc;
-    // JsonArray arr = doc.createNestedArray(arrayName); // Esto crea {"lastRiegos":[...]} correctamente
     JsonArray arr = doc[arrayName].to<JsonArray>(); // Forma recomendada en ArduinoJson v7
 
     for (size_t i = 0; i < size; i++) {
-        // JsonObject obj = arr.createNestedObject();
-        JsonObject obj = arr.add<JsonObject>(); // Usar add<JsonObject>() en vez de createNestedObject()
+        JsonObject obj = arr.add<JsonObject>();     // Forma recomendada en ArduinoJson v7 
         obj["inicio"] = tabla[i].inicio;
         obj["final"]  = tabla[i].final;
         obj["total"]  = tabla[i].total;

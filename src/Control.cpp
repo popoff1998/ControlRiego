@@ -329,8 +329,6 @@ void setupEstado()
         else handlePauseInStop();                 //pasa a CONFIGURANDO
         break;
     }
-    //boton = NULL; //TODO ¿aqui o en general? lo borramos para que no sea tratado más adelante en procesaEstados
-    standbyTime = millis(); //TODO: ¿en general en procesaBotones? reiniciamos contador de tiempo para reposo
   }; //fin de procesaBotonPause
   
 // Si pulsamos junto con encoderSW terminamos el riego (pasaria al siguiente en caso de multirriego)
@@ -359,7 +357,6 @@ void handlePauseInRegando() {
 
 // Si pulsamos junto con encoderSW terminamos el riego (pasaria al siguiente en caso de multirriego)
 void handleEncPauseInPause() {
-  // TODO: OJO revisar no salvado el riego en curso en riegoSaved
   riegoFromPause = true; // para que no actualize tiempo final riego en procesaEstadoTerminando
   handleEncPauseInRegando();
 }
@@ -380,11 +377,11 @@ void handlePauseInPause() {
   } else {
     sonido.bip(2);
     lcd.clear(BORRA2H); //por si hubiera msgs de error (caso error al salir del pause previo)
-    setEstado(REGANDO);
     T.ResumeTimer(); // reanudamos el timer de cuenta atras
-    refreshTime(); //actualizamos tiempo de cuenta atras
+    refreshTime(); //actualizamos tiempo de cuenta atras en pantalla
     tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
     led(ultimoBotonZona->led,ON);// y lo deja fijo
+    setEstado(REGANDO);
   }
 }  
 
@@ -518,14 +515,15 @@ void procesaBotonStop(void)
 void procesaBotonMultiriego(void)
 {
   if (multi.riegoON) return; //ya hay un multirriego en curso,, ignoramos boton
-  int n_grupo = setGrupo(config); //apunta estructura multi al grupo seleccionado en el selector
+  int n_grupo = setGrupo(config); //apunta estructura multi al grupo seleccionado
   if (n_grupo == 0) return; //error en setup de apuntadores
   LOG_DEBUG("en MULTIRRIEGO, encoderSW status  :", encoderSW );
   if (Estado.estado == STANDBY) {
-    if (encoderSW) handleEncGrupoInStandby(n_grupo); //muestra info del grupo
-    else handleGrupoInStandby(n_grupo); //inicia el multirriego
+    if (encoderSW) handleEncGrupoInStandby(n_grupo);  //muestra info del grupo
+    else handleGrupoInStandby(n_grupo);               //inicia el multirriego
   }
-  if (encoderSW && Estado.estado == STOP && config.shortcups) handleEncGrupoInStop(n_grupo); //atajos de teclas grupo  
+  // En STOP si pulsamos junto con encoderSW tenemos atajos de teclas (si habilitados en config.shortcups)
+  else if (encoderSW && Estado.estado == STOP && config.shortcups) handleEncGrupoInStop(n_grupo);  
 } //fin de procesaBotonMultiriego
 
 // Hacemos encendido de los leds del grupo y mostramos en el display info de este
@@ -540,26 +538,34 @@ void handleEncGrupoInStandby(int n_grupo) {
     setEstado(STANDBY);   //para que restaure pantalla
 }
 
-//Iniciamos el MULTIRRIEGO
+// Iniciamos el MULTIRRIEGO
 void handleGrupoInStandby(int n_grupo) {
-    //Iniciamos el primer riego del MULTIRRIEGO machacando la variable boton
-    //Realmente estoy simulando la pulsacion del primer boton de riego de la serie
+    /* Iniciamos el primer riego del MULTIRRIEGO machacando la variable boton
+       realmente estoy simulando la pulsacion del primer boton de riego de la serie
+       tambien grabamos el tiempo de inicio del riego de grupo  */
     char grupoText[7];
     snprintf(grupoText, sizeof(grupoText), "GRUPO%d", n_grupo);
-    if(setMultirriego(config)) inicioTimeLastRiego(lastGrupos[n_grupo-1], grupoText, INICIO); //inicializamos el tiempo de riego del grupo
+    if(setMultirriego(config)) inicioTimeLastRiego(lastGrupos[n_grupo-1], grupoText, INICIO);
 }
 
 // Atajos combinacion STOP+ENC+GRUPOn
 void handleEncGrupoInStop(int n_grupo) {
-    switch (n_grupo) {
+  switch (n_grupo) {
       case 1:                     //activa Webserver
-        if(connected) {
-          setEstado(CONFIGURANDO);
-          setupWS(config);
-        }  
-        else BIPKO; //no es posible
-        break;
-    }    
+          if(connected) {
+            setEstado(CONFIGURANDO);
+            setupWS(config);
+          }  
+          else BIPKO; //no es posible
+          break;
+      case 4:                     //easter egg
+          lcd.infoclear("    EASTER EGG!", 2);
+          enciendeLeds();
+          sonido.bipTarari();
+          apagaLeds();
+          setEstado(STOP);
+          break;
+  }    
 }
 
 void procesaBotonZona(void)
@@ -976,16 +982,16 @@ void check(void)
 void initFactorRiegos()
 {
   LOG_DEBUG("entrada InitFactorRiegos Estado.error=", Estado.error, "recoverableError=", recoverableError, "noWIFI=", noWIFI);
-  //inicializamos a valor 100 por defecto para caso de error
-  for(uint i=0;i<NUMZONAS;i++) {
+  
+  for(uint i=0;i<NUMZONAS;i++) {  //inicializamos a valor 100 por defecto para caso de error
     factorRiegos[i]=100;
   }
-  //si no tenemos wifi (error1) o noWIFI, ni lo intentamos
-  if((!connected) || noWIFI) return; 
+
+  if((!connected) || noWIFI) return; //si no tenemos wifi o noWIFI, ni lo intentamos
   lcd.info("conectando Domoticz", 2);
   lcd.clear(BORRA2H);
-  //leemos factores del Domoticz
-  for(uint i=0;i<NUMZONAS;i++) 
+  
+  for(uint i=0;i<NUMZONAS;i++) //leemos factores del Domoticz
   {
     int bIndex = bID2bIndex(ZONAS[i]);
     uint factorR = getFactor(config.zona[i].idx);
@@ -999,6 +1005,7 @@ void initFactorRiegos()
     }
     factorRiegos[i] = factorR;
     LOG_TRACE("zona",i+1,"factor asignado=",factorR);
+    
     // si XNAME: true, leemos la descripcion de la zona del domoticz (si existe) y la guardamos en config
     if (config.xname) updateZoneDescription(i);
   }
