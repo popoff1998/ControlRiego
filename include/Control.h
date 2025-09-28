@@ -436,7 +436,7 @@
     bool verify = true;                         // verifica estado dispositivo en el Domoticz
     bool dynamic = false;                       // si true permite añadir/eliminar zonas durante el riego
     bool lastr24 = false;                       // muestra leds ultimos riegos desde las 0h (false) o ultimas 24h (true)
-    bool shortcups = SHORTCUTSENABLED;          // admite atajos de teclas en estado STOP
+    bool shortcuts = SHORTCUTSENABLED;          // admite atajos de teclas en estado STOP
   };
 
   // estructura del multirriego activo 
@@ -598,7 +598,7 @@
     bool flagVtimer = OFF;
     bool timeOK = false;
     bool tempOK = false;
-    bool factorRiegosOK = false;
+    bool factorRiegosLeido = false;
     bool errorOFF = false;
     bool VERIFY = true;    // si true verifica periodicamente estado del riego en curso en Domoticz
     bool encoderSW = false;
@@ -621,6 +621,7 @@
   void blinkPause(void);
   void check(void);
   bool checkDomoticz(void);
+  bool checkErrorgetFactor(int);
   int  checkWifi(bool level=false);
   void cleanFS(void);
   String convertFileSize(const size_t);

@@ -422,8 +422,6 @@ int Configure::showMenu(int opcion)
 // ejecutamos opcion seleccionada del menu
 void Configure::procesaSelectMenu() 
 {
-    boton = NULL; //para que no se procese mas adelante  TODO ¿es necesario?
-
     switch(_currentItem) {  
         case IDX_MULT :      //configuramos boton de zona (IDX Domoticz asociado) o de grupo (zonas que lo componen)
                 lcd.infoclear("pulse ZONA o GRUPO",1);

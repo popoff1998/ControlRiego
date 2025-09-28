@@ -83,7 +83,6 @@ void setup()
     else sonido.bipKO();
     saveConfig = false;
   }
-  // LittleFS.end();
   delay(1000);
   //Obtenemos hora del servidor ntp y ajustamos hora del sistema y timezone
   setClock();
@@ -350,7 +349,6 @@ void handlePauseInRegando() {
   led(ultimoBotonZona->led,ON);// y lo deja fijo
   if (stopRiego(ultimoBotonZona->bID)) T.PauseTimer();
   else { //error al parar riego
-    boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
     LOG_WARN("error al pausar riego de zona en curso errorText :",errorText,"zona :",ultimoBotonZona->desc );
   }  
 }  
@@ -438,9 +436,9 @@ void handleEncPauseInStop() {
 // En estado STOP si hold del boton pause pasamos a modo Configuracion  
 void handlePauseInStop() {
     if(handleHoldPause()) {
+      LOG_INFO("Stop + hold PAUSA --> modo ConF()");
       setEstado(CONFIGURANDO,1);
       configure->menu();
-      LOG_INFO("Stop + hold PAUSA --> modo ConF()");
     }
 }
 
@@ -473,7 +471,6 @@ void procesaBotonStop(void)
       // paramos riego en curso y todas las zonas
       bool updateTimeFin = (Estado.estado == PAUSE? false : true); // si estamos en PAUSE no actualizamos tiempo fin
       if (!stopRiego(ultimoBotonZona->bID, updateTimeFin) || !stopAllRiego()) {   //error al parar riegos
-        boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
         return; 
       }
       saveTablaToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
@@ -485,7 +482,6 @@ void procesaBotonStop(void)
       if (encoderSW) {  // activar configuracion de grupo multirriego temporal
         setMultibyId(0, config);  // apunta estructura multi a grupo temporal en config (n+1) con id = 0
         setEstado(CONFIGURANDO,1);
-        boton = NULL;
         configure->MultiTemp_process_start();
         return;
       }
@@ -494,7 +490,6 @@ void procesaBotonStop(void)
         reposoOFF();
         lcd.infoclear("Parando riegos", 1, BIP, 6);
         if (!stopAllRiego()) {   //error al parar riegos
-          boton = NULL; //para que no se resetee inmediatamente en procesaEstadoError
           return; 
         }
         lcd.infoclear("STOP riegos OK", DEFAULTBLINK, BIP, 0);
@@ -522,8 +517,8 @@ void procesaBotonMultiriego(void)
     if (encoderSW) handleEncGrupoInStandby(n_grupo);  //muestra info del grupo
     else handleGrupoInStandby(n_grupo);               //inicia el multirriego
   }
-  // En STOP si pulsamos junto con encoderSW tenemos atajos de teclas (si habilitados en config.shortcups)
-  else if (encoderSW && Estado.estado == STOP && config.shortcups) handleEncGrupoInStop(n_grupo);  
+  // En STOP si pulsamos junto con encoderSW tenemos atajos de teclas (si habilitados en config.shortcuts)
+  else if (encoderSW && Estado.estado == STOP && config.shortcuts) handleEncGrupoInStop(n_grupo);  
 } //fin de procesaBotonMultiriego
 
 // Hacemos encendido de los leds del grupo y mostramos en el display info de este
@@ -698,7 +693,6 @@ void procesaEstadoError(void)
     lcd.infoclear("ERROR+STOP-> Reset..",3);
     LOG_WARN("ERROR + STOP --> Reset.....");
     sonido.lowbip(1);
-    //if(checkWifi() && boton->estado) stopAllRiego(); //si es pulsado STOP intentamos parar riegos
     delay(3000);
     ESP.restart();  
   }
@@ -808,7 +802,7 @@ void procesaEstadoStandby(void)
     if (wifiVerifyRecovery(config)) { //verificacion de wifi y recuperacion si procede
       lcd.info("STANDBY",1);  //restaura pantalla (en caso de msg de reconexion)
       showTemp();  // muestra temperatura ambiente en standby
-      if (!timeOK) setClock(); // si no hemos recibido time por NTP -> actualizamos time del sistema con el del servidor NTP
+      if (!timeOK && connected) setClock(); // si no hemos recibido time por NTP -> actualizamos time del sistema con el del servidor NTP
       }
   }   
 }; //fin de procesaEstadoStandby
@@ -957,7 +951,7 @@ void setEstado(uint8_t estado, int bnum, int tipo)
   if(estado == CONFIGURANDO) {
     lcd.infoclear("CONFIGURANDO", NOBLINK, LOWBIP, bnum);
     ledYellow(ON);
-    boton = NULL;
+    boton = NULL; //borramos boton pulsado para que no sea tratado más adelante en procesaEstadoConfigurando
     holdPause = false;
     return;
   }
@@ -986,6 +980,7 @@ void initFactorRiegos()
   for(uint i=0;i<NUMZONAS;i++) {  //inicializamos a valor 100 por defecto para caso de error
     factorRiegos[i]=100;
   }
+  factorRiegosLeido = false;
 
   if((!connected) || noWIFI) return; //si no tenemos wifi o noWIFI, ni lo intentamos
   lcd.info("conectando Domoticz", 2);
@@ -993,16 +988,9 @@ void initFactorRiegos()
   
   for(uint i=0;i<NUMZONAS;i++) //leemos factores del Domoticz
   {
-    int bIndex = bID2bIndex(ZONAS[i]);
     uint factorR = getFactor(config.zona[i].idx);
-    if(factorR == 999) break;     //en modoDEMO no continuamos iterando si no hay conexion
-    if(Estado.estado == ERROR) {  //al primer error salimos
-      if(Estado.error == E3) {    // y señalamos zona que falla si no es error general de conexion
-        ledID = Boton[bIndex].led;
-        tic_parpadeoLedZona.attach(NORMAL, parpadeoLedZona, ledID);
-      }
-      break;
-    }
+    if(factorR == 999) break;     //en modoDEMO no continuamos iterando si no se ha podido leer por alguna causa
+    if (checkErrorgetFactor(bID2bIndex(ZONAS[i]))) break;   //al primer error salimos
     factorRiegos[i] = factorR;
     LOG_TRACE("zona",i+1,"factor asignado=",factorR);
     
@@ -1014,6 +1002,16 @@ void initFactorRiegos()
     printFactoresRiego();
   #endif
 }  //fin initFactorRiegos
+
+bool checkErrorgetFactor(int bIndex) {
+  if(Estado.estado == ERROR) {
+    if(Estado.error == E3) {    // señalamos zona que falla si no es error general de conexion
+      ledID = Boton[bIndex].led;
+      tic_parpadeoLedZona.attach(NORMAL, parpadeoLedZona, ledID);
+    }
+    return true;
+  } else return false;
+}
 
 //Aqui convertimos minutes y seconds por el factorRiegos
 void timeByFactor(int factor,uint8_t *fminutes, uint8_t *fseconds)
@@ -1281,7 +1279,6 @@ void handleDynamicZoneChange() {
       LOG_DEBUG("MULTI dynamic:",multi.dynamic,"actual:",multi.actual,"size:",*multi.size,"zona:",boton->znumber);
     }
     else {sonido.bipKO(); LOG_DEBUG("[DYNAMIC] zona pulsada:",boton->znumber," es = a zona actual:",ultimoBotonZona->znumber);}
-    boton = NULL; // borrar boton pulsado
 }
 
 void updateZoneDescription(int i) {
@@ -1296,7 +1293,7 @@ void updateZoneDescription(int i) {
 
 void printFactoresRiego() {
     Serial.print(F("Factores de riego "));
-    factorRiegosOK ? Serial.println(F("leidos: ")) :  Serial.println(F("(simulados): "));
+    factorRiegosLeido ? Serial.println(F("leidos: ")) :  Serial.println(F("(simulados): "));
     for(uint i=0;i<NUMZONAS;i++) {
       Serial.printf("\tfactor ZONA%d: %d (%s) \n", i+1, factorRiegos[i], config.zona[i].desc);
     }
@@ -1717,15 +1714,10 @@ int getFactor(uint16_t idx)
 {
   LOG_TRACE("");
   if(idx == 0) return 100; //si el IDX es 0 devolvemos 100 sin procesarlo (boton no asignado)
-  factorRiegosOK = false;
-  if(!connected) {
-    if(modoDEMO) return 999; //si estamos en modoDEMO sin conexion devolvemos 999 y no damos error
-    else {
-      statusError(E1, RECUPERABLE); //error de conexion recuperable
-      return 100;
-    }
-  }
+  factorRiegosLeido = false;
+
   String response = deviceInfo(idx, (char *)"Description");
+
   //procesamos la respuesta para ver si se ha producido error:
   if (response.startsWith("Err")) {
       if (modoDEMO) return 999;  //si estamos en modoDEMO devolvemos 999 y no damos error
@@ -1734,12 +1726,13 @@ int getFactor(uint16_t idx)
       } else statusError(E2, RECUPERABLE); //error de conexion con Domoticz recuperable
       LOG_WARN("GETFACTOR IDX: ", idx, " respuesta recibida: ", response.c_str());
       return 100;
-    }
-    LOG_DEBUG("GETFACTOR IDX: ", idx, " respuesta recibida: ", response.c_str());
+  }
+    
   //si hemos leido correctamente campo Description (numero, campo vacio o solo con comentarios)
   //el IDX existe, consideramos leido OK el factor riego. 
   //En los dos ultimos casos se devuelve valor por defecto 100.
-  factorRiegosOK = true;
+  factorRiegosLeido = true;
+  LOG_DEBUG("GETFACTOR IDX: ", idx, " respuesta recibida: ", response.c_str());
   char* factorstr = &response[0];
   long int factor = strtol(factorstr,NULL,10);
   //controlamos devolver 0 solo si se ha puesto explicitamente
@@ -1843,7 +1836,7 @@ bool queryStatus(uint16_t idx, char *status)
   }
   #ifdef EXTRADEBUG
     Serial.printf( "queryStatus verificando, status=%s / actual=%s \n" , status, response);
-    Serial.printf( "                status_size=%d / actual_size=%d \n" , strlen(status), strlen(response));
+    Serial.printf( "                status_size=%d / actual_size=%d \n" , strlen(status), response.length());
   #endif
   if(strcmp(response.c_str(), status) == 0) return true; //si coinciden devolvemos true
   else{
@@ -1997,6 +1990,8 @@ void statusError(uint8_t errorID, bool recoverable)
   Estado.error = errorID;
   Estado.tipo = LOCAL;
   rotaryEncoder.disable();
+  boton = NULL; //borramos boton pulsado para que no sea tratado más adelante en procesaEstadoError
+
   if (errorID == E0) sprintf(errorText, "Error0");
   else sprintf(errorText, "Error%d", errorID);
   LOG_ERROR("SET ERROR: ", errorText);
