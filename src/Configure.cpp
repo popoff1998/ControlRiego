@@ -66,7 +66,7 @@ void Configure::Idx_process_start(int index)
       _configuringIdx = true;
       _actualIdxIndex = index;
       tm.value = config.zona[boton->znumber-1].idx;
-      setEncoderRange(0, 99, tm.value, 100);
+      setEncoderRange(0, 999, tm.value, 100);
 
       LOG_INFO("[ConF] configurando IDX boton:",config.zona[boton->znumber-1].desc);
       lcd.infoclear("Configurando");
@@ -86,7 +86,7 @@ void Configure::Idx_process_update()
       lcd.info(buff, 4);
 }  
 
-//  salvamos en config y Boton el nuevo IDX de la zona
+//  salvamos en config el nuevo IDX de la zona
 void Configure::Idx_process_end()
 {
       int zIndex = Boton[_actualIdxIndex].znumber-1;
@@ -210,7 +210,10 @@ void Configure::configureMulti_display(void)
       snprintf(buff, MAXBUFF, "pulse ZONAS (+PAUSE)");
       lcd.info(buff, 3);
 
-      if(!_configuringMultiTemp) displayGrupo(multi.serie, *multi.size); // no encendemos leds si grupo TEMPORAL 
+      if(!_configuringMultiTemp) {    // no encendemos leds si grupo TEMPORAL
+        displayGrupo(multi.serie, *multi.size);
+        led(Boton[bID2bIndex(*multi.id)].led,ON);
+      }  
 }              
 
 void Configure::Multi_process_update()

@@ -595,13 +595,7 @@ void procesaEstadoConfigurando()
       switch(boton->bID) {
         case MULTIRRIEGO:
             if (configure->statusMenu() && configure->get_currentItem()==0) { //si no estamos configurando nada
-              int n_grupo;
-              #ifdef GRP4
-                n_grupo = setMultibyId(boton->bID, config);
-              #endif
-              #ifdef M3GRP
-                n_grupo = setMultibyId(getMultiStatus(), config);
-              #endif
+              int n_grupo = setGrupo(config); //apunta estructura multi al grupo seleccionado
               if (n_grupo == 0) return; //error en setup de apuntadores 
               //Configuramos el grupo de multirriego apuntado en multi
               rotaryEncoder.disable();
