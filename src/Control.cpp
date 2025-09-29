@@ -573,6 +573,14 @@ void procesaBotonZona(void)
   } //fin de procesaBotonZona
 
 
+/*
+ La mecanica general de la maquina de estados en modo normal es que primero se procesa el boton pulsado, pudiendo este cambiar
+ el estado, y despues se procesa el estado (*).
+ En modo configuracion es totalmente opuesto: los botones se procesan en procesaEstadoConfigurando.
+ Esto se hace así para tener separada la lógica de modo normal de la de configuración, ya que las acciones que realizan
+ los botones en una y otra son totalmente distintas.
+ (*) Con la excepción de estado ERROR que sí procesa los botones PAUSE y STOP.
+*/
 void procesaEstadoConfigurando()
 {
   if (boton != NULL) {
@@ -580,72 +588,77 @@ void procesaEstadoConfigurando()
       if (boton->bID != bSTOP && webServerAct) return; //si webserver esta activo solo procesamos boton STOP
 
       switch(boton->bID) {
-        case MULTIRRIEGO:
-            if (configure->statusMenu() && configure->get_currentItem()==0) { //si no estamos configurando nada
-              int n_grupo = setGrupo(config); //apunta estructura multi al grupo seleccionado
-              if (n_grupo == 0) return; //error en setup de apuntadores 
-              //Configuramos el grupo de multirriego apuntado en multi
-              rotaryEncoder.disable();
-              configure->Multi_process_start(n_grupo);
-            }  
-            break;
         case bPAUSE:
             if(!boton->estado) break; //no se procesa el release del PAUSE
-            LOG_DEBUG("[MENU] PAUSE pulsado recibido");
             if(configure->statusMenu()) { //estamos en el menu -> procesamos la seleccion
               configure->procesaSelectMenu(); 
+              LOG_DEBUG("[MENU] PAUSE pulsado recibido");
               break;
             }
             LOG_DEBUG("PAUSE pulsado recibido y estamos configurando algo");
-            // si ya estamos configurando algo: PAUSE consolida lo configurado en config
-            if(configure->configuringTime()) {
-              configure->Time_process_end();  //  salvamos en config el nuevo tiempo por defecto
-              break;
-            }
-            if(configure->configuringIdx()) {
-              configure->Idx_process_end();  //  salvamos en config el nuevo IDX
-              break;
-            }
-            if(configure->configuringRange()) {
-              configure->Range_process_end();  //  salvamos en config nuevo valor del parametro
-              break;
-            }
-            if(configure->configuringMulti()) {
-              configure->Multi_process_end(encoderSW);  // actualizamos config con las zonas introducidas
-              break;
-            }
-            if(configure->configuringMultiTemp()) {
-              configure->MultiTemp_process_end();  // preparamos lanzamiento multirriego temporal
-              break;
-            }
+            handleParameterConsolidation(); // si ya estamos configurando algo: PAUSE consolida lo configurado en config
             break;
         case bSTOP:
             if(!boton->estado) {    //release STOP
-                if(configure->configuringMultiTemp()) {     
-                    if (multi.w_size && saveConfig) {  //solo si se ha guardado alguna zona iniciamos riego grupo temporal
-                        saveConfig = false;  
-                        multi.temporal = true;
-                        setMultirriego(config); 
-                    }    
-                }
-                VERIFY = config.verify;
-                configure->exit();  // salvamos parametros a fichero si procede y salimos de ConF
+              if(configure->configuringMultiTemp()) handleStartMultiTemp();
+              VERIFY = config.verify;
+              configure->exit();  // salvamos parametros a fichero si procede y salimos de ConF
             }
             break;
+        case MULTIRRIEGO:
+            if (configure->statusMenu() && configure->get_currentItem()==0) { //si no estamos configurando nada:
+              handleGroupConfig();                                            // configuramos el grupo seleccionado
+            }  
+            break;
         default:  //procesamos boton de ZONAx
-            if (configure->configuringMulti() || configure->configuringMultiTemp()) {  //añadimos zona al multirriego que estamos definiendo
-              configure->Multi_process_update();
-            }
-            if (configure->statusMenu() && configure->get_currentItem()==0) {   //si no estamos configurando nada
+            if (configure->statusMenu() && configure->get_currentItem()==0) {   //si no estamos configurando nada :
               configure->Idx_process_start(bID2bIndex(boton->bID));             // configuramos el idx del boton
+            }
+            if (configure->configuringMulti() || configure->configuringMultiTemp()) { //si estamos configurando grupo multirriego:
+              configure->Multi_process_update();                             //añadimos zona al multirriego que estamos definiendo
             }
       }
     }
-  }
-  else { 
-      webServerAct ? procesaWebServer() : procesaEncoderConfig();
-  }
+  } else webServerAct ? procesaWebServer() : procesaEncoderConfig();
 }; //fin de procesaEstadoConfigurando
+
+
+void handleGroupConfig()
+{
+      int n_grupo = setGrupo(config); //apunta estructura multi al grupo seleccionado
+      if (n_grupo == 0) return; //error en setup de apuntadores 
+      //Configuramos el grupo de multirriego apuntado en multi
+      rotaryEncoder.disable();
+      configure->Multi_process_start(n_grupo);
+}
+
+void handleParameterConsolidation()
+{
+      if(configure->configuringTime()) {
+        configure->Time_process_end();  //  salvamos en config el nuevo tiempo por defecto
+      }
+      if(configure->configuringIdx()) {
+        configure->Idx_process_end();  //  salvamos en config el nuevo IDX
+      }
+      if(configure->configuringRange()) {
+        configure->Range_process_end();  //  salvamos en config nuevo valor del parametro
+      }
+      if(configure->configuringMulti()) {
+        configure->Multi_process_end(encoderSW);  // actualizamos config con las zonas introducidas
+      }
+      if(configure->configuringMultiTemp()) {
+        configure->MultiTemp_process_end();  // preparamos lanzamiento multirriego temporal
+      }
+}
+
+void handleStartMultiTemp()
+{
+  if (multi.w_size && saveConfig) {  //solo si se ha guardado alguna zona iniciamos riego grupo temporal
+      saveConfig = false;  
+      multi.temporal = true;
+      setMultirriego(config); 
+  }    
+}
 
 
 void procesaEstadoError(void)
