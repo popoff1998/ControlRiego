@@ -598,11 +598,11 @@ void procesaBotonZona(void)
 
 
 /*
- La mecanica general de la maquina de estados en modo normal es que primero se procesa el boton pulsado, pudiendo este cambiar
- el estado, y despues se procesa el estado.
+ La mecanica general de la maquina de estados en modo normal es que primero se procesa el boton pulsado, 
+ pudiendo este cambiar el estado, y despues se procesa el estado.
  En modo configuracion es totalmente opuesto: los botones se procesan en procesaEstadoConfigurando.
- Esto se hace así para tener separada la lógica de modo normal de la de configuración, ya que las acciones que realizan
- los botones en una y otra son totalmente distintas.
+ Esto se hace así para tener separada la lógica de modo normal de la de configuración, ya que las acciones 
+ que realizan los botones en una y otra son totalmente distintas.
 */
 void procesaEstadoConfigurando()
 {
@@ -1737,6 +1737,19 @@ int getFactor(uint16_t idx)
   }
   return (int)factor;
 } //fin getFactor
+
+// Obtiene del Domoticz el log de la zona en formato JSON
+// (ultimos 15 dias, es un parametro ajustable en el Domoticz -> log historico de luces/interruptores) 
+String readLogFile(int zona)
+{
+  int idx = config.zona[zona-1].idx;
+  LOG_DEBUG("zona:", zona, "idx:", idx);
+  if(idx == 0) return "No asignado";
+  char message[150];
+  sprintf(message,COMMANDPRF GETSWITCHLOG,idx);
+  return httpGetDomoticz(message);
+
+}
 
 bool checkDomoticz()
 {

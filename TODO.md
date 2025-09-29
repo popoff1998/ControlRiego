@@ -80,5 +80,7 @@
 - Si riego en pausa: ENC+PAUSA lo cancela también V3.3
 - En modo DEMO no se consolidan tiempos de riego (se recuperan los reales al salir) V3.3
 - Atajo: STOP+ENC+GRUPO1 activa Webserver V3.3
+- Refactorizado de funciones grandes para mejorar la legibilidad y el mantenimiento V3.3
+- Webserver: paginas con ultimos riegos y logs de riegos del Domoticz V3.3
 
 

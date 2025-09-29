@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Log de zona</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="style_base.css">
+  <link rel="stylesheet" href="style_tableFiles.css">
+  <style>
+    .table-container { max-width: 900px; margin: auto; }
+    h2 { margin-top: 2em; margin-bottom: 0.5em; }
+    table.files-table th, table.files-table td {
+      text-align: center;
+      vertical-align: middle;
+    }
+    @media (max-width: 600px) {
+      .table-container { max-width: 100%; }
+      table { font-size: 0.95em; }
+      th, td { padding: 4px; }
+    }
+    .status-on { background: #b6fcb6 !important; }
+    .status-off { background: #ffb6b6 !important; }
+  </style>
+</head>
+<body>
+  <div class="table-container">
+    <h1 style="margin-top: 20px;">Log de riegos en Domoticz</h1>
+    <h2 id="titulo">Log de Zona</h2>
+    <table class="files-table" id="tablaLog">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Estado</th>
+          <th>Usuario</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <script>
+    // Obtiene el número de zona de la URL
+    function getParam(name) {
+      const url = new URL(window.location.href);
+      return url.searchParams.get(name);
+    }
+    const zona = getParam('zona');
+    document.getElementById('titulo').textContent = `ZONA${zona}`;
+
+    // Consulta al backend
+    fetch(`/api/showZONElog?zona=${zona}`)
+      .then(r => r.json())
+      .then(data => {
+        const tbody = document.querySelector('#tablaLog tbody');
+        if (!data.result || !Array.isArray(data.result)) {
+          tbody.innerHTML = '<tr><td colspan="3">No hay datos de log</td></tr>';
+          return;
+        }
+        data.result.forEach(entry => {
+          const tr = document.createElement('tr');
+          // Estado con color
+          let estadoClass = entry.Status === "On" ? "status-on" : "status-off";
+          tr.innerHTML = `
+            <td data-label="Fecha">${entry.Date || "-"}</td>
+            <td data-label="Estado" class="${estadoClass}">${entry.Status || "-"}</td>
+            <td data-label="Usuario">${entry.User || "-"}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      })
+      .catch(() => {
+        document.querySelector('#tablaLog tbody').innerHTML =
+          '<tr><td colspan="3">No se pudo cargar el log.</td></tr>';
+      });
+  </script>
+</body>
+</html>

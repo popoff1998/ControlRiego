@@ -98,7 +98,7 @@
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0]))
        
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.3-beta2"   // version del software
+                            #define VERSION  "3.3-beta3"   // version del software
   //-------------------------------------------------------------------------------------
 
   //Comportamiento General
@@ -727,6 +727,7 @@
   void procesaEstadoPause(void);
   void procesaWebServer(void);
   bool queryStatus(uint16_t, char *);
+  String readLogFile(int zona);
   float readTemp();
   void refreshTime(void);
   void reposoOFF(void);

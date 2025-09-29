@@ -180,6 +180,14 @@ void handleAdvancedPage() {
   #endif
 }  // handleAdvancedPage()
 
+  void handleShowZONElog() {
+    int zona = wserver.arg("zona").toInt();
+    LOG_DEBUG("Zona recibida:", zona);
+    String json = readLogFile(zona); // obtiene del Domoticz el log de riegos de la zona
+    wserver.sendHeader("Cache-Control", "no-cache");
+    wserver.send(200, "application/json", json);
+  }
+
 
 void file_download(String filename)
 {
@@ -329,6 +337,7 @@ void defWebpages()
     wserver.on("/$list", HTTP_GET, handleListFiles);
     wserver.on("/$sysinfo", HTTP_GET, handleSysInfo);
     wserver.on("/$restart", HTTP_GET, handleRestart);
+    wserver.on("/api/showZONElog", HTTP_GET, handleShowZONElog);
     wserver.on("/download", HTTP_GET, []() {
       // Extract the file name from the query parameter
       if (!wserver.hasArg("file")) {
