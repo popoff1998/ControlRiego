@@ -618,7 +618,7 @@
   void actLedError(void);
   void apagaLeds(void);
   int  bID2bIndex(uint16_t);
-  void blinkPause(void);
+  void blinkDisplay(void);
   void check(void);
   bool checkDomoticz(void);
   bool checkErrorgetFactor(int);
@@ -767,6 +767,7 @@
   String TS2Hour(time_t);
   void ultimosRiegos(int);
   void updateZoneDescription(int i);
+  bool validaBoton();
   void Verificaciones(void);
   void wifiClearSignal(uint);
   bool wifiReconnect(void);

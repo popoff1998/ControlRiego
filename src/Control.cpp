@@ -124,22 +124,7 @@ void procesaBotones()
   // almacenamos estado pulsador del encoder (para modificar comportamiento de otros botones)
   //NOTA: el encoderSW esta en estado HIGH en reposo y en estado LOW cuando esta pulsado
   encoderSW = !digitalRead(ENCBOTON);
-  //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multirriego
-  if (multi.semaforo) multi.semaforo = false;  // si multisemaforo, no leemos botones: ya los pasa multirriego
-  else  boton = parseInputs(READ);  // si no, vemos si algun boton ha cambiado de estado
-  // si no se ha pulsado ningun boton salimos
-  if(boton == NULL) return;
-  //Si estamos en reposo pulsar cualquier boton solo nos saca de ese estado
-  // (salvo STOP que si actua y se procesa mas adelante)
-  if (reposo && boton->bID != bSTOP) {
-    reposoOFF();
-    return;
-  }
-  //En estado error no actuan los botones
-  // (salvo PAUSE y STOP que se procesan en procesaEstadoError)
-  if(Estado.estado == ERROR) return;
-  //a partir de aqui procesamos solo los botones con flag ACTION
-  if (!boton->flags.action) return;
+  if (!validaBoton()) return;
   //Procesamos el boton pulsado:
   switch (boton->bID) {
     //Primero procesamos los botones singulares, el resto van por default
@@ -157,6 +142,24 @@ void procesaBotones()
   }
 }
 
+bool validaBoton() {
+  //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multirriego
+  if (multi.semaforo) multi.semaforo = false;  // si multisemaforo, no leemos botones: ya los pasa multirriego
+  else  boton = parseInputs(READ);  // si no, vemos si algun boton ha cambiado de estado
+  // si no se ha pulsado ningun boton salimos
+  if(boton == NULL) return false;
+  //Si estamos en reposo pulsar cualquier boton solo nos saca de ese estado (salvo STOP que si actua y se procesa)
+  if (reposo && boton->bID != bSTOP) {
+    reposoOFF();
+    return false;
+  }
+  //En estado error no actuan los botones (salvo PAUSE y STOP que se procesan en procesaEstadoError)
+  if(Estado.estado == ERROR) return false;
+  //a partir de aqui procesamos solo los botones con flag ACTION
+  if (!boton->flags.action) return false;
+  return true;
+}
+
 
 /**---------------------------------------------------------------
  * Proceso en funcion del estado
@@ -164,31 +167,15 @@ void procesaBotones()
 void procesaEstados()
 {
   switch (Estado.estado) {
-    case CONFIGURANDO:
-      procesaEstadoConfigurando();
-      break;
-    case ERROR:
-      procesaEstadoError();
-      if(Estado.estado == ERROR) blinkPause();
-      break;
-    case REGANDO:
-      procesaEstadoRegando();
-      break;
-    case TERMINANDO:
-      procesaEstadoTerminando();
-      break;
-    case STANDBY:
-      procesaEstadoStandby();
-      break;
-    case STOP:
-      procesaEstadoStop();
-      break;
-    case PAUSE:
-      procesaEstadoPause();
-      if(Estado.estado == PAUSE) blinkPause();
-      break;
+    case CONFIGURANDO:  procesaEstadoConfigurando(); break;
+    case ERROR:         procesaEstadoError(); if(Estado.estado == ERROR) blinkDisplay(); break;
+    case REGANDO:       procesaEstadoRegando(); break;
+    case TERMINANDO:    procesaEstadoTerminando(); break;
+    case STANDBY:       procesaEstadoStandby(); break;
+    case STOP:          procesaEstadoStop(); break;
+    case PAUSE:         procesaEstadoPause(); if(Estado.estado == PAUSE) blinkDisplay(); break;
   }
-}
+}  
 
 
 /**---------------------------------------------------------------
@@ -197,13 +184,14 @@ void procesaEstados()
 void setupEstado() 
 {
   LOG_DEBUG("setupEstado entrada, Estado.error=", Estado.error, "recoverableError=", recoverableError, "modoDEMO=", modoDEMO);
-  //Deshabilitamos el hold de Pause
-  Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
-  // Verificamos que se han cargado parametros de configuracion correctamente  
-  if(!config.initialized) {
-    statusError(E0);  //no se ha podido cargar parámetros desde ficheros -> señalamos el error
+  
+  Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true; //Deshabilitamos el hold de Pause
+   
+  if(!config.initialized) {  //no se ha podido cargar parámetros desde ficheros -> señalamos el error
+    statusError(E0);  
     return;
   }
+
   // Si estamos en modoDEMO pasamos a STANDBY (o STOP si esta pulsado) aunque no exista conexión wifi o estemos en ERROR
   if (modoDEMO) {
     if (testButton(bSTOP,ON))  setEstado(STOP,1);
@@ -211,20 +199,19 @@ void setupEstado()
     LOG_DEBUG("setupEstado salida por modoDEMO=", modoDEMO);
     return;
   }
-  // Si estado actual es ERROR seguimos así
-  if (Estado.estado == ERROR) {
+  
+  if (Estado.estado == ERROR) {  // Si estado actual es ERROR seguimos así
     LOG_DEBUG("setupEstado salida por estado ERROR (", errorText, ") recoverableError=", recoverableError, "modoDEMO=", modoDEMO);
     return;
   }
-  // Si estamos conectados pasamos a STANDBY o STOP (caso de estar pulsado este al inicio)
-  if (connected) {
-    if (testButton(bSTOP,ON))  setEstado(STOP,1);
-    else setEstado(STANDBY,1);
-    return;
+  
+  if (connected) {  //si estamos conectados a la red pasamos a STANDBY (o STOP si esta pulsado)
+      if (testButton(bSTOP,ON))  setEstado(STOP,1);
+      else setEstado(STANDBY,1);
+  } else {  //si no estamos conectados a la red pasamos a estado ERROR
+    statusError(E1, RECUPERABLE); //error de conexion wifi recuperable
+    LOG_DEBUG("setupEstado salida por estado ERROR(E1)"); 
   }
-  //si no estamos conectados a la red y no estamos en modoDEMO pasamos a estado ERROR
-  statusError(E1, RECUPERABLE); //error de conexion wifi recuperable
-  LOG_DEBUG("setupEstado salida por estado ERROR(E1)"); 
 }  //fin de setupEstado
 
 #ifdef GRP4
@@ -1569,9 +1556,8 @@ bool stopAllRiego()
   return true;
 }
 
-void blinkPause()
+void blinkDisplay()
 {
-  //LOG_TRACE("");
   if (!lcd.get__displayOff()) {
     if (millis() > lastBlinkPause + 1.5*DEFAULTBLINKMILLIS) {  // *1.5 para compensar inercia LCD
       lastBlinkPause = millis();
