@@ -153,8 +153,6 @@ bool validaBoton() {
     reposoOFF();
     return false;
   }
-  //En estado error no actuan los botones (salvo PAUSE y STOP que se procesan en procesaEstadoError)
-  if(Estado.estado == ERROR) return false;
   //a partir de aqui procesamos solo los botones con flag ACTION
   if (!boton->flags.action) return false;
   return true;
@@ -314,6 +312,9 @@ void setupEstado()
         if(encoderSW) handleEncPauseInStop ();    //resetea el ESP32
         else handlePauseInStop();                 //pasa a CONFIGURANDO
         break;
+      case ERROR:
+        handlePauseInError();                     //pasa a modo DEMO y resetea error
+        break;
     }
   }; //fin de procesaBotonPause
   
@@ -413,10 +414,8 @@ void handlePauseInStandby() {
 // En estado STOP si ENC + hold del boton pause reseteamos el ESP32  
 void handleEncPauseInStop() {
     if(handleHoldPause()) {
-            LOG_WARN("Stop + encoderSW + PAUSA --> Reset.....");
-            lcd.infoclear(">>  REINICIANDO  <<", NOBLINK, LOWBIP, 1);
-            delay(config.msgdisplaymillis);
-            ESP.restart();  // reset ESP32
+      LOG_WARN("Stop + encoderSW + PAUSA --> Reset.....");
+      resetESP32();
     }
 }
 
@@ -427,6 +426,16 @@ void handlePauseInStop() {
       setEstado(CONFIGURANDO,1);
       configure->menu();
     }
+}
+
+void handlePauseInError() {
+    LOG_INFO("estado en ERROR y PAUSA pulsada pasamos a modoDEMO y reset del error");
+    modoDEMO = true;
+    sonido.bip(2);
+    resetFlags();   //reset flags de status
+    resetLeds();    //reset leds
+    if (Boton[bID2bIndex(bSTOP)].estado) setEstado(STOP,1);
+    else setEstado(STANDBY);
 }
 
 // Detecta si se mantiene pulsado el boton PAUSE
@@ -449,40 +458,18 @@ bool handleHoldPause() {
 void procesaBotonStop(void)
 {
   if (boton->estado) {  //si hemos PULSADO STOP
-    //dejamos la pulsacion del STOP en estado ERROR para que actue el codigo de procesaEstadoError
     if (Estado.estado == REGANDO || Estado.estado == PAUSE || Estado.estado == TERMINANDO) {
-      //De alguna manera esta regando y hay que parar
-      lcd.infoclear("Parando riegos", 1, BIP, 6);
-      T.StopTimer();
-      tic_CountDownTimer.detach(); //detiene actualizacion periodica del temporizador
-      // paramos riego en curso y todas las zonas
-      bool updateTimeFin = (Estado.estado == PAUSE? false : true); // si estamos en PAUSE no actualizamos tiempo fin
-      if (!stopRiego(ultimoBotonZona->bID, updateTimeFin) || !stopAllRiego()) {   //error al parar riegos
-        return; 
-      }
-      saveTablaToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
-      lcd.infoclear("STOP riegos OK", DEFAULTBLINK, BIP, 0);
-      resetFlags();
-      setEstado(STOP,1);
+      handleStopInRegandoPauseTerm();           //parar riegos y pasar a estado STOP
+      return;
     }
-    if (Estado.estado == STANDBY) { //Lo hemos pulsado en standby
-      if (encoderSW) {  // activar configuracion de grupo multirriego temporal
-        setMultibyId(0, config);  // apunta estructura multi a grupo temporal en config (n+1) con id = 0
-        setEstado(CONFIGURANDO,1);
-        configure->MultiTemp_process_start();
-        return;
-      }
-      else {      // seguro antinenes
-        // apagar leds y parar riegos (por si riego activado externamente)
-        reposoOFF();
-        lcd.infoclear("Parando riegos", 1, BIP, 6);
-        if (!stopAllRiego()) {   //error al parar riegos
-          return; 
-        }
-        lcd.infoclear("STOP riegos OK", DEFAULTBLINK, BIP, 0);
-        setEstado(STOP,1);
-        reposoON(LCDON); //pasamos directamente a reposo sin apagar pantalla
-      }    
+    if (Estado.estado == STANDBY) { 
+      if (encoderSW) handleEncStopInStandby();  // activa configuracion de grupo multirriego temporal
+      else handleStopInStandby();               // seguro antinenes
+      return;
+    }
+    if (Estado.estado == ERROR) {
+      handleStopInError();                      // resetea el ESP32
+      return;
     }
   }
   //si hemos liberado STOP: salimos del estado stop
@@ -492,6 +479,43 @@ void procesaBotonStop(void)
     setEstado(STANDBY);
   }
 } //fin de procesaBotonStop
+
+void handleStopInRegandoPauseTerm() {
+    lcd.infoclear("Parando riegos", 1, BIP, 6);
+    T.StopTimer();
+    tic_CountDownTimer.detach(); //detiene actualizacion periodica del temporizador
+    // paramos riego en curso y todas las zonas
+    bool updateTimeFin = (Estado.estado == PAUSE? false : true); // si estamos en PAUSE no actualizamos tiempo fin
+    if (!stopRiego(ultimoBotonZona->bID, updateTimeFin) || !stopAllRiego()) {   //error al parar riegos
+      return; 
+    }
+    saveTablaToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
+    lcd.infoclear("STOP riegos OK", DEFAULTBLINK, BIP, 0);
+    resetFlags();
+    setEstado(STOP,1);
+}
+
+void handleStopInStandby() {
+    reposoOFF();
+    lcd.infoclear("Parando riegos", 1, BIP, 6);
+    if (!stopAllRiego()) {   //error al parar riegos
+      return; 
+    }
+    lcd.infoclear("STOP riegos OK", DEFAULTBLINK, BIP, 0);
+    setEstado(STOP,1);
+    reposoON(LCDON); //pasamos directamente a reposo sin apagar pantalla
+}
+
+void handleEncStopInStandby() {
+    setMultibyId(0, config);  // apunta estructura multi a grupo temporal en config (n+1) con id = 0
+    setEstado(CONFIGURANDO,1);
+    configure->MultiTemp_process_start();
+}
+
+void handleStopInError() {
+    LOG_WARN("ERROR + STOP --> Reset.....");
+    resetESP32();
+}
 
 
 void procesaBotonMultiriego(void)
@@ -575,11 +599,10 @@ void procesaBotonZona(void)
 
 /*
  La mecanica general de la maquina de estados en modo normal es que primero se procesa el boton pulsado, pudiendo este cambiar
- el estado, y despues se procesa el estado (*).
+ el estado, y despues se procesa el estado.
  En modo configuracion es totalmente opuesto: los botones se procesan en procesaEstadoConfigurando.
  Esto se hace así para tener separada la lógica de modo normal de la de configuración, ya que las acciones que realizan
  los botones en una y otra son totalmente distintas.
- (*) Con la excepción de estado ERROR que sí procesa los botones PAUSE y STOP.
 */
 void procesaEstadoConfigurando()
 {
@@ -590,8 +613,8 @@ void procesaEstadoConfigurando()
       switch(boton->bID) {
         case bPAUSE:
             if(!boton->estado) break; //no se procesa el release del PAUSE
-            if(configure->statusMenu()) { //estamos en el menu -> procesamos la seleccion
-              configure->procesaSelectMenu(); 
+            if(configure->statusMenu()) {       //si estamos en el menu:
+              configure->procesaSelectMenu();   // procesamos la seleccion
               LOG_DEBUG("[MENU] PAUSE pulsado recibido");
               break;
             }
@@ -600,7 +623,7 @@ void procesaEstadoConfigurando()
             break;
         case bSTOP:
             if(!boton->estado) {    //release STOP
-              if(configure->configuringMultiTemp()) handleStartMultiTemp();
+              if(configure->configuringMultiTemp()) handleStartMultiTemp(); //si configurando multirriego temporal: STOP lanza el riego
               VERIFY = config.verify;
               configure->exit();  // salvamos parametros a fichero si procede y salimos de ConF
             }
@@ -668,27 +691,6 @@ void procesaEstadoError(void)
     //se intenta recuperar error si en el SETUP no hemos podido conectar con la wifi o con domoticz
     if(Estado.error == E1 && recoverableError) wifiVerifyRecovery(config);
     if(Estado.error == E2 && recoverableError && checkReconInterval) domoticzVerifyRecovery();
-  }
-  if(boton == NULL) return;  // si no se ha pulsado ningun boton salimos
-  //En estado error no se responde a botones, a menos que este sea:
-  //   - PAUSE y pasamos a modoDEMO
-  //   - STOP y en este caso reseteamos 
-  if(boton->bID == bPAUSE && boton->estado) {  //evita procesar el release del pause
-    LOG_INFO("estado en ERROR y PAUSA pulsada pasamos a modoDEMO y reset del error");
-    modoDEMO = true;
-    sonido.bip(2);
-    resetFlags();   //reset flags de status
-    resetLeds();    //reset leds
-    if (Boton[bID2bIndex(bSTOP)].estado) setEstado(STOP,1);
-    else setEstado(STANDBY);
-  }
-  if(boton->bID == bSTOP) {
-  //Si estamos en ERROR y pulsamos o liberamos STOP, reseteamos
-    lcd.infoclear("ERROR+STOP-> Reset..",3);
-    LOG_WARN("ERROR + STOP --> Reset.....");
-    sonido.lowbip(1);
-    delay(3000);
-    ESP.restart();  
   }
 }; //fin de procesaEstadoError
 
@@ -2094,6 +2096,14 @@ void setupConfig()
     config.mute = true;   // arranque con sonidos silenciados
   #endif
 } //fin setupConfig
+
+void resetESP32() {
+    LOG_WARN("REINICIANDO ESP32...");
+    sonido.lowbip(1);
+    lcd.infoclear(">>  REINICIANDO  <<", 3);
+    delay(config.msgdisplaymillis);
+    ESP.restart();  // reset ESP32
+}
 
 // convierte timestamp a fecha hora
 String TS2Date(time_t t)
