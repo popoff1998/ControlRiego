@@ -83,6 +83,7 @@
   #define SWITCHDEVICE  "switchlight&idx=%d&switchcmd=%s"
   #define QUERYDEVICE   "getdevices&rid=%d"
   #define GETSWITCHLOG  "getlightlog&idx=%d"
+  #define GETSUNHOURS   "getSunRiseSet"
   //---------------------------------------------------------------------------------------
   
   /* You only need to format LittleFS the first time you run a
@@ -607,6 +608,8 @@
     unsigned long lastMillisLoop = 0;
     int numloops = 0;
     bool riegoFromPause = false;
+    char amanecer[] = "NO TIME";
+    char anochecer[] = "NO TIME";
 
     #ifdef TEMPLOCAL 
       DHT dht(DHTPIN, TEMPLOCAL);
@@ -624,12 +627,12 @@
   bool checkErrorgetFactor(int);
   int  checkWifi(bool level=false);
   void cleanFS(void);
+  String cmdtoSCD(String mandato);
   String convertFileSize(const size_t);
   bool copyConfigFile(const char*, const char*);
   void debugloops(void);
   bool deleteParmFiles(void);
   void deleteParmSignal(uint);
-  String deviceInfo(int idx);
   String deviceInfo(int idx, char *campo);
   void dimmerLeds(bool);
   void displayDemo(void);
@@ -649,6 +652,7 @@
   void finalTimeLastRiego(S_timeRiego&);
   void flagVerificaciones(void);
   int  getFactor(uint16_t);
+  bool getDiaNoche(void);
   float getTemperatureDomoticz(uint16_t);
   uint16_t getMultiStatus(void);
   void handleDynamicZoneChange();
@@ -739,8 +743,10 @@
   void restoreRiego(void);
   bool saveConfigFile(const char*, Config_parm&);
   void saveRiego(int znumber, int bID, int minutes, int seconds);
+  void scWebserver();
+  void scSorpresa();
   bool serialDetect(void);
-  void setbIDgrupos(Config_parm&);
+  void setbIDgrupos(Config_parm &);
   void setClock(void);
   void setConnected(bool);
   void setEncoderMenu(int menuitems, int currentitem = 0);

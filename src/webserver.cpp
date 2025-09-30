@@ -394,7 +394,7 @@ void setupWS(Config_parm &config)
   TRACE2("hostname=%s\n", WiFi.getHostname());
   LOG_INFO("[ConF][WS] IP address: ", WiFi.localIP());
   LOG_INFO("[ConF][WS] activado webserver para actualizaciones OTA de SW o filesystem");
-  lcd.infoclear("Webserver activo", DEFAULTBLINK, BIPOK);
+  lcd.infoclear("Webserver activo", 1, BIPOK);
   snprintf(buff, MAXBUFF, "\"%s.local:%d\"", WiFi.getHostname(), WSPORT);
   lcd.info(buff, 3);
   int msgl = snprintf(buff, MAXBUFF, "%s:%d" , WiFi.localIP().toString().c_str(), WSPORT);

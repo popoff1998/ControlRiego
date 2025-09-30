@@ -83,7 +83,7 @@ void setup()
     else sonido.bipKO();
     saveConfig = false;
   }
-  delay(1000);
+  // delay(1000);
   //Obtenemos hora del servidor ntp y ajustamos hora del sistema y timezone
   setClock();
   //Cargamos factorRiegos
@@ -501,7 +501,7 @@ void handleStopInStandby() {
     if (!stopAllRiego()) {   //error al parar riegos
       return; 
     }
-    lcd.infoclear("STOP riegos OK", DEFAULTBLINK, BIP, 0);
+    lcd.infoclear("STOP riegos OK", 1, BIP, 0);
     setEstado(STOP,1);
     reposoON(LCDON); //pasamos directamente a reposo sin apagar pantalla
 }
@@ -558,18 +558,10 @@ void handleGrupoInStandby(int n_grupo) {
 void handleEncGrupoInStop(int n_grupo) {
   switch (n_grupo) {
       case 1:                     //activa Webserver
-          if(connected) {
-            setEstado(CONFIGURANDO);
-            setupWS(config);
-          }  
-          else BIPKO; //no es posible
+          scWebserver();
           break;
       case 4:                     //easter egg
-          lcd.infoclear("    EASTER EGG!", 2);
-          enciendeLeds();
-          sonido.bipTarari();
-          apagaLeds();
-          setEstado(STOP);
+          scSorpresa();
           break;
   }    
 }
@@ -1142,7 +1134,7 @@ void parpadeoLedZonas24h(time_t t)
 {
   for(uint i=0;i<NUMZONAS;i++) { // enciende leds zonas regadas ultimas 24h hasta medianoche
     if(lastRiegos[i].inicio > (t-SECS_PER_DAY) && lastRiegos[i].inicio <= previousMidnight(t)) {
-        LOG_DEBUG("[ULTIMOSRIEGOS 24H] zona:", i+1, "time:",lastRiegos[i].inicio);
+        LOG_TRACE("[ULTIMOSRIEGOS 24H] zona:", i+1, "time:",lastRiegos[i].inicio);
         int ledid = Boton[bID2bIndex(ZONAS[i])].led;
         byte estado = ledStatusId(ledid);
         led(ledid,!estado);
@@ -1631,7 +1623,7 @@ String httpGetDomoticz(String message)
   LOG_TRACE("");
   String tmpStr = "http://" + String(config.domoticz_ip) + ":" + config.domoticz_port + String(message);
   LOG_DEBUG("TMPSTR:", tmpStr);
-  httpclient.begin(client, tmpStr); // para v3.0.0 de platform esp8266
+  httpclient.begin(client, tmpStr);
   String response = "{}";
   int httpCode = httpclient.GET();
   if(httpCode > 0) {
@@ -1658,13 +1650,13 @@ String httpGetDomoticz(String message)
   return response;
 }
 
-/**---------------------------------------------------------------
- * devuelve json con informacion del dispositivo con el idx pasado
+/**------------------------------------------------------------------------------------
+ * Envia mandato al SCD (Sistema de Control Domotico) y devuelve json con la respuesta
  */
-String deviceInfo(int idx)
+String cmdtoSCD(String mandato)
 {
-  char message[150];
-  sprintf(message,COMMANDPRF QUERYDEVICE,idx);
+  LOG_DEBUG(" comando: ", mandato);
+  String message = COMMANDPRF + mandato;
   return httpGetDomoticz(message);
 }
 
@@ -1756,21 +1748,30 @@ bool checkDomoticz()
   LOG_TRACE("");
   tic_parpadeoLedRecon.attach(RAPIDO, parpadeoLedAP);
   LOG_INFO("----  VERIFICANDO RECONEXION DOMOTICZ  ----");
-  String response = deviceInfo(0); //leemos el idx=0 para comprobar que hay conexion
+  bool DomoticzOK = getDiaNoche(); //enviamos mandato a Domoticz para comprobar que hay conexion
   tic_parpadeoLedRecon.detach();
   ledPWM(LEDB,OFF);
-  //procesamos la respuesta para ver si hemos recibido respuesta del domoticz:
-  if (response.startsWith("Err2")) {
-    LOG_ERROR(" ** sin conexion con Domoticz");
-    return false;
-  }
-  LOG_DEBUG("Respuesta recibida del Domoticz: ", response.c_str());
-  LOG_DEBUG("estado.error=", Estado.error,"recoverableError=", recoverableError);
+  if(!DomoticzOK) { LOG_ERROR(" ** sin conexion con Domoticz"); return false; }
   Estado.estado = STANDBY; //borramos estado ERROR
   Estado.error = NOERROR; //reseteamos error
   recoverableError = false; //reseteamos error recuperable
   return true;
 }
+
+bool getDiaNoche()
+{
+  String response = cmdtoSCD(GETSUNHOURS); //lee info amanecer/anochecer del Domoticz
+  LOG_DEBUG("Respuesta recibida del Domoticz: ", response.c_str());
+  if (response.startsWith("Err")) return false;
+  JsonDocument jsondoc;
+  DeserializationError error = deserializeJson(jsondoc, response);
+  if (error) return false; //error de deserializacion
+  strlcpy(amanecer, jsondoc["CivTwilightStart"] | "NO TIME", sizeof(amanecer));
+  strlcpy(anochecer, jsondoc["CivTwilightEnd"] | "NO TIME", sizeof(anochecer));
+  LOG_DEBUG("amanece ", amanecer, "anochece ", anochecer);
+  return true;
+}
+
 
 void domoticzVerifyRecovery()
 {  //verificamos que hay wifi y el Domoticz esta conectado, solo en este caso reintentamos leer factores de riego
@@ -2149,6 +2150,35 @@ bool serialDetect() {
   }
   return false;
 }    
+
+// **************************************************************************
+// Atajos Stop+Enc+Grupo_n
+// **************************************************************************
+
+// Shortcut Webserver
+void scWebserver() {
+    if(connected) {
+      setEstado(CONFIGURANDO);
+      setupWS(config);
+    }  
+    else BIPKO; //no es posible
+}
+
+// Shortcut Eastern Egg
+void scSorpresa() {
+    if (getDiaNoche()) {
+        lcd.infoclear("Hoy amanece a las..", 1);
+        lcd.setCursor(7, 1);lcd.print(amanecer);
+        lcd.info("..y anochece a las", 3);
+        lcd.setCursor(7, 3);lcd.print(anochecer);
+    }
+    else lcd.infoclear("    EASTER EGG!", 2);
+    enciendeLeds();
+    sonido.bipTarari();
+    delay(config.msgdisplaymillis);
+    apagaLeds();
+    setEstado(STOP);
+}
 
 // **************************************************************************
 // funciones solo usadas en DEVELOP
