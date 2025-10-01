@@ -1689,6 +1689,7 @@ String deviceInfo(int idx, char *campo)
     const char *contenido_campo = jsondoc["result"][0][campo];
     if(contenido_campo == NULL) {
       LOG_ERROR(" **  [ERROR] deserializeJson() return: IDX ", idx, " o ", campo, " not found");
+      LOG_ERROR(" **  [ERROR] respuesta: ", response.c_str());
       return "Err3"; //campo no encontrado en la respuesta o idx no existe
     }
     return contenido_campo; //devolvemos el campo solicitado

@@ -330,7 +330,7 @@
             const timeInputs = document.querySelectorAll("#timeTableBody input");
             timeInputs.forEach(input => {
             const field = input.dataset.field;
-            jsonData.domoticz[field] = input.value;
+            jsonData.time[field] = input.value;
             });
 
             // Enviar el JSON al servidor

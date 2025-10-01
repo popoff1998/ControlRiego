@@ -199,11 +199,12 @@ void startConfigPortal(Config_parm &config)
   if (!wm.startConfigPortal("Ardomo")) {
     LOG_INFO(" exit or hit timeout");
   }
-    // ----------------------------- save the custom parameters
+  // ----------------------------- save the custom parameters
   if (saveConfig) {
     strcpy(config.domoticz_ip, custom_domoticz_server.getValue());
     strcpy(config.domoticz_port, custom_domoticz_port.getValue());
     strcpy(config.ntpServer, custom_ntpserver.getValue());
+    strcpy(config.TZ, custom_timezone.getValue());
   }
   // Eliminamos el temporizador y dejamos LEDB segun estado de modoDEMO
   tic_APLed.detach();
