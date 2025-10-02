@@ -623,11 +623,12 @@
   int  bID2bIndex(uint16_t);
   void blinkDisplay(void);
   void check(void);
-  bool checkDomoticz(void);
+  bool checkSCD(void);
   bool checkErrorgetFactor(int);
   int  checkWifi(bool level=false);
   void cleanFS(void);
   String cmdtoSCD(String mandato);
+  String cmdtoSCD(const char *mandato);
   String convertFileSize(const size_t);
   bool copyConfigFile(const char*, const char*);
   void debugloops(void);
@@ -642,8 +643,7 @@
   void displayMultiTemporal(void);
   void displayNoFactorizado(void);
   void displayTimer(uint8_t, uint8_t, uint8_t, uint8_t);
-  bool domoticzSwitch(int,char *, int);
-  void domoticzVerifyRecovery(void);
+  bool deviceSwitch(int,char *, int);
   void enciendeLeds(void);
   void endWS(void);
   static const char* errorToString(uint8_t);
@@ -653,7 +653,7 @@
   void flagVerificaciones(void);
   int  getFactor(uint16_t);
   bool getDiaNoche(void);
-  float getTemperatureDomoticz(uint16_t);
+  float getRemoteTemperature(uint16_t);
   uint16_t getMultiStatus(void);
   void handleDynamicZoneChange();
   void handleEncGrupoInStandby(int n_grupo);
@@ -785,9 +785,10 @@
   void updateZoneDescription(int i);
   bool validaBoton();
   void Verificaciones(void);
+  void VerifyRecoverySCD(void);
+  bool VerifyRecoveryWifi(Config_parm&);
   void wifiClearSignal(uint);
   bool wifiReconnect(void);
-  bool wifiVerifyRecovery(Config_parm&);
   void zeroConfig(Config_parm&);
   int  zNumber2bIndex(uint16_t);
 

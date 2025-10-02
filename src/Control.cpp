@@ -681,8 +681,8 @@ void procesaEstadoError(void)
   if (flagV) {   // acciones cada VERIFY_INTERVAL en estado ERROR
     if(errorOFF) sonido.bip(2);  //recordatorio error grave al parar un riego
     //se intenta recuperar error si en el SETUP no hemos podido conectar con la wifi o con domoticz
-    if(Estado.error == E1 && recoverableError) wifiVerifyRecovery(config);
-    if(Estado.error == E2 && recoverableError && checkReconInterval) domoticzVerifyRecovery();
+    if(Estado.error == E1 && recoverableError) VerifyRecoveryWifi(config);
+    if(Estado.error == E2 && recoverableError && checkReconInterval) VerifyRecoverySCD();
   }
 }; //fin de procesaEstadoError
 
@@ -787,7 +787,7 @@ void procesaEstadoStandby(void)
   if (flagV) { 
     LOG_TRACE(".");
     if (multi.riegoON) return; //no se hacen verificaciones/acciones con multirriego en curso
-    if (wifiVerifyRecovery(config)) { //verificacion de wifi y recuperacion si procede
+    if (VerifyRecoveryWifi(config)) { //verificacion de wifi y recuperacion si procede
       lcd.info("STANDBY",1);  //restaura pantalla (en caso de msg de reconexion)
       showTemp();  // muestra temperatura ambiente en standby
       if (!timeOK && connected) setClock(); // si no hemos recibido time por NTP -> actualizamos time del sistema con el del servidor NTP
@@ -1430,7 +1430,7 @@ bool initRiego(bool resume)
   LOG_DEBUG("Boton:",config.zona[zIndex].desc,"zona:",ultimoBotonZona->znumber,"IDX:",config.zona[zIndex].idx);
   if (resume) LOG_INFO( "Continuando riego: ", config.zona[zIndex].desc);
   else LOG_INFO( "Iniciando riego: ", config.zona[zIndex].desc);
-  if (domoticzSwitch(config.zona[zIndex].idx, (char *)"On", DEFAULT_SWITCH_RETRIES)) {
+  if (deviceSwitch(config.zona[zIndex].idx, (char *)"On", DEFAULT_SWITCH_RETRIES)) {
     char zonaText[7];
     snprintf(zonaText, sizeof(zonaText), "ZONA%d", zIndex+1);
     inicioTimeLastRiego(lastRiegos[zIndex], zonaText, resume);
@@ -1451,7 +1451,7 @@ bool stopRiego(uint16_t id, bool update)
   int zIndex = Boton[bIndex].znumber-1;
   ledID = Boton[bIndex].led;
   LOG_DEBUG( "Terminando riego: ", config.zona[zIndex].desc);
-  if (domoticzSwitch(config.zona[zIndex].idx, (char *)"Off", DEFAULT_SWITCH_RETRIES)) {
+  if (deviceSwitch(config.zona[zIndex].idx, (char *)"Off", DEFAULT_SWITCH_RETRIES)) {
     LOG_INFO( "Terminado OK riego: " , config.zona[zIndex].desc );
     // solo actualizamos hora de fin si no hemos sido llamado desde stopAllRiego :
     if(update) finalTimeLastRiego(lastRiegos[zIndex]);
@@ -1615,6 +1615,10 @@ int tmvalue()
   return tm.value;
 }
 
+  //==================================================================================================//
+ //=================================== COMUNICACION CON DOMOTICZ ====================================//
+//==================================================================================================//
+
 /**---------------------------------------------------------------
  * Comunicacion con Domoticz usando httpGet
  */
@@ -1630,7 +1634,7 @@ String httpGetDomoticz(String message)
     if(httpCode == HTTP_CODE_OK) {
       response = httpclient.getString();
       #ifdef EXTRADEBUG
-        Serial.print(F("httpGetDomoticz RESPONSE: "));Serial.println(response);
+      Serial.print(F("httpGetDomoticz RESPONSE: "));Serial.println(response);
       #endif
     }
   }
@@ -1650,6 +1654,10 @@ String httpGetDomoticz(String message)
   return response;
 }
 
+//==================================================================================================//
+//=================== Funciones intermedias COMUNICACION CON SCD ===================================//
+//==================================================================================================//
+
 /**------------------------------------------------------------------------------------
  * Envia mandato al SCD (Sistema de Control Domotico) y devuelve json con la respuesta
  */
@@ -1660,23 +1668,30 @@ String cmdtoSCD(String mandato)
   return httpGetDomoticz(message);
 }
 
+String cmdtoSCD(const char* mandato)
+{
+  LOG_DEBUG(" comando: ", mandato);
+  String message = COMMANDPRF + String(mandato);
+  return httpGetDomoticz(message);
+}
+
 /**---------------------------------------------------------------
  * devuelve campo con informacion del dispositivo con el idx pasado
  */
 String deviceInfo(int idx, char *campo)
 {
   char message[150];
-  sprintf(message,COMMANDPRF QUERYDEVICE,idx);
-  String response = httpGetDomoticz(message);
-    //procesamos la respuesta para ver si se ha producido error:
-    if (response.startsWith("Err")) {
-      LOG_ERROR(" ** [ERROR] IDX: ", idx, " [HTTP] GET... failed");
-      return response; //devolvemos el error recibido
-    }
+  sprintf(message, QUERYDEVICE,idx);
+  String response = cmdtoSCD(message);
+  //procesamos la respuesta para ver si se ha producido error:
+  if (response.startsWith("Err")) {
+    LOG_ERROR(" ** [ERROR] IDX: ", idx, " [HTTP] GET... failed");
+    return response; //devolvemos el error recibido
+  }
   /* Teoricamente ya tenemos en response el JSON, lo procesamos
      Si el IDX no existe Domoticz no devuelve error, asi que hay que controlarlo
   */
- char* response_pointer = &response[0];
+  char* response_pointer = &response[0];
     JsonDocument jsondoc;
     DeserializationError error = deserializeJson(jsondoc, response_pointer);
     if (error) {
@@ -1694,6 +1709,45 @@ String deviceInfo(int idx, char *campo)
     }
     return contenido_campo; //devolvemos el campo solicitado
 }  //fin deviceInfo
+
+/**---------------------------------------------------------------
+ * Envia a domoticz orden de on/off del idx correspondiente
+ */
+bool deviceSwitch(int idx, char *msg, int retries)
+{
+  LOG_TRACE("idx:", idx, " ", msg, "(", retries, "intentos)");
+  if(idx == 0) return true; //simulamos que ha ido OK
+  if(!connected && !modoDEMO) {
+    statusError(E1);
+    return false;
+  }
+  char message[150];
+  sprintf(message, SWITCHDEVICE,idx,msg);
+  String response;
+  for(int i=0; i<retries; i++) {
+     if ((simular.ErrorON && strcmp(msg,"On")==0) || (simular.ErrorOFF && strcmp(msg,"Off")==0)) response = "ErrX"; // simulamos el error
+     else if(!modoDEMO) response = cmdtoSCD(message); // enviamos orden al SCD
+     if(response == "ErrX") { // solo reintentamos si Domoticz informa del estado de la zona
+       sonido.bip(1);
+       LOG_WARN("IDX:", idx, "fallo en", msg, "(intento", i+1, "de", retries, ")");
+       delay(DELAYRETRY);
+     }
+     else break;
+  }   
+  //procesamos la respuesta para ver si se ha producido error:
+  if (response.startsWith("Err")) {
+    if (!errorOFF) { //para no repetir bips en caso de stopAllRiego
+      if(response == "ErrX") {
+        if(strcmp(msg,"On") == 0 ) statusError(E4); //error al iniciar riego
+        else statusError(E5); //error al parar riego
+      }
+      else statusError(E2); //otro error al comunicar con domoticz
+    }
+    LOG_ERROR("IDX:", idx, "fallo en", msg);
+    return false;
+  }
+  return true;
+} //fin deviceSwitch
 
 /**---------------------------------------------------------------
  * lee factor de riego del Domoticz, almacenado en campo Description
@@ -1739,20 +1793,19 @@ String readLogFile(int zona)
   LOG_DEBUG("zona:", zona, "idx:", idx);
   if(idx == 0) return "No asignado";
   char message[150];
-  sprintf(message,COMMANDPRF GETSWITCHLOG,idx);
-  return httpGetDomoticz(message);
-
+  sprintf(message, GETSWITCHLOG,idx);
+  return cmdtoSCD(message);
 }
 
-bool checkDomoticz()
+bool checkSCD()
 {
   LOG_TRACE("");
   tic_parpadeoLedRecon.attach(RAPIDO, parpadeoLedAP);
   LOG_INFO("----  VERIFICANDO RECONEXION DOMOTICZ  ----");
-  bool DomoticzOK = getDiaNoche(); //enviamos mandato a Domoticz para comprobar que hay conexion
+  bool SCD_OK = getDiaNoche(); //enviamos mandato a Domoticz para comprobar que hay conexion
   tic_parpadeoLedRecon.detach();
   ledPWM(LEDB,OFF);
-  if(!DomoticzOK) { LOG_ERROR(" ** sin conexion con Domoticz"); return false; }
+  if(!SCD_OK) { LOG_ERROR(" ** sin conexion con Domoticz"); return false; }
   Estado.estado = STANDBY; //borramos estado ERROR
   Estado.error = NOERROR; //reseteamos error
   recoverableError = false; //reseteamos error recuperable
@@ -1774,12 +1827,12 @@ bool getDiaNoche()
 }
 
 
-void domoticzVerifyRecovery()
+void VerifyRecoverySCD()
 {  //verificamos que hay wifi y el Domoticz esta conectado, solo en este caso reintentamos leer factores de riego
   LOG_TRACE("");
   lcd.displayON(); //por si estuviera parpadeando(apagado) por error en pantalla
   if(connected) {
-    if (checkDomoticz()) {
+    if (checkSCD()) {
       LOG_INFO("Domoticz conectado OK");
       initFactorRiegos(); //en caso de producirse error con esta funcion ya dejara este activado
       setupEstado();
@@ -1792,9 +1845,10 @@ void domoticzVerifyRecovery()
 }
 
 /**---------------------------------------------------------------
- * lee datos de temperatura y humedad del sensor definido en Domoticz
+ * lee datos de temperatura y humedad del sensor remoto con el idx pasado
+ * devuelve 999 si no hay sensor asignado (idx=0) o si hay error
  */
-float getTemperatureDomoticz(uint16_t idx)
+float getRemoteTemperature(uint16_t idx)
 {
   LOG_TRACE("sensor temp IDX: ", idx);
   // si el IDX es 0 devolvemos 999 sin procesarlo (sensor no asignado)
@@ -1805,7 +1859,7 @@ float getTemperatureDomoticz(uint16_t idx)
   LOG_INFO("Temperatura recibida del Domoticz: ", response);
   //procesamos la respuesta para ver si se ha producido error:
   if (response.startsWith("Err")) {
-    LOG_WARN("getTemperatureDomoticz IDX: ", idx, " respuesta recibida: ", response.c_str());
+    LOG_WARN("IDX: ", idx, " respuesta recibida: ", response.c_str());
     return 999;  //devolvemos 999 para indicar temperatura no valida
   }
   //devolvemos la temperatura del sensor en Domoticz del json (campo Data)
@@ -1856,45 +1910,9 @@ bool queryStatus(uint16_t idx, char *status)
   }  
 } //fin queryStatus
 
-/**---------------------------------------------------------------
- * Envia a domoticz orden de on/off del idx correspondiente
- */
-bool domoticzSwitch(int idx, char *msg, int retries)
-{
-  LOG_TRACE("idx:", idx, " ", msg, "(", retries, "intentos)");
-  if(idx == 0) return true; //simulamos que ha ido OK
-  if(!connected && !modoDEMO) {
-    statusError(E1);
-    return false;
-  }
-  char message[150];
-  sprintf(message,COMMANDPRF SWITCHDEVICE,idx,msg);
-  String response;
-  for(int i=0; i<retries; i++) {
-     if ((simular.ErrorON && strcmp(msg,"On")==0) || (simular.ErrorOFF && strcmp(msg,"Off")==0)) response = "ErrX"; // simulamos el error
-     else if(!modoDEMO) response = httpGetDomoticz(message); // enviamos orden al Domoticz
-     if(response == "ErrX") { // solo reintentamos si Domoticz informa del estado de la zona
-       sonido.bip(1);
-       LOG_WARN("DOMOTICZSWITH IDX:", idx, "fallo en", msg, "(intento", i+1, "de", retries, ")");
-       delay(DELAYRETRY);
-     }
-     else break;
-  }   
-  //procesamos la respuesta para ver si se ha producido error:
-  if (response.startsWith("Err")) {
-    if (!errorOFF) { //para no repetir bips en caso de stopAllRiego
-      if(response == "ErrX") {
-        if(strcmp(msg,"On") == 0 ) statusError(E4); //error al iniciar riego
-        else statusError(E5); //error al parar riego
-      }
-      else statusError(E2); //otro error al comunicar con domoticz
-    }
-    LOG_ERROR("DOMOTICZSWITH IDX:", idx, "fallo en", msg);
-    return false;
-  }
-  return true;
-} //fin domoticzSwitch
-
+  //==================================================================================================//
+ //============================ FIN COMUNICACION CON SCD/DOMOTICZ ===================================//
+//==================================================================================================//
 
 void flagVerificaciones() 
 {
@@ -1946,7 +1964,7 @@ float readTemp() {
     float humedad;
     tempOK=false;
     if(config.tempRemote) {
-      temperatura = getTemperatureDomoticz(config.tempRemoteIdx);
+      temperatura = getRemoteTemperature(config.tempRemoteIdx);
     }
     else {
       #ifdef TEMPLOCAL   // temperatura ambiente del sensor local

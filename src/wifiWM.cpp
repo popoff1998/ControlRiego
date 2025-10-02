@@ -254,7 +254,7 @@ bool wifiReconnect () {
     } else return false;
 }    
 
-bool wifiVerifyRecovery(Config_parm &config) {
+bool VerifyRecoveryWifi(Config_parm &config) {
   //LOG_TRACE("");
   //en modoDEMO sin conexion no verificamos (DEMO sin wifi)
   if (modoDEMO && !connected) return true;
@@ -288,7 +288,7 @@ bool wifiVerifyRecovery(Config_parm &config) {
     /*
       Caso de haber recuperado la conexion wifi despues del Setup leemos factor riegos.
       Si este diese error de conexion con Domoticz, se dejara el flag recoverableError activado
-      y domoticzVerifyRecovery será llamada en procesaEstadoError cada RECONNECTINTERVAL 
+      y VerifyRecoverySCD será llamada en procesaEstadoError cada RECONNECTINTERVAL 
       para seguir reintentando hasta que se recupere la conexion.
     */    
     if (connected && recoverableError) {
