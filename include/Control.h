@@ -99,7 +99,7 @@
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0]))
        
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.3-beta3"   // version del software
+                            #define VERSION  "3.3-beta4"   // version del software
   //-------------------------------------------------------------------------------------
 
   //Comportamiento General
@@ -539,6 +539,7 @@
     char buff[MAXBUFF];
     bool checkReconInterval = false; // verificaciones de conexion cada RECONNECTINTERVAL minutosº
     
+    Config_parm config; //estructura parametros configurables y runtime
     
     #else
     extern int NUM_S_BOTON;
@@ -561,13 +562,13 @@
     extern char buff[];
     extern bool checkReconInterval;
     extern Sonidos sonido;
+    extern Config_parm config; //estructura parametros configurables y runtime
     
     #endif
     
     #ifdef __MAIN__
     //Globales a este módulo
-    Config_parm config; //estructura parametros configurables y runtime
-    Sonidos sonido(config);   // se pasa por referencia la estructura config al constructor de la clase
+    Sonidos sonido;   // se pasa por referencia la estructura config al constructor de la clase
     S_initFlags initFlags ;
     WiFiClient client;
     HTTPClient httpclient;
@@ -697,7 +698,7 @@
   void leeSerial(void);
   void listAllFilesInDir(fs::FS &fs, String dir_path);
   void listDir(fs::FS &fs, const char * , uint8_t);
-  bool loadConfigFile(const char*, Config_parm&);
+  bool loadConfigFile(const char*);
   void mcpIinit(void);
   void mcpOinit(void);
   void memoryInfo(void);
@@ -711,8 +712,8 @@
   void printFactoresRiego();
   void printFile(const char*);
   void printMulti(void);
-  void printMultiGroup(Config_parm&, int);
-  void printParms(Config_parm&);
+  void printMultiGroup(int);
+  void printParms();
   void procesaBotones(void);
   void procesaBotonMultiriego(void);
   void procesaBotonPause(void);
@@ -741,34 +742,34 @@
   void resetLCD(void);
   void resetLeds(void);
   void restoreRiego(void);
-  bool saveConfigFile(const char*, Config_parm&);
+  bool saveConfigFile(const char*);
   void saveRiego(int znumber, int bID, int minutes, int seconds);
   void scWebserver();
   void scSorpresa();
   bool serialDetect(void);
-  void setbIDgrupos(Config_parm &);
+  void setbIDgrupos();
   void setClock(void);
   void setConnected(bool);
   void setEncoderMenu(int menuitems, int currentitem = 0);
   void setEncoderTime(void);
   void setEncoderRange(int , int , int , int);
   void setEstado(uint8_t estado, int bnum = 0, int tipo = LOCAL);
-  int  setGrupo(Config_parm &config);
+  int  setGrupo();
   void setledRGB(void);
   void showTemp(void);
-  int  setMultibyId(uint16_t , Config_parm&);
-  bool setMultirriego(Config_parm&);
+  int  setMultibyId(uint16_t);
+  bool setMultirriego();
   void setupConfig(void);
   void setupEstado(void);
   void setupInit(void);
   void setupParm(void);
-  void setupRedWM(Config_parm&, S_initFlags&);
-  void setupWS(Config_parm&);
+  void setupRedWM(S_initFlags&);
+  void setupWS();
   void setzNumber(void);
   void showInfoZona(int zIndex);
   void showTimeLastRiego(S_timeRiego&, int, int);
   void startZoneWatering();
-  void startConfigPortal(Config_parm&);
+  void startConfigPortal();
   void StaticTimeUpdate(bool);
   void statusError(uint8_t, bool recoverable=false);
   bool stopRiego(uint16_t, bool update=true);
@@ -786,10 +787,10 @@
   bool validaBoton();
   void Verificaciones(void);
   void VerifyRecoverySCD(void);
-  bool VerifyRecoveryWifi(Config_parm&);
+  bool VerifyRecoveryWifi();
   void wifiClearSignal(uint);
   bool wifiReconnect(void);
-  void zeroConfig(Config_parm&);
+  void zeroConfig();
   int  zNumber2bIndex(uint16_t);
 
 // *****************************************************************************************

@@ -1,7 +1,7 @@
 
 #include "Control.h"
 
-bool loadConfigFile(const char *p_filename, Config_parm &config)
+bool loadConfigFile(const char *p_filename)
 {
   LOG_TRACE("");
   File file = LittleFS.open(p_filename, "r");
@@ -92,7 +92,7 @@ bool loadConfigFile(const char *p_filename, Config_parm &config)
   return true;
 }
 
-bool saveConfigFile(const char *p_filename, Config_parm &config)
+bool saveConfigFile(const char *p_filename)
 {
   LOG_TRACE("TRACE: in saveConfigFile");
   // Delete existing file, otherwise the configuration is appended to the file
@@ -208,7 +208,7 @@ bool deleteParmFiles()
 }
 
 //init minimo de config para evitar fallos en caso de no poder cargar parametros de ficheros
-void zeroConfig(Config_parm &config) {
+void zeroConfig() {
   LOG_TRACE("");
   for (int j=0; j<config.n_Grupos; j++) {
     config.group[j].bID = GRUPOS[j];
@@ -222,7 +222,7 @@ void cleanFS() {
   LOG_WARN("Done!");
 }
 
-void printParms(Config_parm &config) {
+void printParms() {
   Serial.println(F("contenido estructura parametros configuracion: "));
   //--------------  imprime array botones (IDX)  --------------------------------------------------
   Serial.printf("\tnumzonas= %d \n", config.n_Zonas);

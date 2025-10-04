@@ -13,13 +13,13 @@
 #endif
 
 // Devuelve grupo pulsado/seleccionado
-int setGrupo(Config_parm &config) {
+int setGrupo() {
     int n_grupo;
     #ifdef GRP4
-      n_grupo = setMultibyId(boton->bID, config);
+      n_grupo = setMultibyId(boton->bID);
     #endif
     #ifdef M3GRP
-      n_grupo = setMultibyId(getMultiStatus(), config);
+      n_grupo = setMultibyId(getMultiStatus());
     #endif
     if (n_grupo == 0) return 0; //error en setup de apuntadores 
     LOG_DEBUG("en MULTIRRIEGO, setMultibyId devuelve: Grupo", n_grupo,"(",multi.desc,") multi.size=" , *multi.size);
@@ -29,7 +29,7 @@ int setGrupo(Config_parm &config) {
 
 // Asigna en multi valores o apuntadores de/a config del grupo cuyo bId(boton) se recibe
 // y devuelve el numero del grupo (1...NUMGRUPOS+1) , 0 en caso de que no exista
-int setMultibyId(uint16_t id, Config_parm &config)
+int setMultibyId(uint16_t id)
 {
   LOG_DEBUG("[setMultibyId] recibe id= 0x",DebugLogBase::HEX,id);
   //log_i("recibe id=x%x", id);
@@ -61,7 +61,7 @@ int setMultibyId(uint16_t id, Config_parm &config)
 
 
 // prepara el comienzo de un multirriego (normal o temporal)
-bool setMultirriego(Config_parm &config)
+bool setMultirriego()
 {
       sonido.bip(4); delay(50);
       if(*multi.size > 0) {    // si grupo tiene zonas definidas
@@ -128,7 +128,7 @@ int displayLCDGrupo(uint16_t *serieZonas, int serieSize, int line, int start)
 }
 
 //imprime contenido actual de la estructura multiGroup
-void printMultiGroup(Config_parm &config, int pgrupo)
+void printMultiGroup(int pgrupo)
 {
   for(int j = 0; j < config.group[pgrupo].size; j++) {
     Serial.printf("  Zona%d   ", config.group[pgrupo].zNumber[j]);

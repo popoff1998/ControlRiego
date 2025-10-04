@@ -7,8 +7,6 @@ class Sonidos {
     
     private:
     
-        struct Config_parm& config; // Referencia a la estructura config
-        
         const uint8_t _tft_volume[10] = { 67, 50, 40, 33, 29, 22, 15, 11, 6, 2 }; // Duty for linear volume control.
         // const uint8_t _tft_volume[10] = { 200, 100, 67, 50, 40, 33, 29, 22, 11, 2 }; // Duty for linear volume control.
         
@@ -32,7 +30,7 @@ class Sonidos {
     public:
     
         // Constructor que recibe config por referencia
-        Sonidos(struct Config_parm&);
+        Sonidos();
         void bip(int veces);
         void longbip(int veces);
         void lowbip(int veces);

@@ -1,7 +1,8 @@
 #include "Configure.h"
 
-Configure::Configure(struct Config_parm &conf) : config(conf)
+Configure::Configure()
 {
+     // Constructor
       this->reset();
       _currentItem = 0;
       _data_pos_valid = false;
@@ -244,7 +245,7 @@ void Configure::Multi_process_end(bool clear)
         saveConfig = true;
 
         LOG_INFO("SAVE PARM Multi : GRUPO",g,"tamaño:",*multi.size,"(",multi.desc,")");
-        printMultiGroup(config, g-1);
+        printMultiGroup( g-1);
         sonido.bipOK();
         lcd.info("guardado GRUPO",2);
         lcd.clear(BORRA2H);
@@ -274,7 +275,7 @@ void Configure::MultiTemp_process_end()
         saveConfig = true;  //  solo para indicar que hemos salvado grupo temporal y tenemos que iniciarlo
 
         LOG_INFO("process_end grupo TEMPORAL : GRUPO",_actualGrupo,"tamaño:",*multi.size,"(",multi.desc,")");
-        //printMultiGroup(config, _actualGrupo-1);
+        //printMultiGroup( _actualGrupo-1);
         sonido.bipOK();
         lcd.info("  >> libere STOP <<",1);
         lcd.info("para comenzar riego",2);
@@ -316,7 +317,7 @@ void Configure::exit()
       setEncoderTime();
       if (saveConfig) {
         LOG_INFO("saveConfig=true  --> salvando parametros a fichero");
-        if (saveConfigFile(parmFile, config)) {
+        if (saveConfigFile(parmFile)) {
           lcd.infoclear("SAVED parameters", DEFAULTBLINK, BIPOK);
           delay(config.msgdisplaymillis);
         }  
@@ -445,13 +446,13 @@ void Configure::procesaSelectMenu()
         case WIFI_PARM :   // activamos AP y portal de configuracion (bloqueante)
                 LOG_INFO("[ConF]  activamos AP y portal de configuracion");
                 ledYellow(OFF);
-                startConfigPortal(config);
+                startConfigPortal();
                 ledYellow(ON);
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break; 
   #ifdef WEBSERVER
         case WEBSERVER_ACT :  // activamos webserver (no bloqueante, pero no respodemos a botones)
-                connected ? setupWS(config) : sonido.bipKO();
+                connected ? setupWS() : sonido.bipKO();
                 break;
   #endif 
         case LOAD_BACKUP :   // carga parametros de backup y reinicia

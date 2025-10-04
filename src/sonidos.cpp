@@ -6,7 +6,7 @@
 
 #include "control.h"
 
-Sonidos::Sonidos(struct Config_parm &config) : config(config) {
+Sonidos::Sonidos() {
     // Constructor
 }
 

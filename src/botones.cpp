@@ -300,7 +300,7 @@ void setzNumber()
 }
 
 //rellena campo bID (boton asociado) en config segun el orden de estos en GRUPOS[]
-void setbIDgrupos(Config_parm &config)
+void setbIDgrupos()
 {
   for (uint i=0;i<NUMGRUPOS;i++) {
       config.group[i].bID = GRUPOS[i];  //obtiene el bID del boton de ese grupo (ojo: no viene en el json)

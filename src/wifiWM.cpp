@@ -78,7 +78,7 @@ void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info){
 }
 
 // conexion a la red por medio de WifiManager
-void setupRedWM(Config_parm &config, S_initFlags &initFlags)
+void setupRedWM(S_initFlags &initFlags)
 {
   #ifdef DEVELOP
     wm.setDebugOutput(true, WM_DEBUG_DEV);
@@ -193,7 +193,7 @@ void setupRedWM(Config_parm &config, S_initFlags &initFlags)
  * 
  * @param config 
  */
-void startConfigPortal(Config_parm &config) 
+void startConfigPortal() 
 {
   wm.setConfigPortalTimeout(timeout);
   if (!wm.startConfigPortal("Ardomo")) {
@@ -254,7 +254,7 @@ bool wifiReconnect () {
     } else return false;
 }    
 
-bool VerifyRecoveryWifi(Config_parm &config) {
+bool VerifyRecoveryWifi() {
   //LOG_TRACE("");
   //en modoDEMO sin conexion no verificamos (DEMO sin wifi)
   if (modoDEMO && !connected) return true;

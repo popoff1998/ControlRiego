@@ -34,7 +34,6 @@ class Configure
       LASTRIEGOS24  ,
       __ENDLINE__         //  ultimo item fijo (= numero de lineas del menu - 1)
     };
-    struct Config_parm &config;
     int _actualIdxIndex;
     int _actualGrupo;
     int _maxItems;
@@ -62,7 +61,7 @@ class Configure
   
   
   public:
-    Configure(struct Config_parm&);
+    Configure();   // constructor
     void menu(int item=-1);
     void exit(void);
     void Idx_process_start(int);

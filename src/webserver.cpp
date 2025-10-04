@@ -380,7 +380,7 @@ void defWebpages()
 }
 
 
-void setupWS(Config_parm &config)
+void setupWS()
 {
   if (!MDNS.begin(HOSTNAME)) LOG_ERROR("Error iniciando mDNS");
   else LOG_INFO("mDNS iniciado");

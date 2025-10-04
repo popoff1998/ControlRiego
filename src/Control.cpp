@@ -62,7 +62,7 @@ void setup()
   LOG_TRACE("Inicializando Encoder");
   initEncoder();
   LOG_TRACE("Inicializando Configure");
-  configure = new Configure(config);   // se pasa por referencia la estructura config al constructor de la clase
+  configure = new Configure();   // se pasa por referencia la estructura config al constructor de la clase
   //preparo indicadores de inicializaciones opcionales
   setupInit();
   //setup parametros configuracion
@@ -77,9 +77,9 @@ void setup()
   check();
   //Para la red
   delay(1000);
-  setupRedWM(config, initFlags);
+  setupRedWM( initFlags);
   if (saveConfig) {
-    if (saveConfigFile(parmFile, config))  sonido.bipOK();
+    if (saveConfigFile(parmFile))  sonido.bipOK();
     else sonido.bipKO();
     saveConfig = false;
   }
@@ -507,7 +507,7 @@ void handleStopInStandby() {
 }
 
 void handleEncStopInStandby() {
-    setMultibyId(0, config);  // apunta estructura multi a grupo temporal en config (n+1) con id = 0
+    setMultibyId(0);  // apunta estructura multi a grupo temporal en config (n+1) con id = 0
     setEstado(CONFIGURANDO,1);
     configure->MultiTemp_process_start();
 }
@@ -521,7 +521,7 @@ void handleStopInError() {
 void procesaBotonMultiriego(void)
 {
   if (multi.riegoON) return; //ya hay un multirriego en curso,, ignoramos boton
-  int n_grupo = setGrupo(config); //apunta estructura multi al grupo seleccionado
+  int n_grupo = setGrupo(); //apunta estructura multi al grupo seleccionado
   if (n_grupo == 0) return; //error en setup de apuntadores
   LOG_DEBUG("en MULTIRRIEGO, encoderSW status  :", encoderSW );
   if (Estado.estado == STANDBY) {
@@ -551,7 +551,7 @@ void handleGrupoInStandby(int n_grupo) {
        tambien grabamos el tiempo de inicio del riego de grupo  */
     char grupoText[7];
     snprintf(grupoText, sizeof(grupoText), "GRUPO%d", n_grupo);
-    if(setMultirriego(config)) inicioTimeLastRiego(lastGrupos[n_grupo-1], grupoText, INICIO);
+    if(setMultirriego()) inicioTimeLastRiego(lastGrupos[n_grupo-1], grupoText, INICIO);
 }
 
 // Atajos combinacion STOP+ENC+GRUPOn
@@ -640,7 +640,7 @@ void procesaEstadoConfigurando()
 
 void handleGroupConfig()
 {
-      int n_grupo = setGrupo(config); //apunta estructura multi al grupo seleccionado
+      int n_grupo = setGrupo(); //apunta estructura multi al grupo seleccionado
       if (n_grupo == 0) return; //error en setup de apuntadores 
       //Configuramos el grupo de multirriego apuntado en multi
       rotaryEncoder.disable();
@@ -671,7 +671,7 @@ void handleStartMultiTemp()
   if (multi.w_size && saveConfig) {  //solo si se ha guardado alguna zona iniciamos riego grupo temporal
       saveConfig = false;  
       multi.temporal = true;
-      setMultirriego(config); 
+      setMultirriego(); 
   }    
 }
 
@@ -681,7 +681,7 @@ void procesaEstadoError(void)
   if (flagV) {   // acciones cada VERIFY_INTERVAL en estado ERROR
     if(errorOFF) sonido.bip(2);  //recordatorio error grave al parar un riego
     //se intenta recuperar error si en el SETUP no hemos podido conectar con la wifi o con domoticz
-    if(Estado.error == E1 && recoverableError) VerifyRecoveryWifi(config);
+    if(Estado.error == E1 && recoverableError) VerifyRecoveryWifi();
     if(Estado.error == E2 && recoverableError && checkReconInterval) VerifyRecoverySCD();
   }
 }; //fin de procesaEstadoError
@@ -787,7 +787,7 @@ void procesaEstadoStandby(void)
   if (flagV) { 
     LOG_TRACE(".");
     if (multi.riegoON) return; //no se hacen verificaciones/acciones con multirriego en curso
-    if (VerifyRecoveryWifi(config)) { //verificacion de wifi y recuperacion si procede
+    if (VerifyRecoveryWifi()) { //verificacion de wifi y recuperacion si procede
       lcd.info("STANDBY",1);  //restaura pantalla (en caso de msg de reconexion)
       showTemp();  // muestra temperatura ambiente en standby
       if (!timeOK && connected) setClock(); // si no hemos recibido time por NTP -> actualizamos time del sistema con el del servidor NTP
@@ -844,7 +844,7 @@ bool procesaDynamic(void)
 {
   // NOTA: si llegamos aquí, la zona pulsada NO coincide con la actualmente en riego (zona actual)
   if (!multi.riegoON) { //si estamos en riego de zona individual -> la pasamos a multirriego temporal
-    setMultibyId(0, config);  // apunta estructura multi a grupo temporal en config (n+1) con id = 0
+    setMultibyId(0);  // apunta estructura multi a grupo temporal en config (n+1) con id = 0
     multi.riegoON = true;
     multi.temporal = true;
     multi.dynamic  = true;  // marcamos como dinamico para no factorizarlo
@@ -2078,12 +2078,12 @@ void setupParm()
     }  
     else LOG_ERROR(" **  [ERROR] en borrado ficheros de parámetros");
   }
-  if (!loadConfigFile(parmFile, config)) {
+  if (!loadConfigFile(parmFile)) {
     LOG_ERROR(" ** [ERROR] Leyendo fichero parametros " , parmFile);
-    if (loadConfigFile(backupParmFile, config)) {lcd.infoclear("BACKUP parm loaded");delay(MSGDISPLAYMILLIS*3);}
+    if (loadConfigFile(backupParmFile)) {lcd.infoclear("BACKUP parm loaded");delay(MSGDISPLAYMILLIS*3);}
     else LOG_ERROR(" ** [ERROR] Leyendo fichero parametros backup ", backupParmFile);
   }
-  if (!config.initialized) zeroConfig(config);  //init config con zero-config
+  if (!config.initialized) zeroConfig();  //init config con zero-config
   else VERIFY = config.verify;
 
   setupConfig(); //una vez cargados parametros, completa campos de config y boton
@@ -2091,7 +2091,7 @@ void setupParm()
   #ifdef VERBOSE
     if (config.initialized) Serial.print(F("\nParametros cargados, "));
     else Serial.print(F("Parametros zero-config, "));
-    printParms(config);
+    printParms();
   #endif
 } //fin setupParm
 
@@ -2107,7 +2107,7 @@ void setupConfig()
   //init campo zNumber de Boton[]
   setzNumber();
   //init campo bID de grupos en config
-  setbIDgrupos(config);
+  setbIDgrupos();
   
   tm.minutes = config.minutes;
   tm.seconds = config.seconds;
@@ -2178,7 +2178,7 @@ bool serialDetect() {
 void scWebserver() {
     if(connected) {
       setEstado(CONFIGURANDO);
-      setupWS(config);
+      setupWS();
     }  
     else BIPKO; //no es posible
 }
