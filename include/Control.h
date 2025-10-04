@@ -529,6 +529,7 @@
     bool recoverableError;
     bool webServerAct = false;
     bool saveConfig = false;
+    bool reposo = false;
     
     const char *parmFile = "/config_parm.json";         // fichero de parametros activos
     const char *backupParmFile = "/config_backup.json"; // fichero de respaldo de los parametros
@@ -554,6 +555,7 @@
     extern bool recoverableError;
     extern bool webServerAct;
     extern bool saveConfig;
+    extern bool reposo;
     extern const char *parmFile; 
     extern const char *backupParmFile;
     extern const char *lastRiegosFile;
@@ -592,7 +594,6 @@
     int  ledID = 0;
     unsigned long standbyTime;
     bool backlightOff = false;
-    bool reposo = false;
     unsigned long lastBlinkPause;
     bool holdPause = false;
     unsigned long countHoldPause;

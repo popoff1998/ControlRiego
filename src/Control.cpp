@@ -1287,21 +1287,6 @@ void printFactoresRiego() {
     }
 }
 
-// ON/OFF atenuacion LEDG y LEDB
-void dimmerLeds(bool status)
-{
-  if(status) {
-    LOG_TRACE("leds atenuados ");
-    if(connected) analogWrite(LEDG, config.dimmlevel);
-    if(modoDEMO) analogWrite(LEDB, config.dimmlevel);
-  }
-  else {
-    LOG_TRACE("leds brillo normal ");
-    if(connected) analogWrite(LEDG, config.maxledlevel);
-    if(modoDEMO) analogWrite(LEDB, config.maxledlevel);
-  }  
-}
-
 void reposoOFF()
 {
   LOG_INFO(" salimos de reposo");
@@ -1496,8 +1481,6 @@ void restoreRiego(void)
     // if(initRiego(RESUME)) setEstado(REGANDO); //ponemos en REGANDO directamente
 }    
 
-
-
 //Pone a off todos los leds de zonas y grupos y restablece estado led RGB
 void resetLeds()
 {
@@ -1515,12 +1498,6 @@ void resetLeds()
   tic_parpadeoLedError.detach(); //por si estuviera parpadeando
   setledRGB();
 }
-
-int  ledlevel()
-{
-  return (reposo ? config.dimmlevel : config.maxledlevel);
-}
-
 
 //Pone a false diversos flags de estado
 void resetFlags()

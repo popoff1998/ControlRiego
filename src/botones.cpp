@@ -1,3 +1,7 @@
+/*
+  Inicializacion de E/S y gestion de botones y leds 
+*/
+
 #include "Control.h"
 
 //Globales a este modulo
@@ -170,14 +174,6 @@ void setledRGB()
     ledRGB(OFF,connected,modoDEMO);                 
 }  
 
-// // deja led RGB segun estado wifi y modoDEMO
-// void setledRGB()
-// {
-//     ledPWM(LEDR,OFF);                   
-//     checkWifi();
-//     modoDEMO ? ledPWM(LEDB,ON) : ledPWM(LEDB,OFF);
-// }  
-
 
 // enciende o apaga un led controlado por PWM
 void ledPWM(uint8_t id,int estado)
@@ -221,6 +217,27 @@ bool ledStatusId(int ledID)
   #endif
   return((ledStatus & (1 << (ledID-1))));
 }
+
+// ON/OFF atenuacion LEDG y LEDB
+void dimmerLeds(bool status)
+{
+  if(status) {
+    LOG_TRACE("leds atenuados ");
+    if(connected) analogWrite(LEDG, config.dimmlevel);
+    if(modoDEMO) analogWrite(LEDB, config.dimmlevel);
+  }
+  else {
+    LOG_TRACE("leds brillo normal ");
+    if(connected) analogWrite(LEDG, config.maxledlevel);
+    if(modoDEMO) analogWrite(LEDB, config.maxledlevel);
+  }  
+}
+
+int  ledlevel()
+{
+  return (reposo ? config.dimmlevel : config.maxledlevel);
+}
+
 
 uint16_t readInputs()
 {
