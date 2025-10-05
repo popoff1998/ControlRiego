@@ -497,7 +497,7 @@ void handleStopInRegandoPauseTerm() {
 
 void handleStopInStandby() {
     reposoOFF();
-    lcd.infoclear("Parando riegos", 1, BIP, 6);
+    lcd.infoclear("Parando riegos", NOBLINK, BIP, 6);
     if (!stopAllRiego()) {   //error al parar riegos
       return; 
     }
@@ -895,7 +895,7 @@ void setEstado(uint8_t estado, int bnum, int tipo)
   Estado.estado = estado;
   Estado.error = NOERROR;
   recoverableError = false;
-  if(Estado.estado == !PAUSE) riegoFromPause = false; //reiniciamos flag  TODO ¿esto hay que revisarlo?
+  if(Estado.estado == !PAUSE) riegoFromPause = false; //reiniciamos flag
   strcpy(errorText, "");
   //Deshabilitamos el hold de Pause
   Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
@@ -1573,11 +1573,7 @@ void StaticTimeUpdate(bool refresh)
 
 void refreshTime()   // Actualiza la cuenta atrás en pantalla
 {
-  unsigned long curMinutes = T.ShowMinutes();
-  unsigned long curSeconds = T.ShowSeconds();
-  lcd.displayTime(curMinutes, curSeconds);
-  // if(prevseconds != curSeconds) lcd.displayTime(curMinutes, curSeconds);
-  // prevseconds = curSeconds;
+  lcd.displayTime(T.ShowMinutes(), T.ShowSeconds());
 
 }
 
@@ -1598,30 +1594,38 @@ int tmvalue()
 
 /**---------------------------------------------------------------
  * Comunicacion con Domoticz usando httpGet
+ * HTTPClient tiene dos timeouts:
+ *    ConnectTimeout: tiempo maximo para establecer la conexion con el servidor (default 5000ms)
+ *    response Timeout: tiempo maximo para recibir la respuesta del servidor (default 5000ms)
+ *  En este caso, al ser la conexión local, nos interesa reducir el ConnectTimeout y tambien el Timeout
+ *  para evitar bloqueos largos en caso de que Domoticz no responda.
  */
 String httpGetDomoticz(String message) 
 {
   LOG_TRACE("");
+  lcd.displayON();  // para evitar pantalla sin info en caso de retardo en la respuesta
   String tmpStr = "http://" + String(config.domoticz_ip) + ":" + config.domoticz_port + String(message);
   LOG_DEBUG("TMPSTR:", tmpStr);
   httpclient.begin(client, tmpStr);
+  httpclient.setConnectTimeout(200); // set the timeout (ms) for establishing a connection to the server
+  httpclient.setTimeout(1000); // set the timeout (ms) for receiving a response from the server
   String response = "{}";
   int httpCode = httpclient.GET();
   if(httpCode > 0) {
     if(httpCode == HTTP_CODE_OK) {
-      response = httpclient.getString();
-      #ifdef EXTRADEBUG
-      Serial.print(F("httpGetDomoticz RESPONSE: "));Serial.println(response);
-      #endif
-    }
+        response = httpclient.getString();
+        #ifdef EXTRADEBUG
+        Serial.print(F("httpGetDomoticz RESPONSE: "));Serial.println(response);
+        #endif
+    } else {
+        LOG_WARN("respuesta no OK de Domoticz, HTTP_CODE: ", httpCode, "(see RFC7231)");
+        return "Err3";
+      }
+    } else if(Estado.estado != ERROR) {   // para no repetir mensajes de error
+        LOG_ERROR("ERROR comunicando con Domoticz: ", httpclient.errorToString(httpCode).c_str()); 
+        return "Err2";
   }
-  else {
-    if(Estado.estado != ERROR) {
-      LOG_ERROR("ERROR comunicando con Domoticz: ", httpclient.errorToString(httpCode).c_str()); 
-    }
-    return "Err2";
-  }
-  //vemos si la respuesta indica status error
+  //vemos si la respuesta recibida del Domoticz indica status error
   int pos = response.indexOf("\"status\" : \"ERR");
   if(pos != -1) {
     LOG_ERROR(" ** Domoticz a devuelto error: ", response.c_str()); 
@@ -2146,6 +2150,33 @@ bool serialDetect() {
   }
   return false;
 }    
+
+String sysInfo() {
+  
+  int sketchPercentUsed = ((float) ESP.getSketchSize() / (float) ESP.getFreeSketchSpace()) * 100;
+  int filesPercentUsed = ((float) LittleFS.usedBytes() / (float) LittleFS.totalBytes()) * 100;
+
+  String result;
+  result += "{\n";
+  result += "  \"FW version\": \"" + String(VERSION) + " Built on " __DATE__ " at " __TIME__ + "\",\n";
+  result += "  \"esp_idf_version\": \"" + String(esp_get_idf_version()) + "\",\n";
+  result += "  \"arduino_version\": \"" + String(ESP_ARDUINO_VERSION_MAJOR) + "." + String(ESP_ARDUINO_VERSION_MINOR) + "." + String(ESP_ARDUINO_VERSION_PATCH) + "\",\n";
+  result += "  \"Chip Model\": \"" + String(ESP.getChipModel()) + "\",\n";
+  result += "  \"Chip Cores\": " + String(ESP.getChipCores()) + ",\n";
+  result += "  \"Chip Revision\": " + String(ESP.getChipRevision()) + ",\n";
+  result += "  \"FlashSize\": \"" + convertFileSize(ESP.getFlashChipSize()) + "\",\n";
+  result += "  \"SketchSpace \": \"" + convertFileSize(ESP.getFreeSketchSpace()) + "\",\n";
+  result += "  \"SketchSize  (percent used)\": \"" + String(ESP.getSketchSize()) + "   (" + String(sketchPercentUsed) + "%)\",\n";
+  result += "  \"HeapSize\": " + String(ESP.getHeapSize()) + ",\n";
+  result += "  \"FreeHeap\": " + String(ESP.getFreeHeap()) + ",\n";
+  result += "  \"MaxAllocHeap (largest free block)\": " + String(ESP.getMaxAllocHeap()) + ",\n";
+  result += "  \"MinFreeHeap (lowes since boot)\": " + String(ESP.getMinFreeHeap()) + ",\n";
+  result += "  \"File System Total\": \"" + convertFileSize(LittleFS.totalBytes()) + "\",\n";
+  result += "  \"File System Used (percent used)\": \"" + convertFileSize(LittleFS.usedBytes()) + "   (" + String(filesPercentUsed) + "%)\",\n";
+  result += "  \"ESP32 temperature\": \"" + String(temperatureRead()) + " ºC\"\n";
+  result += "}";
+  return result;
+} // sysInfo()
 
 // **************************************************************************
 // Atajos Stop+Enc+Grupo_n

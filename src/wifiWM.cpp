@@ -1,6 +1,5 @@
 /*
- * Nuevo metodo de conexion a la red wifi usando WifiManager
- *  - no se codifican en el pgm (wifissid.h) las redes wifi y sus pw
+ * Conexion a la red wifi usando WifiManager
 */
 #include "Control.h"
 
