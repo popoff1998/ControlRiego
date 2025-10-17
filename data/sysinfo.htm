@@ -50,7 +50,9 @@
     </table>
 
     <script>
-        fetch('/$sysinfo')
+        // Solicitar sysinfo
+        // antes: fetch('/$sysinfo')
+        fetch('/api/sysinfo')
             .then(response => {
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);

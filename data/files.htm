@@ -40,13 +40,25 @@
       const queryParams = new URLSearchParams(window.location.search);
       console.log("Query Parameters:", Object.fromEntries(queryParams.entries()));
       const dir = queryParams.get("dir") || "/"; // Get 'directory passed or default to root
-      fetch(`/$list?dir=${encodeURIComponent(dir)}`)
+      fetch(`/api/list?dir=${encodeURIComponent(dir)}`)
         .then(function (data) { return data.json(); })
         .then(data => {
           populateTable(data, "filesTableBody");
         })
         .catch(error => console.error("Error fetching file data:", error));
     });
+
+    // antes:
+    // fetch('/api/list?dir=' + encodeURIComponent(dir) + '&file=' + encodeURIComponent(filter))
+    // ahora:
+    //fetch('/api/list?dir=' + encodeURIComponent(dir) + '&file=' + encodeURIComponent(filter))
+    //  .then(r => r.json())
+    //  .then(json => {
+        // ...existing code...
+    //  })
+    //  .catch(err => {
+        // ...existing code...
+    //  });
 
   </script>
 </body>

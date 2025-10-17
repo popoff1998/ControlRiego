@@ -91,7 +91,9 @@
                 buttonContainer.appendChild(createButton("Download", () => downloadFile(file.name)));
                 const deleteButton = createButton("Delete", () => {
                     if (confirm("Delete " + file.name + " ?")) {
-                        fetch(file.name, { method: 'DELETE' }) .then (response => location.reload()); // Reload the page to update the table
+                        // ensure explicit absolute path for DELETE
+                        fetch('/' + file.name, { method: 'DELETE' })
+                          .then(response => location.reload());
                     }
                 });
                 deleteButton.className = "button-delete"; // Add a class for styling (color rojo)
@@ -125,7 +127,8 @@
 
         // Function to handle file copy (Backup, Restore)
         function handleFileAction(action, filename) {
-            fetch(action, { method: 'COPY' })
+            // call the server copy endpoints as absolute paths (e.g. /BACKUP or /RESTORE)
+            fetch('/' + action, { method: 'COPY' })
                 .then(response => {
                     if (response.ok) {
                         alert(`${action} OK!`);
@@ -136,5 +139,20 @@
                     }
                 })
                 .catch(error => console.error(`Error during ${action}:`, error));
+        }
+
+        // Rutas API centralizadas (usar en el resto de scripts)
+        const API_LIST    = '/api/list';
+        const API_SYSINFO = '/api/sysinfo';
+        const API_RESTART = '/api/restart';
+        const API_CONFIG  = '/api/config';
+        const API_SHOWZONELOG = '/api/showZONElog';
+
+        // Ejemplo de helper para GET JSON
+        function apiGetJson(path) {
+          return fetch(path).then(r => {
+            if (!r.ok) throw new Error('network');
+            return r.json();
+          });
         }
 

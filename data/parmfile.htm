@@ -1,4 +1,4 @@
-  <!-- 
+<!-- 
    Esta página, parmfile.htm, permite gestionar el fichero de parámetros de la CCR.
    Permite cargar un nuevo fichero de parámetros desde el PC o crear uno nuevo a partir de una plantilla 
    Tambien ver el contenido del fichero actual, descargarlo al PC, hacerle un backup o editarlo
@@ -87,7 +87,7 @@ button {
                 .then(response => {
                 if (response.ok) {
                     if (confirm("File uploaded successfully! ¿Desea reiniciar el sistema para aplicar los cambios?")) {
-                        window.location.href='/$restart'; // Restart device to apply changes
+                        window.location.href='/api/restart'; // Restart device to apply changes
                     } else location.reload(); // Reload the page to update the table
                 } else alert("Failed to upload the file.");
                 })
@@ -141,13 +141,13 @@ button {
 
         // Fetch and display the data when the page loads
         window.addEventListener("load", () => {
-            fetch('/$list?file=' + encodeURIComponent('%PARMFILE%'))
+            fetch('/api/list?file=' + encodeURIComponent('%PARMFILE%'))
                 .then(function (data) { return data.json(); })
                 .then(data => {
                     populateTable(data, "parmTableBody");
                 })
                 .catch(error => console.error("Error fetching file data:", error));
-            fetch('/$list?file=' + encodeURIComponent('%BACKUPFILE%'))
+            fetch('/api/list?file=' + encodeURIComponent('%BACKUPFILE%'))
                 .then(function (data) { return data.json(); })
                 .then(data => {
                     populateTable(data, "backupTableBody");
@@ -156,5 +156,23 @@ button {
         });
         
     </script>
+    <script>
+  function saveParmFile(jsonData) {
+    fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(jsonData)
+    }).then(r => {
+      if (r.ok) {
+        // ...existing code...
+      } else {
+        // ...existing code...
+      }
+    }).catch(err => {
+      // ...existing code...
+    });
+  }
+  // ...existing code...
+</script>
 </body>
 </html>
