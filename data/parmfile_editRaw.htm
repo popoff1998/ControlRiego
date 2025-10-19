@@ -132,7 +132,7 @@ form.addEventListener('submit', (event) => {
     const content = textarea.value;
 
     // Enviar el contenido al servidor
-    fetch('/save_config', {
+    fetch('/api/save_config', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'

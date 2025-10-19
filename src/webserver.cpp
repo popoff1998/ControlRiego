@@ -67,8 +67,17 @@ static void sendTextResponse(int code, const char* contentType, const String &pa
     wserver.send(code, contentType, payload);
 }
 
-static bool littleFsFileExists(const String &path) {
-    return LittleFS.exists(path);
+static String obtainFileName() {
+    if (!wserver.hasArg("file")) {
+      wserver.send(400, "text/plain", "Bad Request: Missing 'file' parameter");
+      return "";
+    }
+    String filename = wserver.arg("file");
+    if (!LittleFS.exists(filename)) {
+      wserver.send(400, "text/plain", "Bad Request: file not found");
+      return "";
+    }
+    return filename;  
 }
 
 static String buildFileListJSON(File &dir, const String &filter) {
@@ -100,6 +109,55 @@ static void sendFileAttachment(const String &filename) {
     wserver.sendHeader("Connection", "close");
     wserver.streamFile(download, "application/octet-stream");
     download.close();
+}
+
+// ---------------------------
+// Server utils (moved here)
+// ---------------------------
+String GetContentType(String filename) {
+  if(filename.endsWith(".htm")) return "text/html";
+  else if(filename.endsWith(".html")) return "text/html";
+  else if(filename.endsWith(".css")) return "text/css";
+  else if(filename.endsWith(".xml")) return "text/xml";
+  else if(filename.endsWith(".png")) return "image/png";
+  else if(filename.endsWith(".gif")) return "image/gif";
+  else if(filename.endsWith(".jpg")) return "image/jpeg";
+  else if(filename.endsWith(".ico")) return "image/x-icon";
+  else if(filename.endsWith(".json")) return "application/json";
+  else if(filename.endsWith(".js")) return "application/javascript";
+  else if(filename.endsWith(".pdf")) return "application/x-pdf";
+  else if(filename.endsWith(".zip")) return "application/x-zip";
+  else if(filename.endsWith(".gz")) return "application/x-gzip";
+  return "text/plain";
+}
+
+void serveFile(String path, String contentType) {
+   TRACE2("Serving file: %s contentType: %s \n", path.c_str(), contentType.c_str());
+   File file = LittleFS.open(path, "r");
+   size_t sent = wserver.streamFile(file, contentType);
+   file.close();
+}
+
+void serveFile(String path) {
+   String contentType = GetContentType(path);
+   serveFile(path, contentType);
+}   
+
+bool HandleFileReadGzip(String path) {
+  if (path.endsWith("/")) path += "index.html";
+  Serial.println("handleFileRead: " + path);
+  if (LittleFS.exists(path)) {
+    serveFile(path, GetContentType(path));
+    return true;
+  } else {
+    String pathWithGz = path + ".gz";
+    if (LittleFS.exists(pathWithGz)) {
+      serveFile(pathWithGz, GetContentType(path));
+      return true;
+    }
+  }
+  Serial.println("\tFile Not Found");
+  return false;
 }
 
 // ---------------------------
@@ -205,16 +263,18 @@ void handleShowZONElog() {
 
 // download endpoint wrapper
 void handleDownload() {
-  if (!wserver.hasArg("file")) {
-    wserver.send(400, "text/plain", "Bad Request: Missing 'file' parameter");
-    return;
-  }
-  String filename = wserver.arg("file");
-  sendFileAttachment(filename);
+  String filename = obtainFileName();
+  if (!filename.isEmpty()) sendFileAttachment(filename);
+}
+
+// servedirect endpoint wrapper
+void handleShowFile() {
+  String filename = obtainFileName();
+  if (!filename.isEmpty()) serveFile(filename);
 }
 
 // ---------------------------
-// FileServerHandler (sin cambios funcionales)
+// FileServerHandler 
 // ---------------------------
 class FileServerHandler : public RequestHandler {
     public:
@@ -229,7 +289,7 @@ class FileServerHandler : public RequestHandler {
         return (uri == "/");
       }
       bool handle(WebServer &server, HTTPMethod requestMethod, String requestUri) override {
-        String fName = requestUri;
+        String fName = wserver.urlDecode(requestUri); // elimina codificacion URL %..
         if (!fName.startsWith("/")) { fName = "/" + fName; }
         bool handleOK = false;
         TRACE2("handle %s\n", fName.c_str());
@@ -297,30 +357,23 @@ class FileServerHandler : public RequestHandler {
 // Route registration
 // ---------------------------
 void defWebpages() {
-    TRACE2("Register redirect...\n");
     wserver.on("/", HTTP_GET, handleRedirect);
-    TRACE2("Register service handlers...\n");
-    wserver.on("/$upload.htm", HTTP_GET, []() { wserver.send(200, "text/html", FPSTR(uploadContent)); }); // serve a built-in htm page
-    wserver.on("/advanced.htm", HTTP_GET, handleAdvancedPage);
-
+    wserver.on("/$upload.htm",     HTTP_GET, []() { wserver.send(200, "text/html", FPSTR(uploadContent)); }); // serve a built-in htm page
+    wserver.on("/advanced.htm",    HTTP_GET,  handleAdvancedPage);
     // Rutas renombradas a /api/ para coherencia
     wserver.on("/api/list",        HTTP_GET,  handleListFiles);     // antes: "/$list"
     wserver.on("/api/sysinfo",     HTTP_GET,  handleSysInfo);       // antes: "/$sysinfo"
     wserver.on("/api/restart",     HTTP_GET,  handleRestart);       // antes: "/$restart"
     wserver.on("/api/showZONElog", HTTP_GET,  handleShowZONElog);   // sin cambio
-    wserver.on("/download",        HTTP_GET,  handleDownload);      // descarga de ficheros
     wserver.on("/api/config",      HTTP_POST, handleSaveConfig);    // antes: "/save_config"
-
-    TRACE2("Register file system handlers...\n");
+    wserver.on("/download",        HTTP_GET,  handleDownload);      // descarga de ficheros
+    wserver.on("/showfile",        HTTP_GET,  handleShowFile);      // muestra contenido fichero en el navegador
     // UPLOAD and DELETE of files in the file system using a request handler.
     wserver.addHandler(new FileServerHandler());
     // enable CORS header in webserver results
     wserver.enableCORS(true);
     wserver.serveStatic("/", LittleFS, "/");
-    TRACE2("Register default (not found) answer...\n");
-    wserver.onNotFound([]() {
-      wserver.send(404, "text/html", FPSTR(notFoundContent));
-    });
+    wserver.onNotFound([]() {wserver.send(404, "text/html", FPSTR(notFoundContent));}); // serve a built-in htm page
 }
 
 // ---------------------------
@@ -363,63 +416,35 @@ void endWS() {
   webServerAct = false;
 }
 
-// ---------------------------
-// Server utils (moved here)
-// ---------------------------
-String GetContentType(String filename) {
-  if(filename.endsWith(".htm")) return "text/html";
-  else if(filename.endsWith(".html")) return "text/html";
-  else if(filename.endsWith(".css")) return "text/css";
-  else if(filename.endsWith(".json")) return "text/json";
-  else if(filename.endsWith(".xml")) return "text/xml";
-  else if(filename.endsWith(".png")) return "image/png";
-  else if(filename.endsWith(".gif")) return "image/gif";
-  else if(filename.endsWith(".jpg")) return "image/jpeg";
-  else if(filename.endsWith(".ico")) return "image/x-icon";
-  else if(filename.endsWith(".js")) return "application/javascript";
-  else if(filename.endsWith(".pdf")) return "application/x-pdf";
-  else if(filename.endsWith(".zip")) return "application/x-zip";
-  else if(filename.endsWith(".gz")) return "application/x-gzip";
-  return "text/plain";
-}
+#endif
 
-void ServeFile(String path) {
-   File file = LittleFS.open(path, "r");
-   size_t sent = wserver.streamFile(file, GetContentType(path));
-   file.close();
-}
-
-void ServeFile(String path, String contentType) {
-   File file = LittleFS.open(path, "r");
-   size_t sent = wserver.streamFile(file, contentType);
-   file.close();
-}
-
-bool HandleFileRead(String path) {
-  if (path.endsWith("/")) path += "index.html";
-  Serial.println("handleFileRead: " + path);
-  if (LittleFS.exists(path)) {
-    ServeFile(path);
-    return true;
-  }
-  Serial.println("\tFile Not Found");
-  return false;
-}
-
-bool HandleFileReadGzip(String path) {
-  if (path.endsWith("/")) path += "index.html";
-  Serial.println("handleFileRead: " + path);
-  if (LittleFS.exists(path)) {
-    ServeFile(path, GetContentType(path));
-    return true;
-  } else {
-    String pathWithGz = path + ".gz";
-    if (LittleFS.exists(pathWithGz)) {
-      ServeFile(pathWithGz, GetContentType(path));
-      return true;
+/*
+void PrintArgs() {
+    TRACE2("Argumentos recibidos:\n");
+    for (int i = 0; i < wserver.args(); i++) {
+        TRACE2("  %s: %s\n", wserver.argName(i).c_str(), wserver.arg(i).c_str());
+      }
+    }
+    
+// URL decode function parseado de https://stackoverflow.com/questions/154536/encode-decode-urls-in-c
+static String urlDecode(const String &s) {
+  TRACE2("urlDecode recibido: %s\n", s.c_str());
+  String out;
+  out.reserve(s.length());
+  for (size_t i = 0; i < s.length(); ++i) {
+    char c = s[i];
+    if (c == '+') {
+      out += ' ';
+    } else if (c == '%' && i + 2 < s.length()) {
+      char hex[3] = { s[i+1], s[i+2], 0 };
+      char decoded = (char) strtol(hex, nullptr, 16);
+      out += decoded;
+      i += 2;
+    } else {
+      out += c;
     }
   }
-  Serial.println("\tFile Not Found");
-  return false;
+  TRACE2("urlDecode devuelto: %s\n", out.c_str());
+  return out;
 }
-#endif
+*/

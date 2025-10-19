@@ -29,7 +29,9 @@
             // Filename
             const filenameCell = document.createElement("td");
             const filenameLink = document.createElement("a");
-            filenameLink.href = file.type == "dir" ? '/files.htm?dir=/'+file.name : '/' + file.name; 
+            if (tableId === "filesTableBody")
+                 filenameLink.href = file.type == "dir" ? '/files.htm?dir=/'+file.name : '/showfile?file=/'+file.name; 
+            else filenameLink.href = '/' + file.name; 
             filenameLink.target = "_blank"; // Open in a new tab
             filenameLink.textContent = file.name;
             filenameCell.appendChild(filenameLink);
@@ -37,7 +39,6 @@
 
             // Size
             const sizeCell = document.createElement("td");
-            //sizeCell.textContent = file.size;
             sizeCell.textContent = file.type == "dir" ? "directory" : file.size;
             sizeCell.style.textAlign = "center";
             sizeCell.style.width = "15%";

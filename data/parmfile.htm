@@ -26,10 +26,19 @@
         gap: 20px;
     }
 
+    .back-button {
+        background-color: #3da3aa; /* color como la cabecera */
+        color: #fff;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.95rem;
+    }
+
     @media (max-width: 768px) {
-        .container {
-            gap: 10px;
-        }
+        .container { gap: 10px; }
+        .back-button { padding: 6px 10px; font-size: 0.9rem; }
     }
 
 form {
@@ -53,9 +62,11 @@ button {
   
 <body>
     <h1 style="margin-top: 20px;">Gestion fichero de parámetros</h1>
-    
+
+    <button class="back-button" onclick="window.location.href='/index.htm'">← Volver</button>
+
     <div class="container">
-        <h3>Carga de parámetros a la CCR:</h3>
+        <h2>Carga de parámetros a la CCR:</h2>
         <form id="uploadForm" enctype="multipart/form-data" style="white-space: nowrap" >
             <input type="file" id="fileInput" name="file" accept=".json" required>
             <span style="display: inline-block; width: 5px;"></span>
@@ -75,9 +86,6 @@ button {
 
             const formData = new FormData();
             formData.append('file', file, '%PARMFILE%'); // Specify the filename here
-            //formData.append('file', file, 'config_parm.json'); // Specify the filename here
-            // If you want to keep the original filename, you can use the line below instead:
-            //formData.append('file', file);
 
             if (confirm("¡los parámetros actuales serán sustituidos por los de " + file.name + " ! ¿Continuar?")) {
                 fetch('/', {
@@ -107,8 +115,7 @@ button {
             }
         </script>
     </div>
-
-    <h3>fichero de Parámetros en la CCR: </h1>
+    <h3>fichero de Parámetros en la CCR: </h3>
     <table style="margin: 0 auto;">  <!-- tabla centrada -->
         <thead>
             <tr>
@@ -156,23 +163,5 @@ button {
         });
         
     </script>
-    <script>
-  function saveParmFile(jsonData) {
-    fetch('/api/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(jsonData)
-    }).then(r => {
-      if (r.ok) {
-        // ...existing code...
-      } else {
-        // ...existing code...
-      }
-    }).catch(err => {
-      // ...existing code...
-    });
-  }
-  // ...existing code...
-</script>
 </body>
 </html>
