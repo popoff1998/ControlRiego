@@ -61,7 +61,7 @@ button {
 </style>  
   
 <body>
-    <h1 style="margin-top: 20px;">Gestion fichero de parámetros</h1>
+    <h1 style="margin-top: 20px;">Gestión fichero de parámetros</h1>
 
     <button class="back-button" onclick="window.location.href='/index.htm'">← Volver</button>
 
@@ -115,11 +115,11 @@ button {
             }
         </script>
     </div>
-    <h3>fichero de Parámetros en la CCR: </h3>
+    <h3>Fichero de Parámetros en la CCR: </h3>
     <table style="margin: 0 auto;">  <!-- tabla centrada -->
         <thead>
             <tr>
-                <th>Filename</th>
+                <th>Nombre</th>
                 <th style="text-align: center;">Tamaño</th>
                 <th style="text-align: center;">Timestamp</th>
                 <th style="text-align: center;">Acción</th>
@@ -129,11 +129,11 @@ button {
             <!-- Rows will be dynamically added here -->
         </tbody>
     </table>
-    <h3>fichero de Backup en la CCR:</h3>
+    <h3>Fichero de Backup en la CCR:</h3>
     <table style="margin: 0 auto;">  <!-- tabla centrada -->
         <thead>
             <tr>
-                <th>Filename</th>
+                <th>Nombre</th>
                 <th style="text-align: center;">Tamaño</th>
                 <th style="text-align: center;">Timestamp</th>
                 <th style="text-align: center;">Acción</th>
@@ -148,14 +148,12 @@ button {
 
         // Fetch and display the data when the page loads
         window.addEventListener("load", () => {
-            fetch('/api/list?file=' + encodeURIComponent('%PARMFILE%'))
-                .then(function (data) { return data.json(); })
+            apiGetJson('/api/list?file=' + encodeURIComponent('%PARMFILE%'))
                 .then(data => {
                     populateTable(data, "parmTableBody");
                 })
                 .catch(error => console.error("Error fetching file data:", error));
-            fetch('/api/list?file=' + encodeURIComponent('%BACKUPFILE%'))
-                .then(function (data) { return data.json(); })
+            apiGetJson('/api/list?file=' + encodeURIComponent('%BACKUPFILE%'))
                 .then(data => {
                     populateTable(data, "backupTableBody");
                 })

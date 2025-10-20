@@ -12,6 +12,8 @@
     * - createButton: Crea un botón con un evento de clic.
     * - downloadFile: Maneja la descarga de archivos.
     * - handleFileAction: Maneja acciones de copia de archivos (respaldo y restauración).
+    * - handleFileDelete: Maneja la eliminación de archivos.
+    * - apiGetJson: Helper para realizar solicitudes GET y obtener JSON.
     */
 
 
@@ -75,9 +77,7 @@
                 actionCell.appendChild(buttonContainer);
             } else if (tableId === "backupTableBody") {
                 const restoreButton = createButton("Restore", () => {
-                    if (confirm("Copiar " + file.name + " a config_parm.json ?")) {
-                        handleFileAction("RESTORE", file.name);
-                    }
+                    if (confirm("Copiar " + file.name + " a config_parm.json ?")) handleFileAction("RESTORE", file.name);
                 });
                 restoreButton.className = "button-restore"; // Add a class for styling (color teja)
                 actionCell.appendChild(restoreButton);
@@ -91,11 +91,7 @@
 
                 buttonContainer.appendChild(createButton("Download", () => downloadFile(file.name)));
                 const deleteButton = createButton("Delete", () => {
-                    if (confirm("Delete " + file.name + " ?")) {
-                        // ensure explicit absolute path for DELETE
-                        fetch('/' + file.name, { method: 'DELETE' })
-                          .then(response => location.reload());
-                    }
+                    if (confirm("Delete " + file.name + " ?")) handleFileDelete(file.name);
                 });
                 deleteButton.className = "button-delete"; // Add a class for styling (color rojo)
                 buttonContainer.appendChild(deleteButton);
@@ -132,22 +128,31 @@
             fetch('/' + action, { method: 'COPY' })
                 .then(response => {
                     if (response.ok) {
-                        alert(`${action} OK!`);
-                        if (action === "RESTORE") alert("Deberia reiniciar el sistema para aplicar los cambios");
+                        if (action === "RESTORE") { 
+                            if (confirm("Restore OK! ¿Desea reiniciar el sistema para aplicar los cambios?")) {
+                                return fetch('/api/restart').then(() => {
+                                    alert('System restarting...');
+                                });                                 
+                            }
+                        } else alert(`${action} OK!`);
                         location.reload(); // Reload the page to update the table
                     } else {
                         alert(`Failed to ${action.toLowerCase()} the file.`);
                     }
                 })
                 .catch(error => console.error(`Error during ${action}:`, error));
+            }
+            
+        // Function to handle file deletion
+        function handleFileDelete(filename) {
+            // ensure explicit absolute path for DELETE
+            fetch('/' + filename, { method: 'DELETE' })
+            .then(response => {
+                if (response.ok) location.reload(); // Reload the page to update the table
+                else alert(`Failed to delete the file.`);
+            })
+            .catch(error => console.error(`Error during delete:`, error));
         }
-
-        // Rutas API centralizadas (usar en el resto de scripts)
-        const API_LIST    = '/api/list';
-        const API_SYSINFO = '/api/sysinfo';
-        const API_RESTART = '/api/restart';
-        const API_CONFIG  = '/api/config';
-        const API_SHOWZONELOG = '/api/showZONElog';
 
         // Ejemplo de helper para GET JSON
         function apiGetJson(path) {

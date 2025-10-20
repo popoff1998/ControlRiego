@@ -62,22 +62,20 @@ static void sendNoCacheJSON(const String &payload) {
     wserver.sendHeader("Cache-Control", "no-cache");
     wserver.send(200, "application/json; charset=utf-8", payload);
 }
-
-static void sendTextResponse(int code, const char* contentType, const String &payload) {
-    wserver.send(code, contentType, payload);
-}
-
-static String obtainFileName() {
+static String obtainPath() {
     if (!wserver.hasArg("file")) {
       wserver.send(400, "text/plain", "Bad Request: Missing 'file' parameter");
       return "";
     }
-    String filename = wserver.arg("file");
-    if (!LittleFS.exists(filename)) {
+    String path = wserver.arg("file");
+    LOG_DEBUG("arg 'file' recibido:", path);
+    if (!path.startsWith("/")) { path = "/" + path; }
+    if (!LittleFS.exists(path)) {
       wserver.send(400, "text/plain", "Bad Request: file not found");
+      LOG_ERROR("No existe: ", path);
       return "";
     }
-    return filename;  
+    return path;  
 }
 
 static String buildFileListJSON(File &dir, const String &filter) {
@@ -98,14 +96,18 @@ static String buildFileListJSON(File &dir, const String &filter) {
     return result;
 }
 
-static void sendFileAttachment(const String &filename) {
-    File download = LittleFS.open("/"+filename);
+static void sendFileAttachment(const String &path) {
+    LOG_DEBUG("path:", path);
+    File download = LittleFS.open(path);
     if (!download) {
       wserver.send(404, "text/plain", "File not found");
+      LOG_ERROR("Not found:", path);
       return;
     }
+    String filename = path.substring(path.lastIndexOf('/') + 1);
+    LOG_DEBUG("filename:", filename);
     wserver.sendHeader("Content-Type", "text/text");
-    wserver.sendHeader("Content-Disposition", "attachment; filename="+filename);
+    wserver.sendHeader("Content-Disposition", "attachment; filename=\""+filename+"\"; filename*=UTF-8''"+filename);
     wserver.sendHeader("Connection", "close");
     wserver.streamFile(download, "application/octet-stream");
     download.close();
@@ -263,14 +265,15 @@ void handleShowZONElog() {
 
 // download endpoint wrapper
 void handleDownload() {
-  String filename = obtainFileName();
-  if (!filename.isEmpty()) sendFileAttachment(filename);
+  String path = obtainPath();
+  LOG_DEBUG("path:", path);
+  if (!path.isEmpty()) sendFileAttachment(path);
 }
 
 // servedirect endpoint wrapper
 void handleShowFile() {
-  String filename = obtainFileName();
-  if (!filename.isEmpty()) serveFile(filename);
+  String path = obtainPath();
+  if (!path.isEmpty()) serveFile(path);
 }
 
 // ---------------------------
@@ -365,7 +368,7 @@ void defWebpages() {
     wserver.on("/api/sysinfo",     HTTP_GET,  handleSysInfo);       // antes: "/$sysinfo"
     wserver.on("/api/restart",     HTTP_GET,  handleRestart);       // antes: "/$restart"
     wserver.on("/api/showZONElog", HTTP_GET,  handleShowZONElog);   // sin cambio
-    wserver.on("/api/config",      HTTP_POST, handleSaveConfig);    // antes: "/save_config"
+    wserver.on("/api/save_config", HTTP_POST, handleSaveConfig);    // antes: "/save_config"
     wserver.on("/download",        HTTP_GET,  handleDownload);      // descarga de ficheros
     wserver.on("/showfile",        HTTP_GET,  handleShowFile);      // muestra contenido fichero en el navegador
     // UPLOAD and DELETE of files in the file system using a request handler.
