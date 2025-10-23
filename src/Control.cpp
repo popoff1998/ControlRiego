@@ -83,7 +83,6 @@ void setup()
     else sonido.bipKO();
     saveConfig = false;
   }
-  // delay(1000);
   //Obtenemos hora del servidor ntp y ajustamos hora del sistema y timezone
   setClock();
   //Cargamos factorRiegos
@@ -588,6 +587,12 @@ void procesaBotonZona(void)
   salte a mostrar info de la siguiente al detectar el enc pulsado  */
   } //fin de procesaBotonZona
 
+void procesaIfWebServer()
+{
+  #ifdef WEBSERVER
+    procesaWebServer();
+  #endif    
+} 
 
 /*
  La mecanica general de la maquina de estados en modo normal es que primero se procesa el boton pulsado, 
@@ -634,7 +639,7 @@ void procesaEstadoConfigurando()
             }
       }
     }
-  } else webServerAct ? procesaWebServer() : procesaEncoderConfig();
+  } else webServerAct ? procesaIfWebServer() : procesaEncoderConfig();
 }; //fin de procesaEstadoConfigurando
 
 
@@ -1604,10 +1609,12 @@ String httpGetDomoticz(const String &message)
   String tmpStr = "http://" + String(config.domoticz_ip) + ":" + config.domoticz_port + String(message);
   LOG_DEBUG("TMPSTR:", tmpStr);
   httpclient.begin(client, tmpStr);
-  httpclient.setConnectTimeout(200); // set the timeout (ms) for establishing a connection to the server
-  httpclient.setTimeout(1000); // set the timeout (ms) for receiving a response from the server
+  httpclient.setConnectTimeout(HTTPCLIENTCONNECTTIMEOUT);
+  httpclient.setTimeout(HTTPCLIENTRESPONSETIMEOUT);
   String response = "{}";
+  unsigned long currentMillis = millis();
   int httpCode = httpclient.GET();
+  LOG_DEBUG("respuesta recibida en :", millis()-currentMillis, "ms");
   if(httpCode > 0) {
     if(httpCode == HTTP_CODE_OK) {
         response = httpclient.getString();
@@ -2175,11 +2182,13 @@ String sysInfo() {
 
 // Shortcut Webserver
 void scWebserver() {
+  #ifdef WEBSERVER
     if(connected) {
       setEstado(CONFIGURANDO);
       setupWS();
     }  
     else BIPKO; //no es posible
+  #endif  
 }
 
 // Shortcut Eastern Egg

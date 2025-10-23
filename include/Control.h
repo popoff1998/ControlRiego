@@ -99,7 +99,7 @@
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0]))
        
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.3-beta5"   // version del software
+                            #define VERSION  "3.3-beta6"   // version del software
   //-------------------------------------------------------------------------------------
 
   //Comportamiento General
@@ -125,6 +125,9 @@
   #define HOLDTIME            3000    // mseg que hay que mantener PAUSE pulsado para ciertas acciones
   #define MAXCONNECTRETRY     10      // numero maximo de reintentos de reconexion a la wifi tras el fallo en inicio
   #define VERIFY_INTERVAL     15      // intervalo en segundos entre verificaciones periodicas
+  #define HTTPCLIENTCONNECTTIMEOUT  500   // timeout (ms) para establecer conexion con el servidor Domoticz
+  #define HTTPCLIENTRESPONSETIMEOUT 1000  // timeout (ms) para recibir respuesta del servidor Domoticz
+  #define MAX_UPLOAD_KBYTES   30      // tamaño maximo del fichero para hacer upload en KB
   #define DEFAULT_SWITCH_RETRIES 3    // numero de reintentos para parar o encender una zona de riego en el Domoticz
   #define DELAYRETRY          1500    // mseg de retardo entre reintentos
   #define MAXLEDLEVEL         255     // * nivel maximo leds RGB (0 a 255)

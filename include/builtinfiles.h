@@ -19,31 +19,33 @@ R"==(
 
 <body style="width:300px">
   <h1>Upload</h1>
-  <div><a href="/">Home</a></div>
+  <div style="margin-bottom:30px;"><a href="/">Home</a></div>
+
   <hr>
-  <div id='zone' style='width:16em;height:12em;padding:10px;background-color:#ddd'>Drop files here...</div>
-
-  <!-- Simple file selector added -->
-  <div style="margin-top:10px;">
-    <input type="file" id="fileInput" />
-    <button id="btnUpload">Upload</button>
+  <div id='zone' style='width:16em;height:12em;padding:10px;background-color:#ddd;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;'>
+  <div style='color:blue;font-weight:bold;margin-top:4px;'>Drop files here...</div>
+  <div style='color:blue;font-weight:bold;margin-top:6px;'>... or click to select file</div>
   </div>
+  <hr>
 
-  <script>
-    // allow drag&drop of file objects 
+  <div style="margin-top:10px;">
+    <!-- input invisible: se abrirá al hacer click en el área de drop -->
+    <input type="file" id="fileInput" style="display:none" />
+   </div>
+ 
+   <script>
+
     function dragHelper(e) {
       e.stopPropagation();
       e.preventDefault();
     }
 
-    // allow drag&drop of file objects 
     function dropped(e) {
       dragHelper(e);
       var fls = e.dataTransfer.files;
       uploadFiles(fls);
     }
 
-    // Upload helper used by drag&drop and file input
     function uploadFiles(fileList) {
       if (!fileList || fileList.length === 0) {
         alert('No file selected.');
@@ -54,29 +56,37 @@ R"==(
         formData.append('file', fileList[i], '/' + fileList[i].name);
       }
       fetch('/', { method: 'POST', body: formData })
-        .then(function () { window.alert('done.'); })
-        .catch(function (err) { window.alert('Upload failed'); console.error(err); });
+        .then(function (resp) {
+          if (!resp.ok) {
+            // obtener texto devuelto por el servidor (ej. "File too large") y mostrarlo
+            resp.text().then(function(body){
+              window.alert('Upload failed: ' + resp.status + ' - ' + body);
+            });
+            return;
+          }
+          // éxito
+          window.alert('done.');
+        })
+        .catch(function (err) { window.alert('Upload failed (network)'); console.error(err); });
     }
 
+    // cuando cambie el input (selección por diálogo), subir ficheros
     document.getElementById('fileInput').addEventListener('change', function(e) {
       uploadFiles(e.target.files);
     });
 
-    document.getElementById('btnUpload').addEventListener('click', function() {
-      var inp = document.getElementById('fileInput');
-      if (inp.files.length === 0) {
-        alert('Select a file first.');
-        return;
-      }
-      uploadFiles(inp.files);
-    });
-
+    // drag & drop + click handlers
     var z = document.getElementById('zone');
+    z.style.cursor = 'pointer';
+    z.addEventListener('click', function (e) {
+      // abrir diálogo de selección de ficheros
+      document.getElementById('fileInput').click();
+    }, false);
     z.addEventListener('dragenter', dragHelper, false);
     z.addEventListener('dragover', dragHelper, false);
     z.addEventListener('drop', dropped, false);
-  </script>
-</body>
+   </script>
+ </body>
 )==";
 
 // used for $upload.htm

@@ -15,7 +15,9 @@ class Configure
       DFLT_TIME     ,   
       COPY_BACKUP   ,
       WIFI_PARM     ,
-      WEBSERVER_ACT ,
+      #ifdef WEBSERVER 
+      WEBSERVER_ACT , 
+      #endif
       LOAD_BACKUP   ,
       ESP32_TEMP    ,
       LED_DIMM_LVL  , 
