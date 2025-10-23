@@ -35,7 +35,7 @@
    #include "builtinfiles.h"
 
    // enable the CUSTOM_ETAG_CALC to enable calculation of ETags by a custom function
-   #define CUSTOM_ETAG_CALC
+  //  #define CUSTOM_ETAG_CALC
 
    // mark parameters not used in example
    #define UNUSED __attribute__((unused))
@@ -45,11 +45,9 @@
    const char* update_password = "admin";
 
    #ifdef DEVELOP
-      #define TRACE2(...) Serial.printf(__VA_ARGS__)
       const bool httpUpdateDebug = true;  //enable serial debug msgs
    #else
       const bool httpUpdateDebug = false;
-      #define TRACE2(...)           // TRACE2 output simplified, can be deactivated here
    #endif 
 
     WebServer wserver(WSPORT);
@@ -57,43 +55,43 @@
 
 // ---------------------------
 // Helpers (send, utilidades)
+//  (las funciones definidas como static solo son visibles en este fichero)
 // ---------------------------
 static void sendNoCacheJSON(const String &payload) {
     wserver.sendHeader("Cache-Control", "no-cache");
     wserver.send(200, "application/json; charset=utf-8", payload);
 }
-static String obtainPath() {
+static bool obtainPath(String &outPath) {
     if (!wserver.hasArg("file")) {
       wserver.send(400, "text/plain", "Bad Request: Missing 'file' parameter");
-      return "";
+      return false;
     }
-    String path = wserver.arg("file");
-    LOG_DEBUG("arg 'file' recibido:", path);
-    if (!path.startsWith("/")) { path = "/" + path; }
-    if (!LittleFS.exists(path)) {
+    outPath = wserver.arg("file");
+    LOG_DEBUG("arg 'file' recibido:", outPath);
+    if (!outPath.startsWith("/")) { outPath = "/" + outPath; }
+    if (!LittleFS.exists(outPath)) {
       wserver.send(400, "text/plain", "Bad Request: file not found");
-      LOG_ERROR("No existe: ", path);
-      return "";
+      LOG_ERROR("No existe: ", outPath);
+      return false;
     }
-    return path;  
+    return true;
 }
 
-static String buildFileListJSON(File &dir, const String &filter) {
-    String result = "[\n";
+static void buildFileListJSON(File &dir, const String &filter, String &outResult) {
+    outResult = "[\n";
     while (File entry = dir.openNextFile()) {
       String filename = String(entry.name());
       if (filename.startsWith(filter) || filter == "") {
-          if (result != "[\n") { result += ",\n"; }
-          result += "  {";
-          result += "\"type\": \"" + String(entry.isDirectory() ? "dir" : "file") + "\", ";
-          result += "\"name\": \"" + String(entry.path()).substring(1) + "\", ";
-          result += "\"size\": " + String(entry.size()) + ", ";
-          result += "\"time\": " + String(entry.getLastWrite());
-          result += "}";
+          if (outResult != "[\n") { outResult += ",\n"; }
+          outResult += "  {";
+          outResult += "\"type\": \"" + String(entry.isDirectory() ? "dir" : "file") + "\", ";
+          outResult += "\"name\": \"" + String(entry.path()).substring(1) + "\", ";
+          outResult += "\"size\": " + String(entry.size()) + ", ";
+          outResult += "\"time\": " + String(entry.getLastWrite());
+          outResult += "}";
       }
     }
-    result += "\n]";
-    return result;
+    outResult += "\n]";
 }
 
 static void sendFileAttachment(const String &path) {
@@ -116,7 +114,7 @@ static void sendFileAttachment(const String &path) {
 // ---------------------------
 // Server utils (moved here)
 // ---------------------------
-String GetContentType(String filename) {
+const char* GetContentType(const String &filename) {  
   if(filename.endsWith(".htm")) return "text/html";
   else if(filename.endsWith(".html")) return "text/html";
   else if(filename.endsWith(".css")) return "text/css";
@@ -134,7 +132,7 @@ String GetContentType(String filename) {
 }
 
 void serveFile(String path, String contentType) {
-   TRACE2("Serving file: %s contentType: %s \n", path.c_str(), contentType.c_str());
+   LOG_DEBUG("Serving file:", path, "contentType:", contentType);
    File file = LittleFS.open(path, "r");
    size_t sent = wserver.streamFile(file, contentType);
    file.close();
@@ -168,7 +166,7 @@ bool HandleFileReadGzip(String path) {
 
 // redirect to index or upload
 void handleRedirect() {
-  TRACE2("Redirect...\n");
+  LOG_DEBUG("Redirecting to /index.htm or /$upload.htm");
   String url = "/index.htm";
   if (!LittleFS.exists(url)) { url = "/$upload.htm"; }
   wserver.sendHeader("Location", url, true);
@@ -182,29 +180,31 @@ void handleRedirect() {
 // - file: the filter for the file names (default is '')
 // a JSON array is returned with the file information.
 void handleListFiles() {
-  TRACE2("handleListFiles, Argumentos recibidos:\n");
+  LOG_DEBUG("Argumentos recibidos:");
   for (int i = 0; i < wserver.args(); i++) {
-      TRACE2("  %s: %s\n", wserver.argName(i).c_str(), wserver.arg(i).c_str());
+      LOG_DEBUG("  ", wserver.argName(i), ": ", wserver.arg(i));
   }
   String path = "/";
   if (wserver.hasArg("dir")) path = wserver.arg("dir");
-  TRACE2("handleListFiles, listing: %s\n", path.c_str());
+  LOG_DEBUG("Listing directory:", path);
   String filter = "";
   if (wserver.hasArg("file")) {
     filter = wserver.arg("file");
     if (filter == "%PARMFILE%") { filter = parmFile; }
     if (filter == "%BACKUPFILE%") { filter = backupParmFile; }
     if (filter.startsWith("/")) { filter = filter.substring(1); }
-    TRACE2("handleListFiles filter: %s\n", filter.c_str());
+    LOG_DEBUG("Filtering files with prefix:", filter);
   }
   File dir = LittleFS.open(path, "r");
-  String result = buildFileListJSON(dir, filter);
+  String result;
+  result.reserve(1024); // reservar para reducir reallocs
+  buildFileListJSON(dir, filter, result);
   sendNoCacheJSON(result);
 }
 
 // restart device
 void handleRestart() {
-  TRACE2("Restarting ESP32...\n");
+  LOG_DEBUG("Restarting ESP32...");
   wserver.send(200, "text/plain", "Restarting ESP32...");
   delay(500);
   ESP.restart();
@@ -219,7 +219,6 @@ void handleSysInfo() {
 
 // save config (body contains JSON)
 void handleSaveConfig() {
-  TRACE2("handleSaveConfig entrada");
   if (!wserver.hasArg("plain")) {
       wserver.send(400, "text/plain", "Bad Request: Missing JSON body");
       return;
@@ -265,15 +264,19 @@ void handleShowZONElog() {
 
 // download endpoint wrapper
 void handleDownload() {
-  String path = obtainPath();
-  LOG_DEBUG("path:", path);
-  if (!path.isEmpty()) sendFileAttachment(path);
+  String path;
+  if (obtainPath(path)) {
+    LOG_DEBUG("path:", path);
+    sendFileAttachment(path);
+  }
 }
-
+ 
 // servedirect endpoint wrapper
 void handleShowFile() {
-  String path = obtainPath();
-  if (!path.isEmpty()) serveFile(path);
+  String path;
+  if (obtainPath(path)) {
+    serveFile(path);
+  }
 }
 
 // ---------------------------
@@ -281,36 +284,34 @@ void handleShowFile() {
 // ---------------------------
 class FileServerHandler : public RequestHandler {
     public:
-      FileServerHandler() {
-        TRACE2("FileServerHandler is registered\n");
-      }
+      FileServerHandler() { }
       bool canHandle(HTTPMethod requestMethod, String UNUSED uri) override {
+        LOG_TRACE("uri:", uri, "Method:", requestMethod);
         return ((requestMethod == HTTP_POST) || (requestMethod == HTTP_DELETE) || (requestMethod == HTTP_COPY));
       }
       bool canUpload(String uri) override {
-        TRACE2("canUpload uri received: %s\n", uri.c_str());
+        LOG_TRACE("uri received:", uri);
         return (uri == "/");
       }
       bool handle(WebServer &server, HTTPMethod requestMethod, String requestUri) override {
         String fName = wserver.urlDecode(requestUri); // elimina codificacion URL %..
         if (!fName.startsWith("/")) { fName = "/" + fName; }
         bool handleOK = false;
-        TRACE2("handle %s\n", fName.c_str());
+        // const char *s = http_method_str(static_cast<enum http_method>(requestMethod));
+        // LOG_TRACE("Method:", s);
+        LOG_DEBUG("Handling:", fName, "Method:", requestMethod);
         if (requestMethod == HTTP_POST) {
-          TRACE2("POST %s\n", fName.c_str());
           handleOK = true;
         } 
         if (requestMethod == HTTP_COPY) {
           String fileFrom , fileTo;
-          TRACE2("COPY %s\n", fName.c_str());
           if (fName == "/BACKUP") {fileFrom = parmFile; fileTo = backupParmFile;}
           if (fName == "/RESTORE") {fileFrom = backupParmFile; fileTo = parmFile;}
-          TRACE2("HTTP_COPY %s : %s to %s\n", fName.c_str(), fileFrom.c_str(), fileTo.c_str());
+          LOG_DEBUG("Copying file from ", fileFrom, " to ", fileTo);
           handleOK = copyConfigFile(fileFrom.c_str(), fileTo.c_str());
         }  
         if (requestMethod == HTTP_DELETE) {
           if (LittleFS.exists(fName)) {
-            TRACE2("DELETE %s\n", fName.c_str());
             handleOK = LittleFS.remove(fName);
           }
         }
@@ -323,33 +324,66 @@ class FileServerHandler : public RequestHandler {
         }
       }
       void upload(WebServer UNUSED &server, String UNUSED _requestUri, HTTPUpload &upload) override {
+        const size_t MAX_UPLOAD_BYTES = MAX_UPLOAD_KBYTES*1024UL;
         static size_t uploadSize;
+        static bool uploadTooLarge = false;
+
         if (upload.status == UPLOAD_FILE_START) {
+          uploadTooLarge = false;
+          uploadSize = 0;
           String fName = upload.filename;
           if (fName == "%PARMFILE%") { fName = parmFile; }
           if (!fName.startsWith("/")) { fName = "/" + fName; }
-          TRACE2("start uploading file %s...\n", fName.c_str());
+          LOG_DEBUG("Start uploading file:", fName, " declared size:", upload.totalSize);
+          // Si el cliente ha enviado totalSize y excede el límite, rechazar ya
+          if (upload.totalSize > 0 && (size_t)upload.totalSize > MAX_UPLOAD_BYTES) {
+            LOG_WARN("Upload rejected: declared size exceeds limit:", upload.totalSize);
+            wserver.send(413, "text/plain", "File too large");
+            uploadTooLarge = true;
+            return;
+          }
           if (LittleFS.exists(fName)) LittleFS.remove(fName);
           _fsUploadFile = LittleFS.open(fName, "w");
-          uploadSize = 0;
+          if (!_fsUploadFile) {
+            LOG_ERROR("Cannot open file for upload:", fName);
+            wserver.send(500, "text/plain", "Internal Server Error");
+            uploadTooLarge = true;
+            return;
+          }
         } else if (upload.status == UPLOAD_FILE_WRITE) {
+          if (uploadTooLarge) return; // ya rechazado
           if (_fsUploadFile) {
             size_t written = _fsUploadFile.write(upload.buf, upload.currentSize);
             if (written < upload.currentSize) {
-              TRACE2("  write error!\n");
+              LOG_ERROR("Error escribiendo fichero de upload");
               _fsUploadFile.close();
               String fName = upload.filename;
               if (!fName.startsWith("/")) { fName = "/" + fName; }
               LittleFS.remove(fName);
+              wserver.send(500, "text/plain", "Write error");
+              uploadTooLarge = true;
+              return;
             }
             uploadSize += upload.currentSize;
+            // Si el tamaño real supera el límite, cortar y notificar
+            if (uploadSize > MAX_UPLOAD_BYTES) {
+              LOG_WARN("Upload exceeded size limit, aborting. bytes:", uploadSize);
+              _fsUploadFile.close();
+              String fName = upload.filename;
+              if (!fName.startsWith("/")) { fName = "/" + fName; }
+              LittleFS.remove(fName);
+              uploadTooLarge = true;
+              wserver.send(413, "text/plain", "File too large");
+              return;
+            }
           }
         } else if (upload.status == UPLOAD_FILE_END) {
-            TRACE2("finished.\n");
+            LOG_DEBUG("Finished upload");
           if (_fsUploadFile) {
             _fsUploadFile.close();
-            TRACE2(" %d bytes uploaded.\n", upload.totalSize);
+            LOG_DEBUG("Upload completed, total size:", upload.totalSize ? upload.totalSize : uploadSize);
           }
+          // Si fue rechazado por tamaño, ya se envió 413 anteriormente.
         }
       }
     protected:
@@ -359,11 +393,12 @@ class FileServerHandler : public RequestHandler {
 // ---------------------------
 // Route registration
 // ---------------------------
-void defWebpages() {
+void defWebpagesHandles() {
     wserver.on("/", HTTP_GET, handleRedirect);
+    // paginas html builting comienzan por $
     wserver.on("/$upload.htm",     HTTP_GET, []() { wserver.send(200, "text/html", FPSTR(uploadContent)); }); // serve a built-in htm page
     wserver.on("/advanced.htm",    HTTP_GET,  handleAdvancedPage);
-    // Rutas renombradas a /api/ para coherencia
+    // Rutas que devuelven/esperan un JSON renombradas a /api/ para coherencia
     wserver.on("/api/list",        HTTP_GET,  handleListFiles);     // antes: "/$list"
     wserver.on("/api/sysinfo",     HTTP_GET,  handleSysInfo);       // antes: "/$sysinfo"
     wserver.on("/api/restart",     HTTP_GET,  handleRestart);       // antes: "/$restart"
@@ -393,17 +428,13 @@ void displayWSinfo() {
 
 void setupWS() {
   if (!MDNS.begin(HOSTNAME)) LOG_ERROR("Error iniciando mDNS");
-  else LOG_INFO("mDNS iniciado");
   httpUpdater.setup(&wserver, update_path, update_username, update_password);
-  defWebpages();
+  defWebpagesHandles();
   MDNS.addService("http", "tcp", WSPORT);
   wserver.begin();
   webServerAct = true;
-  LOG_INFO("[WS] HTTPUpdateServer ready!");
-  Serial.printf("[WS]    --> Open http://%s.local:%d%s in your browser and login with username '%s' and password '%s'\n\n", WiFi.getHostname(), WSPORT, update_path, update_username, update_password);
-  TRACE2("hostname=%s\n", WiFi.getHostname());
-  LOG_INFO("[ConF][WS] IP address: ", WiFi.localIP(), ":", WSPORT);
-  LOG_INFO("[ConF][WS] activado webserver para actualizaciones OTA de SW o filesystem");
+  Serial.printf("[WS] HTTPUpdateServer ready!\n   --> Open http://%s.local:%d%s in your browser and login with username '%s' and password '%s'\n\n", WiFi.getHostname(), WSPORT, update_path, update_username, update_password);
+  LOG_INFO("[WS] Activado webserverIP address: ", WiFi.localIP(), ":", WSPORT);
   displayWSinfo();
 }
 
@@ -412,9 +443,8 @@ void procesaWebServer() {
 }
 
 void endWS() {
-  TRACE2("terminando MDNS...\n");
   MDNS.end();
-  TRACE2("terminando webserver...\n");
+  LOG_INFO("Terminando webserver...");
   wserver.stop();
   webServerAct = false;
 }
@@ -423,15 +453,15 @@ void endWS() {
 
 /*
 void PrintArgs() {
-    TRACE2("Argumentos recibidos:\n");
+    LOG_INFO("Argumentos recibidos:");
     for (int i = 0; i < wserver.args(); i++) {
-        TRACE2("  %s: %s\n", wserver.argName(i).c_str(), wserver.arg(i).c_str());
+        LOG_INFO("  ", wserver.argName(i), ": ", wserver.arg(i));
       }
     }
     
 // URL decode function parseado de https://stackoverflow.com/questions/154536/encode-decode-urls-in-c
 static String urlDecode(const String &s) {
-  TRACE2("urlDecode recibido: %s\n", s.c_str());
+  LOG_DEBUG("Decoding URL:", s);
   String out;
   out.reserve(s.length());
   for (size_t i = 0; i < s.length(); ++i) {
@@ -447,7 +477,7 @@ static String urlDecode(const String &s) {
       out += c;
     }
   }
-  TRACE2("urlDecode devuelto: %s\n", out.c_str());
+  LOG_DEBUG("Decoded URL:", out);
   return out;
 }
 */

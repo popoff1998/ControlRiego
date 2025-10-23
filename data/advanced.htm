@@ -35,25 +35,25 @@
   <img src="logo_Ardomo.png" style="margin-right: 40px;" align="right">
 
 
-  <p>The following pages are available:</p>
+  <!-- <p>The following pages are available:</p> -->
   <ul>
     <li><a href="/index.htm">HOME</a> - HomePage</li>
     <li><a href="/sysinfo.htm">SYSINFO</a> - System Information </li>
-
-    <p>OTA & File management:</p>
-    <p style="color: red;">(ATENCION: Estas opciones pueden alterar el funcionamiento del sistema)</p>
+  </ul>
+  <p>OTA & File management:</p>
+  <ul>
+    <p style="color: red;font-weight:bold;">(ATENCION: Las siguientes opciones pueden alterar el funcionamiento del sistema)</p>
     <li><a href="/files.htm">FILES</a> - Manage files on the server (browse, download or delete)</li>
     <li><a href="/$upload.htm">UPLOAD</a> - Upload individual files</a></li>
     <li><a href="/$update">OTA update</a> - Update Firmware or Filesystem</a></li>
   </ul>
-  
+  <p>Testing:</p>
   <ul id="testingSection">
-    <p>Testing:</p>
     <li><a href="/parmfile.htm">/parmfile.htm</a> - Manage configuration file</li>
     <li><a href="/parmfile_edit.htm">/parmfile_edit.htm</a> - Edit configuration file</li>
     <li><a href="/parmfile_edit.htm?file=sampleParm.json">/parmfile_edit.htm?file=sampleParm.json</a> - New configuration file</li>
     
-    <p>The following REST services are available:</p>
+    <p>The following REST services return a JSON:</p>
     <li><a href="/api/sysinfo">/api/sysinfo</a> - Some system level information</a></li>
     <li><a href="/api/list">/api/list</a> - Array of all files</a></li>
     <li><a href="/api/list?dir=/backup">/api/list?dir=/backup</a> - Array of all files in backup directory</a></li>
@@ -62,12 +62,13 @@
 
   <script>
     var showtestValue = (typeof showtest !== "undefined") ? showtest : "undefined";
+    // Muestra testingSection en funcion del valor de showtest (true en modo DEVELOP)
     if (showtestValue && showtestValue !== "undefined") {
       document.getElementById("testingSection").style.display = "";
     } else {
       document.getElementById("testingSection").style.display = "none";
     }
-    // Mostrar el valor de showtest en la página
+    // Muestra el valor de la variable showtest en la página
     var info = document.createElement("p");
     info.textContent = "Valor de showtest: " + showtestValue;
     document.body.appendChild(info);

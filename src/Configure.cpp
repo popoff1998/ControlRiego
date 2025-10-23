@@ -348,7 +348,9 @@ int Configure::showMenu(int opcion)
       opcionesMenuConf[DFLT_TIME]     = "Dflt TIME: ";
       opcionesMenuConf[COPY_BACKUP]   = "Copy to BACKUP";
       opcionesMenuConf[WIFI_PARM]     = "WIFI parm (AP)";
+      #ifdef WEBSERVER 
       opcionesMenuConf[WEBSERVER_ACT] = "WEBSERVER act.";
+      #endif
       opcionesMenuConf[LOAD_BACKUP]   = "Load from BACKUP";
       opcionesMenuConf[ESP32_TEMP]    =  "ESP32 temp: xx/";
       opcionesMenuConf[LED_DIMM_LVL]  = "Led DIMM lvl: ";

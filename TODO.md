@@ -2,8 +2,6 @@
 ============
 - boton Pause reflejado en Domoticz (en ambos sentidos)
 - en Standby añadir a PAUSA comprobar zonas en off (si VERIFY ON)
-- Explorar API domoticz:
-    - en webserver poder ver log riegos de una zona del domoticz (getlightlog) 
 - Si error de conexion durante el riego dar opcion de continuarlo al recuperarla ?
 
 # HECHOS
