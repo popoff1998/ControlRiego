@@ -110,7 +110,7 @@ void setupRedWM(S_initFlags &initFlags)
   //if this is set, it will exit after config, even if connection is unsuccessful
   wm.setBreakAfterConfig(true);
   //muestra version en el titulo de la pagina web inicial
-  wm.setTitle("Version: " + String(VERSION));
+  wm.setTitle("Version: " + String(FW_VERSION));
   //pagina de parametros independiente
   wm.setParamsPage(true);
   wm.addParameter(&custom_domoticz_server);

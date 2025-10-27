@@ -1,14 +1,21 @@
+/*
+    OTAupdateServer.h - HTTP OTA Update Server class for ESP32 using LittleFS
+    basado en HTTPUpdateServer.h de arduino-esp32 (GITHUB: arduino-esp32/libraries/HTTPUpdateServer)
+    
+    Nota: si existe una página /OTAupdate.htm en el dispositivo se servirá; 
+    en caso contrario la página serverOTA integrada del servidor será usada.
+*/
+
 #ifndef __HTTP_UPDATE_SERVER_H
 #define __HTTP_UPDATE_SERVER_H
 
-// #include<SPIFFS.h>
 #include <LittleFS.h>
 #include <StreamString.h>
 #include <Update.h>
 #include <WebServer.h>
 
 
-static const char serverIndex[] PROGMEM =
+static const char serverOTA[] PROGMEM =
  R"(<!DOCTYPE html>
     <html lang='en'>
     <head>
@@ -99,7 +106,46 @@ public:
         _server->on(path.c_str(), HTTP_GET, [&]() {
             if (_username != emptyString && _password != emptyString && !_server->authenticate(_username.c_str(), _password.c_str()))
                 return _server->requestAuthentication();
-            _server->send_P(200, PSTR("text/html"), serverIndex);
+
+            // obtener versión compilada (si está definida) para inyectar en la página
+            String version;
+          #ifdef FW_VERSION
+            version = String(FW_VERSION);
+          #else
+            version = String();
+          #endif
+
+            // leer parámetro opcional ?page=
+            String page;
+            if (_server->hasArg("page")) page = _server->arg("page");
+
+            // Construir prefijo con VERSION y marca SERVED (se usará también en JS del custom)
+            // Para built-in marcamos 'builtin', para custom 'custom' (ayuda al cliente a POSTear ?served=...)
+            String prefixCustom = String("<script>var VERSION = \"") + version + String("\"; var SERVED = \"custom\";</script>");
+
+            // lógica de selección:
+            // - si page == "builtin" -> servir siempre la página integrada
+            // - si page == "custom"  -> intentar servir OTAupdate.htm (si no existe, fallback a builtin)
+            // - si page vacío -> comportamiento por defecto: si existe OTAupdate.htm servirla, si no fallback builtin
+            if (page.equalsIgnoreCase("builtin")) {
+                _server->send(200, "text/html", FPSTR(serverOTA));
+                return;
+            }
+
+            // intentar servir custom si existe (page == "custom" o page is empty)
+            if (LittleFS.exists("/OTAupdate.htm") && !page.equalsIgnoreCase("builtin")) {
+                File f = LittleFS.open("/OTAupdate.htm", "r");
+                if (f) {
+                    String content = f.readString();
+                    f.close();
+                    // inyectar prefixCustom (VERSION + SERVED='custom') delante del contenido
+                    content = prefixCustom + content;
+                    _server->send(200, "text/html", content);
+                    return;
+                }
+            }
+            // fallback: serve built-in page
+                _server->send(200, "text/html", FPSTR(serverOTA));
             });
 
         // handler for the /update form POST (once file upload finishes)
@@ -107,11 +153,20 @@ public:
             if (!_authenticated)
                 return _server->requestAuthentication();
             if (Update.hasError()) {
-                _server->send(200, F("text/html"), String(F("Update error: ")) + _updaterError);
+                _server->send(418, F("text/html"), String(F("Update error: ")) + _updaterError);
             }
             else {
+                // decidir respuesta según parámetro 'served' presente en la URL ( ?served=custom or builtin )
+                bool servedCustom = _server->hasArg("served") && _server->arg("served").equalsIgnoreCase("custom");
+
                 _server->client().setNoDelay(true);
-                _server->send_P(200, PSTR("text/html"), successResponse);
+                if (servedCustom) {
+                    // responder con texto simple "responseOK" para custom
+                    _server->send(200, "text/plain", "Update Success! Rebooting...");
+                } else {
+                    // respuesta tradicional (successResponse) para built-in
+                    _server->send_P(200, PSTR("text/html"), successResponse);
+                }
                 delay(100);
                 _server->client().stop();
                 ESP.restart();

@@ -43,7 +43,7 @@ void setup()
   #endif
   delay(500);
 
-  PRINTLN("\n\n CONTROL RIEGO V" + String(VERSION) + "    Built on " __DATE__ " at " __TIME__  "\n");
+  PRINTLN("\n\n CONTROL RIEGO V" + String(FW_VERSION) + "    Built on " __DATE__ " at " __TIME__  "\n");
   #ifndef DEBUGLOG_DISABLE_LOG
     PRINTLN("\n (current log level is", (int)LOG_GET_LEVEL(), ")");
   #endif
@@ -2156,7 +2156,7 @@ String sysInfo() {
 
   String result;
   result += "{\n";
-  result += "  \"FW version\": \"" + String(VERSION) + " Built on " __DATE__ " at " __TIME__ + "\",\n";
+  result += "  \"FW version\": \"" + String(FW_VERSION) + " Built on " __DATE__ " at " __TIME__ + "\",\n";
   result += "  \"esp_idf_version\": \"" + String(esp_get_idf_version()) + "\",\n";
   result += "  \"arduino_version\": \"" + String(ESP_ARDUINO_VERSION_MAJOR) + "." + String(ESP_ARDUINO_VERSION_MINOR) + "." + String(ESP_ARDUINO_VERSION_PATCH) + "\",\n";
   result += "  \"Chip Model\": \"" + String(ESP.getChipModel()) + "\",\n";

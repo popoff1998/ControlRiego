@@ -52,10 +52,6 @@
     #include <HTTPClient.h>
     #include <WiFi.h>
     #include <WebServer.h>
-    #ifdef WEBSERVER
-      #include <ESPmDNS.h>
-      #include "HTTPUpdateServerLittleFs.h"
-    #endif
     #ifdef TEMPLOCAL
       #include <Adafruit_Sensor.h>
       #include <DHT.h>
@@ -99,7 +95,7 @@
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0]))
        
   //-------------------------------------------------------------------------------------
-                            #define VERSION  "3.3-beta6"   // version del software
+  //                #define FW_VERSION  movido a platformio.ini   // version del software
   //-------------------------------------------------------------------------------------
 
   //Comportamiento General

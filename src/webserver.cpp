@@ -1,8 +1,6 @@
-//servidor web para actualizaciones OTA del FW o del filesystem
+// Servidor web para actualizaciones OTA del FW o del filesystem, gestion de ficheros etc.
 // Adaptado de:
-// @file WebServer.ino (GITHUB: arduino-esp32/libraries/WebServer/examples/WebServer/WebServer.ino)
-// @brief Example WebServer implementation using the ESP32 WebServer
-// and most common use cases related to web servers.
+//  WebServer.ino (GITHUB: arduino-esp32/libraries/WebServer/examples/WebServer/WebServer.ino) by Gerhard Riegler
 //
 // * Setup a web server
 // * redirect when accessing the url with servername only
@@ -15,24 +13,12 @@
 // * serve APIs using REST services (/api/list, /api/sysinfo)
 // * define HTML response when no file/api/handler was found
 //
-// See also README.md for instructions and hints.
-//
-// Please use the following Arduino IDE configuration
-//
-// * Board: ESP32 Dev Module
-// * Partition Scheme: Default 4MB with spiffs (1.2MB APP/1.5MB SPIFFS)
-//     but LittleFS will be used in the partition (not SPIFFS)
-// * other setting as applicable
-//
-// Changelog:
-// 21.07.2021 creation, first version
-// 08.01.2023 ESP32 version with ETag
-
 #ifdef WEBSERVER
    #include "Control.h"
+   #include <ESPmDNS.h>
    
-   // The text of builtin files are in this header file
-   #include "builtinfiles.h"
+   #include "OTAupdateServer.h"  // HTTPUpdateServer adapted to use LittleFS
+   #include "builtinfiles.h"     // The text of builtin files are in this header file
 
    // enable the CUSTOM_ETAG_CALC to enable calculation of ETags by a custom function
   //  #define CUSTOM_ETAG_CALC
@@ -131,6 +117,10 @@ const char* GetContentType(const String &filename) {
   return "text/plain";
 }
 
+void printArgs() {
+  for (int i = 0; i < wserver.args(); i++) {LOG_DEBUG("  ", wserver.argName(i), ": ", wserver.arg(i));}
+}
+    
 void serveFile(String path, String contentType) {
    LOG_DEBUG("Serving file:", path, "contentType:", contentType);
    File file = LittleFS.open(path, "r");
@@ -181,9 +171,7 @@ void handleRedirect() {
 // a JSON array is returned with the file information.
 void handleListFiles() {
   LOG_DEBUG("Argumentos recibidos:");
-  for (int i = 0; i < wserver.args(); i++) {
-      LOG_DEBUG("  ", wserver.argName(i), ": ", wserver.arg(i));
-  }
+  printArgs();
   String path = "/";
   if (wserver.hasArg("dir")) path = wserver.arg("dir");
   LOG_DEBUG("Listing directory:", path);
@@ -452,13 +440,6 @@ void endWS() {
 #endif
 
 /*
-void PrintArgs() {
-    LOG_INFO("Argumentos recibidos:");
-    for (int i = 0; i < wserver.args(); i++) {
-        LOG_INFO("  ", wserver.argName(i), ": ", wserver.arg(i));
-      }
-    }
-    
 // URL decode function parseado de https://stackoverflow.com/questions/154536/encode-decode-urls-in-c
 static String urlDecode(const String &s) {
   LOG_DEBUG("Decoding URL:", s);

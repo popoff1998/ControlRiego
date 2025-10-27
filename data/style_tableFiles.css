@@ -1,4 +1,5 @@
 /* CSS Document */
+
 table {
     font-family:arial,sans-serif;
     font-size:1.0em;
@@ -12,6 +13,11 @@ th,td {
     border-bottom:0.06em solid #8a8a8a;
 } 
 tr:nth-child(odd) {background-color:#eeeeee;}
+
+/* reducir padding y fuente en móvil para ganar espacio */
+@media (max-width: 420px) {th, td { font-size: 0.85em; padding: 0.2em; }}
+/* ajustar ancho tabla según tamaño pantalla */
+@media (max-width: 768px) {table {width: 100% !important;}}
 
 .rcorners_n {border-radius:0.5em;background:#558ED5;padding:0.3em 0.3em;width:20%;color:white;font-size:75%;}
 .rcorners_m {border-radius:0.5em;background:#558ED5;padding:0.3em 0.3em;width:50%;color:white;font-size:75%;}
@@ -71,3 +77,12 @@ input[type="text"] {
     border-radius: 3px;
 }
 
+/* permitir wrapping solo en la columna de filename */
+td.filename, td.filename a {
+  white-space: normal;       /* permitir varias líneas */
+  word-break: break-word;    /* romper palabras largas si es necesario */
+  overflow-wrap: anywhere;   /* cambios en navegadores modernos */
+}
+
+/* ajustar ancho columna botones y margen vertical según tamaño pantalla */
+@media (max-width: 520px) {th.buttoncolumn, td.buttoncolumn { width: 20% !important; padding: 15px 3px !important;}}

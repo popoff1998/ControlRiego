@@ -9,7 +9,7 @@
 static const char uploadContent[] PROGMEM =
 R"==(
 <!doctype html>
-<html lang='en'>
+<html lang='en' style="font-family: Arial, Helvetica, sans-serif;">
 
 <head>
   <meta charset="utf-8">
@@ -18,20 +18,22 @@ R"==(
 </head>
 
 <body style="width:300px">
-  <h1>Upload</h1>
+  <h1 style="color:#135a8a; margin-left:8px;">Upload files</h1>
   <div style="margin-bottom:30px;"><a href="/">Home</a></div>
 
   <hr>
-  <div id='zone' style='width:16em;height:12em;padding:10px;background-color:#ddd;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;'>
-  <div style='color:blue;font-weight:bold;margin-top:4px;'>Drop files here...</div>
-  <div style='color:blue;font-weight:bold;margin-top:6px;'>... or click to select file</div>
+  <div id='zone' style='width:16em;height:12em;padding:10px;background-color:#3da3aa;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;'>
+    <div style='color:white;font-size:1.2em;'>Drop files here...</div>
+    <div style='color:white;font-size:1.2em;margin-top:6px;'>... or click to select files</div>
   </div>
   <hr>
-
+  
   <div style="margin-top:10px;">
-    <!-- input invisible: se abrirá al hacer click en el área de drop -->
-    <input type="file" id="fileInput" style="display:none" />
-   </div>
+  <!-- input invisible: se abrirá al hacer click en el área de drop -->
+  <input type="file" multiple id="fileInput" style="display:none" />
+  </div>
+  
+  <a style="color:#828282; font-size:0.9em; text-decoration:none;" title="Go to OTA page" href="/$update">OTA</a>
  
    <script>
 
@@ -87,6 +89,7 @@ R"==(
     z.addEventListener('drop', dropped, false);
    </script>
  </body>
+ </html>
 )==";
 
 // used for $upload.htm
@@ -99,4 +102,5 @@ static const char notFoundContent[] PROGMEM = R"==(
   <p>The resource was not found.</p>
   <p><a href="/">Start again</a></p>
 </body>
+</html>
 )==";

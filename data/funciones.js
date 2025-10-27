@@ -30,6 +30,7 @@
 
             // Filename
             const filenameCell = document.createElement("td");
+            filenameCell.className = "filename"; // Add a class for styling (wrap long names if needed)
             const filenameLink = document.createElement("a");
             if (tableId === "filesTableBody")
                  filenameLink.href = file.type == "dir" ? '/files.htm?dir=/'+file.name : '/showfile?file=/'+file.name; 
@@ -55,16 +56,17 @@
 
             // Actions
             const actionCell = document.createElement("td");
+            actionCell.className = "buttoncolumn"; // Add a class for styling
             actionCell.style.textAlign = "center";
             actionCell.style.width = "30%";
             actionCell.style.whiteSpace = "nowrap"; // Prevent wrapping
-            actionCell.style.padding = "5px 3px"; // Add some padding for better spacing
+            actionCell.style.padding = "8px 3px"; // Add some padding for better spacing
             if (tableId === "parmTableBody") {
                 const buttonContainer = document.createElement("div");
                 buttonContainer.style.display = "flex";
                 buttonContainer.style.flexWrap = "wrap";
                 buttonContainer.style.justifyContent = "center";
-                buttonContainer.style.gap = "10px"; // Add spacing between buttons
+                buttonContainer.style.gap = "20px"; // Add spacing between buttons
 
                 buttonContainer.appendChild(createButton("Export", () => downloadFile(file.name)));
                 buttonContainer.appendChild(createButton("Backup", () => handleFileAction("BACKUP", file.name)));
@@ -87,7 +89,7 @@
                 buttonContainer.style.display = "flex";
                 buttonContainer.style.flexWrap = "wrap";
                 buttonContainer.style.justifyContent = "center";
-                buttonContainer.style.gap = "10px"; // Add spacing between buttons
+                buttonContainer.style.gap = "15px"; // Add spacing between buttons
 
                 buttonContainer.appendChild(createButton("Download", () => downloadFile(file.name)));
                 const deleteButton = createButton("Delete", () => {

@@ -48,16 +48,16 @@ void DisplayLCD::initLCD() {
   print("Ardomo Aqua");
   setCursor(0, 2);
   print("Inicializando");
-  int longitud = strlen(VERSION);
+  int longitud = strlen(FW_VERSION);
   #ifdef DEVELOP
     longitud>13 ? setCursor(15,2) : setCursor(0, 3);
     print("(dev)");
   #endif
   if (longitud<19) {
     setCursor(LCDMAXLEN-(longitud+1), 3);
-    print("v" VERSION);
+    print("v" FW_VERSION);
   } else {
-    info("v" VERSION, 4);  // si VERSION es muy larga la truncamos
+    info("v" FW_VERSION, 4);  // si FW_VERSION es muy larga la truncamos
   }  
 }
 
@@ -155,9 +155,9 @@ void DisplayLCD::infoCut(const char *texto, uint8_t max) {
     int size = strlen(texto);
     if(size>max) {
       char infocut[max+1];
-      LOG_DEBUG("* texto recibido de longitud =",size);
+      LOG_WARN("* texto recibido de longitud =",size);
       strlcpy(infocut, texto, sizeof(infocut)); 
-      LOG_DEBUG("* texto acortado a =", static_cast<const char*>(infocut));
+      LOG_WARN("* texto acortado a =", static_cast<const char*>(infocut));
       LiquidCrystal_I2C::print(infocut);
     }
     else LiquidCrystal_I2C::print(texto);  

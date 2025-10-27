@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>OTA Update</title>
+  <style>
+    body { font-family: Arial,Helvetica,sans-serif; max-width:900px; margin:20px auto; color:#222 }
+    h1 { color:#135a8a; margin-left:8px;}
+    .row { display:flex; gap:20px; align-items:center; margin:18px 0; }
+    .card { border:1px solid #ddd; border-radius:8px; padding:14px; box-shadow:0 1px 3px 3px rgba(0,0,0,0.04) }
+    label { font-size: 1.5em; display:block;}
+    label2 { font-weight:600; font-size: 1.5em; display:block; margin-bottom:6px }
+    /* input[type=file] { display:block; font-size: 1em; padding: 10px 5px;} */
+    input[type=file] { display:block; font-size: 0.5em;}
+    .btn {
+          font-size: 1.2em; /* Aumentar el tamaño del texto */
+          padding: 10px 20px; /* Aumentar el relleno interno */
+          border: none;
+          border-radius: 5px;
+          background-color: #007BFF; /* Color de fondo */
+          color: white; /* Color del texto */
+          cursor: pointer;
+          margin-left: 50px; /* Desplazar un poco a la derecha */
+     }
+    .btn:hover { background-color: #c0116b; /* Color al pasar el cursor */ }
+    .progress-wrap { width:100%; margin-top:8px; }
+    .progress { width:100%; height:18px; background:#eee; border-radius:9px; overflow:hidden }
+    .progress > i { display:block; height:100%; width:0%; background:linear-gradient(90deg,#3da3aa,#007BFF); }
+    .percent { margin-left:8px; font-weight:700; color:#007BFF }
+    .status { margin-top:8px; color:#c00; font-weight:600 }
+    .muted { color:#666; font-size:0.9em }
+    .meta { margin-top:6px; text-align: right; }
+
+form { margin: 0 auto; padding: 1px 20px 1px; }
+
+div > p {
+  display: flex;
+  justify-content: space-between;
+  margin: 0px 0px 15px ;
+  list-style-type: none;
+}
+
+form p { line-height: 25px; }
+
+form label {
+  background-color: #e9e9e9;
+  padding: 5px 10px;
+  border-radius: 4px;
+  border: 1px solid black;
+  font-size: 0.95rem;
+  height: auto;
+  width: 170px;
+}
+form label:hover { background-color: #2d5ba3; color: white; }
+form label:active { background-color: #0d3f8f; color: white; }
+
+
+  </style>
+</head>
+<body>
+  <h1>OTA Update</h1>
+
+  <div class="card">
+    <div class="meta">Versión actual FW: <strong id="fwVersion">%VERSION%</strong></div>
+
+    <div style="margin-top:1px;">
+<!-- ------------------------------ Firmware ------------------------------------ -->
+    <h2 style="margin-top:1px;">Firmware</h2>
+    <form method="post" enctype="multipart/form-data">  
+      <div>
+        <label for="firmware">Seleccione fichero (.bin)</label>
+        <input type="file" id="firmware" name="firmware" accept=".bin" style="opacity: 0" />
+      </div>
+      <div class="preview">
+        <p>no se ha seleccionado fichero</p>
+      </div>
+
+      <button id="btnFirmware" type="button" class="btn">Actualizar Firmware</button>
+
+      <div class="progress-wrap" id="fwProgressWrap" style="display:none;">
+        <div class="progress"><i id="fwBar"></i></div><span class="percent" id="fwPct">0%</span>
+        <div class="status" id="fwStatus"></div>
+      </div>
+    </form>  
+
+    <hr style="margin:18px 0">
+
+<!-- ------------------------------ FileSystem ------------------------------------ -->    
+    <h2>FileSystem</h2>
+    <form method="post" enctype="multipart/form-data">  
+      <div>
+        <label for="filesystem">Seleccione fichero (.bin)</label>
+        <input type="file" id="filesystem" name="filesystem" accept=".bin" style="opacity: 0" />
+      </div>  
+      <div class="preview2">
+        <p>no se ha seleccionado fichero</p>
+      </div>  
+
+      <button id="btnFS" type="button" class="btn">Actualizar FileSystem</button>
+
+      <div class="progress-wrap" id="fsProgressWrap" style="display:none;">
+        <div class="progress"><i id="fsBar"></i></div><span class="percent" id="fsPct">0%</span>
+        <div class="status" id="fsStatus"></div>
+      </div>  
+    </form>    
+
+    </div>
+  </div>
+
+<script>
+  const MAX_FIRMWARE = 2 * 1024 * 1024;   // 2 MB
+  const MAX_FILESYSTEM = 256 * 1024;      // 256 KB
+
+(function(){
+  // URL donde se POSTea (la misma ruta que el handler del servidor)
+  const uploadPath = (window.location.pathname || '/$update') + (typeof SERVED !== 'undefined' ? '?served=' + SERVED : '');
+
+  function uploadFile(fileInput, progressWrap, barElem, pctElem, statusElem, fieldName) {
+    const files = fileInput.files;
+    if (!files || files.length === 0) { alert('Seleccione un fichero'); return; }
+    const file = files[0];
+
+    // Validación de tipo y tamaño antes de enviar
+    if (!validFileType(file)) {
+      alert('Tipo de fichero no válido: ' + file.name);
+      return;
+    }
+    const maxAllowed = (fieldName === 'firmware') ? MAX_FIRMWARE : MAX_FILESYSTEM;
+    if (file.size > maxAllowed) {
+      alert('El fichero "' + file.name + '" excede el tamaño máximo permitido: ' + returnFileSize(maxAllowed));
+      return;
+    }
+
+    const fd = new FormData();
+    // fieldName indica al servidor qué tipo de upload ('firmware' o 'filesystem')
+    fd.append(fieldName, file, file.name);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', uploadPath, true);
+
+    xhr.upload.addEventListener('progress', function(e){
+      if (e.lengthComputable) {
+        const pct = Math.round((e.loaded / e.total) * 100);
+        barElem.style.width = pct + '%';
+        pctElem.textContent = pct + '%';
+      }
+    });
+
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === XMLHttpRequest.DONE) {
+        // mostrar exactamente el texto que devuelva el servidor
+        const msg = (xhr.responseText || ('HTTP ' + xhr.status)).trim();
+        if (xhr.status >= 200 && xhr.status < 300) {
+          statusElem.style.color = 'green';
+          statusElem.textContent = msg;
+        } else {
+          statusElem.style.color = 'crimson';
+          statusElem.textContent = msg;
+        }
+      }
+    };
+
+    // mostrar UI progreso
+    progressWrap.style.display = '';
+    barElem.style.width = '0%';
+    pctElem.textContent = '0%';
+    statusElem.textContent = '';
+
+    xhr.send(fd);
+  }
+
+  // firmware: usar el input correcto y nombre de campo 'firmware'
+  document.getElementById('btnFirmware').addEventListener('click', function(e){
+    e.preventDefault();
+    uploadFile(document.getElementById('firmware'),
+               document.getElementById('fwProgressWrap'),
+               document.getElementById('fwBar'),
+               document.getElementById('fwPct'),
+               document.getElementById('fwStatus'),
+               'firmware');
+  });
+
+  // filesystem
+  document.getElementById('btnFS').addEventListener('click', function(){
+    uploadFile(document.getElementById('filesystem'),
+               document.getElementById('fsProgressWrap'),
+               document.getElementById('fsBar'),
+               document.getElementById('fsPct'),
+               document.getElementById('fsStatus'),
+               'filesystem');
+  });
+
+  // sustituir marcador por un valor si el servidor insertó una var JS VERSION 
+  (function initVersion() {
+    const el = document.getElementById('fwVersion');
+    if (!el) return;
+    if (typeof VERSION !== 'undefined') el.textContent = VERSION;
+  })();
+
+})();
+
+// ---- reemplazar bloques duplicados por una función común ----
+
+// tipos aceptados (mantener .bin aunque file.type pueda venir vacío)
+const fileTypes = [
+  "application/octet-stream",
+];
+
+function validFileType(file) {
+  if (!file) return false;
+  // aceptar por MIME si está presente
+  if (file.type && fileTypes.includes(file.type)) return true;
+  // fallback: aceptar por extensión .bin
+  return /\.bin$/i.test(file.name);
+}
+
+function returnFileSize(number) {
+  if (number < 1024) {
+    return `${number} bytes`;
+  } else if (number >= 1024 && number < 1024*1024) {
+    return `${(number / 1024).toFixed(1)} KB`;
+  }
+  return `${(number / (1024*1024)).toFixed(1)} MB`;
+}
+
+// función común para inicializar control de fichero (preview + validaciones)
+function setupFileControl(inputId, previewSelector, maxSize) {
+  const input = document.getElementById(inputId);
+  const preview = document.querySelector(previewSelector);
+  if (!input || !preview) return;
+
+  input.addEventListener('change', function() {
+    while (preview.firstChild) preview.removeChild(preview.firstChild);
+    const f = input.files && input.files[0];
+    const p = document.createElement('p');
+    if (!f) {
+      p.textContent = 'No se ha seleccionado fichero';
+    } else {
+      if (!validFileType(f)) {
+        p.textContent = `Tipo no válido: ${f.name}`;
+        p.style.color = 'crimson';
+      } else if (f.size > maxSize) {
+        p.textContent = `Tamaño: ${returnFileSize(f.size)} (excede ${returnFileSize(maxSize)})`;
+        p.style.color = 'crimson';
+      } else {
+        p.textContent = `${f.name} — Tamaño: ${returnFileSize(f.size)}`;
+        p.style.color = '';
+      }
+    }
+    preview.appendChild(p);
+  });
+}
+
+// inicializar ambos controles
+setupFileControl('firmware', '.preview', MAX_FIRMWARE);
+setupFileControl('filesystem', '.preview2', MAX_FILESYSTEM);
+
+</script>
+</body>
+</html>
