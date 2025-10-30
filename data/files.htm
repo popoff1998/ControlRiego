@@ -2,15 +2,24 @@
 
 <head>
   <title>Files</title>
+  <meta name='viewport' content='user-scalable=yes,initial-scale=1.0,width=device-width'>
   <link Content-Type="text/css" href="/style_base.css" rel="stylesheet" />
   <link Content-Type="text/css" href="/style_tableFiles.css" rel="stylesheet" />
-  <meta name='viewport' content='user-scalable=yes,initial-scale=1.0,width=device-width'>
   <script src="/funciones.js"></script>
+  <script>
+    // Si se llamo con ?style=cards, cargar la hoja de estilo correspondiente
+      const parametros = new URLSearchParams(window.location.search);
+      const style = parametros.get('style');
+      let hojaDeEstilo;
+      if (style === 'cards') {
+          hojaDeEstilo = '/style_datacard.css';
+          const link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = hojaDeEstilo;
+          document.head.appendChild(link);
+      }
+  </script>
 </head>
-
-<style>
-  body {max-width:65%;}
-</style>  
 
 </body>
 

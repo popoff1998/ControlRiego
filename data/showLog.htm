@@ -26,7 +26,7 @@
   <div class="table-container">
     <h1 style="margin-top: 20px;">Log de riegos en Domoticz</h1>
     <h2 id="titulo">Log de Zona</h2>
-    <table class="files-table" id="tablaLog">
+    <table class="files-table" id="tablaLog" style="margin: 0 auto;">
       <thead>
         <tr>
           <th>Fecha</th>
@@ -62,7 +62,7 @@
           tr.innerHTML = `
             <td data-label="Fecha">${entry.Date || "-"}</td>
             <td data-label="Estado" class="${estadoClass}">${entry.Status || "-"}</td>
-            <td data-label="Usuario">${entry.User || "-"}</td>
+            <td data-label="Usuario" class="force-wrap">${entry.User || "-"}</td>
           `;
           tbody.appendChild(tr);
         });

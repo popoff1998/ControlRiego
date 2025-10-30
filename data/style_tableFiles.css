@@ -86,3 +86,10 @@ td.filename, td.filename a {
 
 /* ajustar ancho columna botones y margen vertical según tamaño pantalla */
 @media (max-width: 520px) {th.buttoncolumn, td.buttoncolumn { width: 20% !important; padding: 15px 3px !important;}}
+
+/* Clase para usar en la celda que debe mantenerse en una sola línea */
+.no-wrap {white-space: nowrap;}
+/* Clase para usar en la celda con comportamiento estándar */
+.normal-wrap {white-space: normal;} /* Este es el valor por defecto */
+/* Clase para usar en la celda en la que si es necesario se partiran palabras largas */
+.force-wrap {overflow-wrap: break-word; word-break: break-word;}

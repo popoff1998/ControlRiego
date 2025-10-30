@@ -1,0 +1,39 @@
+/* Mobile card layout */
+/* Convierte la tabla en tarjetas para pantallas pequeñas */
+/* Basado en: https://css-tricks.com/responsive-data-tables/ */
+
+/* 
+Para cada celda <td>, se debe definir un atributo data-label con el nombre de la columna.
+    Ejemplo de uso en HTML:
+        <td class="filename" data-label="Filename">...</td>
+    o bien en JavaScript:
+        timestampCell.setAttribute('data-label','Timestamp'); 
+*/
+@media (max-width: 600px) {
+  table, thead, tbody, th, td, tr { display: block; width: 100%; }
+  thead { display: none; } /* ocultar encabezado */
+  tbody tr {
+    border: 1px solid #ccc;
+    margin: 0 0 12px 0;
+    padding: 8px;
+    border-radius: 6px;
+    background: #fff;
+  }
+  tbody tr td {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 8px;
+    border: none;
+    border-bottom: 1px dashed #e6e6e6;
+  }
+  tbody tr td:last-child { border-bottom: none; }
+  tbody tr td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    color: #333;
+    margin-right: 10px;
+    flex: 0 0 auto;
+  }
+  /* allow filename wrap inside card */
+  td.filename, td.filename a { white-space: normal; word-break: break-word; overflow-wrap: anywhere; }
+}

@@ -198,15 +198,42 @@ form label:active { background-color: #0d3f8f; color: white; }
     if (typeof VERSION !== 'undefined') el.textContent = VERSION;
   })();
 
+  // Evitar que el navegador "restaure" la selección de fichero tras reload/back/forward.
+  (function clearFileSelectionOnShow(){
+    function clearInputsAndPreviews(){
+      ['firmware','filesystem'].forEach(id=>{
+        const inp = document.getElementById(id);
+        if (inp) {
+          try { inp.value = ''; } catch(e) { /* no-op */ }
+          // reemplazar el input por un clon (el clone no mantiene FileList ni listeners)
+          const clone = inp.cloneNode(true);
+          inp.parentNode.replaceChild(clone, inp);
+          // re-inicializar control (vuelve a enlazar evento 'change' en el nuevo elemento)
+          if (typeof setupFileControl === 'function') {
+            if (id === 'firmware') setupFileControl('firmware', '.preview', MAX_FIRMWARE);
+            else setupFileControl('filesystem', '.preview2', MAX_FILESYSTEM);
+          }
+        }
+      });
+      const p = document.querySelector('.preview');
+      if (p) p.innerHTML = '<p>no se ha seleccionado fichero</p>';
+      const p2 = document.querySelector('.preview2');
+      if (p2) p2.innerHTML = '<p>no se ha seleccionado fichero</p>';
+    }
+    // Siempre limpiar cuando la página se muestra (incluye reload y bfcache)
+    window.addEventListener('pageshow', function(e){
+      clearInputsAndPreviews();
+    });
+    // Limpieza en carga normal
+    document.addEventListener('DOMContentLoaded', function(){ clearInputsAndPreviews(); });
+  })();
 })();
 
-// ---- reemplazar bloques duplicados por una función común ----
-
-// tipos aceptados (mantener .bin aunque file.type pueda venir vacío)
+// Lista de tipos MIME aceptados
 const fileTypes = [
-  "application/octet-stream",
+"application/octet-stream",
 ];
-
+// Valida tipo fichero (siempre acepta .bin aunque file.type pueda venir vacío o no estar en la lista)
 function validFileType(file) {
   if (!file) return false;
   // aceptar por MIME si está presente
@@ -241,11 +268,14 @@ function setupFileControl(inputId, previewSelector, maxSize) {
         p.textContent = `Tipo no válido: ${f.name}`;
         p.style.color = 'crimson';
       } else if (f.size > maxSize) {
-        p.textContent = `Tamaño: ${returnFileSize(f.size)} (excede ${returnFileSize(maxSize)})`;
+        p.textContent = `${f.name} - Tamaño: ${returnFileSize(f.size)} (excede ${returnFileSize(maxSize)})`;
         p.style.color = 'crimson';
       } else {
-        p.textContent = `${f.name} — Tamaño: ${returnFileSize(f.size)}`;
-        p.style.color = '';
+        p.textContent = `${f.name} (${returnFileSize(f.size)})`;
+        p.style.margin = '0px 50px 15px';
+        p.style.color = 'purple';
+        p.style.fontFamily = 'monospace';
+        p.style.fontSize = '1rem';
       }
     }
     preview.appendChild(p);

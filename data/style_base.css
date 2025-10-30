@@ -7,18 +7,17 @@ body {
     font-size:100%;
     background-color:#fdfdfd;
     padding:0.5em 0.5em;
+    max-width: 1050px;
 }
-
-
-@media (min-width: 1050px) and (max-width: 1200px) {body {max-width: 70% !important;}}
-@media (max-width: 1050px) {body {max-width: 100% !important;}}
-
-
-.container {
-    max-width: 800px;
-    margin: 50px auto;
-    text-align: center;
+.containerbase {
+    width: 90%;          /* Ocupa el 90% del ancho disponible */
+    max-width: 1050px;   /* Pero nunca más de 1200 píxeles */
+    margin: 0 auto;      /* Centra el contenedor */
 }
+@media (max-width: 1050px) {.containerbase {width: 100% !important;}}
+
+/* @media (min-width: 1050px) and (max-width: 1200px) {body {max-width: 80% !important;}} */
+
 
 h1 {
     color:white;

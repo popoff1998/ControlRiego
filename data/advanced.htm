@@ -8,48 +8,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 
-<style>
-  body {
-    max-width: 55%;
-  }
-  /* Aumentar el tamaño de la letra en todos los elementos excepto h1 
-  body *:not(h1) {
-    font-size: 1em;  
-  } 
-  */
-</style>
-
 <body>
   <h1>Ardomo Webserver Maintenance Menu</h1>
-  <img src="logo_Ardomo.png" style="margin-right: 40px; float: right;">
-
-  <br>
-  <ul>
-    <li><a href="/index.htm">HOME</a> - HomePage</li>
-    <li><a href="/sysinfo.htm">SYSINFO</a> - System Information </li>
-  </ul>
-  <p style="font-weight:bold;">OTA & File management:</p>
-  <ul>
-    <p style="color: red;font-weight:bold;">(ATENCION: Las siguientes opciones pueden alterar el funcionamiento del sistema)</p>
-    <li><a href="/files.htm">FILES</a> - Manage files on the server (browse, download or delete)</li>
-    <li><a href="/$upload.htm">UPLOAD</a> - Upload individual files</a></li>
-    <li><a href="/$update">OTA update</a> - Update Firmware or Filesystem</li>
-  </ul>
-  <div id="testingSection">
-    <p style="font-weight:bold;">Testing:</p>
-    <ul>
-      <li><a href="/$update?page=custom">OTA update (custom)</a> - Serve OTAupdate.htm if present</li>
-      <li><a href="/$update?page=builtin">OTA update (builtin)</a> - Force built-in page</li>
-      <li><a href="/parmfile_edit.htm?file=sampleParm.json">/parmfile_edit.htm?file=sampleParm.json</a> - New configuration file</li>
-      
-      <p>The following REST services return a JSON:</p>
-      <li><a href="/api/sysinfo">/api/sysinfo</a> - Some system level information</a></li>
-      <li><a href="/api/list">/api/list</a> - Array of all files</a></li>
-      <li><a href="/api/list?dir=/backup">/api/list?dir=/backup</a> - Array of all files in backup directory</a></li>
-      <li><a href="/api/showZONElog?zona=1">/api/showZONElog?zona=1</a> - Show ZONE log</a></li>
-    </ul>
+  <div class = containerbase>
+      <img src="logo_Ardomo.png" style="margin-right: 40px; float: right;">
+      <br>
+      <ul>
+        <li><a href="/index.htm">HOME</a> - HomePage</li>
+        <li><a href="/sysinfo.htm">SYSINFO</a> - System Information </li>
+      </ul>
+      <p style="font-weight:bold;">OTA & File management:</p>
+      <ul>
+        <p style="color: red;font-weight:bold;">(ATENCION: Las siguientes opciones pueden alterar el funcionamiento del sistema)</p>
+        <li><a href="/files.htm">FILES</a> - Manage files on the server (browse, download or delete)</li>
+        <li><a href="/$upload.htm">UPLOAD</a> - Upload individual files</a></li>
+        <li><a href="/$update">OTA update</a> - Update Firmware or Filesystem</li>
+      </ul>
+      <div id="testingSection">
+        <p style="font-weight:bold;">Testing:</p>
+        <ul>
+          <li><a href="/$update?page=custom">OTA update (custom)</a> - Serve OTAupdate.htm if present</li>
+          <li><a href="/$update?page=builtin">OTA update (builtin)</a> - Force built-in page</li>
+          <li><a href="/files.htm?style=cards">FILES (cards)</a> - Show files in cards format in small screens</li>
+          
+          <p>The following REST services return a JSON:</p>
+          <li><a href="/api/sysinfo">/api/sysinfo</a> - Some system level information</a></li>
+          <li><a href="/api/list">/api/list</a> - Array of all files</a></li>
+          <li><a href="/api/list?dir=/backup">/api/list?dir=/backup</a> - Array of all files in backup directory</a></li>
+          <li><a href="/api/showZONElog?zona=1">/api/showZONElog?zona=1</a> - Show ZONE log</a></li>
+        </ul>
+      </div>
   </div>
-
   <script>
   var showtestValue = (typeof showtest !== "undefined") ? showtest : "undefined";
   var testingSection = document.getElementById("testingSection");

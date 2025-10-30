@@ -31,6 +31,7 @@
             // Filename
             const filenameCell = document.createElement("td");
             filenameCell.className = "filename"; // Add a class for styling (wrap long names if needed)
+            filenameCell.setAttribute('data-label','Filename');
             const filenameLink = document.createElement("a");
             if (tableId === "filesTableBody")
                  filenameLink.href = file.type == "dir" ? '/files.htm?dir=/'+file.name : '/showfile?file=/'+file.name; 
@@ -45,13 +46,15 @@
             sizeCell.textContent = file.type == "dir" ? "directory" : file.size;
             sizeCell.style.textAlign = "center";
             sizeCell.style.width = "15%";
+            sizeCell.setAttribute('data-label','Size');
             row.appendChild(sizeCell);
 
             // Timestamp
             const timestampCell = document.createElement("td");
             timestampCell.textContent = new Date(file.time * 1000).toLocaleString();
             timestampCell.style.textAlign = "center";
-            timestampCell.style.width = "20%";      
+            timestampCell.style.width = "20%";
+            timestampCell.setAttribute('data-label','Timestamp');      
             row.appendChild(timestampCell);
 
             // Actions
@@ -61,6 +64,7 @@
             actionCell.style.width = "30%";
             actionCell.style.whiteSpace = "nowrap"; // Prevent wrapping
             actionCell.style.padding = "8px 3px"; // Add some padding for better spacing
+            actionCell.setAttribute('data-label','Acciones');
             if (tableId === "parmTableBody") {
                 const buttonContainer = document.createElement("div");
                 buttonContainer.style.display = "flex";
