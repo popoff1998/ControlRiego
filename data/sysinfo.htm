@@ -3,45 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link Content-Type="text/css" href="/style_base.css" rel="stylesheet" />
+    <link Content-Type="text/css" href="/style_tableFiles.css" rel="stylesheet" />
     <title>System Info</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f9f9f9;
-        }
-        h1 {
-            text-align: center;
-            color: #333;
-        }
         table {
-            width: 80%;
             margin: 20px auto;
-            border-collapse: collapse;
             background-color: #fff;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 10px;
-            text-align: left;
+        /* ---------------------------------------------------- */
+        /* REGLA RESPONSIVA: MOBILE-FIRST (Por defecto: 75%/25%) */
+        /* ---------------------------------------------------- */
+        
+        /* Primera columna (Nombre) - 75% */
+        #sysInfoTable th:first-child,
+        #sysInfoTable td:first-child {
+            width: 70%;
         }
-        th {
-            background-color: #f4f4f4;
-            color: #333;
+
+        /* Segunda columna (Valor) - 25% */
+        #sysInfoTable th:last-child,
+        #sysInfoTable td:last-child {
+            width: 30%;
         }
-        td {
-            color: #555;
+        /* ---------------------------------------------------- */
+        /* MEDIA QUERY: DESKTOP (Ancho mínimo de 768px: 50%/50%) */
+        /* ---------------------------------------------------- */
+        @media (min-width: 768px) {
+            #sysInfoTable th:first-child,
+            #sysInfoTable td:first-child {
+                width: 50%; /* Override a 50% */
+            }
+
+            #sysInfoTable th:last-child,
+            #sysInfoTable td:last-child {
+                width: 50%; /* Override a 50% */
+            }
         }
     </style>
 </head>
 <body>
     <h1>System Information</h1>
-    <table>
+    <table id="sysInfoTable">
         <thead>
             <tr>
-                <th>Key</th>
-                <th>Value</th>
+                <th>Nombre</th>
+                <th>Valor</th>
             </tr>
         </thead>
         <tbody id="sysInfoTableBody">
@@ -50,8 +57,6 @@
     </table>
 
     <script>
-        // Solicitar sysinfo
-        // antes: fetch('/$sysinfo')
         fetch('/api/sysinfo')
             .then(response => {
                 if (!response.ok) {

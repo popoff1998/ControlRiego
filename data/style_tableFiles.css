@@ -5,29 +5,20 @@ table {
     font-size:1.0em;
     border-collapse:collapse;
     width:85%;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 } 
 th,td {
     border:0.06em solid #898787;
     text-align:left;
     padding:0.3em;
-    border-bottom:0.06em solid #8a8a8a;
 } 
-tr:nth-child(odd) {background-color:#eeeeee;}
+th {background-color:#ebebeb; padding:0.6em; border-bottom:0.1em solid #8a8a8a;}
+tr:nth-child(even) {background-color:#f3f3f3;}
 
 /* reducir padding y fuente en móvil para ganar espacio */
 @media (max-width: 420px) {th, td { font-size: 0.85em; padding: 0.2em; }}
 /* ajustar ancho tabla según tamaño pantalla */
 @media (max-width: 768px) {table {width: 100% !important;}}
-
-.rcorners_n {border-radius:0.5em;background:#558ED5;padding:0.3em 0.3em;width:20%;color:white;font-size:75%;}
-.rcorners_m {border-radius:0.5em;background:#558ED5;padding:0.3em 0.3em;width:50%;color:white;font-size:75%;}
-.rcorners_w {border-radius:0.5em;background:#558ED5;padding:0.3em 0.3em;width:70%;color:white;font-size:75%;}
-.column{float:left;width:50%;height:45%;}
-.row:after{content:'';display:table;clear:both;}
-*{box-sizing:border-box;}
-
-/* a{font-size:75%;} */
-/* p{font-size:75%;} */
 
 button {
     padding: 8px 12px;

@@ -9,6 +9,9 @@ body {
     padding:0.5em 0.5em;
     max-width: 1050px;
 }
+
+*{box-sizing:border-box;}
+
 .containerbase {
     width: 90%;          /* Ocupa el 90% del ancho disponible */
     max-width: 1050px;   /* Pero nunca más de 1200 píxeles */
@@ -37,12 +40,52 @@ h3 {
     font-size:0.9em;
 }
 
-  a {
-    text-decoration: none; /* Elimina el subrayado */
-    font-size: 1.2em;
-    color: #0174ee; /* Color del enlace */
-  }
-  a:hover {
-    color: rgb(26, 7, 240);
-  }
-  .muted { color:#828282; font-size:0.9em }
+a {
+text-decoration: none; /* Elimina el subrayado */
+font-size: 1.2em;
+color: #0174ee; /* Color del enlace */
+}
+a:hover {
+color: rgb(26, 7, 240);
+}
+
+.muted { color:#828282; font-size:0.9em }
+.menu-big { padding-left: 4em; padding-top: 2em; font-size: 1.2em; }
+.menu { padding-left: 2em; font-size: 1.2em; }
+.logo { float: right; margin-left: 10px; margin-right: 40px; }
+
+.lista-alineada {
+    padding-left: 0; /* ¡Este es el paso fundamental para eliminar la sangría del navegador! */
+    list-style: none; /* (Opcional) Elimina las viñetas */
+}
+.lista-alineada li {
+    /* 1. Habilita CSS Grid en cada fila (<li>) */
+    display: grid; 
+    /* 2. DEFINE LAS COLUMNAS: 
+    - nnnpx para los enlaces (columna fija)
+    - 1fr para la descripción (ocupa el resto del espacio) */
+    grid-template-columns: 200px 1fr;
+    /* Alinea el contenido verticalmente en el centro */
+    align-items: center; 
+    /* Aplica la sangría de inicio al <li> completo */
+    padding: 8px 15px; 
+}
+.lista-alineada a {
+    /* Asegura que el texto se corte si es más largo que 180px */
+    overflow: hidden; 
+    white-space: nowrap; 
+    text-overflow: ellipsis;
+}
+.lista-alineada .descripcion {
+    /* Se coloca automáticamente en la segunda columna, y su inicio es fijo */
+    color: #666;
+    padding-left: 5px; /* Espacio extra de separación del enlace */
+}
+
+    @media (max-width: 768px) {.menu-big {padding-left: 1em;}}
+    @media (max-width: 768px) {.menu {padding-left: 0.5em; font-size: 1em;}}
+    @media (max-width: 510px) {
+        .logo {scale: 0.7; margin-right: 2px;}
+        .lista-alineada .descripcion { font-size: 0.9em; padding-left: 1px;}
+        .lista-alineada li, .lista-alineada a {display:block;}
+    } 

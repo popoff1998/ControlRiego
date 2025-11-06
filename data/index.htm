@@ -11,25 +11,25 @@
 <body>
   
   <h1>Ardomo Webserver Homepage</h1>
-  <img src="logo_Ardomo.png" style="margin-right: 40px; float: right;">
+  <img src="logo_Ardomo.png" class="logo">
 
-  <div style="padding-left: 2em; font-size: 1.2em;">
-      <ul>
-        <li><a href="/parmfile.htm">PARÁMETROS</a> - Gestionar el fichero de configuración</li>
+  <div class="menu-big">
+      <ul class="lista-alineada">
+        <li><a href="/parmfile.htm">PARÁMETROS</a> <span class="descripcion">- Gestionar el fichero de configuración</span></li>
         <br>
-        <li><a href="/lastRiegos.htm">RIEGOS</a> - Histórico de Riegos y Grupos</li>
+        <li><a href="/lastRiegos.htm">RIEGOS</a> <span class="descripcion">- Histórico de Riegos y Grupos</span></li>
         <br>
         <li>
           <a href="#" 
              onclick="return confirm('¿Está seguro de que desea reiniciar el dispositivo?') 
              ? window.location.href='/api/restart' : false;">
-             RESTART </a> - Reiniciar dispositivo para aplicar cambios
+             RESTART </a> <span class="descripcion">- Reiniciar dispositivo para aplicar cambios</span>
         </li>
       </ul>
     
       <p>Otras opciones avanzadas en:</p>
-      <ul>
-        <li><a href="/advanced.htm">MANTENIMIENTO</a> - Miscelanea y pruebas</li>
+      <ul class="lista-alineada">
+        <li><a href="/advanced.htm">MANTENIMIENTO</a> <span class="descripcion">- Miscelanea y pruebas</span></li>
       </ul>
   </div>
 
