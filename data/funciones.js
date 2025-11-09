@@ -30,12 +30,12 @@
 
             // Filename
             const filenameCell = document.createElement("td");
-            filenameCell.className = "filename"; // Add a class for styling (wrap long names if needed)
+            filenameCell.className = file.type == "dir" ? "dirclass" : "filename"; // Add a class for styling (wrap long names if needed)
             filenameCell.setAttribute('data-label','Filename');
             const filenameLink = document.createElement("a");
             if (tableId === "filesTableBody")
-                 filenameLink.href = file.type == "dir" ? '/files.htm?dir=/'+file.name : '/showfile?file=/'+file.name; 
-            else filenameLink.href = '/' + file.name; 
+                 filenameLink.href = file.type == "dir" ? '/files.htm?dir='+file.name : file.name; 
+            else filenameLink.href = file.name; 
             filenameLink.target = "_blank"; // Open in a new tab
             filenameLink.textContent = file.name;
             filenameCell.appendChild(filenameLink);
@@ -44,7 +44,7 @@
             // Size
             const sizeCell = document.createElement("td");
             sizeCell.textContent = file.type == "dir" ? "directory" : file.size;
-            sizeCell.style.textAlign = "center";
+            sizeCell.className = file.type == "dir" ? "dirclass" : "fileclass"; // Add a class for styling
             sizeCell.style.width = "15%";
             sizeCell.setAttribute('data-label','Size');
             row.appendChild(sizeCell);
@@ -83,7 +83,8 @@
                 actionCell.appendChild(buttonContainer);
             } else if (tableId === "backupTableBody") {
                 const restoreButton = createButton("Restore", () => {
-                    if (confirm("Copiar " + file.name + " a config_parm.json ?")) handleFileAction("RESTORE", file.name);
+                    // if (confirm("Recuperar parametros desde " + file.name + " ?")) handleFileAction("RESTORE", file.name);
+                    if (confirm("Copiar " + file.name + " a %PARMFILE% ?")) handleFileAction("RESTORE", file.name);
                 });
                 restoreButton.className = "button-restore"; // Add a class for styling (color teja)
                 actionCell.appendChild(restoreButton);
@@ -151,8 +152,7 @@
             
         // Function to handle file deletion
         function handleFileDelete(filename) {
-            // ensure explicit absolute path for DELETE
-            fetch('/' + filename, { method: 'DELETE' })
+            fetch(filename, { method: 'DELETE' })
             .then(response => {
                 if (response.ok) location.reload(); // Reload the page to update the table
                 else alert(`Failed to delete the file.`);

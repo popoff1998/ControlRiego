@@ -84,3 +84,7 @@ td.filename, td.filename a {
 .normal-wrap {white-space: normal;} /* Este es el valor por defecto */
 /* Clase para usar en la celda en la que si es necesario se partiran palabras largas */
 .force-wrap {overflow-wrap: break-word; word-break: break-word;}
+/* Clase para datos de fichero */
+.fileclass {text-align: center;}
+/* Clase para datos de directorio */
+.dirclass {text-align: center; color: #868686; font-weight: bold;}

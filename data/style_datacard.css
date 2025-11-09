@@ -25,6 +25,7 @@ Para cada celda <td>, se debe definir un atributo data-label con el nombre de la
     padding: 6px 8px;
     border: none;
     border-bottom: 1px dashed #e6e6e6;
+    white-space: nowrap;
   }
   tbody tr td:last-child { border-bottom: none; }
   tbody tr td::before {
@@ -33,6 +34,10 @@ Para cada celda <td>, se debe definir un atributo data-label con el nombre de la
     color: #333;
     margin-right: 10px;
     flex: 0 0 auto;
+  }
+  td:last-child {
+    /* Si la celda de acción tiene botones, asegurar que no haya saltos de línea entre ellos */
+    white-space: nowrap;
   }
   /* allow filename wrap inside card */
   td.filename, td.filename a { white-space: normal; word-break: break-word; overflow-wrap: anywhere; }

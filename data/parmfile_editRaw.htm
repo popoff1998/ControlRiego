@@ -103,7 +103,7 @@
   // Verificar si se pasó un archivo
   if (fileName) {
     // Realizar una solicitud fetch para obtener el contenido del archivo
-    fetch(`/${fileName}`)
+    fetch(`${fileName}`)
       .then(response => {
         if (!response.ok) {
           throw new Error(`Error al cargar el archivo: ${response.statusText}`);

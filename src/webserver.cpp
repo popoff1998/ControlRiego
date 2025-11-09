@@ -26,9 +26,9 @@
    // mark parameters not used in example
    #define UNUSED __attribute__((unused))
 
-   const char* update_path = "/$update";
-   const char* update_username = "admin";
-   const char* update_password = "admin";
+   const char* const update_path = "/$update";
+   const char* const update_username = "admin";
+   const char* const update_password = "admin";
 
    #ifdef DEVELOP
       const bool httpUpdateDebug = true;  //enable serial debug msgs
@@ -44,25 +44,37 @@
 //  (las funciones definidas como static solo son visibles en este fichero)
 // ---------------------------
 static void sendNoCacheJSON(const String &payload) {
-    wserver.sendHeader("Cache-Control", "no-cache");
-    wserver.send(200, "application/json; charset=utf-8", payload);
+  wserver.sendHeader("Cache-Control", "no-cache");
+  wserver.send(200, "application/json; charset=utf-8", payload);
+}    
+String replaceTokens(const String &content) {
+   String result = content;
+   result.replace("%PARMFILE%",   String(parmFile));
+   result.replace("%BACKUPFILE%", String(backupParmFile));
+   result.replace("%LASTRIEGOS%", String(lastRiegosFile));
+   result.replace("%LASTGRUPOS%", String(lastGruposFile));
+   return result;
 }
+
 static bool obtainPath(String &outPath) {
     if (!wserver.hasArg("file")) {
       wserver.send(400, "text/plain", "Bad Request: Missing 'file' parameter");
       return false;
-    }
+    }  
     outPath = wserver.arg("file");
     LOG_DEBUG("arg 'file' recibido:", outPath);
+    outPath = replaceTokens(outPath);
+    LOG_DEBUG("arg 'file' tras reemplazo de tokens:", outPath);
     if (!outPath.startsWith("/")) { outPath = "/" + outPath; }
     if (!LittleFS.exists(outPath)) {
       wserver.send(400, "text/plain", "Bad Request: file not found");
       LOG_ERROR("No existe: ", outPath);
       return false;
-    }
+    }  
     return true;
-}
+}    
 
+/*
 static void buildFileListJSON(File &dir, const String &filter, String &outResult) {
     outResult = "[\n";
     while (File entry = dir.openNextFile()) {
@@ -71,11 +83,53 @@ static void buildFileListJSON(File &dir, const String &filter, String &outResult
           if (outResult != "[\n") { outResult += ",\n"; }
           outResult += "  {";
           outResult += "\"type\": \"" + String(entry.isDirectory() ? "dir" : "file") + "\", ";
-          outResult += "\"name\": \"" + String(entry.path()).substring(1) + "\", ";
+          outResult += "\"name\": \"" + String(entry.path()) + "\", ";
+          // outResult += "\"name\": \"" + String(entry.path()).substring(1) + "\", ";
           outResult += "\"size\": " + String(entry.size()) + ", ";
           outResult += "\"time\": " + String(entry.getLastWrite());
           outResult += "}";
-      }
+      }    
+    }  
+    outResult += "\n]";
+}
+*/
+
+/*
+ Construct a JSON array with file information from the given directory.
+  Parameters:
+   - dir: Opened directory File object to read entries from
+   - filter: String prefix to filter file names (only files starting with this prefix are included). 
+             If empty, all files are included.
+   - outResult: String reference where the resulting JSON array will be stored.
+  The resulting JSON array has entries with the following fields:
+      - type: "file" or "dir"
+      - name: full path of the file
+      - size: size in bytes
+      - time: last modification time as a Unix timestamp
+*/
+static void buildFileListJSON(File &dir, const String &filter, String &outResult) {
+    char buffer[256]; 
+    outResult = "[\n";
+    outResult.reserve(1024); // Reservar el máximo o 1K
+    bool firstEntry = true;
+    
+    while (File entry = dir.openNextFile()) {
+        String filename = String(entry.name());
+        if (filename.startsWith(filter) || filter == "") {
+            const char* separator = firstEntry ? "" : ",\n";
+            const char* type = entry.isDirectory() ? "dir" : "file";
+            const char* path = entry.path(); 
+            int len = snprintf(buffer,256, 
+                "%s  {\"type\": \"%s\", \"name\": \"%s\", \"size\": %lu, \"time\": %lu}",
+                separator,
+                type,
+                path,
+                (unsigned long)entry.size(),
+                (unsigned long)entry.getLastWrite()
+            );
+            outResult += buffer;
+            firstEntry = false;
+        }
     }
     outResult += "\n]";
 }
@@ -87,7 +141,7 @@ static void sendFileAttachment(const String &path) {
       wserver.send(404, "text/plain", "File not found");
       LOG_ERROR("Not found:", path);
       return;
-    }
+    }  
     String filename = path.substring(path.lastIndexOf('/') + 1);
     LOG_DEBUG("filename:", filename);
     wserver.sendHeader("Content-Type", "text/text");
@@ -95,7 +149,7 @@ static void sendFileAttachment(const String &path) {
     wserver.sendHeader("Connection", "close");
     wserver.streamFile(download, "application/octet-stream");
     download.close();
-}
+}    
 
 // ---------------------------
 // Server utils (moved here)
@@ -115,16 +169,32 @@ const char* GetContentType(const String &filename) {
   else if(filename.endsWith(".zip")) return "application/x-zip";
   else if(filename.endsWith(".gz")) return "application/x-gzip";
   return "text/plain";
-}
+}  
 
 void printArgs() {
   for (int i = 0; i < wserver.args(); i++) {LOG_DEBUG("  ", wserver.argName(i), ": ", wserver.arg(i));}
-}
+}  
     
 void serveFile(String path, String contentType) {
    LOG_DEBUG("Serving file:", path, "contentType:", contentType);
    File file = LittleFS.open(path, "r");
-   size_t sent = wserver.streamFile(file, contentType);
+   if (!file) {
+      LOG_ERROR("Failed to open file for reading:", path);
+      wserver.send(500, "text/plain", "Internal Server Error");
+      return;
+   }
+   // Siempre leemos archivos HTML para reemplazar tokens, incluso en JavaScript embebido
+   if (contentType == "text/html" || path.endsWith(".htm") || path.endsWith(".html") || 
+       contentType == "text/javascript" || contentType == "application/javascript" || 
+       path.endsWith(".js")) {
+      String content = file.readString();
+      LOG_TRACE("Content before token replacement (first 100 chars):", content.substring(0, 100));
+      content = replaceTokens(content);
+      LOG_TRACE("Content after token replacement (first 100 chars):", content.substring(0, 100));
+      wserver.send(200, contentType, content);
+   } else {
+      size_t sent = wserver.streamFile(file, contentType);
+   }
    file.close();
 }
 
@@ -163,6 +233,22 @@ void handleRedirect() {
   wserver.send(302);
 }
 
+void splitFilePath(String &fullPath, String &dirPath, String &fileName) {
+    LOG_DEBUG("fullPath recibido:", fullPath);
+    fullPath = replaceTokens(fullPath);
+    LOG_DEBUG("fullPath tras reemplazo de tokens:", fullPath);
+  int lastSlash = fullPath.lastIndexOf('/');
+  if (lastSlash == -1) {
+    dirPath = "/";
+    fileName = fullPath;
+  } else {
+    dirPath = fullPath.substring(0, lastSlash);
+    if (dirPath == "") { dirPath = "/"; }
+    fileName = fullPath.substring(lastSlash + 1);
+  }
+  LOG_DEBUG("fullPath=", fullPath, " dirPath=", dirPath, " fileName=", fileName);
+}
+
 // list files as JSON
 // This function is called when the WebServer was requested to list existing files in the filesystem.
 // The request can contain the following arguments:
@@ -174,15 +260,14 @@ void handleListFiles() {
   printArgs();
   String path = "/";
   if (wserver.hasArg("dir")) path = wserver.arg("dir");
-  LOG_DEBUG("Listing directory:", path);
   String filter = "";
   if (wserver.hasArg("file")) {
-    filter = wserver.arg("file");
-    if (filter == "%PARMFILE%") { filter = parmFile; }
-    if (filter == "%BACKUPFILE%") { filter = backupParmFile; }
-    if (filter.startsWith("/")) { filter = filter.substring(1); }
-    LOG_DEBUG("Filtering files with prefix:", filter);
-  }
+    String fullpath = wserver.arg("file");
+    String fpath = "";
+    splitFilePath(fullpath, fpath, filter); 
+    if (fpath!="/") { path = fpath; }
+    LOG_DEBUG("Filtering files with prefix:", filter, "in directory:", path);
+  } else LOG_DEBUG("No file filter provided, listing all files in directory:", path);
   File dir = LittleFS.open(path, "r");
   String result;
   result.reserve(1024); // reservar para reducir reallocs
@@ -260,12 +345,12 @@ void handleDownload() {
 }
  
 // servedirect endpoint wrapper
-void handleShowFile() {
-  String path;
-  if (obtainPath(path)) {
-    serveFile(path);
-  }
-}
+// void handleShowFile() {
+//   String path;
+//   if (obtainPath(path)) {
+//     serveFile(path);
+//   }
+// }
 
 // ---------------------------
 // FileServerHandler 
@@ -273,8 +358,27 @@ void handleShowFile() {
 class FileServerHandler : public RequestHandler {
     public:
       FileServerHandler() { }
-      bool canHandle(HTTPMethod requestMethod, String UNUSED uri) override {
+      bool canHandle(HTTPMethod requestMethod, String uri) override {
         LOG_TRACE("uri:", uri, "Method:", requestMethod);
+        // Intercept GET requests for existing files so we can perform token replacement
+        if (requestMethod == HTTP_GET) {
+          // Exclude API and special endpoints explicitly so we don't intercept them
+          if (uri.startsWith("/api/") || uri.startsWith("/download") || uri.startsWith("/showfile") || uri.startsWith("/$")) {
+            LOG_DEBUG("Excluding URI from file handler:", uri);
+            return false;
+          }
+          String f = uri;
+          if (!f.startsWith("/")) f = "/" + f;
+          // strip query string if present
+          int q = f.indexOf('?');
+          if (q != -1) f = f.substring(0, q);
+          // If the file exists in LittleFS (or a .gz version) we can handle it here
+          if (LittleFS.exists(f) || LittleFS.exists(f + ".gz")) {
+            LOG_TRACE("Will handle GET for existing file:", f);
+            return true;
+          }
+          return false;
+        }
         return ((requestMethod == HTTP_POST) || (requestMethod == HTTP_DELETE) || (requestMethod == HTTP_COPY));
       }
       bool canUpload(String uri) override {
@@ -285,12 +389,24 @@ class FileServerHandler : public RequestHandler {
         String fName = wserver.urlDecode(requestUri); // elimina codificacion URL %..
         if (!fName.startsWith("/")) { fName = "/" + fName; }
         bool handleOK = false;
-        // const char *s = http_method_str(static_cast<enum http_method>(requestMethod));
-        // LOG_TRACE("Method:", s);
-        LOG_DEBUG("Handling:", fName, "Method:", requestMethod);
+        if (requestMethod == HTTP_GET) {
+          // Serve file through our serveFile() so token replacement happens
+          LOG_DEBUG("GET request for:", fName);
+          // If it's a directory, append index.html
+          String pathToServe = fName;
+          if (pathToServe.endsWith("/")) pathToServe += "index.html";
+          if (LittleFS.exists(pathToServe) || LittleFS.exists(pathToServe + ".gz")) {
+            serveFile(pathToServe);
+            return true;
+          } else {
+            // Not found here; let others handle
+            return false;
+          }
+        }
         if (requestMethod == HTTP_POST) {
+          LOG_DEBUG("POST request for:", fName);
           handleOK = true;
-        } 
+        }
         if (requestMethod == HTTP_COPY) {
           String fileFrom , fileTo;
           if (fName == "/BACKUP") {fileFrom = parmFile; fileTo = backupParmFile;}
@@ -300,6 +416,7 @@ class FileServerHandler : public RequestHandler {
         }  
         if (requestMethod == HTTP_DELETE) {
           if (LittleFS.exists(fName)) {
+            LOG_DEBUG("DELETE request for:", fName);
             handleOK = LittleFS.remove(fName);
           }
         }
@@ -308,6 +425,7 @@ class FileServerHandler : public RequestHandler {
           return (true);
         } else {
           wserver.send(500, "text/plain", "ERROR");
+          LOG_ERROR("Handle request error for:", fName);
           return (false);
         }
       }
@@ -319,9 +437,41 @@ class FileServerHandler : public RequestHandler {
         if (upload.status == UPLOAD_FILE_START) {
           uploadTooLarge = false;
           uploadSize = 0;
-          String fName = upload.filename;
+          String fName = upload.filename; // puede venir como "/subdir/FILE.bin" (por el cliente)
           if (fName == "%PARMFILE%") { fName = parmFile; }
+          // asegurar que empieza por '/'
           if (!fName.startsWith("/")) { fName = "/" + fName; }
+          // colapsar "//" repetidos
+          while (fName.indexOf("//") != -1) fName.replace("//", "/");
+          // rechazar traversal de directorios
+          if (fName.indexOf("..") != -1) {
+            LOG_WARN("Upload rejected: filename contains '..' ->", fName);
+            wserver.send(400, "text/plain", "Invalid filename");
+            uploadTooLarge = true;
+            return;
+          }
+          // OPCIONAL: limitar uploads a un directorio raíz (por seguridad). Cambia a "/" para permitir todo.
+          const String uploadRoot = "/"; // <--- ajusta si quieres otra raíz o "/" para cualquier sitio
+          if (uploadRoot != "/") {
+            // si la ruta enviada no está ya bajo uploadRoot, la colocamos allí
+            if (!fName.startsWith(uploadRoot + "/") && fName != uploadRoot) {
+              // evitar duplicar slashes
+              String tmp = fName;
+              if (tmp.startsWith("/")) tmp = tmp.substring(1);
+              fName = uploadRoot + "/" + tmp;
+              while (fName.indexOf("//") != -1) fName.replace("//", "/");
+            }
+          }
+          // crear directorio padre si no existe
+          int lastSlash = fName.lastIndexOf('/');
+          if (lastSlash > 0) {
+            String dirPath = fName.substring(0, lastSlash);
+            if (!LittleFS.exists(dirPath)) {
+              LOG_DEBUG("Creating upload directory:", dirPath);
+              // LittleFS::mkdir puede devolver false si falla; no siempre necesario en algunas implementaciones
+              LittleFS.mkdir(dirPath);
+            }
+          }
           LOG_DEBUG("Start uploading file:", fName, " declared size:", upload.totalSize);
           // Si el cliente ha enviado totalSize y excede el límite, rechazar ya
           if (upload.totalSize > 0 && (size_t)upload.totalSize > MAX_UPLOAD_BYTES) {
@@ -385,16 +535,16 @@ void defWebpagesHandles() {
     wserver.on("/", HTTP_GET, handleRedirect);
     // paginas html builting comienzan por $
     wserver.on("/$upload.htm",     HTTP_GET, []() { wserver.send(200, "text/html", FPSTR(uploadContent)); }); // serve a built-in htm page
-    wserver.on("/advanced.htm",    HTTP_GET,  handleAdvancedPage);
+    wserver.on("/advanced.htm",    HTTP_GET,  handleAdvancedPage); // requiere auth
     // Rutas que devuelven/esperan un JSON renombradas a /api/ para coherencia
-    wserver.on("/api/list",        HTTP_GET,  handleListFiles);     // antes: "/$list"
-    wserver.on("/api/sysinfo",     HTTP_GET,  handleSysInfo);       // antes: "/$sysinfo"
-    wserver.on("/api/restart",     HTTP_GET,  handleRestart);       // antes: "/$restart"
-    wserver.on("/api/showZONElog", HTTP_GET,  handleShowZONElog);   // sin cambio
-    wserver.on("/api/save_config", HTTP_POST, handleSaveConfig);    // antes: "/save_config"
-    wserver.on("/download",        HTTP_GET,  handleDownload);      // descarga de ficheros
-    wserver.on("/showfile",        HTTP_GET,  handleShowFile);      // muestra contenido fichero en el navegador
-    // UPLOAD and DELETE of files in the file system using a request handler.
+    wserver.on("/api/list",        HTTP_GET,  handleListFiles);
+    wserver.on("/api/sysinfo",     HTTP_GET,  handleSysInfo);
+    wserver.on("/api/restart",     HTTP_POST, handleRestart);
+    wserver.on("/api/showZONElog", HTTP_GET,  handleShowZONElog);
+    wserver.on("/api/save_config", HTTP_POST, handleSaveConfig);
+    wserver.on("/download",        HTTP_GET,  handleDownload);
+    // wserver.on("/showfile",        HTTP_GET,  handleShowFile);      // muestra contenido fichero en el navegador
+    // GET, UPLOAD, COPY and DELETE of files in the file system using a request handler.
     wserver.addHandler(new FileServerHandler());
     // enable CORS header in webserver results
     wserver.enableCORS(true);

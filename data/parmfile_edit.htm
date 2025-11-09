@@ -1,168 +1,137 @@
-  <!-- 
-   Esta página, parmfile_edit.htm, permite editar los campos básicos de configuración 
-    realiza validaciones de los campos Botones y Grupos. 
-  -->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link Content-Type="text/css" href="/style_base.css" rel="stylesheet" />
+    <link href="/style_base.css" rel="stylesheet" />
     <title>Edicion parámetros</title>
     <style>
+        /* Estilos generales */
         body {font-family: Arial, sans-serif;display: flex;flex-direction: column;max-width: 768px;}
-        table {width: 90%;border-collapse: collapse;margin: 0 auto;margin-top: 20px;}
+        table {width: 90%;border-collapse: collapse;margin: 20px auto 0;}
         th, td {border: 1px solid #ddd;padding: 8px;text-align: center;}
         th {background-color: #f4f4f4;}
-        input {width: 90%;padding: 5px;box-sizing: border-box;}
-        button {padding: 10px 15px;background-color: #007BFF;color: white;border: none;
-            border-radius: 5px;cursor: pointer;width: auto;}
-        button:hover {background-color: #0056b3;}
-        .edit-full-button {background-color: #d1caca;color: black;border: none;border-radius: 5px;padding: 10px 15px;cursor: pointer;}
-        .edit-full-button:hover {background-color: #b3b3b3;}
+        input {width: 90%;padding: 5px;box-sizing: border-box; border: 1px solid #cccccc;}
+        /*input {width: 90%;padding: 5px;box-sizing: border-box;border: none;text-align: center;} */
         p {margin: 0;padding: 0;font-size: 0.9em;}
+        
+        /* Estilos de botones consolidados */
+        button {padding: 10px 15px;border-radius: 5px;cursor: pointer;width: auto; transition: background-color 0.3s;}
+        .save-button {background-color: #007BFF;color: white;border: none;}
+        .save-button:hover {background-color: #0056b3;}
+        .secondary-button {background-color: #d1caca;color: black;border: none;}
+        .secondary-button:hover {background-color: #b3b3b3;}
+
+        /* Grupo de botones y espaciado */
+        .button-group {margin: 20px 0; text-align: center;}
+        .button-group > button:not(:last-child) {margin-right: 20px;}
+        
+        /* Clase para sombreado de campos */
+        .highlight-zero {background-color: #ffcccc !important;}
     </style>
 </head>
 <body>
-    <h1>Editar parametros de configuracion BÁSICOS</h1>
+    <h1>Editar parámetros de configuración BÁSICOS</h1>
     
     <h2>Botones</h2>
     <p>Nombre: max. 9 caracteres.</p>
     <p>Idx = 0 para zonas no asignadas.</p>
     <table>
-        <colgroup>
-            <col style="width: 10%;">
-            <col style="width: 20%;">
-            <col style="width: 70%;">
-        </colgroup>
-        <thead>
-            <tr>
-                <th>Zona</th>
-                <th>Idx</th>
-                <th>Nombre</th>
-            </tr>
-        </thead>
-        <tbody id="botonesTableBody">
-            <!-- Rows will be dynamically added here -->
-        </tbody>
+        <thead><tr><th>Zona</th><th>Idx</th><th>Nombre</th></tr></thead>
+        <tbody id="botonesTableBody"></tbody>
     </table>
 
     <h2>Grupos</h2>
     <p>Descripción: max. 9 caracteres.</p>
     <p>Zonas: número zona separados por coma.</p>
     <table>
-        <thead>
-            <tr>
-                <th>Grupo</th>
-                <th>Descripción</th>
-                <th>Zonas</th>
-            </tr>
-        </thead>
-        <tbody id="gruposTableBody">
-            <!-- Rows will be dynamically added here -->
-        </tbody>
+        <thead><tr><th>Grupo</th><th>Descripción</th><th>Zonas</th></tr></thead>
+        <tbody id="gruposTableBody"></tbody>
     </table>
 
     <h2>Domoticz</h2>
     <table>
-        <thead>
-            <tr>
-                <th>Campo</th>
-                <th>Valor</th>
-            </tr>
-        </thead>
-        <tbody id="domoticzTableBody">
-            <!-- Rows will be dynamically added here -->
-        </tbody>
+        <thead><tr><th>Campo</th><th>Valor</th></tr></thead>
+        <tbody id="domoticzTableBody"></tbody>
     </table>
 
     <h2>NTP Server y TimeZone</h2>
     <table>
-        <thead>
-            <tr>
-                <th>Campo</th>
-                <th>Valor</th>
-            </tr>
-        </thead>    
-        <tbody id="timeTableBody">
-            <!-- Rows will be dynamically added here -->
-        </tbody>    
-    </table>    
-        
-        <div style="margin-top: 20px; margin-bottom: 20px; text-align: center;">
-            <button onclick="saveChanges()"><b>Guardar Cambios y Salir</b></button>
-        </div>  
-        <div style="margin-top: 5px; margin-bottom: 20px; text-align: center;">
-            <button type="button" onclick="editRaw()" class="edit-full-button">Edit Full</button>
-            <span style="display: inline-block; width: 20px;"></span>
-            <button type="button" onclick="window.location.href='parmfile.htm'" class="edit-full-button">Cancel</button>
-        </div>        
-    <script>
-        
-        // Cargar las tablas al cargar la página
-        window.addEventListener("load", () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            window.fileName = urlParams.get('file') || 'config_parm.json'; // window.fileName is now global
-            console.log(window.fileName);
-            // Realizar una solicitud fetch para obtener el contenido del archivo
-            fetch(`${fileName}`)
-                .then(function (data) { return data.json(); })
-                .then(data => {
-                    // Asignar los datos originales al objeto global
-                    window.originalJsonData = data;
-                    // Cargar las tablas con los datos
-                    loadTables(data);
-                })
-                .catch(error => console.error("Error fetching file data:", error));
-        });
-        
-        // Función para cargar los datos en las tablas
-        function loadTables(jsonData) {
-            loadBotonesTable(jsonData.botones);
-            loadGruposTable(jsonData.grupos);
-            loadDomoticzTable(jsonData.domoticz);
-            loadTimeTable(jsonData.time);
-        }    
+        <thead><tr><th>Campo</th><th>Valor</th></tr></thead>
+        <tbody id="timeTableBody"></tbody>
+    </table>
 
+    <div class="button-group">
+        <button onclick="saveChanges()" class="save-button"><b>Guardar Cambios y Salir</b></button>
+    </div>
+
+    <div class="button-group">
+        <button type="button" onclick="editRaw()" class="secondary-button">Edit Full</button>
+        <button type="button" onclick="window.location.href='parmfile.htm'" class="secondary-button">Cancel</button>
+    </div>
+
+    <script>
+        // Variables globales
+        let fileName = '%PARMFILE%'; // Valor por defecto, se sobrescribirá al cargar la página
+        let originalJsonData = {};
+
+        // --- Funciones de Carga de Datos ---
+
+        /** Carga una tabla simple (Domoticz, Time) donde todos los campos son texto/valor. */
+        function loadSimpleTable(data, tableId) {
+            const tableBody = document.getElementById(tableId);
+            tableBody.innerHTML = "";
+            
+            Object.keys(data).forEach(key => {
+                const row = tableBody.insertRow();
+                row.insertCell().textContent = key; // Campo (no editable)
+                const valueCell = row.insertCell(); // Valor (editable)
+                const input = document.createElement("input");
+                input.type = "text";
+                input.value = data[key];
+                input.dataset.field = key;
+                valueCell.appendChild(input);
+            });
+        }
+
+        /** Carga la tabla de Botones con validación de 'idx'. */
         function loadBotonesTable(botones) {
             const tableBody = document.getElementById("botonesTableBody");
-            tableBody.innerHTML = ""; // Limpiar la tabla
-
+            tableBody.innerHTML = "";
+            
             botones.forEach((boton, index) => {
-                const row = document.createElement("tr");
-
-                // Zona (no editable)
-                const zonaCell = document.createElement("td");
-                zonaCell.textContent = boton.zona;
-                row.appendChild(zonaCell);
+                const row = tableBody.insertRow();
+                row.insertCell().textContent = boton.zona; // Zona (no editable)
 
                 // Campo idx (editable)
-                const idxCell = document.createElement("td");
+                const idxCell = row.insertCell();
                 const idxInput = document.createElement("input");
                 idxInput.type = "number";
-                idxInput.addEventListener("input", (event) => {
-                    const value = event.target.value;
-                    if (!/^\d{1,3}$/.test(value)) {
-                        event.target.value = value.replace(/[^0-9]/g, "").slice(0, 3); // Limitar a 3 dígitos y solo números enteros
-                    }
-                    // Sombrear la celda si el valor es 0
-                    if (event.target.value === "0") {
-                        event.target.parentElement.style.backgroundColor = "#ffcccc"; // Color rojo claro
-                    } else {
-                        event.target.parentElement.style.backgroundColor = ""; // Quitar el sombreado
-                    }
-                });
                 idxInput.min = "0";
                 idxInput.max = "999";
                 idxInput.value = boton.idx;
-                if (boton.idx === 0) idxCell.style.backgroundColor = "#ffcccc"; // Color rojo claro
                 idxInput.dataset.index = index;
                 idxInput.dataset.field = "idx";
+                
+                // Lógica de validación y sombreado de idx
+                const validateIdx = (event) => {
+                    let value = event.target.value;
+                    // Limitar a 3 dígitos (originalmente se permitían solo números enteros)
+                    value = value.replace(/[^0-9]/g, "").slice(0, 3); 
+                    event.target.value = value;
+                    // Aplicar/Quitar sombreado para idx = 0
+                    event.target.closest("td").classList.toggle("highlight-zero", parseInt(value) === 0);
+                };
+
+                idxInput.addEventListener("input", validateIdx);
+                
+                // Inicializar el sombreado si el valor es 0
+                if (boton.idx === 0) idxCell.classList.add("highlight-zero");
+
                 idxCell.appendChild(idxInput);
-                row.appendChild(idxCell);
 
                 // Campo nombre (editable)
-                const nombreCell = document.createElement("td");
+                const nombreCell = row.insertCell();
                 const nombreInput = document.createElement("input");
                 nombreInput.type = "text";
                 nombreInput.value = boton.nombre;
@@ -170,26 +139,20 @@
                 nombreInput.dataset.field = "nombre";
                 nombreInput.maxLength = 9;
                 nombreCell.appendChild(nombreInput);
-                row.appendChild(nombreCell);
+            });
+        }
 
-                tableBody.appendChild(row);
-            });    
-        }    
-
+        /** Carga la tabla de Grupos con validación de 'zonas'. */
         function loadGruposTable(grupos) {
             const tableBody = document.getElementById("gruposTableBody");
-            tableBody.innerHTML = ""; // Limpiar la tabla
+            tableBody.innerHTML = "";
 
             grupos.forEach((grupo, index) => {
-                const row = document.createElement("tr");
-
-                // Grupo (no editable)
-                const grupoCell = document.createElement("td");
-                grupoCell.textContent = grupo.grupo;
-                row.appendChild(grupoCell);
+                const row = tableBody.insertRow();
+                row.insertCell().textContent = grupo.grupo; // Grupo (no editable)
 
                 // Campo descripción (editable)
-                const descCell = document.createElement("td");
+                const descCell = row.insertCell();
                 const descInput = document.createElement("input");
                 descInput.type = "text";
                 descInput.value = grupo.desc;
@@ -197,173 +160,144 @@
                 descInput.dataset.field = "desc";
                 descInput.maxLength = 9;
                 descCell.appendChild(descInput);
-                row.appendChild(descCell);
 
                 // Campo zonas (editable)
-                const zonasCell = document.createElement("td");
+                const zonasCell = row.insertCell();
                 const zonasInput = document.createElement("input");
                 zonasInput.type = "text";
-                //* Comienzo validacion: Validar que solo se introduzcan números del 1 al 9, separados por comas
-                zonasInput.addEventListener("input", (event) => {
-                    const value = event.target.value;
-
-                    // Permitir solo dígitos del 1 al 9 seguidos de comas
-                    event.target.value = value
-                        .replace(/[^1-9,]/g, "") // Eliminar caracteres no válidos
-                        .replace(/,{2,}/g, ",") // Eliminar comas consecutivas
-                        .replace(/(\d)(?=\d)/g, "$1,"); // Asegurar que haya una coma entre números consecutivos
-                });
-                zonasInput.addEventListener("blur", (event) => {
-                    // Eliminar espacios en blanco y comas al principio o al final
-                    event.target.value = event.target.value
-                        .replace(/\s+/g, "") // Eliminar espacios en blanco
-                        .replace(/^,|,$/g, ""); // Eliminar comas al principio o al final
-                });
-                zonasInput.value = grupo.zonas.join(","); // Inicializar el valor leido eliminando espacios en blanco
-                zonasInput.maxLength = 17; // Limitar a 17 caracteres (9 zonas + 8 comas)
-                //* Fin validacion 
+                zonasInput.maxLength = 17;
+                zonasInput.value = grupo.zonas.join(","); // Convertir array a string separado por comas
                 zonasInput.dataset.index = index;
                 zonasInput.dataset.field = "zonas";
+                
+                // Lógica de validación de 'zonas'
+                zonasInput.addEventListener("input", (event) => {  // mientras se escribe
+                    let value = event.target.value;
+                    value = value.replace(/[^1-9,]/g, ""); // Permitir solo dígitos del 1-9 y comas
+                    value = value.replace(/,{2,}/g, ",");  // Eliminar comas consecutivas
+                    event.target.value = value.replace(/(\d)(?=\d)/g, "$1,"); // Asegurar coma entre números consecutivos (ej. 12 -> 1,2)
+                });
+                zonasInput.addEventListener("blur", (event) => {   // cuando se pierde el foco
+                    event.target.value = event.target.value
+                        .replace(/\s+/g, "")    // Eliminar espacios
+                        .replace(/^,|,$/g, ""); // Eliminar comas al inicio/final
+                });
+                
                 zonasCell.appendChild(zonasInput);
-                row.appendChild(zonasCell);
-
-                tableBody.appendChild(row);
-            });    
-        }    
-
-        function loadDomoticzTable(domoticz) {
-            const tableBody = document.getElementById("domoticzTableBody");
-            tableBody.innerHTML = ""; // Limpiar la tabla
-
-            Object.keys(domoticz).forEach(key => {
-                const row = document.createElement("tr");
-
-                // Campo (no editable)
-                const keyCell = document.createElement("td");
-                keyCell.textContent = key;
-                row.appendChild(keyCell);
-
-                // Valor (editable)
-                const valueCell = document.createElement("td");
-                const valueInput = document.createElement("input");
-                valueInput.type = "text";
-                valueInput.value = domoticz[key];
-                valueInput.dataset.field = key;
-                valueCell.appendChild(valueInput);
-                row.appendChild(valueCell);
-
-                tableBody.appendChild(row);
-            });    
-        }    
-
-        function loadTimeTable(time) {
-            const tableBody = document.getElementById("timeTableBody");
-            tableBody.innerHTML = ""; // Limpiar la tabla
-
-            Object.keys(time).forEach(key => {
-                const row = document.createElement("tr");
-
-                // Campo (no editable)
-                const keyCell = document.createElement("td");
-                keyCell.textContent = key;
-                row.appendChild(keyCell);
-
-                // Valor (editable)
-                const valueCell = document.createElement("td");
-                const valueInput = document.createElement("input");
-                valueInput.type = "text";
-                valueInput.value = time[key];
-                valueInput.dataset.field = key;
-                valueCell.appendChild(valueInput);
-                row.appendChild(valueCell);
-
-                tableBody.appendChild(row);
-            });    
-        }    
-
-
-        // Función para guardar los cambios en el servidor
-        function saveChanges() {
-            const jsonData = window.originalJsonData || {  // usar datos originales, si no inicializar un objeto vacío
-            botones: [],
-            grupos: [],
-            domoticz: {},
-            time: {}
-            };
-
-            // Recopilar datos de la tabla de botones
-            const botonesInputs = document.querySelectorAll("#botonesTableBody input");
-            botonesInputs.forEach(input => {
-            const index = input.dataset.index;
-            const field = input.dataset.field;
-
-            if (!jsonData.botones[index]) {
-                jsonData.botones[index] = { zona: parseInt(input.closest("tr").children[0].textContent) };
-            }
-            jsonData.botones[index][field] = field === "idx" ? parseInt(input.value) : input.value;
             });
+        }
 
-            // Recopilar datos de la tabla de grupos
-            const gruposInputs = document.querySelectorAll("#gruposTableBody input");
-            gruposInputs.forEach(input => {
-            const index = input.dataset.index;
-            const field = input.dataset.field;
+        /** Función principal para cargar todas las tablas. */
+        function loadTables(data) {
+            loadBotonesTable(data.botones || []);
+            loadGruposTable(data.grupos || []);
+            loadSimpleTable(data.domoticz || {}, "domoticzTableBody");
+            loadSimpleTable(data.time || {}, "timeTableBody");
+        }
+        
+        // --- Funciones de Recolección de Datos ---
 
-            if (!jsonData.grupos[index]) {
-                jsonData.grupos[index] = { grupo: parseInt(input.closest("tr").children[0].textContent) };
-            }
-            if (field === "zonas") {
-                jsonData.grupos[index][field] = input.value.trim() === "" ? [] : input.value.split(",").map(Number);
-            } else {
-                jsonData.grupos[index][field] = input.value;
-            }
+        /** Recolecta datos de tablas basadas en un array (botones, grupos). */
+        function collectArrayData(selector, arrayName, originalData) {
+            const inputs = document.querySelectorAll(selector);
+            
+            inputs.forEach(input => {
+                const index = input.dataset.index;
+                const field = input.dataset.field;
+                
+                // Asegurar que el objeto exista en los datos
+                if (!originalData[arrayName][index]) {
+                    const row = input.closest("tr");
+                    originalData[arrayName][index] = {
+                        // Intentar recuperar el campo 'clave' (zona o grupo) del primer <td>
+                        [arrayName === 'botones' ? 'zona' : 'grupo']: parseInt(row.children[0].textContent) 
+                    };
+                }
+                
+                let value = input.value;
+                
+                if (arrayName === 'botones' && field === 'idx') {
+                    // Convertir idx a número
+                    value = parseInt(value) || 0; 
+                } else if (arrayName === 'grupos' && field === 'zonas') {
+                    // Convertir string de zonas a array de números
+                    // Filtramos n > 0 para evitar números vacíos si el input termina en coma
+                    value = value.trim() === "" ? [] : value.split(",").map(Number).filter(n => n > 0);
+                }
+                
+                originalData[arrayName][index][field] = value;
             });
+        }
 
-            // Recopilar datos de la tabla de Domoticz
-            const domoticzInputs = document.querySelectorAll("#domoticzTableBody input");
-            domoticzInputs.forEach(input => {
-            const field = input.dataset.field;
-            jsonData.domoticz[field] = input.value;
+        /** Recolecta datos de tablas basadas en un objeto (domoticz, time). */
+        function collectObjectData(selector, objectName, originalData) {
+            const inputs = document.querySelectorAll(selector);
+            
+            inputs.forEach(input => {
+                const field = input.dataset.field;
+                originalData[objectName][field] = input.value;
             });
+        }
 
-            // Recopilar datos de la tabla de Time
-            const timeInputs = document.querySelectorAll("#timeTableBody input");
-            timeInputs.forEach(input => {
-            const field = input.dataset.field;
-            jsonData.time[field] = input.value;
-            });
+        /** Función principal para recopilar todos los cambios. */
+        function collectChanges() {
+            // Clonar los datos originales para trabajar sobre ellos
+            const updatedData = JSON.parse(JSON.stringify(originalJsonData));
+            // Recolección de datos
+            collectArrayData("#botonesTableBody input", 'botones', updatedData);
+            collectArrayData("#gruposTableBody input", 'grupos', updatedData);
+            collectObjectData("#domoticzTableBody input", 'domoticz', updatedData);
+            collectObjectData("#timeTableBody input", 'time', updatedData);
+            return updatedData;
+        }
 
-            // Enviar el JSON al servidor
-            fetch('/api/save_config', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(jsonData, null, 2) // Formatear con 2 espacios de indentación (pretty print)
-                //body: JSON.stringify(jsonData) // sin formateo, una sola linea (mas compacto, menor tamaño pero menos legible)
-            })
-            .then(response => {
+        // --- Funciones de Acción y Inicialización ---
+        
+        /** Guarda los cambios en el servidor usando async/await. */
+        async function saveChanges() {
+            const updatedData = collectChanges();
+            try {
+                const response = await fetch('/api/save_config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedData, null, 2)
+                    //body: JSON.stringify(updatedData) // sin formateo, una sola linea (mas compacto, menor tamaño pero menos legible)
+                });
+
                 if (response.ok) {
                     if (confirm("Cambios guardados correctamente. ¿Desea reiniciar el sistema para aplicar los cambios?")) {
-                        window.location.href = '/$restart'; // Reiniciar el dispositivo para aplicar los cambios
+                        window.location.href = '/$restart';
                     } else {
-                        window.location.href = 'parmfile.htm'; // Cerrar y volver a la página parmfile.htm
-                        //window.history.back(); // Cerrar y volver a la página anterior
+                        window.location.href = 'parmfile.htm';
                     }
                 } else {
                     alert("Error al guardar los cambios.");
                 }
-            })
-            .catch(error => {
+            } catch (error) {
                 console.error("Error al guardar el archivo JSON:", error);
                 alert("Ocurrió un error al intentar guardar los cambios.");
-            });
+            }
+        }
+        
+        /** Abre la vista de edición en crudo. */
+        function editRaw() {
+            // Se mantiene window.fileName para asegurar que se use la ruta correcta
+            window.open(`parmfile_editRaw.htm?file=${fileName}`, '_self'); 
         }
 
-        function editRaw() {
-                window.open(`parmfile_editRaw.htm?file=${window.fileName}`, '_self'); // Open in the same tab
+        // Inicialización al cargar la página usando async/await
+        window.addEventListener("load", async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            fileName = urlParams.get('file') || '%PARMFILE%'; 
+            console.log(fileName);
+            try {
+                const response = await fetch(fileName);
+                originalJsonData = await response.json();
+                loadTables(originalJsonData);
+            } catch (error) {
+                console.error("Error fetching file data:", error);
             }
-
+        });
 
     </script>
 </body>

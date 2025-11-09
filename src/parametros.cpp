@@ -270,39 +270,47 @@ void filesInfo()
   Serial.print(F("    Used KB: ")); Serial.print(fileUsedKB); Serial.println(F(" KB"));
   Serial.print("__________________________\n");
   listDir(LittleFS, "/", 1); // List the directories up to one level beginning at the root directory
+  Serial.print("__________________________\n");
 }
 
-void listDir(fs::FS &fs, const char * dirname, uint8_t levels){
-    Serial.printf("Listing directory: %s\r\n", dirname);
-    File root = fs.open(dirname);
-    if(!root){
-        Serial.println("- failed to open directory");
-        return;
-    }
-    if(!root.isDirectory()){
-        Serial.println(" - not a directory");
-        return;
-    }
 
+void listDir(fs::FS &fs, const char * dirname, uint8_t levels, uint8_t depth) {
+    // Función auxiliar local para generar la indentación (tabulaciones)
+    auto printIndent = [depth]() {
+        for (uint8_t i = 0; i < depth; i++) Serial.print("   "); // Tres espacios por nivel
+    };
+    printIndent();
+    Serial.printf("Listing directory: %s\r\n", dirname);
+    // if (depth == 0) Serial.printf("Listing directory: %s\r\n", dirname);
+    File root = fs.open(dirname);
+    if (!root) {
+        if (depth == 0) Serial.println("- failed to open directory");
+        else { printIndent(); Serial.printf("- failed to open directory: %s\r\n", dirname); }
+        return;
+    }
+    if (!root.isDirectory()) { Serial.println(" - not a directory"); return; }
     File file = root.openNextFile();
-    while(file){
-        if(file.isDirectory()){
-            Serial.print("  DIR : ");
-            Serial.print(file.name());
-            time_t t= file.getLastWrite();
-            struct tm * tmstruct = localtime(&t);
-            Serial.printf("  LAST WRITE: %d-%02d-%02d %02d:%02d:%02d\n",(tmstruct->tm_year)+1900,( tmstruct->tm_mon)+1, tmstruct->tm_mday,tmstruct->tm_hour , tmstruct->tm_min, tmstruct->tm_sec);
-            if(levels){
-                listDir(fs, file.name(), levels -1);
+    while (file) {
+        printIndent(); // Aplica la indentación antes de imprimir el elemento
+        time_t t = file.getLastWrite();
+        struct tm * tmstruct = localtime(&t);
+        char timeStr[20]; // Buffer para la cadena de tiempo: YYYY-MM-DD hh:mm:ss + NULL
+        snprintf(timeStr, sizeof(timeStr), "%d-%02d-%02d %02d:%02d:%02d",
+                 (tmstruct->tm_year) + 1900, (tmstruct->tm_mon) + 1, tmstruct->tm_mday,
+                 tmstruct->tm_hour, tmstruct->tm_min, tmstruct->tm_sec);
+        if (file.isDirectory()) {
+            Serial.printf("[DIR] %s", file.name()); // Usamos file.name() directamente
+            Serial.printf(" LAST WRITE: %s\r\n", timeStr);
+            if (levels > 0) { // Comprobación de niveles restantes
+                String subDirPath = dirname;
+                if (!subDirPath.endsWith("/")) { subDirPath += "/"; }
+                subDirPath += file.name();
+                listDir(fs, subDirPath.c_str(), levels - 1, depth + 1);
             }
         } else {
-            Serial.print("  FILE: ");
-            Serial.print(file.name());
-            Serial.print("\t  SIZE: ");
-            Serial.print(file.size());
-            time_t t= file.getLastWrite();
-            struct tm * tmstruct = localtime(&t);
-            Serial.printf("\t  LAST WRITE: %d-%02d-%02d %02d:%02d:%02d\n",(tmstruct->tm_year)+1900,( tmstruct->tm_mon)+1, tmstruct->tm_mday,tmstruct->tm_hour , tmstruct->tm_min, tmstruct->tm_sec);
+            Serial.printf("[FILE] %s", file.path());
+            Serial.printf("\tSIZE: %lu bytes", (unsigned long)file.size());
+            Serial.printf(" LAST WRITE: %s\r\n", timeStr);
         }
         file = root.openNextFile();
     }

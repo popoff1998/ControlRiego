@@ -530,10 +530,10 @@
     bool saveConfig = false;
     bool reposo = false;
     
-    const char *parmFile = "/config_parm.json";         // fichero de parametros activos
-    const char *backupParmFile = "/config_backup.json"; // fichero de respaldo de los parametros
-    const char *lastRiegosFile = "/lastRiegos.json";        // fichero de ultimos riegos de zonas
-    const char *lastGruposFile = "/lastGrupos.json";        // fichero de ultimos riegos de grupos
+    const char *parmFile = "/datos/config_parm.json";         // fichero de parametros activos
+    const char *backupParmFile = "/datos/config_backup.json"; // fichero de respaldo de los parametros
+    const char *lastRiegosFile = "/datos/lastRiegos.json";        // fichero de ultimos riegos de zonas
+    const char *lastGruposFile = "/datos/lastGrupos.json";        // fichero de ultimos riegos de grupos
     
     DisplayLCD lcd(LCD2004_address, 20, 4);  // 20 caracteres x 4 lineas
     char buff[MAXBUFF];
@@ -697,7 +697,7 @@ void ledRGB(int,int,int);
 bool ledStatusId(int);
 void leeSerial(void);
 void listAllFilesInDir(fs::FS &fs, String dir_path);
-void listDir(fs::FS &fs, const char * , uint8_t);
+void listDir(fs::FS &fs, const char * dirname, uint8_t levels, uint8_t depth = 0);
 bool loadConfigFile(const char*);
 void mcpIinit(void);
 void mcpOinit(void);
