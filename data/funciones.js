@@ -3,7 +3,8 @@
     * Estas funciones se encargan de cargar datos, crear tablas y manejar eventos de usuario.
     * Se utilizan para mostrar información sobre archivos de configuración y respaldos en la aplicación web.
     * 
-    * Para poder llamarlas desde una pagina HTML, se debe incluir este archivo en el HEAD de la siguiente manera:
+    * Para poder llamarlas desde una pagina HTML, se debe incluir este archivo antes de cualquier script que las use
+    * preferentemente antes del cierre del </body>, de la siguiente manera:
     *                       <script src="/funciones.js"></script>
     * 
     * Funciones:
@@ -28,7 +29,7 @@
         function createTableRow(file, tableId) {
             const row = document.createElement("tr");
 
-            // Filename
+            // Filename (en el JSON viene la ruta completa filepath)
             const filenameCell = document.createElement("td");
             filenameCell.className = file.type == "dir" ? "dirclass" : "filename"; // Add a class for styling (wrap long names if needed)
             filenameCell.setAttribute('data-label','Filename');
@@ -37,7 +38,9 @@
                  filenameLink.href = file.type == "dir" ? '/files.htm?dir='+file.name : file.name; 
             else filenameLink.href = file.name; 
             filenameLink.target = "_blank"; // Open in a new tab
-            filenameLink.textContent = file.name;
+            if (tableId === "parmTableBody" || tableId === "backupTableBody")
+                 filenameLink.textContent = getFileName(file.name); // show only the file name, not the full path
+            else filenameLink.textContent = file.name;
             filenameCell.appendChild(filenameLink);
             row.appendChild(filenameCell);
 
@@ -160,11 +163,17 @@
             .catch(error => console.error(`Error during delete:`, error));
         }
 
-        // Ejemplo de helper para GET JSON
-        function apiGetJson(path) {
-          return fetch(path).then(r => {
-            if (!r.ok) throw new Error('network');
-            return r.json();
-          });
+        // Extrae el nombre de archivo de una ruta completa
+        function getFileName(filePath) {
+            const lastSlash = filePath.lastIndexOf('/');
+            if (lastSlash === -1) return filePath;
+            return filePath.substring(lastSlash + 1);
         }
 
+        // función auxiliar (helper) para GET JSON
+        function apiGetJson(path) {
+            return fetch(path).then(r => {
+                if (!r.ok) throw new Error(`HTTP error! status: ${r.status}`);
+                return r.json();
+            });
+        }

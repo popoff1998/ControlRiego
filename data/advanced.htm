@@ -3,7 +3,7 @@
 
 <head>
   <title>Advanced</title>
-  <link Content-Type="text/css" href="/style_base.css" rel="stylesheet" />
+  <link type="text/css" href="/style_base.css" rel="stylesheet" />
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
@@ -20,7 +20,7 @@
       <p style="font-weight:bold;">OTA & File management:</p>
       <ul>
         <p style="color: red;font-weight:bold;">(ATENCION: Las siguientes opciones pueden alterar el funcionamiento del sistema)</p>
-        <li><a href="/files.htm">FILES</a> - Manage files on the server (browse, download or delete)</li>
+        <li><a href="/files.htm?style=cards">FILES</a> - Manage files on the server (browse, download or delete)</li>
         <li><a href="/$upload.htm">UPLOAD</a> - Upload individual files</a></li>
         <li><a href="/$update">OTA update</a> - Update Firmware or Filesystem</li>
       </ul>
@@ -28,7 +28,7 @@
         <p style="font-weight:bold;">Testing:</p>
         <ul>
           <li><a href="/$update?page=builtin">OTA update (builtin)</a> - Force built-in page</li>
-          <li><a href="/files.htm?style=cards">FILES (cards)</a> - Show files in cards format in small screens</li>
+          <li><a href="/files.htm?style=table">FILES (table)</a> - Show files in table format in small screens</li>
           
           <p>The following REST services return a JSON:</p>
           <li><a href="/api/sysinfo">/api/sysinfo</a> - Some system level information</a></li>

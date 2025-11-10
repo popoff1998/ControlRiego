@@ -24,21 +24,40 @@ Para cada celda <td>, se debe definir un atributo data-label con el nombre de la
     justify-content: space-between;
     padding: 6px 8px;
     border: none;
-    border-bottom: 1px dashed #e6e6e6;
-    white-space: nowrap;
+    white-space: normal;
   }
-  tbody tr td:last-child { border-bottom: none; }
+  /* tbody tr td:last-child { border-bottom: none; } */
   tbody tr td::before {
     content: attr(data-label);
     font-weight: 700;
     color: #333;
     margin-right: 10px;
+    flex-shrink: 0;
     flex: 0 0 auto;
   }
-  td:last-child {
-    /* Si la celda de acción tiene botones, asegurar que no haya saltos de línea entre ellos */
-    white-space: nowrap;
+
+  /* Nueva regla para que el valor 3 (el Timestamp) se muestre en una sola linea */
+  tbody tr td:nth-child(3) {
+      flex-grow: 1; 
+      white-space: nowrap; 
+      text-align: right;
+      overflow: visible; 
   }
+      
+  /* Regla adicional para asegurar que la etiqueta (data-label) no se muestre 
+    en la celda de acciones, ya que no tiene sentido aquí y consume espacio. */
+  td:last-child::before {
+      content: none; 
+  }
+      
+  /* Regla CLAVE: Aplicar estilos flex específicos al DIV de botones para que no se apilen en la tarjeta */
+  .buttoncolumn div {
+      flex-wrap: nowrap !important;
+      gap: 15px !important; 
+      display: inline-flex !important; 
+      justify-content: center;
+  }    
+
   /* allow filename wrap inside card */
-  td.filename, td.filename a { white-space: normal; word-break: break-word; overflow-wrap: anywhere; }
+  td.filename, td.filename a { white-space: normal; word-break: break-word; overflow-wrap: anywhere; font-size: 1.1em; }
 }

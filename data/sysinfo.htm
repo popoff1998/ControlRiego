@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link Content-Type="text/css" href="/style_base.css" rel="stylesheet" />
-    <link Content-Type="text/css" href="/style_tableFiles.css" rel="stylesheet" />
+    <link type="text/css" href="/style_base.css" rel="stylesheet" />
+    <link type="text/css" href="/style_tableFiles.css" rel="stylesheet" />
     <title>System Info</title>
     <style>
         table {
@@ -56,16 +56,11 @@
         </tbody>
     </table>
 
+    <script src="/funciones.js"></script>
     <script>
-        fetch('/api/sysinfo')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
+        const tableBody = document.getElementById("sysInfoTableBody");
+        apiGetJson('/api/sysinfo')
             .then(sysInfo => {
-                const tableBody = document.getElementById("sysInfoTableBody");
                 if (Object.keys(sysInfo).length === 0) {
                     const row = document.createElement("tr");
                     const cell = document.createElement("td");
@@ -77,30 +72,20 @@
                 } else {
                     Object.keys(sysInfo).forEach(key => {
                         const row = document.createElement("tr");
-
                         const keyCell = document.createElement("td");
                         keyCell.textContent = key;
                         row.appendChild(keyCell);
-
                         const valueCell = document.createElement("td");
                         valueCell.textContent = sysInfo[key];
                         row.appendChild(valueCell);
-
                         tableBody.appendChild(row);
                     });
                 }
             })
             .catch(error => {
                 console.error('Error fetching system info:', error);
-                const tableBody = document.getElementById("sysInfoTableBody");
-                const row = document.createElement("tr");
-                const cell = document.createElement("td");
-                cell.colSpan = 2;
-                cell.textContent = "Error fetching system info";
-                cell.style.textAlign = "center";
-                row.appendChild(cell);
-                tableBody.appendChild(row);
+                tableBody.innerHTML = '<tr><td colspan="2" style="text-align: center;">Error cargando system info</td></tr>';
             });
-    </script>
+</script>
 </body>
 </html>

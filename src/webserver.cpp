@@ -9,7 +9,7 @@
 // * use a LittleFS file system on the data partition for static files
 // * use http ETag Header for client side caching of static files
 // * use custom ETag calculation for static files
-// * extended FileServerHandler for uploading and deleting static files
+// * extended FileServerHandler for get, uploading and deleting static files
 // * serve APIs using REST services (/api/list, /api/sysinfo)
 // * define HTML response when no file/api/handler was found
 //
@@ -46,7 +46,8 @@
 static void sendNoCacheJSON(const String &payload) {
   wserver.sendHeader("Cache-Control", "no-cache");
   wserver.send(200, "application/json; charset=utf-8", payload);
-}    
+}
+
 String replaceTokens(const String &content) {
    String result = content;
    result.replace("%PARMFILE%",   String(parmFile));
@@ -73,26 +74,6 @@ static bool obtainPath(String &outPath) {
     }  
     return true;
 }    
-
-/*
-static void buildFileListJSON(File &dir, const String &filter, String &outResult) {
-    outResult = "[\n";
-    while (File entry = dir.openNextFile()) {
-      String filename = String(entry.name());
-      if (filename.startsWith(filter) || filter == "") {
-          if (outResult != "[\n") { outResult += ",\n"; }
-          outResult += "  {";
-          outResult += "\"type\": \"" + String(entry.isDirectory() ? "dir" : "file") + "\", ";
-          outResult += "\"name\": \"" + String(entry.path()) + "\", ";
-          // outResult += "\"name\": \"" + String(entry.path()).substring(1) + "\", ";
-          outResult += "\"size\": " + String(entry.size()) + ", ";
-          outResult += "\"time\": " + String(entry.getLastWrite());
-          outResult += "}";
-      }    
-    }  
-    outResult += "\n]";
-}
-*/
 
 /*
  Construct a JSON array with file information from the given directory.
@@ -144,7 +125,7 @@ static void sendFileAttachment(const String &path) {
     }  
     String filename = path.substring(path.lastIndexOf('/') + 1);
     LOG_DEBUG("filename:", filename);
-    wserver.sendHeader("Content-Type", "text/text");
+    // wserver.sendHeader("Content-Type", "text/text");
     wserver.sendHeader("Content-Disposition", "attachment; filename=\""+filename+"\"; filename*=UTF-8''"+filename);
     wserver.sendHeader("Connection", "close");
     wserver.streamFile(download, "application/octet-stream");

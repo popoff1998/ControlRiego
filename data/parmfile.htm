@@ -11,9 +11,8 @@
     <title>Parmfile</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link Content-Type="text/css" href="/style_base.css" rel="stylesheet" />
-    <link Content-Type="text/css" href="/style_tableFiles.css" rel="stylesheet" />
-    <script src="/funciones.js"></script>
+    <link type="text/css" href="/style_base.css" rel="stylesheet" />
+    <link type="text/css" href="/style_tableFiles.css" rel="stylesheet" />
 </head>
 
 <style>
@@ -37,26 +36,25 @@
     }
 
     @media (max-width: 768px) {
-       /* .container { gap: 10px; } */
         .back-button { padding: 6px 10px; font-size: 0.9rem; }
     }
 
-form {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 25px;
-    justify-content: center;
-}
+    form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 25px;
+        justify-content: center;
+    }
 
-input[type="file"] {
-    flex: 1 1 auto;
-    max-width: 350px;
-}
+    input[type="file"] {
+        flex: 1 1 auto;
+        max-width: 350px;
+    }
 
-button {
-    flex: 1 1 auto;
-    max-width: 150px;
-}
+    button {
+        flex: 1 1 auto;
+        max-width: 150px;
+    }
 
 </style>  
   
@@ -69,9 +67,7 @@ button {
         <h2>Carga de parámetros a la CCR:</h2>
         <form id="uploadForm" enctype="multipart/form-data" style="white-space: nowrap" >
             <input type="file" id="fileInput" name="file" accept=".json" required>
-            <!-- <span style="display: inline-block; width: 5px;"></span> -->
             <button type="button" class="button button-import" onclick="uploadFile()">Import</button>
-            <!-- <span style="display: inline-block; width: 15px;"></span> -->
             <button type="button" class="button button-new" onclick="openNewFile()">New</button>
         </form>
         <script>
@@ -143,23 +139,27 @@ button {
             <!-- Rows will be dynamically added here -->
         </tbody>    
     </table>    
-    
+    <script src="/funciones.js"></script>
     <script>
-
         // Fetch and display the data when the page loads
         window.addEventListener("load", () => {
-            apiGetJson('/api/list?file=' + encodeURIComponent('%PARMFILE%'))
-                .then(data => {
-                    populateTable(data, "parmTableBody");
-                })
-                .catch(error => console.error("Error fetching file data:", error));
-            apiGetJson('/api/list?file=' + encodeURIComponent('%BACKUPFILE%'))
-                .then(data => {
-                    populateTable(data, "backupTableBody");
-                })
-                .catch(error => console.error("Error fetching file data:", error));
+            // Usamos un requestAnimationFrame para POSPONER la modificación del DOM 
+            // y permitir que el navegador termine sus tareas internas (incluyendo ThumbnailsChild.sys.mjs).
+            window.requestAnimationFrame(() => {
+                // --- Lógica para la Tabla de Parámetros ---
+                apiGetJson('/api/list?file=' + encodeURIComponent('%PARMFILE%'))
+                    .then(data => {
+                        populateTable(data, "parmTableBody");
+                    })
+                    .catch(error => console.error("Error fetching parm file data:", error));
+                // --- Lógica para la Tabla de Backup ---
+                apiGetJson('/api/list?file=' + encodeURIComponent('%BACKUPFILE%'))
+                    .then(data => {
+                        populateTable(data, "backupTableBody");
+                    })
+                    .catch(error => console.error("Error fetching backup file data:", error));
+            });
         });
-        
     </script>
 </body>
-</html>
+</html>    

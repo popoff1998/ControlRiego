@@ -15,11 +15,6 @@ th,td {
 th {background-color:#ebebeb; padding:0.6em; border-bottom:0.1em solid #8a8a8a;}
 tr:nth-child(even) {background-color:#f3f3f3;}
 
-/* reducir padding y fuente en móvil para ganar espacio */
-@media (max-width: 420px) {th, td { font-size: 0.85em; padding: 0.2em; }}
-/* ajustar ancho tabla según tamaño pantalla */
-@media (max-width: 768px) {table {width: 100% !important;}}
-
 button {
     padding: 8px 12px;
     background-color: #2e8e95;
@@ -34,7 +29,7 @@ button {
     background-color: #1e9a31;
     font-size: 18px;
     color: #fff;
-}
+    }
 .button-new {
     padding: 12px 17px;
     background-color: #2e8e95;
@@ -70,13 +65,24 @@ input[type="text"] {
 
 /* permitir wrapping solo en la columna de filename */
 td.filename, td.filename a {
-  white-space: normal;       /* permitir varias líneas */
-  word-break: break-word;    /* romper palabras largas si es necesario */
-  overflow-wrap: anywhere;   /* cambios en navegadores modernos */
+    white-space: normal;       /* permitir varias líneas */
+    overflow-wrap: anywhere;   /* cambios en navegadores modernos */
+    /* ----------------------------------------------------------------- */
+    /* NUEVAS PROPIEDADES PARA MEJORAR LA RUPTURA EN PUNTOS Y BARRAS */
+    /* ----------------------------------------------------------------- */
+    /* 1. Usar word-break para permitir la ruptura de palabras muy largas */
+    /* word-break: break-all;  */
+    /* 2. Indicar al navegador que use puntos de quiebre suaves */
+    hyphens: manual;
 }
 
+/* ajustar ancho tabla según tamaño pantalla */
+@media (max-width: 768px) {table {width: 100% !important;}}
 /* ajustar ancho columna botones y margen vertical según tamaño pantalla */
 @media (max-width: 520px) {th.buttoncolumn, td.buttoncolumn { width: 20% !important; padding: 15px 3px !important;}}
+/* reducir padding y fuente en móvil para ganar espacio */
+@media (max-width: 470px) {th, td, td.filename, td.filename a { font-size: 0.95em; padding: 0.2em; }}
+
 
 /* Clase para usar en la celda que debe mantenerse en una sola línea */
 .no-wrap {white-space: nowrap;}
