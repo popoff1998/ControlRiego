@@ -15,7 +15,40 @@ th,td {
 th {background-color:#ebebeb; padding:0.6em; border-bottom:0.1em solid #8a8a8a;}
 tr:nth-child(even) {background-color:#f3f3f3;}
 
-button, .btn-log {
+/*
+ * Reglas para OPTIMIZACIÓN de layout SÓLO para tablas de 4 columnas (parmfile.htm y files.htm)
+ */
+/* 1. Centrado de los encabezados a partir del segundo */
+.files-4-col th:nth-child(n+2) { 
+    text-align: center;
+}
+/* Columna 2: Tamaño */
+.files-4-col td:nth-child(2) {
+    width: 15%; 
+    text-align: center;
+}
+/* Columna 3: Timestamp */
+.files-4-col td:nth-child(3) {
+    width: 20%; 
+    text-align: center;
+}
+/* Columna 4: Acciones */
+.files-4-col td:nth-child(4) {
+    width: 30%; 
+    text-align: center;
+    white-space: nowrap;
+    padding: 8px 3px;
+}
+/* 3. Estilo para el contenedor de botones dentro de la columna de Acciones
+   (Aplicamos esto a cualquier td que tenga la clase .buttoncolumn dentro de una tabla de 4 cols) */
+.files-4-col .buttoncolumn > div {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+}
+
+.btn-log {
     padding: 8px 12px;
     background-color: #2e8e95;
     color: white;
@@ -24,37 +57,15 @@ button, .btn-log {
     cursor: pointer;
     font-size: 16px;
 }
-.button-import {
-    padding: 12px 17px;
-    background-color: #1e9a31;
-    font-size: 18px;
-    color: #fff;
-    }
-.button-new {
-    padding: 12px 17px;
-    background-color: #2e8e95;
-    font-size: 18px;
-    color: #fff;
-}
-.button-restore {
-    background-color: #780320;
-    color: #fff;
-}
 .button-delete {
     background-color: #9d072c;
     color: #fff;
 }
-.button-data {
-    background-color: #858585;
+.button-delete:hover {
+    background-color: #b60c38;
     color: #fff;
 }
-button:hover {
-    background-color: #0056b3;
-}
-button:disabled {
-    background-color: #ccc;
-    cursor: not-allowed;
-}
+
 input[type="text"] {
     width: 100%;
     padding: 10px;
@@ -63,17 +74,11 @@ input[type="text"] {
     border-radius: 3px;
 }
 
-/* permitir wrapping solo en la columna de filename */
+/* permitir wrapping de palabras solo en la columna de filename */
 td.filename, td.filename a {
-    white-space: normal;       /* permitir varias líneas */
-    overflow-wrap: anywhere;   /* cambios en navegadores modernos */
-    /* ----------------------------------------------------------------- */
-    /* NUEVAS PROPIEDADES PARA MEJORAR LA RUPTURA EN PUNTOS Y BARRAS */
-    /* ----------------------------------------------------------------- */
-    /* 1. Usar word-break para permitir la ruptura de palabras muy largas */
-    /* word-break: break-all;  */
-    /* 2. Indicar al navegador que use puntos de quiebre suaves */
-    hyphens: manual;
+    white-space: normal;
+    word-break: break-all;
+    overflow-wrap: anywhere;
 }
 
 /* ajustar ancho tabla según tamaño pantalla */
@@ -83,11 +88,6 @@ td.filename, td.filename a {
 /* reducir padding y fuente en móvil para ganar espacio */
 @media (max-width: 470px) {th, td, td.filename, td.filename a { font-size: 0.95em; padding: 0.2em; }}
 
-
-/* Clase para usar en la celda que debe mantenerse en una sola línea */
-.no-wrap {white-space: nowrap;}
-/* Clase para usar en la celda con comportamiento estándar */
-.normal-wrap {white-space: normal;} /* Este es el valor por defecto */
 /* Clase para usar en la celda en la que si es necesario se partiran palabras largas */
 .force-wrap {overflow-wrap: break-word; word-break: break-word;}
 /* Clase para datos de fichero */

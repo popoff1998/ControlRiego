@@ -7,49 +7,29 @@
   <meta name='viewport' content='user-scalable=yes,initial-scale=1.0,width=device-width'>
   <link type="text/css" href="/style_base.css" rel="stylesheet" />
   <link type="text/css" href="/style_tableFiles.css" rel="stylesheet" />
+  <link type="text/css" href="/style_datacard.css" rel="stylesheet" />
   <style>
     /* Oculta el encabezado temporalmente para evitar destello al mostrarlo si usa cards */
     @media (max-width: 600px) {thead { display: none !important; }}
   </style>
-  <script>
-    // Si se llamo con ?style=cards o sin especificar, cargar la hoja de estilo para cards en pantalla pequeña
-      const parametros = new URLSearchParams(window.location.search);
-      const style = parametros.get('style');
-      let hojaDeEstilo;
-      if (style === 'cards' || !style) {
-          hojaDeEstilo = '/style_datacard.css';
-          const link = document.createElement('link');
-          link.rel = 'stylesheet';
-          link.href = hojaDeEstilo;
-          document.head.appendChild(link);
-      }
-  </script>
 </head>
 
 </body>
 
   <h1 style="margin-top: 20px;">Files on server</h1>
-
     <h3>These files are available on the server to be opened, downloaded or delete: </h3>
-      <table style="margin: 0 auto;">  <!-- tabla centrada -->
-          <thead>
-          <tr>
-          <th>Filepath</th>
-          <th style="text-align: center;">Size</th>
-          <th style="text-align: center;">Timestamp</th>
-          <th style="text-align: center;">Action</th>
-          </tr>
-          </thead>
+    <table class="files-4-col" style="margin: 0 auto;">
+        <thead><tr><th>Filepath</th><th>Size</th><th>Timestamp</th><th>Action</th></tr></thead>
           <tbody id="filesTableBody">
           <!-- Rows will be dynamically added here -->
           </tbody>
       </table>
+
   <script src="/funciones.js"></script>
   <script>
     // Fetch and display the data when the page loads
     window.addEventListener("load", () => {
       window.requestAnimationFrame(() => {
-          // Retrieve query parameters from the URL
           const queryParams = new URLSearchParams(window.location.search);
           console.log("Query Parameters:", Object.fromEntries(queryParams.entries()));
           const dir = queryParams.get("dir") || "/"; // Get 'directory passed or default to root
@@ -60,7 +40,6 @@
             .catch(error => console.error("Error fetching file data:", error));
       });
     });
-
   </script>
 </body>
 

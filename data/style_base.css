@@ -1,3 +1,8 @@
+:root {
+    --theme-color: #0a9aaf;
+    --hover-color: #07778b;
+}
+
 html {
     font-family: Arial, Helvetica, sans-serif;
 }
@@ -13,52 +18,42 @@ body {
 
 *{box-sizing:border-box;}
 
-.containerbase {
-    width: 90%;          /* Ocupa el 90% del ancho disponible */
-    max-width: 1050px;   /* Pero nunca más de 1050 píxeles */
-    margin: 0 auto;      /* Centra el contenedor */
+.containerbase {width: 90%; max-width: 1050px; margin: 0 auto;}
+.containerbase.no-testing ul li {
+    margin-bottom: 20px; /* Espacio extra de separación vertical */
 }
 @media (max-width: 1050px) {.containerbase {width: 100% !important;}}
 
-/* @media (min-width: 1050px) and (max-width: 1200px) {body {max-width: 80% !important;}} */
-
-
 h1 {
     color:white;
-    border-radius:0em;
+    border-radius:0.5em;
     font-size:1.5em;
-    padding: 0.2em 0.2em;
+    padding: 0.3em;
     padding-left: 1em;
-    background:#3da3aa;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 1px rgba(0, 0, 0, 0.05);
+    /* background-color: var(--theme-color); */
+    /* background-image: linear-gradient(to right, var(--theme-color), var(--theme-color) 70%, #1fabb2 100%); */
+    background-image: linear-gradient(to right, #3dc0c5, var(--theme-color) 30%, var(--theme-color) 100%);
 }
 
-h2 {
-    font-size:1.2em;
-}
+h2 { font-size:1.2em; }
 
-h3 {
-    color:#555;
-    font-size:0.9em;
-}
+h3 { color:#555; font-size:0.9em; }
 
 a {
 text-decoration: none; /* Elimina el subrayado */
 font-size: 1.2em;
 color: #0174ee; /* Color del enlace */
 }
-a:hover {
-color: rgb(26, 7, 240);
-}
+a:hover { color: rgb(26, 7, 240); }
 
 .muted { color:#828282; font-size:0.9em }
 .menu-big { padding-left: 4em; padding-top: 2em; font-size: 1.2em; }
 .menu { padding-left: 2em; font-size: 1.2em; }
-.logo { float: right; margin-left: 10px; margin-right: 40px; }
+.logo { float: right; margin-left: 10px; margin-right: 40px;
+        filter: drop-shadow(8px 8px 10px rgba(0, 0, 0, 0.3));} /* sombra debajo */
 
-.lista-alineada {
-    padding-left: 0; /* ¡Este es el paso fundamental para eliminar la sangría del navegador! */
-    list-style: none; /* (Opcional) Elimina las viñetas */
-}
+.lista-alineada { padding-left: 0; list-style: none; }
 .lista-alineada li {
     /* 1. Habilita CSS Grid en cada fila (<li>) */
     display: grid; 
@@ -66,22 +61,12 @@ color: rgb(26, 7, 240);
     - nnnpx para los enlaces (columna fija)
     - 1fr para la descripción (ocupa el resto del espacio) */
     grid-template-columns: 200px 1fr;
-    /* Alinea el contenido verticalmente en el centro */
     align-items: center; 
-    /* Aplica la sangría de inicio al <li> completo */
     padding: 8px 15px; 
 }
-.lista-alineada a {
-    /* Asegura que el texto se corte si es más largo que 180px */
-    overflow: hidden; 
-    white-space: nowrap; 
-    text-overflow: ellipsis;
-}
-.lista-alineada .descripcion {
-    /* Se coloca automáticamente en la segunda columna, y su inicio es fijo */
-    color: #666;
-    padding-left: 5px; /* Espacio extra de separación del enlace */
-}
+.lista-alineada a { /* Asegura que el texto se corte si es más largo que 180px */
+    overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.lista-alineada .descripcion { color: #666; padding-left: 5px; /* Espacio extra de separación del enlace */ }
 
     @media (max-width: 768px) {.menu-big {padding-left: 1em;}}
     @media (max-width: 768px) {.menu {padding-left: 0.5em; font-size: 1em;}}
@@ -93,42 +78,62 @@ color: rgb(26, 7, 240);
 
 /* ==================== BUTTON STYLES ==================== */
 
-/** Primary button for save/submit actions */
-button.save-button {
-    background-color: #007BFF;
-    color: white;
-    border: none;
-    padding: 10px 15px;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background-color 0.3s;
+/* Estilo base: padding, fuente, transición y sombreado común */
+button {
+  border: none;
+  border-radius: 5px;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out; 
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 1px rgba(0, 0, 0, 0.05);
+  background-color: var(--theme-color);
+  color: white;
+  font-size: 16px;
+}
+/* 3. Definir el sombreado/elevación para el HOVER en la base */
+button:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15), 0 0 2px rgba(0, 0, 0, 0.1);
+    background-color: var(--hover-color);
+}
+/* 4. Definir el sombreado/hundimiento para el ACTIVE en la base */
+button:active {
+    box-shadow: none; /* Eliminar la sombra para el efecto de "hundimiento" */
+    transform: translateY(1px); /* Moverlo ligeramente hacia abajo */
 }
 
-button.save-button:hover, button.button-import:hover {
-    background-color: #0056b3;
+/** Button for save/submit actions */
+.save-button {
+    background-color: #007BFF;
+    color: white;
+    font-weight: 600;
 }
 
 /** Secondary button for cancel/edit actions */
-button.secondary-button {
+.secondary-button {
     background-color: #d1caca;
     color: black;
-    border: none;
-    padding: 10px 15px;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background-color 0.3s;
+}
+.secondary-button:hover {
+    color: white;
 }
 
-button.secondary-button:hover, button.button-new:hover {
-    background-color: #b3b3b3;
+.back-button {
+    background-color: #d1caca;
+    color: black;
+    padding: 8px 12px;
+    font-size: 0.95rem;
 }
+.back-button:hover {
+    background-color: #a89f9f;
+}
+
 
 /** Button group container for aligned button layout */
 .button-group {
     margin: 20px 0;
     text-align: center;
 }
-
 .button-group > button:not(:last-child) {
     margin-right: 20px;
 } 

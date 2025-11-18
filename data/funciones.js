@@ -36,39 +36,26 @@
             const sizeCell = document.createElement("td");
             sizeCell.textContent = file.type == "dir" ? "directory" : file.size;
             sizeCell.className = file.type == "dir" ? "dirclass" : "fileclass"; // Add a class for styling
-            sizeCell.style.width = "15%";
             sizeCell.setAttribute('data-label','Size');
             row.appendChild(sizeCell);
 
             // Timestamp
             const timestampCell = document.createElement("td");
             timestampCell.textContent = new Date(file.time * 1000).toLocaleString();
-            timestampCell.style.textAlign = "center";
-            timestampCell.style.width = "20%";
             timestampCell.setAttribute('data-label','Timestamp');      
             row.appendChild(timestampCell);
 
             // Actions
             const actionCell = document.createElement("td");
-            actionCell.className = "buttoncolumn"; // Add a class for styling
-            actionCell.style.textAlign = "center";
-            actionCell.style.width = "30%";
-            actionCell.style.whiteSpace = "nowrap"; // Prevent wrapping
-            actionCell.style.padding = "8px 3px"; // Add some padding for better spacing
+            actionCell.className = "buttoncolumn"; // Add a class for styling in CSS
             actionCell.setAttribute('data-label','Acciones');
             if (tableId === "parmTableBody") {
                 const buttonContainer = document.createElement("div");
-                buttonContainer.style.display = "flex";
-                buttonContainer.style.flexWrap = "wrap";
-                buttonContainer.style.justifyContent = "center";
-                buttonContainer.style.gap = "20px"; // Add spacing between buttons
-
                 buttonContainer.appendChild(createButton("Export", () => downloadFile(file.name)));
                 buttonContainer.appendChild(createButton("Backup", () => handleFileAction("BACKUP", file.name)));
                 buttonContainer.appendChild(createButton("Edit", () => {
                     window.open(`/parmfile_edit.htm?file=${file.name}`, '_self');  // Open in a the same tab
                 }));
-
                 actionCell.appendChild(buttonContainer);
             } else if (tableId === "backupTableBody") {
                 const restoreButton = createButton("Restore", () => {
@@ -77,20 +64,13 @@
                 restoreButton.className = "button-restore";
                 actionCell.appendChild(restoreButton);
             } else if (tableId === "filesTableBody" && file.type == "file") {
-                // Only show download and delete buttons for files
                 const buttonContainer = document.createElement("div");
-                buttonContainer.style.display = "flex";
-                buttonContainer.style.flexWrap = "wrap";
-                buttonContainer.style.justifyContent = "center";
-                buttonContainer.style.gap = "15px";
-
                 buttonContainer.appendChild(createButton("Download", () => downloadFile(file.name)));
                 const deleteButton = createButton("Delete", () => {
                     if (confirm("Delete " + file.name + " ?")) handleFileDelete(file.name);
                 });
                 deleteButton.className = "button-delete";
                 buttonContainer.appendChild(deleteButton);
-
                 actionCell.appendChild(buttonContainer);
             }
             row.appendChild(actionCell);

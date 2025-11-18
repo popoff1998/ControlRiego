@@ -11,10 +11,10 @@
     h2 { margin-top: 2em; margin-bottom: 0; } 
     .header-and-info-container {
       display: flex;
-      justify-content: space-between; /* Mueve los elementos a los extremos */
-      align-items: baseline; /* Alinea por la línea base del texto */
-      margin: 2em auto 0.5em auto; /* Le da el espacio superior e inferior que tenía antes el h2 */
-      max-width: 900px; /* Necesario para que respete el ancho máximo */
+      justify-content: space-between;
+      align-items: baseline;
+      margin: 2em auto 0.5em auto;
+      max-width: 900px;
     }
     .table-info {color: gray; }
     table.files-table th, table.files-table td {
@@ -38,21 +38,15 @@
       <div class="table-info">(*ultimos 15 días)</div>
     </div>
     <table class="files-table" id="tablaLog" style="margin: 0 auto;">
-      <thead>
-        <tr>
-          <th>Fecha</th><th>Estado</th><th>Usuario</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
+      <thead><tr><th>Fecha</th><th>Estado</th><th>Usuario</th></tr></thead>
+      <tbody><!-- Rows will be dynamically added here --></tbody>
     </table>
   </div>
 <script>
-    // Obtiene el número de zona de la URL (función síncrona, no necesita await)
     function getParam(name) {
         const url = new URL(window.location.href);
         return url.searchParams.get(name);
     }
-    
     // Obtener la zona y actualizar el título
     const zona = getParam('zona');
     document.getElementById('titulo').textContent = `ZONA${zona}`;

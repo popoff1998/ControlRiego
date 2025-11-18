@@ -28,7 +28,6 @@
         <p style="font-weight:bold;">Testing:</p>
         <ul>
           <li><a href="/$update?page=builtin">OTA update (builtin)</a> - Force built-in page</li>
-          <li><a href="/files.htm?style=table">FILES (table)</a> - Show files in table format in small screens</li>
           
           <p>The following REST services return a JSON:</p>
           <li><a href="/api/sysinfo">/api/sysinfo</a> - Some system level information</a></li>
@@ -41,17 +40,19 @@
   <script>
   var showtestValue = (typeof showtest !== "undefined") ? showtest : "undefined";
   var testingSection = document.getElementById("testingSection");
+  var container = document.querySelector(".containerbase");
 
   // establecer visibilidad inicial
   if (showtestValue && showtestValue !== "undefined") {
     testingSection.style.display = "";
+    container.classList.remove("no-testing"); // Quitar la clase si se muestra
   } else {
     testingSection.style.display = "none";
+    container.classList.add("no-testing"); // Añadir la clase si se oculta
   }
 
   // crear párrafo clickable que muestra el valor
   var info = document.createElement("p");
-  //info.textContent = "Valor de showtest: " + showtestValue;
   info.textContent = "showtest";
   info.style.cursor = "pointer";
   info.title = "Click para mostrar/ocultar la sección de testing";
@@ -61,8 +62,10 @@
     var cs = window.getComputedStyle(testingSection);
     if (cs.display === "none") {
       testingSection.style.display = "";
+      container.classList.remove("no-testing"); // Quitar la clase si se muestra
     } else {
       testingSection.style.display = "none";
+      container.classList.add("no-testing"); // Añadir la clase si se oculta
     }
   });
 

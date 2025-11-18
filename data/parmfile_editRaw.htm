@@ -12,28 +12,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link type="text/css" href="/style_base.css" rel="stylesheet" />
     <style>
-      body {background-color: #f7f7f7; font-family: Arial, sans-serif; margin: 0;
-        display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
-      fieldset {width: 90%; max-width: 800px; margin: 0 auto; background-color: #f7f7f7;}
+      fieldset {width: 90%; max-width: 800px; margin: 1em auto; background-color: #f7f7f7;}
       textarea {width: 100%; height: 700px; padding: 12px 20px; box-sizing: border-box; border: 2px solid #ccc; border-radius: 4px;}
       button {width: 100%; padding: 10px; font-size: 1em; margin: 5px 0;}
       table {width: 100%; background-color: #dddddd;}
       td, th {text-align: center; padding: 10px;}
       
       @media (max-width: 768px) {
-        textarea {height: 500px;}
+        textarea {height: 480px;}
         button {font-size: 0.9em;}
-        h2 {font-size: 1.5em;}
-        #spacer_20, #spacer_50 {height: 10px;}
       }
     </style>
   </head>
   <body>
-      <h2>Edicion libre del fichero de parametros</h2>
-      <div id="spacer_20"></div>
-      
+      <h1>Edicion libre del fichero de parametros</h1>
       <fieldset>
-        <legend>ATENCION! no se realiza ninguna verificacion</legend>
+        <legend style="color:red;">ATENCION! no se realiza ninguna verificacion</legend>
         <div id="spacer_20"></div>
         <table><tr><td colspan="2">
         <form name="edit_file">
@@ -96,6 +90,13 @@
         form.addEventListener('submit', (event) => {
           event.preventDefault();
           const content = textarea.value;
+          try {
+              JSON.parse(content); // validacion de la sintaxis JSON
+          } catch (e) {
+              console.error("Error de sintaxis JSON:", e);
+              alert(`Error de sintaxis JSON: ${e.message}. Por favor, corrige el contenido antes de guardar.`);
+              return; // Detiene el envío del formulario si falla la validación
+          }
           fetch('/api/save_config', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},

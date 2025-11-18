@@ -312,6 +312,14 @@ void handleSaveConfig() {
       return;
   }
   String jsonBody = wserver.arg("plain");
+  JsonDocument doc;  // Validar JSON entrante
+  DeserializationError error = deserializeJson(doc, jsonBody);
+  if (error) {
+      String errorMsg = "JSON Deserialization failed: ";
+      errorMsg += error.c_str(); // Proporciona un mensaje de error útil
+      wserver.send(400, "text/plain", errorMsg);
+      return;
+  }
   File configFile = LittleFS.open(parmFile, "w");
   if (!configFile) {
       wserver.send(500, "text/plain", "Internal Server Error: Could not open file for writing");

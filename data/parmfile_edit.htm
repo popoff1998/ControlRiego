@@ -6,8 +6,8 @@
     <link href="/style_base.css" rel="stylesheet" />
     <title>Edicion parámetros</title>
     <style>
-        body {font-family: Arial, sans-serif; display: flex; flex-direction: column; max-width: 768px;}
-        table {width: 90%; border-collapse: collapse; margin: 20px auto;}
+        body {display: flex; flex-direction: column; max-width: 768px;}
+        table {width: 90%; border-collapse: collapse; margin: 20px auto; box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);}
         th, td {border: 1px solid #ddd; padding: 8px; text-align: center;}
         th {background-color: #f4f4f4;}
         input {width: 90%; padding: 5px; box-sizing: border-box; border: 1px solid #cccccc;}
@@ -77,7 +77,7 @@
                 const valueCell = row.insertCell(); // Valor (editable)
                 const input = document.createElement("input");
                 input.type = "text";
-                input.value = data[key] || ""; // Valor vacío si es null/undefined
+                input.value = data[key] || "";
                 input.dataset.field = key;
                 valueCell.appendChild(input);
             });
@@ -92,7 +92,7 @@
                 const row = tableBody.insertRow();
                 const zonaCell = row.insertCell();
                 zonaCell.textContent = boton.zona || ""; // Zona (no editable)
-                zonaCell.classList.add("orla-verde"); // Aplicar estilo de orla verde
+                zonaCell.classList.add("orla-verde");
 
                 // Campo idx (editable)
                 const idxCell = row.insertCell();
@@ -100,7 +100,7 @@
                 idxInput.type = "number";
                 idxInput.min = "0";
                 idxInput.max = "999";
-                idxInput.value = boton.idx || 0; // Valor por defecto 0 si no existe
+                idxInput.value = boton.idx || 0;
                 idxInput.dataset.index = index;
                 idxInput.dataset.field = "idx";
                 
@@ -125,7 +125,7 @@
                 const nombreCell = row.insertCell();
                 const nombreInput = document.createElement("input");
                 nombreInput.type = "text";
-                nombreInput.value = boton.nombre || ""; // Valor vacío si no existe
+                nombreInput.value = boton.nombre || "";
                 nombreInput.dataset.index = index;
                 nombreInput.dataset.field = "nombre";
                 nombreInput.maxLength = 9;
@@ -142,13 +142,13 @@
                 const row = tableBody.insertRow();
                 const grupoCell = row.insertCell();
                 grupoCell.textContent = grupo.grupo || ""; // Grupo (no editable)
-                grupoCell.classList.add("orla-azul"); // Aplicar estilo de orla azul
+                grupoCell.classList.add("orla-azul");
 
                 // Campo descripción (editable)
                 const descCell = row.insertCell();
                 const descInput = document.createElement("input");
                 descInput.type = "text";
-                descInput.value = grupo.desc || ""; // Valor vacío si no existe
+                descInput.value = grupo.desc || "";
                 descInput.dataset.index = index;
                 descInput.dataset.field = "desc";
                 descInput.maxLength = 9;
@@ -237,7 +237,6 @@
         function collectChanges() {
             // Clonar los datos originales para trabajar sobre ellos
             const updatedData = JSON.parse(JSON.stringify(originalJsonData));
-            // Recolección de datos
             collectArrayData("#botonesTableBody input", 'botones', updatedData);
             collectArrayData("#gruposTableBody input", 'grupos', updatedData);
             collectObjectData("#domoticzTableBody input", 'domoticz', updatedData);
