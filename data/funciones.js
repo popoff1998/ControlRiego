@@ -1,22 +1,10 @@
 /*
-    * Funciones para manejar la interfaz de usuario y la interacción con el servidor usadas en varias paginas.
-    * Estas funciones se encargan de cargar datos, crear tablas y manejar eventos de usuario.
-    * Se utilizan para mostrar información sobre archivos de configuración y respaldos en la aplicación web.
+    * Funciones comunes para la gestión de archivos en la interfaz web
     * 
     * Para poder llamarlas desde una pagina HTML, se debe incluir este archivo antes de cualquier script que las use
     * preferentemente antes del cierre del </body>, de la siguiente manera:
     *                       <script src="/funciones.js"></script>
-    * 
-    * Funciones:
-    * - populateTable: Llena una tabla con datos de archivos.
-    * - createTableRow: Crea una fila de tabla con información de un archivo.
-    * - createButton: Crea un botón con un evento de clic.
-    * - downloadFile: Maneja la descarga de archivos.
-    * - handleFileAction: Maneja acciones de copia de archivos (respaldo y restauración).
-    * - handleFileDelete: Maneja la eliminación de archivos.
-    * - apiGetJson: Helper para realizar solicitudes GET y obtener JSON.
     */
-
 
         // Población de tablas
         function populateTable(data, tableId) {
@@ -79,17 +67,14 @@
                 buttonContainer.appendChild(createButton("Backup", () => handleFileAction("BACKUP", file.name)));
                 buttonContainer.appendChild(createButton("Edit", () => {
                     window.open(`/parmfile_edit.htm?file=${file.name}`, '_self');  // Open in a the same tab
-                    //window.location.href = `/parmfile_edit.htm?file=${file.name}`;  // Open in the same tab
-                    //window.open(`/parmfile_edit.htm?file=${file.name}`, '_blank');  // Open in a new tab
                 }));
 
                 actionCell.appendChild(buttonContainer);
             } else if (tableId === "backupTableBody") {
                 const restoreButton = createButton("Restore", () => {
-                    // if (confirm("Recuperar parametros desde " + file.name + " ?")) handleFileAction("RESTORE", file.name);
                     if (confirm("Copiar " + file.name + " a %PARMFILE% ?")) handleFileAction("RESTORE", file.name);
                 });
-                restoreButton.className = "button-restore"; // Add a class for styling (color teja)
+                restoreButton.className = "button-restore";
                 actionCell.appendChild(restoreButton);
             } else if (tableId === "filesTableBody" && file.type == "file") {
                 // Only show download and delete buttons for files
@@ -97,13 +82,13 @@
                 buttonContainer.style.display = "flex";
                 buttonContainer.style.flexWrap = "wrap";
                 buttonContainer.style.justifyContent = "center";
-                buttonContainer.style.gap = "15px"; // Add spacing between buttons
+                buttonContainer.style.gap = "15px";
 
                 buttonContainer.appendChild(createButton("Download", () => downloadFile(file.name)));
                 const deleteButton = createButton("Delete", () => {
                     if (confirm("Delete " + file.name + " ?")) handleFileDelete(file.name);
                 });
-                deleteButton.className = "button-delete"; // Add a class for styling (color rojo)
+                deleteButton.className = "button-delete";
                 buttonContainer.appendChild(deleteButton);
 
                 actionCell.appendChild(buttonContainer);
@@ -170,10 +155,47 @@
             return filePath.substring(lastSlash + 1);
         }
 
-        // función auxiliar (helper) para GET JSON
+        /**
+         * Obtiene JSON desde una ruta o un token.
+         * Si el path comienza con '%' (token como %LASTRIEGOS%), solicita al servidor
+         * que lo resuelva via /token_file?file=...
+         */
         function apiGetJson(path) {
-            return fetch(path).then(r => {
+            let fetchUrl = path;
+            if (path && path.startsWith('%')) {
+                fetchUrl = `/token_file?file=${encodeURIComponent(path)}`;
+            }
+            return fetch(fetchUrl).then(r => {
                 if (!r.ok) throw new Error(`HTTP error! status: ${r.status}`);
                 return r.json();
             });
         }
+
+        /**
+         * Formatea un timestamp Unix (segundos) a formato local DD/MM/YYYY - HH:MM
+         * Usa métodos getUTC* para evitar aplicar la zona horaria, ya que el timestamp ya esta en hora local.
+         */
+        function formatDateLocal(ts) {
+            if (!ts || ts === 0) return "-";
+            const d = new Date(ts * 1000);
+            const y = d.getUTCFullYear();
+            const m = ('0' + (d.getUTCMonth() + 1)).slice(-2);
+            const day = ('0' + d.getUTCDate()).slice(-2);
+            const h = ('0' + d.getUTCHours()).slice(-2);
+            const min = ('0' + d.getUTCMinutes()).slice(-2);
+            return `${day}/${m}/${y} - ${h}:${min}`;
+        }
+
+        /**
+         * Convierte segundos a minutos con formato legible
+         * Si < 1 minuto: devuelve con 1 decimal (ej: "0.5 min")
+         * Si >= 1 minuto: devuelve redondeado (ej: "5 min")
+         */
+        function formatMinutes(segundos) {
+            const minutos = segundos / 60;
+            if (minutos < 1 && segundos > 0) {
+                return minutos.toFixed(1);
+            }
+            return Math.round(minutos);
+        }
+

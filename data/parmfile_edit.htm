@@ -6,28 +6,17 @@
     <link href="/style_base.css" rel="stylesheet" />
     <title>Edicion parámetros</title>
     <style>
-        /* Estilos generales */
-        body {font-family: Arial, sans-serif;display: flex;flex-direction: column;max-width: 768px;}
-        table {width: 90%;border-collapse: collapse;margin: 20px auto 0;}
-        th, td {border: 1px solid #ddd;padding: 8px;text-align: center;}
+        body {font-family: Arial, sans-serif; display: flex; flex-direction: column; max-width: 768px;}
+        table {width: 90%; border-collapse: collapse; margin: 20px auto;}
+        th, td {border: 1px solid #ddd; padding: 8px; text-align: center;}
         th {background-color: #f4f4f4;}
-        input {width: 90%;padding: 5px;box-sizing: border-box; border: 1px solid #cccccc;}
-        /*input {width: 90%;padding: 5px;box-sizing: border-box;border: none;text-align: center;} */
-        p {margin: 0;padding: 0;font-size: 0.9em;}
-        
-        /* Estilos de botones consolidados */
-        button {padding: 10px 15px;border-radius: 5px;cursor: pointer;width: auto; transition: background-color 0.3s;}
-        .save-button {background-color: #007BFF;color: white;border: none;}
-        .save-button:hover {background-color: #0056b3;}
-        .secondary-button {background-color: #d1caca;color: black;border: none;}
-        .secondary-button:hover {background-color: #b3b3b3;}
-
-        /* Grupo de botones y espaciado */
-        .button-group {margin: 20px 0; text-align: center;}
-        .button-group > button:not(:last-child) {margin-right: 20px;}
-        
-        /* Clase para sombreado de campos */
+        input {width: 90%; padding: 5px; box-sizing: border-box; border: 1px solid #cccccc;}
+        p {margin: 0; padding: 0; font-size: 0.9em;}
         .highlight-zero {background-color: #ffcccc !important;}
+        .orla-azul {background: radial-gradient(circle, 
+                        white 0%,white 60%,#3498db 90%,#3498db 100%);}
+        .orla-verde {background: radial-gradient(circle, 
+                        white 0%,white 60%,#2ecc71 90%,#2ecc71 100%);}
     </style>
 </head>
 <body>
@@ -88,7 +77,7 @@
                 const valueCell = row.insertCell(); // Valor (editable)
                 const input = document.createElement("input");
                 input.type = "text";
-                input.value = data[key];
+                input.value = data[key] || ""; // Valor vacío si es null/undefined
                 input.dataset.field = key;
                 valueCell.appendChild(input);
             });
@@ -101,7 +90,9 @@
             
             botones.forEach((boton, index) => {
                 const row = tableBody.insertRow();
-                row.insertCell().textContent = boton.zona; // Zona (no editable)
+                const zonaCell = row.insertCell();
+                zonaCell.textContent = boton.zona || ""; // Zona (no editable)
+                zonaCell.classList.add("orla-verde"); // Aplicar estilo de orla verde
 
                 // Campo idx (editable)
                 const idxCell = row.insertCell();
@@ -109,14 +100,14 @@
                 idxInput.type = "number";
                 idxInput.min = "0";
                 idxInput.max = "999";
-                idxInput.value = boton.idx;
+                idxInput.value = boton.idx || 0; // Valor por defecto 0 si no existe
                 idxInput.dataset.index = index;
                 idxInput.dataset.field = "idx";
                 
                 // Lógica de validación y sombreado de idx
                 const validateIdx = (event) => {
                     let value = event.target.value;
-                    // Limitar a 3 dígitos (originalmente se permitían solo números enteros)
+                    // Limitar a 3 dígitos
                     value = value.replace(/[^0-9]/g, "").slice(0, 3); 
                     event.target.value = value;
                     // Aplicar/Quitar sombreado para idx = 0
@@ -126,7 +117,7 @@
                 idxInput.addEventListener("input", validateIdx);
                 
                 // Inicializar el sombreado si el valor es 0
-                if (boton.idx === 0) idxCell.classList.add("highlight-zero");
+                if (!boton.idx || boton.idx === 0) idxCell.classList.add("highlight-zero");
 
                 idxCell.appendChild(idxInput);
 
@@ -134,7 +125,7 @@
                 const nombreCell = row.insertCell();
                 const nombreInput = document.createElement("input");
                 nombreInput.type = "text";
-                nombreInput.value = boton.nombre;
+                nombreInput.value = boton.nombre || ""; // Valor vacío si no existe
                 nombreInput.dataset.index = index;
                 nombreInput.dataset.field = "nombre";
                 nombreInput.maxLength = 9;
@@ -149,13 +140,15 @@
 
             grupos.forEach((grupo, index) => {
                 const row = tableBody.insertRow();
-                row.insertCell().textContent = grupo.grupo; // Grupo (no editable)
+                const grupoCell = row.insertCell();
+                grupoCell.textContent = grupo.grupo || ""; // Grupo (no editable)
+                grupoCell.classList.add("orla-azul"); // Aplicar estilo de orla azul
 
                 // Campo descripción (editable)
                 const descCell = row.insertCell();
                 const descInput = document.createElement("input");
                 descInput.type = "text";
-                descInput.value = grupo.desc;
+                descInput.value = grupo.desc || ""; // Valor vacío si no existe
                 descInput.dataset.index = index;
                 descInput.dataset.field = "desc";
                 descInput.maxLength = 9;
@@ -166,7 +159,8 @@
                 const zonasInput = document.createElement("input");
                 zonasInput.type = "text";
                 zonasInput.maxLength = 17;
-                zonasInput.value = grupo.zonas.join(","); // Convertir array a string separado por comas
+                // Convertir array a string separado por comas, o string vacío si no existe
+                zonasInput.value = grupo.zonas ? (Array.isArray(grupo.zonas) ? grupo.zonas.join(",") : grupo.zonas) : "";
                 zonasInput.dataset.index = index;
                 zonasInput.dataset.field = "zonas";
                 
@@ -279,11 +273,74 @@
             }
         }
         
-        /** Abre la vista de edición en crudo. */
+        /** Abre la vista de edición en crudo, pasando los cambios a través de sessionStorage. */
         function editRaw() {
-            // Se mantiene window.fileName para asegurar que se use la ruta correcta
-            window.open(`parmfile_editRaw.htm?file=${fileName}`, '_self'); 
+            // 1. Recoger los cambios de la pantalla de edición
+            const currentData = collectChanges();
+            // 2. Almacenar el JSON actualizado en sessionStorage (clave temporal)
+            try {
+                sessionStorage.setItem('tempRawData', JSON.stringify(currentData));
+            } catch (e) {
+                console.error("Error saving data to sessionStorage:", e);
+                alert("No se pudo transferir los cambios a la edición RAW. Intente Guardar primero.");
+                return; // Detiene la redirección si falla
+            }
+            // 3. Redirigir a la página RAW, incluyendo un parámetro para que sepa dónde buscar.
+            window.open(`parmfile_editRaw.htm?file=${fileName}&source=tempRawData`, '_self'); 
+        }        
+
+/**
+ * Fusiona 'data' sobre 'template' (el template define la estructura y el orden).
+ * Prioriza los valores de 'data' y preserva claves extra de 'data' no presentes en 'template'.
+ */
+function mergeWithTemplate(data, template) {
+    if (!data || typeof data !== 'object' || Array.isArray(data) !== Array.isArray(template)) {
+        // 1. Devuelve el template clonado si no hay datos válidos.
+        return JSON.parse(JSON.stringify(template));
+    }
+    // 2. Inicializar el resultado con data, ya que data puede tener campos extra.
+    const merged = Array.isArray(data) ? [...data] : { ...data };
+    // 3. Manejo de Arrays
+    if (Array.isArray(template)) {
+        if (template.length > 0 && typeof template[0] === 'object') {
+            const idKey = Object.keys(template[0])[0];
+            const dataMap = new Map();
+            data.forEach(item => {
+                if (item && item[idKey] !== undefined) {
+                    dataMap.set(item[idKey], item);
+                }
+            });
+            for (let i = 0; i < template.length; i++) {
+                const templateItem = template[i];
+                const templateId = templateItem[idKey];
+                if (templateId !== undefined && dataMap.has(templateId)) {
+                    const dataItem = dataMap.get(templateId);
+                    merged[i] = mergeWithTemplate(dataItem, templateItem);
+                } else {
+                    merged[i] = JSON.parse(JSON.stringify(templateItem));
+                }
+            }
+            merged.length = template.length; // Devolver solo el rango definido por el template (ej: 9 botones, 4 grupos)
+            return merged;
+        } else {
+            return merged;
         }
+    } else {
+        // 4. Manejo de Objetos
+        Object.keys(template).forEach(key => {
+            const templateValue = template[key];
+            const dataValue = data[key];
+            if (!(key in data)) {
+                merged[key] = JSON.parse(JSON.stringify(templateValue));
+                return;
+            }
+            if (typeof templateValue === 'object' && templateValue !== null) {
+                merged[key] = mergeWithTemplate(dataValue, templateValue);
+            }
+        });
+        return merged;
+    }
+}
 
         // Inicialización al cargar la página usando async/await
         window.addEventListener("load", async () => {
@@ -291,11 +348,20 @@
             fileName = urlParams.get('file') || '%PARMFILE%'; 
             console.log(fileName);
             try {
-                const response = await fetch(fileName);
-                originalJsonData = await response.json();
+                // Cargar la plantilla base desde templateParm.json
+                const templateResponse = await fetch('/templateParm.json');
+                const template = await templateResponse.json();
+                console.log("Template loaded:", template);
+                // Cargar el archivo de configuración
+                const response = await fetch(`/token_file?file=${encodeURIComponent(fileName)}`);
+                const editedData = await response.json();
+                console.log("Edited data loaded:", editedData);
+                // Fusionar: template base + datos
+                originalJsonData = mergeWithTemplate(editedData, template);
+                console.log("Merged data:", originalJsonData);
                 loadTables(originalJsonData);
             } catch (error) {
-                console.error("Error fetching file data:", error);
+                console.error("Error fetching or merging file data:", error);
             }
         });
 

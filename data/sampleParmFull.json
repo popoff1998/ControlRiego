@@ -95,5 +95,6 @@
   "showwifilevel": false,
   "xname": false,
   "verify": true,
-  "dynamic": false
+  "dynamic": false,
+  "lastr24": false
 }

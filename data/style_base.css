@@ -89,4 +89,46 @@ color: rgb(26, 7, 240);
         .logo {scale: 0.7; margin-right: 2px;}
         .lista-alineada .descripcion { font-size: 0.9em; padding-left: 1px;}
         .lista-alineada li, .lista-alineada a {display:block;}
-    } 
+    }
+
+/* ==================== BUTTON STYLES ==================== */
+
+/** Primary button for save/submit actions */
+button.save-button {
+    background-color: #007BFF;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+button.save-button:hover, button.button-import:hover {
+    background-color: #0056b3;
+}
+
+/** Secondary button for cancel/edit actions */
+button.secondary-button {
+    background-color: #d1caca;
+    color: black;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+button.secondary-button:hover, button.button-new:hover {
+    background-color: #b3b3b3;
+}
+
+/** Button group container for aligned button layout */
+.button-group {
+    margin: 20px 0;
+    text-align: center;
+}
+
+.button-group > button:not(:last-child) {
+    margin-right: 20px;
+} 

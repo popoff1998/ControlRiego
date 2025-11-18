@@ -18,18 +18,6 @@
       table { font-size: 0.95em; }
       th, td { padding: 4px; }
     }
-    .btn-log {
-      background: #2e8e95;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      padding: 4px 12px;
-      cursor: pointer;
-      font-size: 1em;
-    }
-    .btn-log:hover {
-      background: #1565c0;
-    }
   </style>
 </head>
 <body>
@@ -63,44 +51,8 @@
     </table>
   </div>
   <script>
-    // Formatea timestamp a "AA/MM/DD hh:mm"
-    function formatDate(ts) {
-      if (!ts || ts === 0) return "-";
-      const d = new Date(ts * 1000);
-      const y = String(d.getFullYear()).slice(-2);
-      const m = ('0' + (d.getMonth() + 1)).slice(-2);
-      const day = ('0' + d.getDate()).slice(-2);
-      const h = ('0' + d.getHours()).slice(-2);
-      const min = ('0' + d.getMinutes()).slice(-2);
-      return `${y}/${m}/${day} ${h}:${min}`;
-    }
-
-    // ts ya es hora local en segundos
-    // Creamos un objeto Date en UTC y extraemos los componentes como si fueran locales
-    // Para evitar el offset, usamos los métodos getUTC* en vez de get*
-    function formatDateLocal(ts) {
-      if (!ts || ts === 0) return "-";
-      const d = new Date(ts * 1000);
-      const y = d.getUTCFullYear();
-      const m = ('0' + (d.getUTCMonth() + 1)).slice(-2);
-      const day = ('0' + d.getUTCDate()).slice(-2);
-      const h = ('0' + d.getUTCHours()).slice(-2);
-      const min = ('0' + d.getUTCMinutes()).slice(-2);
-      return `${day}/${m}/${y} - ${h}:${min}`;
-    }
-
-    // Convierte segundos a minutos (redondeo a minutos, 1 decimal si < 1 min)
-    function formatMinutes(segundos) {
-      const minutos = segundos / 60;
-      if (minutos < 1 && segundos > 0) {
-        return minutos.toFixed(1);
-      }
-      return Math.round(minutos);
-    }
-
     // Carga y muestra tabla de riegos
-    fetch('%LASTRIEGOS%')
-      .then(r => r.json())
+    apiGetJson('%LASTRIEGOS%')
       .then(data => {
         const tbody = document.querySelector('#tablaRiegos tbody');
         data.lastRiegos.forEach((riego, zoneIndex) => {
@@ -116,11 +68,14 @@
           `;
           tbody.appendChild(tr);
         });
+      })
+      .catch(error => {
+        console.error("Error al cargar riegos:", error);
+        document.querySelector('#tablaRiegos tbody').innerHTML = '<tr><td colspan="5">Error cargando datos</td></tr>';
       });
 
     // Carga y muestra tabla de grupos
-    fetch('%LASTGRUPOS%')
-      .then(r => r.json())
+    apiGetJson('%LASTGRUPOS%')
       .then(data => {
         const tbody = document.querySelector('#tablaGrupos tbody');
         data.lastGrupos.forEach((grupo, groupIndex) => {
@@ -133,6 +88,10 @@
           `;
           tbody.appendChild(tr);
         });
+      })
+      .catch(error => {
+        console.error("Error al cargar grupos:", error);
+        document.querySelector('#tablaGrupos tbody').innerHTML = '<tr><td colspan="4">Error cargando datos</td></tr>';
       });
 
     // Función para mostrar el log de una zona (por número de zona)

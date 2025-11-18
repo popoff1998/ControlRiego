@@ -10,69 +10,25 @@
     <title>Edit Raw</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link type="text/css" href="/style_base.css" rel="stylesheet" />
     <style>
-  body {
-    background-color: #f7f7f7;
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-  }
-
-  fieldset {
-    width: 90%; /* Ajustar el ancho al 90% del contenedor */
-    max-width: 800px; /* Limitar el ancho máximo */
-    margin: 0 auto; /* Centrar el contenido */
-    background-color: #f7f7f7;
-  }
-
-  textarea {
-    width: 100%; /* Hacer que el textarea ocupe todo el ancho disponible */
-    height: 500px; /* Reducir la altura para pantallas pequeñas */
-    padding: 12px 20px;
-    box-sizing: border-box;
-    border: 2px solid #ccc;
-    border-radius: 4px;
-  }
-
-  button {
-    width: 100%; /* Botones ocupan todo el ancho */
-    padding: 10px;
-    font-size: 1em;
-    margin: 5px 0;
-  }
-
-  table {
-    width: 100%; /* Ajustar el ancho de la tabla */
-    background-color: #dddddd;
-  }
-
-  td, th {
-    text-align: center;
-    padding: 10px;
-  }
-
-  /* Media query para pantallas pequeñas */
-  @media (max-width: 768px) {
-    textarea {
-      height: 300px; /* Reducir la altura del textarea */
-    }
-
-    button {
-      font-size: 0.9em; /* Reducir el tamaño del texto en los botones */
-    }
-
-    h2 {
-      font-size: 1.5em; /* Ajustar el tamaño del encabezado */
-    }
-
-    #spacer_20, #spacer_50 {
-      height: 10px; /* Reducir el espaciado */
-    }
-  }
-</style>
+      body {background-color: #f7f7f7; font-family: Arial, sans-serif; margin: 0;
+        display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+      fieldset {width: 90%; max-width: 800px; margin: 0 auto; background-color: #f7f7f7;}
+      textarea {width: 100%; height: 700px; padding: 12px 20px; box-sizing: border-box; border: 2px solid #ccc; border-radius: 4px;}
+      button {width: 100%; padding: 10px; font-size: 1em; margin: 5px 0;}
+      table {width: 100%; background-color: #dddddd;}
+      td, th {text-align: center; padding: 10px;}
+      
+      @media (max-width: 768px) {
+        textarea {height: 500px;}
+        button {font-size: 0.9em;}
+        h2 {font-size: 1.5em;}
+        #spacer_20, #spacer_50 {height: 10px;}
+      }
+    </style>
   </head>
   <body>
-    <center>
       <h2>Edicion libre del fichero de parametros</h2>
       <div id="spacer_20"></div>
       
@@ -84,75 +40,80 @@
           <textarea name="edit_textarea"></textarea>
           <div id="spacer_20"></div>
         </td></tr><tr><td>
-          <button type "submit" id="submit" >Save</button>
+          <button type="submit" id="submit" class="save-button">Save</button>
         </form>
         </td><td>
-        <button id="cancel" onclick="window.location.href='/parmfile_edit.htm';">Cancel</button>
+        <button id="cancel" onclick="window.location.href='/parmfile_edit.htm';" class="secondary-button">Cancel</button>
         </td></tr></table>
         <div id="spacer_50"></div>
       </fieldset>
       
       <iframe style="display:none" name="self_page"></iframe>
-    </center>
+    <script src="/funciones.js"></script>
     <script>
-  // Obtener el nombre del archivo desde la URL
-  const urlParams = new URLSearchParams(window.location.search);
-  const fileName = urlParams.get('file');
-  console.log(fileName);
-
-  // Verificar si se pasó un archivo
-  if (fileName) {
-    // Realizar una solicitud fetch para obtener el contenido del archivo
-    fetch(`${fileName}`)
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`Error al cargar el archivo: ${response.statusText}`);
-        }
-        return response.text(); // Leer el contenido como texto
-      })
-      .then(data => {
-        // Insertar el contenido del archivo en el textarea
+        // Obtener el nombre del archivo y el parámetro de fuente desde la URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const fileName = urlParams.get('file');
+        const source = urlParams.get('source');
+        console.log(fileName);
         const textarea = document.querySelector('textarea[name="edit_textarea"]');
-        textarea.value = data;
-      })
-      .catch(error => {
-        console.error("Error al cargar el archivo:", error);
-        alert("No se pudo cargar el archivo.");
-      });
-  } else {
-    alert("No se especificó ningún archivo en la URL.");
-  }
-
-  // Manejar el evento submit del formulario
-  const form = document.querySelector('form[name="edit_file"]');
-form.addEventListener('submit', (event) => {
-    event.preventDefault(); // Prevenir el comportamiento por defecto del formulario
-
-    const textarea = document.querySelector('textarea[name="edit_textarea"]');
-    const content = textarea.value;
-
-    // Enviar el contenido al servidor
-    fetch('/api/save_config', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: content
-    })
-    .then(response => {
-        if (response.ok) {
-            alert("Archivo guardado correctamente.");
-            // Redirigir a la página parmfile_edit después de guardar
-            window.location.href = '/parmfile_edit.htm';
-        } else {
-            alert("Error al guardar el archivo.");
+        // --- Lógica de Carga de Contenido ---
+        if (fileName) {
+            const tempRawData = sessionStorage.getItem('tempRawData');
+            if (source === 'tempRawData' && tempRawData) {
+                // Caso 1: Cargar desde sessionStorage (datos editados no guardados)
+                try {
+                    const data = JSON.parse(tempRawData);
+                    textarea.value = JSON.stringify(data, null, 2); 
+                    console.log("Datos cargados desde sessionStorage.");
+                    // Limpiar sessionStorage inmediatamente después de usar
+                    sessionStorage.removeItem('tempRawData'); 
+                } catch (error) {
+                    console.error("Error al parsear datos de sessionStorage:", error);
+                    // Si falla el parseo, caemos al fetch del servidor como respaldo.
+                    loadFromServer(fileName, textarea); 
+                }
+            } else {
+                // Caso 2: Cargar desde el servidor (comportamiento normal)
+                loadFromServer(fileName, textarea);
+            }
+        } else alert("No se especificó ningún archivo en la URL.");
+        
+        /** Función auxiliar para cargar datos del servidor */
+        function loadFromServer(fileName, textarea) {
+            apiGetJson(fileName)
+                .then(data => {
+                    textarea.value = JSON.stringify(data, null, 2); // Asigna la cadena formateada
+                })
+                .catch(error => {
+                    console.error("Error al cargar el archivo:", error);
+                    textarea.value = `Error al cargar el archivo: ${error.message || error}`; 
+                });
         }
-    })
-    .catch(error => {
-        console.error("Error al guardar el archivo:", error);
-        alert("No se pudo guardar el archivo.");
-    });
-});
-</script>
-  </body>
+
+        // Manejar el evento submit del formulario
+        const form = document.querySelector('form[name="edit_file"]');
+        form.addEventListener('submit', (event) => {
+          event.preventDefault();
+          const content = textarea.value;
+          fetch('/api/save_config', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: content
+          })
+          .then(response => {
+            if (response.ok) {
+              alert("Archivo guardado correctamente.");
+              window.location.href = `/parmfile_edit.htm?file=${fileName}`; 
+            } else {
+              response.text().then(text => alert(`Error al guardar el archivo: ${text}`));
+            }
+          })
+          .catch(error => {
+            console.error("Error al guardar el archivo:", error);
+            alert("No se pudo guardar el archivo.");
+          });
+        });
+    </script>
+</body>
 </html>

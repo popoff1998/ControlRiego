@@ -57,11 +57,27 @@ String replaceTokens(const String &content) {
    return result;
 }
 
-static bool obtainPath(String &outPath) {
+/**
+ * Procesa la ruta del archivo solicitada por el cliente (argumento 'file'), 
+ * resuelve cualquier token dinámico y valida la ruta final en el sistema de archivos.
+ *
+ * Esta función realiza los siguientes pasos:
+ * 1. Verifica la existencia del parámetro 'file' en la solicitud HTTP.
+ * 2. Reemplaza los tokens (marcadores de posición) en la ruta obtenida.
+ * 3. Asegura que la ruta comience con un '/'.
+ * 4. Verifica que el archivo final exista en el sistema de archivos (LittleFS).
+ * 5. Envía una respuesta de error 400 al cliente si alguna validación falla.
+ *
+ * @param outPath Referencia a una String donde se almacenará la ruta final
+ * y validada del archivo (ej. "/config/data.json").
+ * @return true si la ruta fue obtenida, resuelta y validada correctamente; 
+ * false si falta el argumento o el archivo no existe.
+ */
+static bool resolveFilePath(String &outPath) {
     if (!wserver.hasArg("file")) {
       wserver.send(400, "text/plain", "Bad Request: Missing 'file' parameter");
       return false;
-    }  
+    } 
     outPath = wserver.arg("file");
     LOG_DEBUG("arg 'file' recibido:", outPath);
     outPath = replaceTokens(outPath);
@@ -71,9 +87,9 @@ static bool obtainPath(String &outPath) {
       wserver.send(400, "text/plain", "Bad Request: file not found");
       LOG_ERROR("No existe: ", outPath);
       return false;
-    }  
+    } 
     return true;
-}    
+}
 
 /*
  Construct a JSON array with file information from the given directory.
@@ -133,22 +149,41 @@ static void sendFileAttachment(const String &path) {
 }    
 
 // ---------------------------
-// Server utils (moved here)
+// Server utils 
 // ---------------------------
-const char* GetContentType(const String &filename) {  
-  if(filename.endsWith(".htm")) return "text/html";
-  else if(filename.endsWith(".html")) return "text/html";
-  else if(filename.endsWith(".css")) return "text/css";
-  else if(filename.endsWith(".xml")) return "text/xml";
-  else if(filename.endsWith(".png")) return "image/png";
-  else if(filename.endsWith(".gif")) return "image/gif";
-  else if(filename.endsWith(".jpg")) return "image/jpeg";
-  else if(filename.endsWith(".ico")) return "image/x-icon";
-  else if(filename.endsWith(".json")) return "application/json";
-  else if(filename.endsWith(".js")) return "application/javascript";
-  else if(filename.endsWith(".pdf")) return "application/x-pdf";
-  else if(filename.endsWith(".zip")) return "application/x-zip";
-  else if(filename.endsWith(".gz")) return "application/x-gzip";
+
+// MIME type mapping for file extensions
+static const struct {
+  const char* ext;
+  const char* mime;
+} mimeTypes[] = {
+  {".htm",   "text/html"},
+  {".html",  "text/html"},
+  {".css",   "text/css"},
+  {".js",    "application/javascript"},
+  {".json",  "application/json"},
+  {".xml",   "text/xml"},
+  {".png",   "image/png"},
+  {".gif",   "image/gif"},
+  {".jpg",   "image/jpeg"},
+  {".jpeg",  "image/jpeg"},
+  {".ico",   "image/x-icon"},
+  {".pdf",   "application/pdf"},
+  {".zip",   "application/zip"},
+  {".gz",    "application/gzip"},
+  {nullptr,  "text/plain"}  // default fallback
+};
+
+const char* GetContentType(const String &filename) {
+  int lastDot = filename.lastIndexOf('.');
+  if (lastDot < 0) return "text/plain";
+  String ext = filename.substring(lastDot);
+  ext.toLowerCase();
+  for (int i = 0; mimeTypes[i].ext != nullptr; i++) {
+    if (ext == mimeTypes[i].ext) {
+      return mimeTypes[i].mime;
+    }
+  }
   return "text/plain";
 }  
 
@@ -158,11 +193,27 @@ void printArgs() {
     
 void serveFile(String path, String contentType) {
    LOG_DEBUG("Serving file:", path, "contentType:", contentType);
-   File file = LittleFS.open(path, "r");
+   // Intentar abrir el archivo; si no existe, probar con .gz
+   String filePath = path;
+   bool isGzipped = false;
+   File file = LittleFS.open(filePath, "r");
    if (!file) {
-      LOG_ERROR("Failed to open file for reading:", path);
-      wserver.send(500, "text/plain", "Internal Server Error");
-      return;
+      String gzPath = path + ".gz";
+      LOG_DEBUG("File not found, trying gzip version:", gzPath);
+      file = LittleFS.open(gzPath, "r");
+      if (!file) {
+         LOG_ERROR("Failed to open file or gzip version:", path);
+         wserver.send(404, "text/plain", "File Not Found");
+         return;
+      }
+      filePath = gzPath;
+      isGzipped = true;
+      LOG_DEBUG("Serving gzip version:", filePath);
+   }
+   // Si es un archivo comprimido, informar al navegador con Content-Encoding
+   if (isGzipped) {
+      wserver.sendHeader("Content-Encoding", "gzip");
+      LOG_DEBUG("Added Content-Encoding: gzip header");
    }
    // Siempre leemos archivos HTML para reemplazar tokens, incluso en JavaScript embebido
    if (contentType == "text/html" || path.endsWith(".htm") || path.endsWith(".html") || 
@@ -184,25 +235,8 @@ void serveFile(String path) {
    serveFile(path, contentType);
 }   
 
-bool HandleFileReadGzip(String path) {
-  if (path.endsWith("/")) path += "index.html";
-  Serial.println("handleFileRead: " + path);
-  if (LittleFS.exists(path)) {
-    serveFile(path, GetContentType(path));
-    return true;
-  } else {
-    String pathWithGz = path + ".gz";
-    if (LittleFS.exists(pathWithGz)) {
-      serveFile(pathWithGz, GetContentType(path));
-      return true;
-    }
-  }
-  Serial.println("\tFile Not Found");
-  return false;
-}
-
 // ---------------------------
-// Handlers (agrupados y claros)
+// Handlers 
 // ---------------------------
 
 // redirect to index or upload
@@ -319,19 +353,22 @@ void handleShowZONElog() {
 // download endpoint wrapper
 void handleDownload() {
   String path;
-  if (obtainPath(path)) {
+  if (resolveFilePath(path)) {
     LOG_DEBUG("path:", path);
     sendFileAttachment(path);
   }
 }
- 
-// servedirect endpoint wrapper
-// void handleShowFile() {
-//   String path;
-//   if (obtainPath(path)) {
-//     serveFile(path);
-//   }
-// }
+
+// servedirect endpoint wrapper : /token_file is used to resolve tokens from client-sent filenames.
+// Token resolution is handled centrally when serving files and clients should request concrete paths,
+// but if a .gz version is requested, token replacement would not occur.
+// This wrapper allows clients to request files with tokens and have them resolved here.
+void handleTokenFile() {
+  String path;
+  if (resolveFilePath(path)) {
+    serveFile(path);
+  }
+}
 
 // ---------------------------
 // FileServerHandler 
@@ -344,7 +381,7 @@ class FileServerHandler : public RequestHandler {
         // Intercept GET requests for existing files so we can perform token replacement
         if (requestMethod == HTTP_GET) {
           // Exclude API and special endpoints explicitly so we don't intercept them
-          if (uri.startsWith("/api/") || uri.startsWith("/download") || uri.startsWith("/showfile") || uri.startsWith("/$")) {
+          if (uri.startsWith("/api/") || uri.startsWith("/download") || uri.startsWith("/token_file") || uri.startsWith("/$")) {
             LOG_DEBUG("Excluding URI from file handler:", uri);
             return false;
           }
@@ -372,6 +409,7 @@ class FileServerHandler : public RequestHandler {
         bool handleOK = false;
         if (requestMethod == HTTP_GET) {
           // Serve file through our serveFile() so token replacement happens
+          // serveFile() will automatically try .gz version if the original doesn't exist
           LOG_DEBUG("GET request for:", fName);
           // If it's a directory, append index.html
           String pathToServe = fName;
@@ -524,7 +562,7 @@ void defWebpagesHandles() {
     wserver.on("/api/showZONElog", HTTP_GET,  handleShowZONElog);
     wserver.on("/api/save_config", HTTP_POST, handleSaveConfig);
     wserver.on("/download",        HTTP_GET,  handleDownload);
-    // wserver.on("/showfile",        HTTP_GET,  handleShowFile);      // muestra contenido fichero en el navegador
+    wserver.on("/token_file",      HTTP_GET,  handleTokenFile);      // muestra contenido fichero en el navegador
     // GET, UPLOAD, COPY and DELETE of files in the file system using a request handler.
     wserver.addHandler(new FileServerHandler());
     // enable CORS header in webserver results
@@ -570,26 +608,3 @@ void endWS() {
 
 #endif
 
-/*
-// URL decode function parseado de https://stackoverflow.com/questions/154536/encode-decode-urls-in-c
-static String urlDecode(const String &s) {
-  LOG_DEBUG("Decoding URL:", s);
-  String out;
-  out.reserve(s.length());
-  for (size_t i = 0; i < s.length(); ++i) {
-    char c = s[i];
-    if (c == '+') {
-      out += ' ';
-    } else if (c == '%' && i + 2 < s.length()) {
-      char hex[3] = { s[i+1], s[i+2], 0 };
-      char decoded = (char) strtol(hex, nullptr, 16);
-      out += decoded;
-      i += 2;
-    } else {
-      out += c;
-    }
-  }
-  LOG_DEBUG("Decoded URL:", out);
-  return out;
-}
-*/

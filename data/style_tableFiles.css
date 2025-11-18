@@ -15,7 +15,7 @@ th,td {
 th {background-color:#ebebeb; padding:0.6em; border-bottom:0.1em solid #8a8a8a;}
 tr:nth-child(even) {background-color:#f3f3f3;}
 
-button {
+button, .btn-log {
     padding: 8px 12px;
     background-color: #2e8e95;
     color: white;
