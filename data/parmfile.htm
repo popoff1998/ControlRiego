@@ -10,8 +10,10 @@
     <title>Parmfile</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link type="text/css" href="/style_base.css" rel="stylesheet" />
-    <link type="text/css" href="/style_tableFiles.css" rel="stylesheet" />
+    <link rel="stylesheet" href="/style_base.css">
+    <link rel="stylesheet" href="/style_botones.css">
+    <link rel="stylesheet" href="/style_tableFiles.css">
+    <link rel="stylesheet" href="/style_datacard.css">
 </head>
 
 <style>
@@ -24,21 +26,24 @@
         margin: 25px auto 50px;
     }    
     
-    /* modificaciones/añadidos al estilo base para botones específicos de esta página */
-    button {   /* adicional al button base */
+    /* modificaciones/añadidos al boton base para botones específicos de esta página */
+    .button-group button { /*  adicional al button base */ 
         flex: 1 1 auto;
         max-width: 120px;
+        min-width: 80px;
         padding: 10px 12px
     }
     .button-import {
         padding: 12px 17px;
         background-color: #1e9a31;
         font-size: 18px;
+        min-width: 100px;
         color: #fff;
-        }
+    }
     .button-new {
         padding: 12px 17px;
         font-size: 18px;
+        min-width: 100px;
         color: #fff;
     }
     .button-restore {
@@ -82,14 +87,14 @@
         </form>
     </div>
     <h3>Fichero de Parámetros en la CCR: </h3>
-    <table class="files-4-col" style="margin: 0 auto;">
+    <table style="margin: 0 auto;">
         <thead><tr><th>Nombre</th><th>Tamaño</th><th>Timestamp</th><th>Acción</th></tr></thead>
         <tbody id="parmTableBody">
             <!-- Rows will be dynamically added here -->
         </tbody>
     </table>
     <h3>Fichero de Backup en la CCR:</h3>
-    <table class="files-4-col" style="margin: 0 auto;">
+    <table style="margin: 0 auto;">
         <thead><tr><th>Nombre</th><th>Tamaño</th><th>Timestamp</th><th>Acción</th></tr></thead>
         <tbody id="backupTableBody">
             <!-- Rows will be dynamically added here -->

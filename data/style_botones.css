@@ -1,0 +1,85 @@
+/* ==================== BUTTON STYLES ==================== */
+
+/* Estilo base: padding, fuente, transición y sombreado común */
+button {
+  border: none;
+  border-radius: 5px;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out; 
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 1px rgba(0, 0, 0, 0.05);
+  background-color: var(--theme-color);
+  color: white;
+  font-size: 16px;
+}
+/* 3. Definir el sombreado/elevación para el HOVER en la base */
+button:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15), 0 0 2px rgba(0, 0, 0, 0.1);
+    background-color: var(--hover-color);
+}
+/* 4. Definir el sombreado/hundimiento para el ACTIVE en la base */
+button:active {
+    box-shadow: none; /* Eliminar la sombra para el efecto de "hundimiento" */
+    transform: translateY(1px); /* Moverlo ligeramente hacia abajo */
+}
+
+/** Button for save/submit actions */
+.save-button {
+    background-color: #007BFF;
+    color: white;
+    font-weight: 600;
+}
+
+/** Secondary button for cancel/edit actions */
+.secondary-button {
+    background-color: #d1caca;
+    color: black;
+}
+.secondary-button:hover {
+    color: white;
+}
+
+.back-button {
+    background-color: #d1caca;
+    color: black;
+    padding: 8px 12px;
+    font-size: 0.95rem;
+}
+.back-button:hover {
+    background-color: #a89f9f;
+}
+
+.btn-log {
+    padding: 8px 12px;
+    background-color: #2e8e95;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 16px;
+}
+.button-delete {
+    background-color: #9d072c;
+    color: #fff;
+}
+.button-delete:hover {
+    background-color: #b60c38;
+    color: #fff;
+}
+
+
+/** Button group container for flexible button layout */
+.button-group {
+    margin: 15px 5px;
+    text-align: center;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+    min-width: 60px;
+}
+.button-group button {
+    flex: 0 1 auto;
+} 
+

@@ -1,10 +1,18 @@
 /*
-    * Funciones comunes para la gestión de archivos en la interfaz web
-    * 
-    * Para poder llamarlas desde una pagina HTML, se debe incluir este archivo antes de cualquier script que las use
-    * preferentemente antes del cierre del </body>, de la siguiente manera:
-    *                       <script src="/funciones.js"></script>
-    */
+ * ============================================================
+ * FUNCIONES AUXILIARES PARA INTERFAZ WEB ESP32
+ * ============================================================
+ * 
+ * Este archivo contiene funciones reutilizables para:
+ * 1. Gestión de tablas dinámicas (populateTable, createTableRow, createButton)
+ * 2. Descarga/eliminación/copia de archivos (downloadFile, handleFileAction, handleFileDelete)
+ * 3. Obtención de datos JSON (apiGetJson) - FUNCIÓN PRINCIPAL PARA TODA DATA
+ * 4. Formateo de datos (formatDateLocal, formatMinutes)
+ * 
+ * INCLUIR EN HTML:
+ *   <script src="/funciones.js"></script>
+ *   (Preferiblemente antes del </body> para no bloquear rendering)
+ */
 
         // Población de tablas
         function populateTable(data, tableId) {
@@ -51,6 +59,7 @@
             actionCell.setAttribute('data-label','Acciones');
             if (tableId === "parmTableBody") {
                 const buttonContainer = document.createElement("div");
+                buttonContainer.className = "button-group"; // Add a class for styling in CSS
                 buttonContainer.appendChild(createButton("Export", () => downloadFile(file.name)));
                 buttonContainer.appendChild(createButton("Backup", () => handleFileAction("BACKUP", file.name)));
                 buttonContainer.appendChild(createButton("Edit", () => {
@@ -65,6 +74,7 @@
                 actionCell.appendChild(restoreButton);
             } else if (tableId === "filesTableBody" && file.type == "file") {
                 const buttonContainer = document.createElement("div");
+                buttonContainer.className = "button-group"; // Add a class for styling in CSS
                 buttonContainer.appendChild(createButton("Download", () => downloadFile(file.name)));
                 const deleteButton = createButton("Delete", () => {
                     if (confirm("Delete " + file.name + " ?")) handleFileDelete(file.name);

@@ -2,17 +2,6 @@
 // Adaptado de:
 //  WebServer.ino (GITHUB: arduino-esp32/libraries/WebServer/examples/WebServer/WebServer.ino) by Gerhard Riegler
 //
-// * Setup a web server
-// * redirect when accessing the url with servername only
-// * get real time by using builtin NTP functionality
-// * send HTML responses from Sketch (see builtinfiles.h)
-// * use a LittleFS file system on the data partition for static files
-// * use http ETag Header for client side caching of static files
-// * use custom ETag calculation for static files
-// * extended FileServerHandler for get, uploading and deleting static files
-// * serve APIs using REST services (/api/list, /api/sysinfo)
-// * define HTML response when no file/api/handler was found
-//
 #ifdef WEBSERVER
    #include "Control.h"
    #include <ESPmDNS.h>
@@ -30,10 +19,14 @@
    const char* const update_username = "admin";
    const char* const update_password = "admin";
 
+   int logDays = 15; // dias de log a mostrar por defecto
+
    #ifdef DEVELOP
       const bool httpUpdateDebug = true;  //enable serial debug msgs
+      const bool showtest_section = true;  //enable testing section in advanced.htm
    #else
       const bool httpUpdateDebug = false;
+      const bool showtest_section = false;
    #endif 
 
     WebServer wserver(WSPORT);
@@ -48,13 +41,15 @@ static void sendNoCacheJSON(const String &payload) {
   wserver.send(200, "application/json; charset=utf-8", payload);
 }
 
-String replaceTokens(const String &content) {
-   String result = content;
-   result.replace("%PARMFILE%",   String(parmFile));
-   result.replace("%BACKUPFILE%", String(backupParmFile));
-   result.replace("%LASTRIEGOS%", String(lastRiegosFile));
-   result.replace("%LASTGRUPOS%", String(lastGruposFile));
-   return result;
+bool replaceTokens(String &content) {
+   int originalLength = content.length();
+   content.replace("%PARMFILE%",   String(parmFile));
+   content.replace("%BACKUPFILE%", String(backupParmFile));
+   content.replace("%LASTRIEGOS%", String(lastRiegosFile));
+   content.replace("%LASTGRUPOS%", String(lastGruposFile));
+   content.replace("%DIAS%",       String(logDays));
+   content.replace("%SHOWTEST%", showtest_section ? "true" : "false");
+   return (content.length() != originalLength);
 }
 
 /**
@@ -80,8 +75,7 @@ static bool resolveFilePath(String &outPath) {
     } 
     outPath = wserver.arg("file");
     LOG_DEBUG("arg 'file' recibido:", outPath);
-    outPath = replaceTokens(outPath);
-    LOG_DEBUG("arg 'file' tras reemplazo de tokens:", outPath);
+    if (replaceTokens(outPath)) LOG_DEBUG("arg 'file' tras reemplazo de tokens:", outPath);
     if (!outPath.startsWith("/")) { outPath = "/" + outPath; }
     if (!LittleFS.exists(outPath)) {
       wserver.send(400, "text/plain", "Bad Request: file not found");
@@ -89,6 +83,28 @@ static bool resolveFilePath(String &outPath) {
       return false;
     } 
     return true;
+}
+
+/* 
+  Divide una ruta de archivo completa en su directorio y nombre de archivo.
+  Parámetros:
+   - fullPath: Ruta completa del archivo (por ejemplo, "/dir/subdir/file.txt").
+   - dirPath: Referencia a String donde se almacenará la ruta del directorio (por ejemplo, "/dir/subdir").
+   - fileName: Referencia a String donde se almacenará el nombre del archivo (por ejemplo, "file.txt").
+*/
+void splitFilePath(String &fullPath, String &dirPath, String &fileName) {
+  LOG_DEBUG("fullPath recibido:", fullPath);
+  if (replaceTokens(fullPath)) LOG_DEBUG("fullPath tras reemplazo de tokens:", fullPath);
+  int lastSlash = fullPath.lastIndexOf('/');
+  if (lastSlash == -1) {
+    dirPath = "/";
+    fileName = fullPath;
+  } else {
+    dirPath = fullPath.substring(0, lastSlash);
+    if (dirPath == "") { dirPath = "/"; }
+    fileName = fullPath.substring(lastSlash + 1);
+  }
+  LOG_DEBUG("fullPath=", fullPath, " dirPath=", dirPath, " fileName=", fileName);
 }
 
 /*
@@ -105,27 +121,29 @@ static bool resolveFilePath(String &outPath) {
       - time: last modification time as a Unix timestamp
 */
 static void buildFileListJSON(File &dir, const String &filter, String &outResult) {
-    char buffer[256]; 
     outResult = "[\n";
-    outResult.reserve(1024); // Reservar el máximo o 1K
+    outResult.reserve(1024); 
+    char buffer[256]; 
     bool firstEntry = true;
-    
     while (File entry = dir.openNextFile()) {
-        String filename = String(entry.name());
-        if (filename.startsWith(filter) || filter == "") {
+        const char* entryName = entry.name();
+        if (filter.length() == 0 || strncmp(entryName, filter.c_str(), filter.length()) == 0) { 
             const char* separator = firstEntry ? "" : ",\n";
             const char* type = entry.isDirectory() ? "dir" : "file";
             const char* path = entry.path(); 
-            int len = snprintf(buffer,256, 
-                "%s  {\"type\": \"%s\", \"name\": \"%s\", \"size\": %lu, \"time\": %lu}",
+            int size = snprintf(buffer, 256, 
+                "%s {\"type\": \"%s\", \"name\": \"%s\", \"size\": %lu, \"time\": %lu}",
                 separator,
                 type,
                 path,
                 (unsigned long)entry.size(),
                 (unsigned long)entry.getLastWrite()
             );
-            outResult += buffer;
-            firstEntry = false;
+            if (size > 0 && size < 256) {
+                outResult.reserve(outResult.length() + size + 100); // OJO solo se Re-reserva si se supera la capacidad reservada actual
+                outResult.concat(buffer);
+                firstEntry = false;
+            }
         }
     }
     outResult += "\n]";
@@ -141,7 +159,6 @@ static void sendFileAttachment(const String &path) {
     }  
     String filename = path.substring(path.lastIndexOf('/') + 1);
     LOG_DEBUG("filename:", filename);
-    // wserver.sendHeader("Content-Type", "text/text");
     wserver.sendHeader("Content-Disposition", "attachment; filename=\""+filename+"\"; filename*=UTF-8''"+filename);
     wserver.sendHeader("Connection", "close");
     wserver.streamFile(download, "application/octet-stream");
@@ -215,14 +232,13 @@ void serveFile(String path, String contentType) {
       wserver.sendHeader("Content-Encoding", "gzip");
       LOG_DEBUG("Added Content-Encoding: gzip header");
    }
-   // Siempre leemos archivos HTML para reemplazar tokens, incluso en JavaScript embebido
+   // En el caso de archivos html o javascript siempre los leemos para reemplazar tokens
+   // antes de enviarlos al cliente (salvo que esten comprimidos .gz)
    if (contentType == "text/html" || path.endsWith(".htm") || path.endsWith(".html") || 
        contentType == "text/javascript" || contentType == "application/javascript" || 
        path.endsWith(".js")) {
       String content = file.readString();
-      LOG_TRACE("Content before token replacement (first 100 chars):", content.substring(0, 100));
-      content = replaceTokens(content);
-      LOG_TRACE("Content after token replacement (first 100 chars):", content.substring(0, 100));
+      if (replaceTokens(content)) LOG_DEBUG("Tokens sustituidos");
       wserver.send(200, contentType, content);
    } else {
       size_t sent = wserver.streamFile(file, contentType);
@@ -248,22 +264,6 @@ void handleRedirect() {
   wserver.send(302);
 }
 
-void splitFilePath(String &fullPath, String &dirPath, String &fileName) {
-    LOG_DEBUG("fullPath recibido:", fullPath);
-    fullPath = replaceTokens(fullPath);
-    LOG_DEBUG("fullPath tras reemplazo de tokens:", fullPath);
-  int lastSlash = fullPath.lastIndexOf('/');
-  if (lastSlash == -1) {
-    dirPath = "/";
-    fileName = fullPath;
-  } else {
-    dirPath = fullPath.substring(0, lastSlash);
-    if (dirPath == "") { dirPath = "/"; }
-    fileName = fullPath.substring(lastSlash + 1);
-  }
-  LOG_DEBUG("fullPath=", fullPath, " dirPath=", dirPath, " fileName=", fileName);
-}
-
 // list files as JSON
 // This function is called when the WebServer was requested to list existing files in the filesystem.
 // The request can contain the following arguments:
@@ -285,7 +285,6 @@ void handleListFiles() {
   } else LOG_DEBUG("No file filter provided, listing all files in directory:", path);
   File dir = LittleFS.open(path, "r");
   String result;
-  result.reserve(1024); // reservar para reducir reallocs
   buildFileListJSON(dir, filter, result);
   sendNoCacheJSON(result);
 }
@@ -305,7 +304,7 @@ void handleSysInfo() {
   wserver.send(200, "text/javascript; charset=utf-8", result);
 }
 
-// save config (body contains JSON)
+// save parmfile (body contains JSON)
 void handleSaveConfig() {
   if (!wserver.hasArg("plain")) {
       wserver.send(400, "text/plain", "Bad Request: Missing JSON body");
@@ -316,7 +315,7 @@ void handleSaveConfig() {
   DeserializationError error = deserializeJson(doc, jsonBody);
   if (error) {
       String errorMsg = "JSON Deserialization failed: ";
-      errorMsg += error.c_str(); // Proporciona un mensaje de error útil
+      errorMsg += error.c_str();
       wserver.send(400, "text/plain", errorMsg);
       return;
   }
@@ -336,18 +335,16 @@ void handleAdvancedPage() {
       wserver.requestAuthentication();
       return;
   }
-  File advancedFile = LittleFS.open("/advanced.htm", "r");
-  if (!advancedFile) {
-    wserver.send(500, "text/plain", "Internal Server Error: Could not open advanced.htm");
-    return;
+  serveFile("/advanced.htm", "text/html");
+}
+
+// parmfile_editraw page (requires auth)
+void handleEditRawPage() {
+  if (!wserver.authenticate(update_username, update_password)) {
+      wserver.requestAuthentication();
+      return;
   }
-  String advancedContent = advancedFile.readString();
-  advancedFile.close();
-  #ifdef DEVELOP
-  wserver.send(200, "text/html", "<script>var showtest = true;</script>"+advancedContent);
-  #else
-  wserver.send(200, "text/html", "<script>var showtest = false;</script>"+advancedContent);
-  #endif
+  serveFile("/parmfile_editRaw.htm", "text/html");
 }
 
 // show zone log (reads log file / obtains Domoticz data)
@@ -367,20 +364,23 @@ void handleDownload() {
   }
 }
 
-// servedirect endpoint wrapper : /token_file is used to resolve tokens from client-sent filenames.
-// Token resolution is handled centrally when serving files and clients should request concrete paths,
-// but if a .gz version is requested, token replacement would not occur.
-// This wrapper allows clients to request files with tokens and have them resolved here.
-void handleTokenFile() {
-  String path;
-  if (resolveFilePath(path)) {
-    serveFile(path);
-  }
-}
+// NOTE on Token Resolution Architecture:
+// Token replacement (%PARMFILE%, %BACKUPFILE%, etc.) is handled centrally in serveFile()
+// for all static file requests via the FileServerHandler.
+// Client-side can use apiGetJson() which auto-detects tokens (%) and routes to /token_file.
+// The /token_file endpoint below serves the same purpose as serveFile() for explicit token requests.
 
-// ---------------------------
+// ------------------------------------------------------------------------
 // FileServerHandler 
-// ---------------------------
+// Custom RequestHandler que maneja aquellas peticiones no especificamente 
+// gestionadas por otros handlers definidos en defWebpagesHandles().
+// Esta clase es el corazón de la arquitectura de reemplazo de tokens:
+// Intercepta peticiones GET de archivos estáticos y las enruta a través de
+// serveFile(), que reemplaza tokens dinámicos (%PARMFILE%, etc.) en archivos
+// HTML/JS/CSS antes de enviarlos al cliente.
+// Los clientes que necesitan enviar tokens; pueden usar apiGetJson() en JS
+// que detecta automáticamente tokens (%) y enruta a /token_file.
+// ------------------------------------------------------------------------
 class FileServerHandler : public RequestHandler {
     public:
       FileServerHandler() { }
@@ -417,18 +417,13 @@ class FileServerHandler : public RequestHandler {
         bool handleOK = false;
         if (requestMethod == HTTP_GET) {
           // Serve file through our serveFile() so token replacement happens
-          // serveFile() will automatically try .gz version if the original doesn't exist
-          LOG_DEBUG("GET request for:", fName);
-          // If it's a directory, append index.html
+          LOG_TRACE("GET request for:", fName);
           String pathToServe = fName;
           if (pathToServe.endsWith("/")) pathToServe += "index.html";
           if (LittleFS.exists(pathToServe) || LittleFS.exists(pathToServe + ".gz")) {
-            serveFile(pathToServe);
+            serveFile(pathToServe); // serveFile() will automatically try .gz version if the original doesn't exist
             return true;
-          } else {
-            // Not found here; let others handle
-            return false;
-          }
+          } else return false; // Not found here; let others handle
         }
         if (requestMethod == HTTP_POST) {
           LOG_DEBUG("POST request for:", fName);
@@ -511,7 +506,7 @@ class FileServerHandler : public RequestHandler {
           _fsUploadFile = LittleFS.open(fName, "w");
           if (!_fsUploadFile) {
             LOG_ERROR("Cannot open file for upload:", fName);
-            wserver.send(500, "text/plain", "Internal Server Error");
+            wserver.send(500, "text/plain", "Internal Server Error. Cannot open file for writing");
             uploadTooLarge = true;
             return;
           }
@@ -563,6 +558,7 @@ void defWebpagesHandles() {
     // paginas html builting comienzan por $
     wserver.on("/$upload.htm",     HTTP_GET, []() { wserver.send(200, "text/html", FPSTR(uploadContent)); }); // serve a built-in htm page
     wserver.on("/advanced.htm",    HTTP_GET,  handleAdvancedPage); // requiere auth
+    wserver.on("/parmfile_editRaw.htm",    HTTP_GET,  handleEditRawPage); // requiere auth
     // Rutas que devuelven/esperan un JSON renombradas a /api/ para coherencia
     wserver.on("/api/list",        HTTP_GET,  handleListFiles);
     wserver.on("/api/sysinfo",     HTTP_GET,  handleSysInfo);
@@ -570,7 +566,7 @@ void defWebpagesHandles() {
     wserver.on("/api/showZONElog", HTTP_GET,  handleShowZONElog);
     wserver.on("/api/save_config", HTTP_POST, handleSaveConfig);
     wserver.on("/download",        HTTP_GET,  handleDownload);
-    wserver.on("/token_file",      HTTP_GET,  handleTokenFile);      // muestra contenido fichero en el navegador
+    wserver.on("/token_file",      HTTP_GET,  handleDownload);  // resolves tokens from client requests
     // GET, UPLOAD, COPY and DELETE of files in the file system using a request handler.
     wserver.addHandler(new FileServerHandler());
     // enable CORS header in webserver results
@@ -600,6 +596,7 @@ void setupWS() {
   webServerAct = true;
   Serial.printf("[WS] HTTPUpdateServer ready!\n   --> Open http://%s.local:%d%s in your browser and login with username '%s' and password '%s'\n\n", WiFi.getHostname(), WSPORT, update_path, update_username, update_password);
   LOG_INFO("[WS] Activado webserverIP address: ", WiFi.localIP(), ":", WSPORT);
+  // logDays = getDomoticzSettingsInfo("LightHistoryDays").toInt(); //lee los dias de log a mostrar por defecto desde Domoticz
   displayWSinfo();
 }
 

@@ -6,115 +6,153 @@
   -->
 <!DOCTYPE HTML>
 <html>
-  <head>
+<head>
     <title>Edit Raw</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link type="text/css" href="/style_base.css" rel="stylesheet" />
+    <link rel="stylesheet" href="/style_base.css">
+    <link rel="stylesheet" href="/style_botones.css">
     <style>
-      fieldset {width: 90%; max-width: 800px; margin: 1em auto; background-color: #f7f7f7;}
-      textarea {width: 100%; height: 700px; padding: 12px 20px; box-sizing: border-box; border: 2px solid #ccc; border-radius: 4px;}
-      button {width: 100%; padding: 10px; font-size: 1em; margin: 5px 0;}
-      table {width: 100%; background-color: #dddddd;}
-      td, th {text-align: center; padding: 10px;}
-      
-      @media (max-width: 768px) {
-        textarea {height: 480px;}
-        button {font-size: 0.9em;}
-      }
+        fieldset {width: 90%; max-width: 800px; margin: 1em auto; background-color: #f7f7f7;}
+        textarea {width: 100%; height: 700px; padding: 12px 20px; box-sizing: border-box; border: 2px solid #ccc; border-radius: 4px;}
+        
+        dialog {
+            border: 2px solid #3498db;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+        dialog::backdrop {background-color: rgba(44, 62, 80, 0.8);}
+
+        @media (max-width: 768px) {textarea {height: 480px;} }
     </style>
-  </head>
-  <body>
-      <h1>Edicion libre del fichero de parametros</h1>
-      <fieldset>
+</head>
+<body>
+    <h1>Edicion libre del fichero de parametros</h1>
+    
+    <fieldset>
         <legend style="color:red;">ATENCION! no se realiza ninguna verificacion</legend>
         <div id="spacer_20"></div>
-        <table><tr><td colspan="2">
+        
         <form name="edit_file">
-          <textarea name="edit_textarea"></textarea>
-          <div id="spacer_20"></div>
-        </td></tr><tr><td>
-          <button type="submit" id="submit" class="save-button">Save</button>
+            <textarea name="edit_textarea"></textarea>
         </form>
-        </td><td>
-        <button id="cancel" onclick="window.location.href='/parmfile_edit.htm';" class="secondary-button">Cancel</button>
-        </td></tr></table>
+        
+        <div class="button-group">
+            <button type="submit" form="edit_form_id" id="submit" class="save-button">Save</button>
+            <button type="button" id="cancel" class="secondary-button">Cancel</button>
+        </div>
+
         <div id="spacer_50"></div>
-      </fieldset>
-      
-      <iframe style="display:none" name="self_page"></iframe>
+    </fieldset>
+    
+    <iframe style="display:none" name="self_page"></iframe>
+
+    <dialog id="Warning">
+        ⚠️ **¡ATENCIÓN! EDICIÓN LIBRE SIN VERIFICACIONES LÓGICAS** ⚠️<br>
+        **Solo se verifica la sintaxis JSON, NO la validez lógica de los parámetros.**<br>
+        Se recomienda usar la pagina anterior o el menu de configuracion de la CCR<br>
+        para modificar los parámetros.<br><br>
+        <button id="cerrarBtn">Entendido</button>
+    </dialog>
+
+
     <script src="/funciones.js"></script>
     <script>
-        // Obtener el nombre del archivo y el parámetro de fuente desde la URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const fileName = urlParams.get('file');
+    // Variables globales para ser accesibles por los event listeners
+    const form = document.querySelector('form[name="edit_file"]');
+    const textarea = document.querySelector('textarea[name="edit_textarea"]');
+    const urlParams = new URLSearchParams(window.location.search);
+    const fileName = urlParams.get('file');
+
+    /** Función auxiliar para cargar datos del servidor */
+    function loadFromServer(fileName, textarea) {
+        apiGetJson(fileName)
+            .then(data => {
+                textarea.value = JSON.stringify(data, null, 2); // Asigna la cadena formateada
+            })
+            .catch(error => {
+                console.error("Error al cargar el archivo:", error);
+                textarea.value = `Error al cargar el archivo: ${error.message || error}`; 
+            });
+    }
+
+    // 1. Lógica de Inicialización (IIFE)
+    (function() {
         const source = urlParams.get('source');
-        console.log(fileName);
-        const textarea = document.querySelector('textarea[name="edit_textarea"]');
-        // --- Lógica de Carga de Contenido ---
-        if (fileName) {
-            const tempRawData = sessionStorage.getItem('tempRawData');
-            if (source === 'tempRawData' && tempRawData) {
-                // Caso 1: Cargar desde sessionStorage (datos editados no guardados)
-                try {
-                    const data = JSON.parse(tempRawData);
-                    textarea.value = JSON.stringify(data, null, 2); 
-                    console.log("Datos cargados desde sessionStorage.");
-                    // Limpiar sessionStorage inmediatamente después de usar
-                    sessionStorage.removeItem('tempRawData'); 
-                } catch (error) {
-                    console.error("Error al parsear datos de sessionStorage:", error);
-                    // Si falla el parseo, caemos al fetch del servidor como respaldo.
-                    loadFromServer(fileName, textarea); 
-                }
-            } else {
-                // Caso 2: Cargar desde el servidor (comportamiento normal)
-                loadFromServer(fileName, textarea);
-            }
-        } else alert("No se especificó ningún archivo en la URL.");
         
-        /** Función auxiliar para cargar datos del servidor */
-        function loadFromServer(fileName, textarea) {
-            apiGetJson(fileName)
-                .then(data => {
-                    textarea.value = JSON.stringify(data, null, 2); // Asigna la cadena formateada
-                })
-                .catch(error => {
-                    console.error("Error al cargar el archivo:", error);
-                    textarea.value = `Error al cargar el archivo: ${error.message || error}`; 
-                });
+        if (!fileName) {
+            alert("No se especificó ningún archivo en la URL."); 
+            window.location.href = `/parmfile_edit.htm?file=%PARMFILE%`;
+            return; // 🛑 Detiene la ejecución del script si no hay archivo
         }
 
-        // Manejar el evento submit del formulario
-        const form = document.querySelector('form[name="edit_file"]');
-        form.addEventListener('submit', (event) => {
-          event.preventDefault();
-          const content = textarea.value;
-          try {
-              JSON.parse(content); // validacion de la sintaxis JSON
-          } catch (e) {
-              console.error("Error de sintaxis JSON:", e);
-              alert(`Error de sintaxis JSON: ${e.message}. Por favor, corrige el contenido antes de guardar.`);
-              return; // Detiene el envío del formulario si falla la validación
-          }
-          fetch('/api/save_config', {
+        // Lógica de carga de datos
+        if (source === 'tempRawData' && sessionStorage.getItem('tempRawData')) {
+            const tempRawData = sessionStorage.getItem('tempRawData');
+            try {
+                const data = JSON.parse(tempRawData);
+                textarea.value = JSON.stringify(data, null, 2); 
+                console.log("Datos cargados desde sessionStorage.");
+                sessionStorage.removeItem('tempRawData'); 
+            } catch (error) {
+                console.error("Error al parsear datos de sessionStorage:", error);
+                loadFromServer(fileName, textarea); 
+            }
+        } else {
+            loadFromServer(fileName, textarea);
+        }
+
+        // Mostrar el diálogo de advertencia
+        const dialogo = document.getElementById('Warning');
+        const cerrarBtn = document.getElementById('cerrarBtn');
+        dialogo.showModal(); 
+        cerrarBtn.addEventListener('click', () => dialogo.close());
+    })();
+
+
+    // 2. Manejo de Eventos (Listeners)
+
+    // A. Evento para el botón Save (vía submit del formulario)
+    form.addEventListener('submit', (event) => {
+        event.preventDefault(); // Detiene el envío HTTP por defecto del navegador
+        
+        const content = textarea.value;
+        try {
+            JSON.parse(content); // Validación de la sintaxis JSON
+        } catch (e) {
+            console.error("Error de sintaxis JSON:", e);
+            alert(`Error de sintaxis JSON: ${e.message}. Por favor, corrige el contenido antes de guardar.`);
+            return; // 🛑 Detiene el proceso de guardado si falla la validación
+        }
+
+        // Si la validación es exitosa, procede a guardar con fetch
+        fetch('/api/save_config', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: content
-          })
-          .then(response => {
+        })
+        .then(response => {
             if (response.ok) {
-              alert("Archivo guardado correctamente.");
-              window.location.href = `/parmfile_edit.htm?file=${fileName}`; 
+                alert("Archivo guardado correctamente.");
+                window.location.href = `/parmfile_edit.htm?file=${fileName}`; 
             } else {
-              response.text().then(text => alert(`Error al guardar el archivo: ${text}`));
+                response.text().then(text => alert(`Error al guardar el archivo: ${text}`));
             }
-          })
-          .catch(error => {
+        })
+        .catch(error => {
             console.error("Error al guardar el archivo:", error);
             alert("No se pudo guardar el archivo.");
-          });
         });
+    });
+
+    // B. Evento para el botón Cancel
+    const cancelButton = document.getElementById('cancel');
+    cancelButton.addEventListener('click', () => {
+        // Redirecciona al pulsar Cancel (NO activa el submit)
+        window.location.href='/parmfile_edit.htm';
+    });
     </script>
 </body>
 </html>

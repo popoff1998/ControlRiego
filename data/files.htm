@@ -5,20 +5,20 @@
   <title>Files</title>
   <meta charset="UTF-8">
   <meta name='viewport' content='user-scalable=yes,initial-scale=1.0,width=device-width'>
-  <link type="text/css" href="/style_base.css" rel="stylesheet" />
-  <link type="text/css" href="/style_tableFiles.css" rel="stylesheet" />
-  <link type="text/css" href="/style_datacard.css" rel="stylesheet" />
+  <link rel="stylesheet" href="/style_base.css">
+  <link rel="stylesheet" href="/style_botones.css">
+  <link rel="stylesheet" href="/style_tableFiles.css">
+  <link rel="stylesheet" href="/style_datacard.css">
   <style>
     /* Oculta el encabezado temporalmente para evitar destello al mostrarlo si usa cards */
     @media (max-width: 600px) {thead { display: none !important; }}
   </style>
 </head>
 
-</body>
-
+<body>
   <h1 style="margin-top: 20px;">Files on server</h1>
     <h3>These files are available on the server to be opened, downloaded or delete: </h3>
-    <table class="files-4-col" style="margin: 0 auto;">
+    <table style="margin: 0 auto;">
         <thead><tr><th>Filepath</th><th>Size</th><th>Timestamp</th><th>Action</th></tr></thead>
           <tbody id="filesTableBody">
           <!-- Rows will be dynamically added here -->

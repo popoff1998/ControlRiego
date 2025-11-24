@@ -1,17 +1,16 @@
-/* Mobile card layout */
-/* Convierte la tabla en tarjetas para pantallas pequeñas */
+/* Mobile card layout convierte la tabla en tarjetas para pantallas pequeñas */
 /* Basado en: https://css-tricks.com/responsive-data-tables/ */
 
-/* 
-Para cada celda <td>, se debe definir un atributo data-label con el nombre de la columna.
-    Ejemplo de uso en HTML:
-        <td class="filename" data-label="Filename">...</td>
-    o bien en JavaScript:
-        timestampCell.setAttribute('data-label','Timestamp'); 
+/* Para cada celda <td>, se debe definir un atributo data-label con el nombre de la columna.
+    Ejemplo de uso en HTML: <td class="filename" data-label="Filename">...</td>
+    o bien en JavaScript: timestampCell.setAttribute('data-label','Timestamp'); 
 */
 @media (max-width: 600px) {
-  table, thead, tbody, th, td, tr { display: block; width: 100%; }
+  
+  /* 1. ESTRUCTURA BÁSICA DE DATACARD (Bloque y Ocultar Encabezado) */
+  table, thead, tbody, th, td, tr { display: block; width: 100% !important; }
   thead { display: none; } /* ocultar encabezado */
+  /* Estilo de la "Tarjeta" (Fila) */
   tbody tr {
     border: 1px solid #ccc;
     margin: 0 0 12px 0;
@@ -19,14 +18,14 @@ Para cada celda <td>, se debe definir un atributo data-label con el nombre de la
     border-radius: 6px;
     background: #fff;
   }
+  /* Estilo de la Línea dentro de la Tarjeta (Celda) */
   tbody tr td {
     display: flex;
-    justify-content: space-between;
     padding: 6px 8px;
     border: none;
     white-space: normal;
   }
-  /* tbody tr td:last-child { border-bottom: none; } */
+  /* Mostrar la etiqueta (Label) */
   tbody tr td::before {
     content: attr(data-label);
     font-weight: 700;
@@ -35,29 +34,21 @@ Para cada celda <td>, se debe definir un atributo data-label con el nombre de la
     flex-shrink: 0;
     flex: 0 0 auto;
   }
-
-  /* Nueva regla para que el valor 3 (el Timestamp) se muestre en una sola linea */
-  tbody tr td:nth-child(3) {
-      flex-grow: 1; 
-      white-space: nowrap; 
-      text-align: right;
-      overflow: visible; 
+  
+  /* 2. ESTILOS ESPECÍFICOS BASADOS EN DATA-LABEL (Contenido) */
+  td[data-label='Filename'] {
+    justify-content: space-between; /* Separar nombre a la derecha */
+    font-size: 1.1em; 
   }
-      
-  /* Regla adicional para asegurar que la etiqueta (data-label) no se muestre 
-    en la celda de acciones, ya que no tiene sentido aquí y consume espacio. */
-  td:last-child::before {
-      content: none; 
-  }
-      
-  /* Regla CLAVE: Aplicar estilos flex específicos al DIV de botones para que no se apilen en la tarjeta */
-  .buttoncolumn div {
-      flex-wrap: nowrap !important;
-      gap: 15px !important; 
-      display: inline-flex !important; 
-      justify-content: center;
-  }    
+  /* Regla adicional para asegurar que la etiqueta (data-label) no se muestre en la celda de 'Acciones'*/
+  td[data-label='Acciones']::before {content: none;}
+  /* Aplicar estilos flex específicos a Acciones para que no se apilen en la tarjeta. */
+  td[data-label='Acciones'] {
+    flex-wrap: nowrap !important;
+    justify-content: center;
+  } 	
 
-  /* allow filename wrap inside card */
-  td.filename, td.filename a { white-space: normal; word-break: break-word; overflow-wrap: anywhere; font-size: 1.1em; }
+  /* reduce margen vertical en botones  Upload y New en móvil */
+  .container {margin: 10px auto 25px !important;}
+  .button-group button { min-width: 100px !important;}
 }

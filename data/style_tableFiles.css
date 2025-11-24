@@ -4,7 +4,7 @@ table {
     font-family:arial,sans-serif;
     font-size:1.0em;
     border-collapse:collapse;
-    width:85%;
+    width: var(--table-base-width);
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 } 
 th,td {
@@ -15,55 +15,27 @@ th,td {
 th {background-color:#ebebeb; padding:0.6em; border-bottom:0.1em solid #8a8a8a;}
 tr:nth-child(even) {background-color:#f3f3f3;}
 
-/*
- * Reglas para OPTIMIZACIÓN de layout SÓLO para tablas de 4 columnas (parmfile.htm y files.htm)
- */
-/* 1. Centrado de los encabezados a partir del segundo */
-.files-4-col th:nth-child(n+2) { 
+th:nth-child(n+2) { 
     text-align: center;
 }
-/* Columna 2: Tamaño */
-.files-4-col td:nth-child(2) {
+
+/* 2. Estilos para Celdas de Datos (td) */
+td[data-label='Size'] {
     width: 15%; 
     text-align: center;
 }
-/* Columna 3: Timestamp */
-.files-4-col td:nth-child(3) {
+td[data-label='Timestamp'] {
     width: 20%; 
     text-align: center;
 }
-/* Columna 4: Acciones */
-.files-4-col td:nth-child(4) {
-    width: 30%; 
+td[data-label='Acciones'] {
+    width: 40%; 
     text-align: center;
     white-space: nowrap;
     padding: 8px 3px;
 }
-/* 3. Estilo para el contenedor de botones dentro de la columna de Acciones
-   (Aplicamos esto a cualquier td que tenga la clase .buttoncolumn dentro de una tabla de 4 cols) */
-.files-4-col .buttoncolumn > div {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 20px;
-}
-
-.btn-log {
-    padding: 8px 12px;
-    background-color: #2e8e95;
-    color: white;
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 16px;
-}
-.button-delete {
-    background-color: #9d072c;
-    color: #fff;
-}
-.button-delete:hover {
-    background-color: #b60c38;
-    color: #fff;
+#filesTableBody td[data-label='Acciones'] {
+    width: 30%;
 }
 
 input[type="text"] {
@@ -82,15 +54,13 @@ td.filename, td.filename a {
 }
 
 /* ajustar ancho tabla según tamaño pantalla */
-@media (max-width: 768px) {table {width: 100% !important;}}
-/* ajustar ancho columna botones y margen vertical según tamaño pantalla */
-@media (max-width: 520px) {th.buttoncolumn, td.buttoncolumn { width: 20% !important; padding: 15px 3px !important;}}
-/* reducir padding y fuente en móvil para ganar espacio */
-@media (max-width: 470px) {th, td, td.filename, td.filename a { font-size: 0.95em; padding: 0.2em; }}
+@media (max-width: 960px) {table {width: 100% !important;}}  /*OJO max-width = (table-base-width% * max-body-width) + XXpx */
+/* ajustar margen vertical columna botones según tamaño pantalla */
+@media (max-width: 610px) {.button-group { margin:0 ;} }
 
 /* Clase para usar en la celda en la que si es necesario se partiran palabras largas */
 .force-wrap {overflow-wrap: break-word; word-break: break-word;}
 /* Clase para datos de fichero */
 .fileclass {text-align: center;}
 /* Clase para datos de directorio */
-.dirclass {text-align: center; color: #868686; font-weight: bold;}
+.dirclass {text-align: center; color: red; font-weight: bold;}

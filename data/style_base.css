@@ -1,6 +1,8 @@
 :root {
     --theme-color: #0a9aaf;
     --hover-color: #07778b;
+    --max-body-width: 1050px;
+    --table-base-width: 85%;
 }
 
 html {
@@ -12,7 +14,7 @@ body {
     font-size:100%;
     background-color:#fdfdfd;
     padding:0.5em 0.5em;
-    max-width: 1050px;
+    max-width: var(--max-body-width);
     min-height: 100vh;
 }
 
@@ -76,64 +78,7 @@ a:hover { color: rgb(26, 7, 240); }
         .lista-alineada li, .lista-alineada a {display:block;}
     }
 
-/* ==================== BUTTON STYLES ==================== */
-
-/* Estilo base: padding, fuente, transición y sombreado común */
-button {
-  border: none;
-  border-radius: 5px;
-  padding: 10px 20px;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out; 
-  text-align: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 1px rgba(0, 0, 0, 0.05);
-  background-color: var(--theme-color);
-  color: white;
-  font-size: 16px;
-}
-/* 3. Definir el sombreado/elevación para el HOVER en la base */
-button:hover {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15), 0 0 2px rgba(0, 0, 0, 0.1);
-    background-color: var(--hover-color);
-}
-/* 4. Definir el sombreado/hundimiento para el ACTIVE en la base */
-button:active {
-    box-shadow: none; /* Eliminar la sombra para el efecto de "hundimiento" */
-    transform: translateY(1px); /* Moverlo ligeramente hacia abajo */
-}
-
-/** Button for save/submit actions */
-.save-button {
-    background-color: #007BFF;
-    color: white;
-    font-weight: 600;
-}
-
-/** Secondary button for cancel/edit actions */
-.secondary-button {
-    background-color: #d1caca;
-    color: black;
-}
-.secondary-button:hover {
-    color: white;
-}
-
-.back-button {
-    background-color: #d1caca;
-    color: black;
-    padding: 8px 12px;
-    font-size: 0.95rem;
-}
-.back-button:hover {
-    background-color: #a89f9f;
-}
-
-
-/** Button group container for aligned button layout */
-.button-group {
-    margin: 20px 0;
-    text-align: center;
-}
-.button-group > button:not(:last-child) {
-    margin-right: 20px;
-} 
+.orla-azul {background: radial-gradient(circle, 
+                white 0%,white 60%,#3498db 90%,#3498db 100%);}
+.orla-verde {background: radial-gradient(circle, 
+                white 0%,white 60%,#2ecc71 90%,#2ecc71 100%);}

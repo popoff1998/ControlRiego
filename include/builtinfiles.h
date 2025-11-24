@@ -129,7 +129,8 @@ static const char notFoundContent[] PROGMEM = R"==(
 </head>
 <body>
   <p>The resource was not found.</p>
-  <p><a href="/">Start again</a></p>
+  <p><a title="Go to INDEX page" href="/">Start again</a></p>
+  <a style="color:#828282; font-size:0.9em; text-decoration:none;" title="Go to OTA page" href="/$upload.htm">or go to UPLOAD page</a>
 </body>
 </html>
 )==";

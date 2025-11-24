@@ -4,8 +4,9 @@
   <meta charset="UTF-8">
   <title>Histórico de Riegos y Grupos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="style_base.css">
-  <link rel="stylesheet" href="style_tableFiles.css">
+  <link rel="stylesheet" href="/style_base.css">
+  <link rel="stylesheet" href="/style_botones.css">
+  <link rel="stylesheet" href="/style_tableFiles.css">
   <style>
     .table-container { max-width: 900px; margin: auto; }
     h2 { margin-top: 2em; margin-bottom: 0.5em; }
@@ -17,6 +18,7 @@
       .table-container { max-width: 100%; }
       table { font-size: 0.95em; }
       th, td { padding: 4px; }
+      h2 { margin-top: 0.5em; }
     }
   </style>
 </head>
@@ -24,30 +26,15 @@
     <h1 style="margin-top: 20px;">Últimos riegos desde CCR registrados</h1>
     <div class="table-container">
     <h2>Zonas</h2>
-    <table class="files-table" id="tablaRiegos" style="margin: 0 auto;">
-      <thead>
-        <tr>
-          <th>Zona</th>
-          <th>Inicio</th>
-          <th>Final</th>
-          <th>Minutos</th>
-          <th>Histórico</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
+    <table class="files-table" style="margin: 0 auto;">
+      <thead><tr><th>Zona</th><th>Inicio</th><th>Final</th><th>Minutos</th><th>Histórico</th></tr></thead>
+      <tbody id="tablaRiegos"></tbody>
     </table>
 
     <h2>Grupos</h2>
-    <table class="files-table" id="tablaGrupos" style="margin: 0 auto;">
-      <thead>
-        <tr>
-          <th>Grupo</th>
-          <th>Inicio</th>
-          <th>Final</th>
-          <th>Minutos</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
+    <table class="files-table" style="margin: 0 auto;">
+      <thead><tr><th>Grupo</th><th>Inicio</th><th>Final</th><th>Minutos</th></tr></thead>
+      <tbody id="tablaGrupos"></tbody>
     </table>
   </div>
   <script src="/funciones.js"></script>
@@ -55,11 +42,11 @@
     // Carga y muestra tabla de riegos
     apiGetJson('%LASTRIEGOS%')
       .then(data => {
-        const tbody = document.querySelector('#tablaRiegos tbody');
+        const tbody = document.querySelector('#tablaRiegos');
         data.lastRiegos.forEach((riego, zoneIndex) => {
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td data-label="Zona">${zoneIndex + 1}</td>
+            <td data-label="Zona" class="orla-verde">${zoneIndex + 1}</td>
             <td data-label="Inicio">${formatDateLocal(riego.inicio)}</td>
             <td data-label="Final">${formatDateLocal(riego.final)}</td>
             <td data-label="Minutos">${formatMinutes(riego.total)}</td>
@@ -72,17 +59,17 @@
       })
       .catch(error => {
         console.error("Error al cargar riegos:", error);
-        document.querySelector('#tablaRiegos tbody').innerHTML = '<tr><td colspan="5">Error cargando datos</td></tr>';
+        document.querySelector('#tablaRiegos').innerHTML = '<tr><td colspan="5">Error cargando datos</td></tr>';
       });
 
     // Carga y muestra tabla de grupos
     apiGetJson('%LASTGRUPOS%')
       .then(data => {
-        const tbody = document.querySelector('#tablaGrupos tbody');
+        const tbody = document.querySelector('#tablaGrupos');
         data.lastGrupos.forEach((grupo, groupIndex) => {
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td data-label="Grupo">${groupIndex + 1}</td>
+            <td data-label="Grupo" class="orla-azul">${groupIndex + 1}</td>
             <td data-label="Inicio">${formatDateLocal(grupo.inicio)}</td>
             <td data-label="Final">${formatDateLocal(grupo.final)}</td>
             <td data-label="Minutos">${formatMinutes(grupo.total)}</td>
@@ -92,7 +79,7 @@
       })
       .catch(error => {
         console.error("Error al cargar grupos:", error);
-        document.querySelector('#tablaGrupos tbody').innerHTML = '<tr><td colspan="4">Error cargando datos</td></tr>';
+        document.querySelector('#tablaGrupos').innerHTML = '<tr><td colspan="4">Error cargando datos</td></tr>';
       });
 
     // Función para mostrar el log de una zona (por número de zona)
