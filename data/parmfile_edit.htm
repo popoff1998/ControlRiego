@@ -61,6 +61,29 @@
         let fileName = '%PARMFILE%'; // Valor por defecto, se sobrescribirá al cargar la página
         let originalJsonData = {};
 
+        // Inicialización al cargar la página usando async/await
+        window.addEventListener("load", async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            fileName = urlParams.get('file') || '%PARMFILE%'; 
+            console.log(fileName);
+            try {
+                // Cargar la plantilla base desde templateParm.json
+                const templateResponse = await fetch('/templateParm.json');
+                const template = await templateResponse.json();
+                console.log("Template loaded:", template);
+                // Cargar el archivo de configuración
+                const response = await fetch(`/token_file?file=${encodeURIComponent(fileName)}`);
+                const editedData = await response.json();
+                console.log("Edited data loaded:", editedData);
+                // Fusionar: template base + datos
+                originalJsonData = mergeWithTemplate(editedData, template);
+                console.log("Merged data:", originalJsonData);
+                loadTables(originalJsonData);
+            } catch (error) {
+                console.error("Error fetching or merging file data:", error);
+            }
+        });
+
         // --- Funciones de Carga de Datos ---
 
         /** Carga una tabla simple (Domoticz, Time) donde todos los campos son texto/valor. */
@@ -241,8 +264,6 @@
             return updatedData;
         }
 
-        // --- Funciones de Acción y Inicialización ---
-        
         /** Guarda los cambios en el servidor usando async/await. */
         async function saveChanges() {
             const updatedData = collectChanges();
@@ -251,12 +272,11 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(updatedData, null, 2)
-                    //body: JSON.stringify(updatedData) // sin formateo, una sola linea (mas compacto, menor tamaño pero menos legible)
                 });
 
                 if (response.ok) {
                     if (confirm("Cambios guardados correctamente. ¿Desea reiniciar el sistema para aplicar los cambios?")) {
-                        window.location.href = '/$restart';
+                        window.location.href = '/api/restart';
                     } else {
                         window.location.href = 'parmfile.htm';
                     }
@@ -285,81 +305,58 @@
             window.open(`parmfile_editRaw.htm?file=${fileName}&source=tempRawData`, '_self'); 
         }        
 
-/**
- * Fusiona 'data' sobre 'template' (el template define la estructura y el orden).
- * Prioriza los valores de 'data' y preserva claves extra de 'data' no presentes en 'template'.
- */
-function mergeWithTemplate(data, template) {
-    if (!data || typeof data !== 'object' || Array.isArray(data) !== Array.isArray(template)) {
-        // 1. Devuelve el template clonado si no hay datos válidos.
-        return JSON.parse(JSON.stringify(template));
-    }
-    // 2. Inicializar el resultado con data, ya que data puede tener campos extra.
-    const merged = Array.isArray(data) ? [...data] : { ...data };
-    // 3. Manejo de Arrays
-    if (Array.isArray(template)) {
-        if (template.length > 0 && typeof template[0] === 'object') {
-            const idKey = Object.keys(template[0])[0];
-            const dataMap = new Map();
-            data.forEach(item => {
-                if (item && item[idKey] !== undefined) {
-                    dataMap.set(item[idKey], item);
-                }
-            });
-            for (let i = 0; i < template.length; i++) {
-                const templateItem = template[i];
-                const templateId = templateItem[idKey];
-                if (templateId !== undefined && dataMap.has(templateId)) {
-                    const dataItem = dataMap.get(templateId);
-                    merged[i] = mergeWithTemplate(dataItem, templateItem);
+        /**
+        * Fusiona 'data' sobre 'template' (el template define la estructura y el orden).
+        * Prioriza los valores de 'data' y preserva claves extra de 'data' no presentes en 'template'.
+        */
+        function mergeWithTemplate(data, template) {
+            if (!data || typeof data !== 'object' || Array.isArray(data) !== Array.isArray(template)) {
+                // 1. Devuelve el template clonado si no hay datos válidos.
+                return JSON.parse(JSON.stringify(template));
+            }
+            // 2. Inicializar el resultado con data, ya que data puede tener campos extra.
+            const merged = Array.isArray(data) ? [...data] : { ...data };
+            // 3. Manejo de Arrays
+            if (Array.isArray(template)) {
+                if (template.length > 0 && typeof template[0] === 'object') {
+                    const idKey = Object.keys(template[0])[0];
+                    const dataMap = new Map();
+                    data.forEach(item => {
+                        if (item && item[idKey] !== undefined) {
+                            dataMap.set(item[idKey], item);
+                        }
+                    });
+                    for (let i = 0; i < template.length; i++) {
+                        const templateItem = template[i];
+                        const templateId = templateItem[idKey];
+                        if (templateId !== undefined && dataMap.has(templateId)) {
+                            const dataItem = dataMap.get(templateId);
+                            merged[i] = mergeWithTemplate(dataItem, templateItem);
+                        } else {
+                            merged[i] = JSON.parse(JSON.stringify(templateItem));
+                        }
+                    }
+                    merged.length = template.length; // Devolver solo el rango definido por el template (ej: 9 botones, 4 grupos)
+                    return merged;
                 } else {
-                    merged[i] = JSON.parse(JSON.stringify(templateItem));
+                    return merged;
                 }
+            } else {
+                // 4. Manejo de Objetos
+                Object.keys(template).forEach(key => {
+                    const templateValue = template[key];
+                    const dataValue = data[key];
+                    if (!(key in data)) {
+                        merged[key] = JSON.parse(JSON.stringify(templateValue));
+                        return;
+                    }
+                    if (typeof templateValue === 'object' && templateValue !== null) {
+                        merged[key] = mergeWithTemplate(dataValue, templateValue);
+                    }
+                });
+                return merged;
             }
-            merged.length = template.length; // Devolver solo el rango definido por el template (ej: 9 botones, 4 grupos)
-            return merged;
-        } else {
-            return merged;
         }
-    } else {
-        // 4. Manejo de Objetos
-        Object.keys(template).forEach(key => {
-            const templateValue = template[key];
-            const dataValue = data[key];
-            if (!(key in data)) {
-                merged[key] = JSON.parse(JSON.stringify(templateValue));
-                return;
-            }
-            if (typeof templateValue === 'object' && templateValue !== null) {
-                merged[key] = mergeWithTemplate(dataValue, templateValue);
-            }
-        });
-        return merged;
-    }
-}
-
-        // Inicialización al cargar la página usando async/await
-        window.addEventListener("load", async () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            fileName = urlParams.get('file') || '%PARMFILE%'; 
-            console.log(fileName);
-            try {
-                // Cargar la plantilla base desde templateParm.json
-                const templateResponse = await fetch('/templateParm.json');
-                const template = await templateResponse.json();
-                console.log("Template loaded:", template);
-                // Cargar el archivo de configuración
-                const response = await fetch(`/token_file?file=${encodeURIComponent(fileName)}`);
-                const editedData = await response.json();
-                console.log("Edited data loaded:", editedData);
-                // Fusionar: template base + datos
-                originalJsonData = mergeWithTemplate(editedData, template);
-                console.log("Merged data:", originalJsonData);
-                loadTables(originalJsonData);
-            } catch (error) {
-                console.error("Error fetching or merging file data:", error);
-            }
-        });
 
     </script>
 </body>

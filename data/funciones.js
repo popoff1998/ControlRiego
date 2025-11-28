@@ -7,7 +7,8 @@
  * 1. Gestión de tablas dinámicas (populateTable, createTableRow, createButton)
  * 2. Descarga/eliminación/copia de archivos (downloadFile, handleFileAction, handleFileDelete)
  * 3. Obtención de datos JSON (apiGetJson) - FUNCIÓN PRINCIPAL PARA TODA DATA
- * 4. Formateo de datos (formatDateLocal, formatMinutes)
+ * 4. Formateo de datos (formatDateLocal, formatMinutes, returnFileSize)
+ * 5. Validación de tipos de archivo (validFileType)
  * 
  * INCLUIR EN HTML:
  *   <script src="/funciones.js"></script>
@@ -115,19 +116,22 @@
                     if (response.ok) {
                         if (action === "RESTORE") { 
                             if (confirm("Restore OK! ¿Desea reiniciar el sistema para aplicar los cambios?")) {
-                                return fetch('/api/restart').then(() => {
-                                    alert('System restarting...');
-                                });                                 
+                                window.location.href = '/api/restart';
+                                return; // Importante: detener la ejecución aquí
                             }
                         } else alert(`${action} OK!`);
-                        location.reload(); // Reload the page to update the table
+                        // Si no se reinicia (se pulsa Cancelar o la acción no es RESTORE), recargar la tabla.
+                        location.reload(); 
                     } else {
-                        alert(`Failed to ${action.toLowerCase()} the file.`);
+                        response.text().then(text => alert(`Failed to ${action.toLowerCase()} the file. Server error: ${text}`));
                     }
                 })
-                .catch(error => console.error(`Error during ${action}:`, error));
-            }
-            
+                .catch(error => {
+                    console.error(`Error during ${action}:`, error);
+                    alert(`Error de red al intentar ${action.toLowerCase()}.`);
+                });
+        }   
+
         // Function to handle file deletion
         function handleFileDelete(filename) {
             fetch(filename, { method: 'DELETE' })
@@ -189,3 +193,73 @@
             return Math.round(minutos);
         }
 
+/**
+ * Valida si un fichero tiene una extensión permitida.
+ * @param {File} file - El objeto File a validar.
+ * @param {string[]} acceptedExtensions - Array de cadenas de extensión permitidas (ej: ['.bin', '.json']).
+ * @returns {boolean} True si el archivo tiene una extensión permitida, False en caso contrario.
+ */
+function validFileType(file, acceptedExtensions) {
+    if (!file || !file.name) return false;
+    const fileName = file.name.toLowerCase();
+    const lastDotIndex = fileName.lastIndexOf('.');
+    if (lastDotIndex === -1) return false; 
+    const fileExtension = fileName.substring(lastDotIndex);
+    return acceptedExtensions.map(ext => ext.toLowerCase()).includes(fileExtension);
+}
+
+
+/** Formatea un tamaño de fichero en bytes a un formato legible (KB, MB). */
+function returnFileSize(number) {
+    if (number < 1024) {
+        return `${number} bytes`;
+    } else if (number >= 1024 && number < 1048576) {
+        return `${(number / 1024).toFixed(1)} KB`;
+    }
+    return `${(number / 1048576).toFixed(1)} MB`;
+}
+
+/* Intenta parsear la cadena de texto para validar la sintaxis JSON.
+ * @returns {object|null} El objeto JSON si la sintaxis es correcta, o null si falla. */
+function validarSintaxisJson(jsonString) {
+    try {
+        return JSON.parse(jsonString);
+    } catch (e) {
+        console.error("Error de sintaxis JSON:", e);
+        throw new Error(`Error de sintaxis JSON: ${e.message}. Por favor, corrige el contenido.`);
+    }
+}
+/* Valida que el objeto JSON tenga la estructura mínima requerida.
+ * @param {object} data - El objeto JSON ya parseado. */
+function validarEstructura(data) {
+    let errores = [];
+    // --- Validación de claves principales ---
+    if (!data.botones || !Array.isArray(data.botones)) {
+        errores.push("Falta la clave 'botones' o no es un array.");
+    }
+    if (!data.grupos || !Array.isArray(data.grupos)) {
+        errores.push("Falta la clave 'grupos' o no es un array.");
+    }
+    // --- Validación de contenido mínimo (solo si las claves principales existen) ---
+    if (errores.length === 0) {
+        // Verificar que 'botones' tenga al menos un elemento con la clave 'zona'
+        const tieneBotonValido = data.botones.some(item => 
+            typeof item === 'object' && item !== null && 'zona' in item
+        );
+        if (!tieneBotonValido) {
+            errores.push("El array 'botones' debe contener al menos un objeto con la clave 'zona'.");
+        }
+        // Verificar que 'grupos' tenga al menos un elemento con la clave 'grupo'
+        const tieneGrupoValido = data.grupos.some(item => 
+            typeof item === 'object' && item !== null && 'grupo' in item
+        );
+        if (!tieneGrupoValido) {
+            errores.push("El array 'grupos' debe contener al menos un objeto con la clave 'grupo'.");
+        }
+    }
+    if (errores.length > 0) {
+        // Usamos throw para que el código llamador se detenga y muestre los errores.
+        throw new Error("Errores de Estructura JSON:\n" + errores.join('\n'));
+    }
+    return true; // La estructura es correcta
+}

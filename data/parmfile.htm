@@ -82,100 +82,127 @@
         <h2>Carga de parámetros a la CCR:</h2>
         <form id="uploadForm" enctype="multipart/form-data" style="white-space: nowrap" >
             <input type="file" id="fileInput" name="file" accept=".json" required>
-            <button type="button" class="button-flex button-import" onclick="uploadFile()">Import</button>
+            <button type="button" id="btnImport" class="button-flex button-import" onclick="uploadFile()">Import</button>
             <button type="button" class="button-flex button-new" onclick="openNewFile()">New</button>
         </form>
     </div>
     <h3>Fichero de Parámetros en la CCR: </h3>
     <table style="margin: 0 auto;">
         <thead><tr><th>Nombre</th><th>Tamaño</th><th>Timestamp</th><th>Acción</th></tr></thead>
-        <tbody id="parmTableBody">
-            <!-- Rows will be dynamically added here -->
-        </tbody>
+        <tbody id="parmTableBody"></tbody>
     </table>
+    
     <h3>Fichero de Backup en la CCR:</h3>
     <table style="margin: 0 auto;">
         <thead><tr><th>Nombre</th><th>Tamaño</th><th>Timestamp</th><th>Acción</th></tr></thead>
-        <tbody id="backupTableBody">
-            <!-- Rows will be dynamically added here -->
-        </tbody>    
-    </table>    
+        <tbody id="backupTableBody"></tbody>
+    </table>
+    
     <script src="/funciones.js"></script>
     <script>
-        async function uploadFile() {
-            const fileInput = document.getElementById('fileInput');
-            const file = fileInput.files[0];
-            if (!file) { alert("Por favor, seleccione un archivo para subir."); return; }
-            // 1. Función auxiliar para leer y validar el archivo
-            const readFileAndValidate = (file) => {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        const fileContent = event.target.result;
-                        try {
-                            JSON.parse(fileContent); // Validar sintaxis JSON
-                            resolve(true); // Resuelve si la validación es correcta
-                        } catch (e) {
-                            console.error("Error de sintaxis JSON:", e);
-                            alert(`Error de sintaxis JSON en el archivo: ${file.name}.\n\nPor favor, corrija el archivo antes de importarlo.`);
-                            reject(new Error("JSON Syntax Error")); // Rechaza si falla la validación
-                        }
-                    };
-                    reader.onerror = () => {
-                        alert("Error al leer el archivo. Intente de nuevo.");
-                        reject(new Error("File Read Error")); // Rechaza si falla la lectura
-                    };
-                    reader.readAsText(file);
-                });
-            };
-            // 2. Ejecutar la lectura y validación (se detiene aquí hasta que se complete)
-            try { await readFileAndValidate(file);
-                } catch (error) { return; }    // Si hay error de lectura o sintaxis JSON, la función termina aquí
-            const formData = new FormData();
-            formData.append('file', file, '%PARMFILE%'); 
-            if (confirm("¡Los parámetros actuales serán sustituidos por los de " + file.name + " ! ¿Continuar?")) {
-                try {
-                    const response = await fetch('/', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    if (response.ok) {
-                        if (confirm("Archivo subido correctamente. ¿Desea reiniciar el sistema para aplicar los cambios?")) {
-                            window.location.href='/api/restart'; 
-                        } else { location.reload(); }
-                    } else { alert("Error al subir el archivo."); }
-                } catch (error) {
-                    console.error("Error al subir el archivo:", error);
-                    alert("Ocurrió un error al subir el archivo.");
-                }
-            }
-        }
+    // Variables de configuración
+    const MAX_PARMFILE = 4 * 1024;    // Tamaño máximo para un JSON de parámetros
+    const PARM_FILE_TYPES = ['.json']; // Solo se acepta la extensión .json
 
-        function openNewFile() {
-            if (confirm("¿Desea crear un nuevo archivo de parámetros? (los actuales serán borrados)")) {
-                window.open('parmfile_edit.htm?file=templateParm.json', '_self'); // Open in the same tab
-            }
-        }
-    
-        // Fetch and display the data when the page loads
-        window.addEventListener("load", () => {
-            // Usamos un requestAnimationFrame para POSPONER la modificación del DOM 
-            // y permitir que el navegador termine sus tareas internas (incluyendo ThumbnailsChild.sys.mjs).
-            window.requestAnimationFrame(() => {
-                // --- Lógica para la Tabla de Parámetros ---
+    window.addEventListener("load", () => {
+        window.requestAnimationFrame(() => {
+            if (typeof apiGetJson !== 'undefined') { // Asegurar que apiGetJson está definido si es una función externa
                 apiGetJson('/api/list?file=' + encodeURIComponent('%PARMFILE%'))
                     .then(data => {
-                        populateTable(data, "parmTableBody");
+                        if (typeof populateTable !== 'undefined') populateTable(data, "parmTableBody");
                     })
                     .catch(error => console.error("Error fetching parm file data:", error));
-                // --- Lógica para la Tabla de Backup ---
                 apiGetJson('/api/list?file=' + encodeURIComponent('%BACKUPFILE%'))
                     .then(data => {
-                        populateTable(data, "backupTableBody");
+                        if (typeof populateTable !== 'undefined') populateTable(data, "backupTableBody");
                     })
                     .catch(error => console.error("Error fetching backup file data:", error));
-            });
+            }
         });
+    });
+
+    async function uploadFile() {
+        const fileInput = document.getElementById('fileInput');
+        const file = fileInput.files[0];
+        let statusMessage = "";
+        // 1. VALIDACIONES BÁSICAS (TIPO Y TAMAÑO)
+        if (!file) { 
+            alert("Por favor, seleccione un archivo para subir."); 
+            return; 
+        }
+        if (!validFileType(file, PARM_FILE_TYPES)) {
+            statusMessage = `Error: Tipo de fichero no válido. Debe ser ${PARM_FILE_TYPES.join(', ')}.`;
+            alert(statusMessage);
+            return;
+        }
+        if (file.size > MAX_PARMFILE) {
+            statusMessage = `Error: El fichero excede el tamaño máximo permitido (${returnFileSize(MAX_PARMFILE)}).`;
+            alert(statusMessage);
+            return;
+        }
+        // 2. LECTURA Y VALIDACIÓN DE CONTENIDO (ASÍNCRONA)
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            const jsonString = e.target.result;
+            let jsonObject;
+            try {
+                jsonObject = validarSintaxisJson(jsonString); 
+                validarEstructura(jsonObject); 
+                console.log("JSON válido: sintaxis y estructura correctas.");
+                // 3. SUBIDA AL SERVIDOR
+                if (confirm("¡Los parámetros actuales serán sustituidos por los de " + file.name + " ! ¿Continuar?")) {
+                    await subirArchivoAlServidor(file);
+                }
+            } catch (validationError) {
+                // Captura los errores lanzados por validarSintaxisJson o validarEstructura
+                alert("Error de validación:\n" + validationError.message);
+                console.error("Fallo la validación del JSON en el cliente:", validationError);
+            }
+        };
+        // Si la lectura del fichero falla
+        reader.onerror = function() {
+            alert("Error al leer el archivo. Intente de nuevo.");
+        };
+        // Iniciar la lectura del archivo
+        reader.readAsText(file);
+    }
+
+
+    // Función auxiliar para encapsular la lógica de subida y manejo de respuesta
+    async function subirArchivoAlServidor(file) {
+        const formData = new FormData();
+        formData.append('file', file, '%PARMFILE%'); 
+        document.getElementById('btnImport').disabled = true; 
+        try {
+            const response = await fetch('/', {
+                method: 'POST',
+                body: formData
+            });
+            if (response.ok) { 
+                await fetch('/api/setrestart'); // Marca que se requiere reinicio
+                if (confirm("Archivo validado correctamente y subido. ¿Desea reiniciar el sistema para aplicar los cambios?")) {
+                    window.location.href='/api/restart'; 
+                } else location.reload(); 
+                return;
+            } else { 
+                const errorText = await response.text();
+                alert("Error al subir el archivo (HTTP " + response.status + "): " + errorText); 
+            }
+        } catch (error) {
+            alert("Ocurrió un error de red al subir el archivo.");
+            console.error("Error al subir el archivo:", error);
+        } finally {
+            // SIEMPRE se ejecuta para re-habilitar el botón
+            document.getElementById('btnImport').disabled = false;
+        }
+    }
+
+    function openNewFile() {
+            if (confirm("¿Desea crear un nuevo archivo de parámetros? (los actuales serán borrados)")) {
+                window.open('parmfile_edit.htm?file=templateParm.json', '_self');
+            }
+    }
+
     </script>
 </body>
-</html>    
+</html>

@@ -397,15 +397,15 @@
   //estructura para salvar un grupo
   struct Grupo_parm {
     uint16_t bID;          // boton del grupo
-    int size;              // cantidad de zonas asociadas al grupo 
+    int size = 0;          // cantidad de zonas asociadas al grupo 
     uint16_t zNumber[16];  // ojo! numero de las zonas, no es el boton asociado a ellas
-    char desc[20];
+    char desc[20] = "";    // descripcion del grupo
   } ;
 
   //estructura para salvar parametros de una zona
   struct Zona_parm {
-    char  desc[20];
-    uint16_t   idx;        // IDX de la zona en Domoticz
+    char  desc[20] = "";      // descripcion de la zona
+    uint16_t   idx = 0;        // IDX de la zona en Domoticz
   } ;
 
   //estructura para parametros configurables
@@ -415,8 +415,8 @@
     Zona_parm zona[n_Zonas];
     static const int  n_Grupos = NUMGRUPOS;  //no modificable por fichero de parámetros (depende HW)
     Grupo_parm group[n_Grupos+1];            // +1 para sitio para grupo temporal n+1
-    char domoticz_ip[40];
-    char domoticz_port[6];
+    char domoticz_ip[40] = "";               // IP o nombre del servidor Domoticz
+    char domoticz_port[6] = "";              // puerto del servidor Domoticz
     char ntpServer[40] = NTPSERVER_SPAIN;       // servidor NTP por defecto
     char TZ[50] = TZ_Europe_Madrid;             // time zone por defecto en formato TZ posix
     uint8_t   minutes = DEFAULTMINUTES;         // tiempo de riego por defecto

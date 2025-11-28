@@ -4,6 +4,10 @@
 bool loadConfigFile(const char *p_filename)
 {
   LOG_TRACE("");
+  #ifdef EXTRADEBUG
+    LOG_DEBUG("Contenido del fichero de configuración", p_filename, ":");
+    printFile(p_filename);
+  #endif
   File file = LittleFS.open(p_filename, "r");
   if(!file){
     LOG_ERROR("Failed to open file for reading");
@@ -147,6 +151,7 @@ bool saveConfigFile(const char *p_filename)
 
   // Serialize JSON to file
   #ifdef EXTRADEBUG 
+    LOG_DEBUG("Contenido del jsondoc a grabar en ",p_filename,":");
     serializeJsonPretty(doc, Serial); 
   #endif
   //int docsize = serializeJson(doc, file);
@@ -157,10 +162,6 @@ bool saveConfigFile(const char *p_filename)
   }
   else LOG_DEBUG("    tamaño del jsondoc: (",docsize,")");
   file.close();
-  #ifdef EXTRADEBUG
-    printFile(p_filename);
-  #endif
-  //memoryInfo();
   return true;
 }
 
@@ -316,8 +317,36 @@ void listDir(fs::FS &fs, const char * dirname, uint8_t levels, uint8_t depth) {
     }
 }
 
+String sysInfo() {
+    JsonDocument doc; 
+    uint32_t sketchTotalPartitionSize = ESP.getFreeSketchSpace();
+    uint32_t sketchUsed = ESP.getSketchSize();
+    int sketchPercentUsed = (sketchUsed * 100) / sketchTotalPartitionSize;
+    uint32_t fsUsed = LittleFS.usedBytes();
+    uint32_t fsTotal = LittleFS.totalBytes();
+    int filesPercentUsed = (fsUsed * 100) / fsTotal;
+    doc["FW version"] = String(FW_VERSION) + " Built on " __DATE__ " at " __TIME__;
+    doc["esp_idf_version"] = esp_get_idf_version();
+    doc["arduino_version"] = String(ESP_ARDUINO_VERSION_MAJOR) + "." + String(ESP_ARDUINO_VERSION_MINOR) + "." + String(ESP_ARDUINO_VERSION_PATCH);
+    doc["Chip Model"] = ESP.getChipModel();
+    doc["Chip Cores"] = ESP.getChipCores();
+    doc["Chip Revision"] = ESP.getChipRevision();
+    doc["FlashSize"] = convertFileSize(ESP.getFlashChipSize());
+    doc["SketchSpace "] = sketchTotalPartitionSize; 
+    doc["SketchSize  (percent used)"] = String(sketchUsed) + "   (" + String(sketchPercentUsed) + "%)"; 
+    doc["HeapSize"] = ESP.getHeapSize();
+    doc["FreeHeap"] = ESP.getFreeHeap();
+    doc["MaxAllocHeap (largest free block)"] = ESP.getMaxAllocHeap();
+    doc["MinFreeHeap (lowes since boot)"] = ESP.getMinFreeHeap();
+    doc["File System Total"] = convertFileSize(fsTotal);
+    doc["File System Used (percent used)"] = convertFileSize(fsUsed) + "   (" + String(filesPercentUsed) + "%)";
+    doc["ESP32 temperature"] = String(temperatureRead(), 2) + " ºC"; 
+    String output;
+    serializeJsonPretty(doc, output); 
+    return output;
+}
 
-  String convertFileSize(const size_t bytes)
+String convertFileSize(const size_t bytes)
   {
     if(bytes < 1024)
     {

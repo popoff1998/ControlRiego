@@ -35,7 +35,7 @@
         <legend style="color:red;">ATENCION! no se realiza ninguna verificacion</legend>
         <div id="spacer_20"></div>
         
-        <form name="edit_file">
+        <form name="edit_file" id="edit_form_id">
             <textarea name="edit_textarea"></textarea>
         </form>
         
@@ -117,16 +117,17 @@
     // A. Evento para el botón Save (vía submit del formulario)
     form.addEventListener('submit', (event) => {
         event.preventDefault(); // Detiene el envío HTTP por defecto del navegador
-        
         const content = textarea.value;
+        let jsonObject;
         try {
-            JSON.parse(content); // Validación de la sintaxis JSON
-        } catch (e) {
-            console.error("Error de sintaxis JSON:", e);
-            alert(`Error de sintaxis JSON: ${e.message}. Por favor, corrige el contenido antes de guardar.`);
-            return; // 🛑 Detiene el proceso de guardado si falla la validación
-        }
+            jsonObject = validarSintaxisJson(content); 
+            validarEstructura(jsonObject); 
+            console.log("JSON válido en sintaxis y estructura.");
 
+        } catch (validationError) {
+            alert(validationError.message);
+            return; // Detiene el proceso de guardado si falla la validación
+        }        
         // Si la validación es exitosa, procede a guardar con fetch
         fetch('/api/save_config', {
             method: 'POST',

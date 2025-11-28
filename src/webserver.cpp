@@ -20,6 +20,7 @@
    const char* const update_password = "admin";
 
    int logDays = 15; // dias de log a mostrar por defecto
+   bool restartRequired = false; //indica si es necesario reiniciar el sistema para aplicar cambios
 
    #ifdef DEVELOP
       const bool httpUpdateDebug = true;  //enable serial debug msgs
@@ -41,15 +42,29 @@ static void sendNoCacheJSON(const String &payload) {
   wserver.send(200, "application/json; charset=utf-8", payload);
 }
 
-bool replaceTokens(String &content) {
-   int originalLength = content.length();
-   content.replace("%PARMFILE%",   String(parmFile));
-   content.replace("%BACKUPFILE%", String(backupParmFile));
-   content.replace("%LASTRIEGOS%", String(lastRiegosFile));
-   content.replace("%LASTGRUPOS%", String(lastGruposFile));
-   content.replace("%DIAS%",       String(logDays));
-   content.replace("%SHOWTEST%", showtest_section ? "true" : "false");
-   return (content.length() != originalLength);
+// Lista de tokens y sus valores de sustitución
+struct TokenData {
+    const char* token;
+    String value;
+} tokenList[] = {
+        {"%PARMFILE%",   String(parmFile)},
+        {"%BACKUPFILE%", String(backupParmFile)},
+        {"%LASTRIEGOS%", String(lastRiegosFile)},
+        {"%LASTGRUPOS%", String(lastGruposFile)},
+        {"%VERSION%",    String(FW_VERSION)},
+        {"%DIAS%",       String(logDays)},
+        {"%SHOWTEST%",   showtest_section ? "true" : "false"} 
+    };
+void replaceTokens(String &content) {
+    const size_t numTokens = sizeof(tokenList) / sizeof(tokenList[0]);
+    for (size_t i = 0; i < numTokens; i++) {
+        const char* currentToken = tokenList[i].token;
+        const String& currentValue = tokenList[i].value;
+        if (content.indexOf(currentToken) != -1) {
+            content.replace(currentToken, currentValue);
+            LOG_DEBUG("Replaced token:", currentToken, "with value:", currentValue);
+        }
+    }
 }
 
 /**
@@ -75,7 +90,7 @@ static bool resolveFilePath(String &outPath) {
     } 
     outPath = wserver.arg("file");
     LOG_DEBUG("arg 'file' recibido:", outPath);
-    if (replaceTokens(outPath)) LOG_DEBUG("arg 'file' tras reemplazo de tokens:", outPath);
+    replaceTokens(outPath);
     if (!outPath.startsWith("/")) { outPath = "/" + outPath; }
     if (!LittleFS.exists(outPath)) {
       wserver.send(400, "text/plain", "Bad Request: file not found");
@@ -94,7 +109,7 @@ static bool resolveFilePath(String &outPath) {
 */
 void splitFilePath(String &fullPath, String &dirPath, String &fileName) {
   LOG_DEBUG("fullPath recibido:", fullPath);
-  if (replaceTokens(fullPath)) LOG_DEBUG("fullPath tras reemplazo de tokens:", fullPath);
+  replaceTokens(fullPath);
   int lastSlash = fullPath.lastIndexOf('/');
   if (lastSlash == -1) {
     dirPath = "/";
@@ -238,7 +253,7 @@ void serveFile(String path, String contentType) {
        contentType == "text/javascript" || contentType == "application/javascript" || 
        path.endsWith(".js")) {
       String content = file.readString();
-      if (replaceTokens(content)) LOG_DEBUG("Tokens sustituidos");
+      replaceTokens(content);
       wserver.send(200, contentType, content);
    } else {
       size_t sent = wserver.streamFile(file, contentType);
@@ -291,14 +306,23 @@ void handleListFiles() {
 
 // restart device
 void handleRestart() {
-  LOG_DEBUG("Restarting ESP32...");
+  LOG_DEBUG("Restarting ESP32... / restartRequired flag is", restartRequired);
   wserver.send(200, "text/plain", "Restarting ESP32...");
   delay(500);
   ESP.restart();
 }
 
+// end webserver
+void handleEndWS() {  
+  LOG_DEBUG("handleEndWS called");
+  wserver.send(200, "text/plain", "Ending WebServer...");
+  delay(500);
+  endWS();
+}
+
 // system info
 void handleSysInfo() {
+  LOG_TRACE("handleSysInfo called");
   String result = sysInfo();
   wserver.sendHeader("Cache-Control", "no-cache");
   wserver.send(200, "text/javascript; charset=utf-8", result);
@@ -306,6 +330,7 @@ void handleSysInfo() {
 
 // save parmfile (body contains JSON)
 void handleSaveConfig() {
+  LOG_TRACE("handleSaveConfig called");
   if (!wserver.hasArg("plain")) {
       wserver.send(400, "text/plain", "Bad Request: Missing JSON body");
       return;
@@ -326,7 +351,13 @@ void handleSaveConfig() {
   }
   configFile.print(jsonBody);
   configFile.close();
+  restartRequired = true; //indica que es necesario reiniciar el sistema para aplicar cambios
   wserver.send(200, "text/plain", "Configuration saved successfully");
+}
+
+void handleSetRestartRequired() {
+  restartRequired = true;
+  wserver.send(200, "text/plain", "OK"); // 200 OK
 }
 
 // advanced page (requires auth)
@@ -432,7 +463,7 @@ class FileServerHandler : public RequestHandler {
         if (requestMethod == HTTP_COPY) {
           String fileFrom , fileTo;
           if (fName == "/BACKUP") {fileFrom = parmFile; fileTo = backupParmFile;}
-          if (fName == "/RESTORE") {fileFrom = backupParmFile; fileTo = parmFile;}
+          if (fName == "/RESTORE") {fileFrom = backupParmFile; fileTo = parmFile; restartRequired = true;}
           LOG_DEBUG("Copying file from ", fileFrom, " to ", fileTo);
           handleOK = copyConfigFile(fileFrom.c_str(), fileTo.c_str());
         }  
@@ -562,9 +593,11 @@ void defWebpagesHandles() {
     // Rutas que devuelven/esperan un JSON renombradas a /api/ para coherencia
     wserver.on("/api/list",        HTTP_GET,  handleListFiles);
     wserver.on("/api/sysinfo",     HTTP_GET,  handleSysInfo);
-    wserver.on("/api/restart",     HTTP_POST, handleRestart);
+    wserver.on("/api/restart",     HTTP_GET,  handleRestart); // mas facil de manejar GET que POST (y borra pagina)
+    wserver.on("/api/endWS",       HTTP_GET,  handleEndWS);
     wserver.on("/api/showZONElog", HTTP_GET,  handleShowZONElog);
     wserver.on("/api/save_config", HTTP_POST, handleSaveConfig);
+    wserver.on("/api/setrestart",  HTTP_GET,  handleSetRestartRequired);
     wserver.on("/download",        HTTP_GET,  handleDownload);
     wserver.on("/token_file",      HTTP_GET,  handleDownload);  // resolves tokens from client requests
     // GET, UPLOAD, COPY and DELETE of files in the file system using a request handler.
@@ -594,6 +627,7 @@ void setupWS() {
   MDNS.addService("http", "tcp", WSPORT);
   wserver.begin();
   webServerAct = true;
+  restartRequired = false;
   Serial.printf("[WS] HTTPUpdateServer ready!\n   --> Open http://%s.local:%d%s in your browser and login with username '%s' and password '%s'\n\n", WiFi.getHostname(), WSPORT, update_path, update_username, update_password);
   LOG_INFO("[WS] Activado webserverIP address: ", WiFi.localIP(), ":", WSPORT);
   // logDays = getDomoticzSettingsInfo("LightHistoryDays").toInt(); //lee los dias de log a mostrar por defecto desde Domoticz
@@ -605,8 +639,9 @@ void procesaWebServer() {
 }
 
 void endWS() {
-  MDNS.end();
   LOG_INFO("Terminando webserver...");
+  if (restartRequired) handleRestart(); // reinicia si es necesario para aplicar cambios
+  MDNS.end();
   wserver.stop();
   webServerAct = false;
 }
