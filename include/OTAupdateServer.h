@@ -14,7 +14,6 @@
 #include <Update.h>
 #include <WebServer.h>
 
-
 static const char serverOTA[] PROGMEM =
  R"(<!DOCTYPE html>
     <html lang='en'>
@@ -108,21 +107,22 @@ public:
                 return _server->requestAuthentication();
 
             // obtener versión compilada (si está definida) para inyectar en la página
-            String version;
-          #ifdef FW_VERSION
-            version = String(FW_VERSION);
-          #else
-            version = String();
-          #endif
-
+                String version;
+            #ifdef FW_VERSION
+                version = String(FW_VERSION);
+            #else
+                version = String();
+            #endif
+            // Calcular el espacio máximo disponible:
+            // - para firmware: ESP.getFreeSketchSpace() - 0x1000 (margen de seguridad) y alineado a 4KB
+            uint32_t maxFirmwareSize = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
+            uint32_t maxFSSize = LittleFS.totalBytes();
             // leer parámetro opcional ?page=
-            String page;
-            if (_server->hasArg("page")) page = _server->arg("page");
-
-            // Construir prefijo con VERSION y marca SERVED (se usará también en JS del custom)
-            // Para built-in marcamos 'builtin', para custom 'custom' (ayuda al cliente a POSTear ?served=...)
-            String prefixCustom = String("<script>var VERSION = \"") + version + String("\"; var SERVED = \"custom\";</script>");
-
+            String page; if (_server->hasArg("page")) page = _server->arg("page");
+            // Construir prefijo con VERSION, MAX_FIRMWARE_SIZE, MAX_FS_SIZE y marca SERVED (se usará también en JS del custom)
+            String prefixCustom = String("<script>var VERSION = \"") + version + 
+                                  String("\"; var SERVED = \"custom\"; var MAX_FIRMWARE = ") + String(maxFirmwareSize) + 
+                                  String("; var MAX_FILESYSTEM = ") + String(maxFSSize) + String(";</script>");
             // lógica de selección:
             // - si page == "builtin" -> servir siempre la página integrada
             // - si page == "custom"  -> intentar servir OTAupdate.htm (si no existe, fallback a builtin)
@@ -131,15 +131,13 @@ public:
                 _server->send(200, "text/html", FPSTR(serverOTA));
                 return;
             }
-
             // intentar servir custom si existe (page == "custom" o page is empty)
             if (LittleFS.exists("/OTAupdate.htm") && !page.equalsIgnoreCase("builtin")) {
                 File f = LittleFS.open("/OTAupdate.htm", "r");
                 if (f) {
                     String content = f.readString();
                     f.close();
-                    // inyectar prefixCustom (VERSION + SERVED='custom') delante del contenido
-                    content = prefixCustom + content;
+                    content = prefixCustom + content; // inyectar script prefixCustom delante del contenido
                     _server->send(200, "text/html", content);
                     return;
                 }

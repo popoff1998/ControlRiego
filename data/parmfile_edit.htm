@@ -65,7 +65,7 @@
         window.addEventListener("load", async () => {
             const urlParams = new URLSearchParams(window.location.search);
             fileName = urlParams.get('file') || '%PARMFILE%'; 
-            console.log(fileName);
+            console.log("Edit:", fileName);
             try {
                 // Cargar la plantilla base desde templateParm.json
                 const templateResponse = await fetch('/templateParm.json');

@@ -4,7 +4,6 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <title>OTA Update</title>
-    <script>var SERVED = "custom";</script>
     <style>
         /* ... Estilos CSS ... */
         body { font-family: Arial,Helvetica,sans-serif; max-width:900px; margin:20px auto; color:#222 }
@@ -63,7 +62,7 @@
 <body>
     <h1>OTA Update</h1>
     <div class="card">
-        <div class="meta">Versión actual FW: <strong id="fwVersion">%VERSION%</strong></div>
+        <div class="meta">Versión actual FW: <strong id="fwVersion"></strong></div>
         <div style="margin-top:1px;">
             <h2 style="margin-top:1px;">Firmware</h2>
             <form method="post" enctype="multipart/form-data">
@@ -102,8 +101,6 @@
 
 <script>
     // Variables de configuración
-    const MAX_FIRMWARE = 2 * 1024 * 1024;       // 2 MB
-    const MAX_FILESYSTEM = 256 * 1024;          // 256 KB
     const FILE_TYPES = ['.bin'];             
     
     // FUNCIÓN SIMPLE para validar y actualizar el texto de previsualización
@@ -229,7 +226,7 @@
         document.getElementById('filesystem').addEventListener('change', function() {
             updatePreview(this, '.preview2', MAX_FILESYSTEM, 'btnFS');
         });
-    })(); // Fin de la IIFE (función anónima autoejecutable)
+    })(); // Fin de la IIFE y ejecucion de ella (Immediately Invoked Function Expression)
 </script>
 </body>
 </html>

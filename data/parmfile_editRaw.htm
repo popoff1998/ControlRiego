@@ -1,8 +1,7 @@
   <!-- 
    Esta página, parmfile_editRaw.htm, permite editar directamente el contenido 
     de un archivo JSON de configuración en formato de texto sin realizar ninguna validación. 
-   Está diseñada para usuarios avanzados que necesitan modificar manualmente 
-    los parámetros de configuración del sistema.
+   Está diseñada para usuarios avanzados que necesitan modificar manualmente los parámetros de configuración del sistema.
   -->
 <!DOCTYPE HTML>
 <html>
@@ -15,7 +14,6 @@
     <style>
         fieldset {width: 90%; max-width: 800px; margin: 1em auto; background-color: #f7f7f7;}
         textarea {width: 100%; height: 700px; padding: 12px 20px; box-sizing: border-box; border: 2px solid #ccc; border-radius: 4px;}
-        
         dialog {
             border: 2px solid #3498db;
             border-radius: 8px;
@@ -24,31 +22,23 @@
             text-align: center;
         }
         dialog::backdrop {background-color: rgba(44, 62, 80, 0.8);}
-
         @media (max-width: 768px) {textarea {height: 480px;} }
     </style>
 </head>
 <body>
     <h1>Edicion libre del fichero de parametros</h1>
-    
     <fieldset>
         <legend style="color:red;">ATENCION! no se realiza ninguna verificacion</legend>
         <div id="spacer_20"></div>
-        
         <form name="edit_file" id="edit_form_id">
             <textarea name="edit_textarea"></textarea>
         </form>
-        
         <div class="button-group">
             <button type="submit" form="edit_form_id" id="submit" class="save-button">Save</button>
             <button type="button" id="cancel" class="secondary-button">Cancel</button>
         </div>
-
         <div id="spacer_50"></div>
     </fieldset>
-    
-    <iframe style="display:none" name="self_page"></iframe>
-
     <dialog id="Warning">
         ⚠️ **¡ATENCIÓN! EDICIÓN LIBRE SIN VERIFICACIONES LÓGICAS** ⚠️<br>
         **Solo se verifica la sintaxis JSON, NO la validez lógica de los parámetros.**<br>
@@ -56,8 +46,6 @@
         para modificar los parámetros.<br><br>
         <button id="cerrarBtn">Entendido</button>
     </dialog>
-
-
     <script src="/funciones.js"></script>
     <script>
     // Variables globales para ser accesibles por los event listeners
@@ -81,13 +69,11 @@
     // 1. Lógica de Inicialización (IIFE)
     (function() {
         const source = urlParams.get('source');
-        
         if (!fileName) {
             alert("No se especificó ningún archivo en la URL."); 
             window.location.href = `/parmfile_edit.htm?file=%PARMFILE%`;
-            return; // 🛑 Detiene la ejecución del script si no hay archivo
+            return; // Detiene la ejecución del script si no hay archivo
         }
-
         // Lógica de carga de datos
         if (source === 'tempRawData' && sessionStorage.getItem('tempRawData')) {
             const tempRawData = sessionStorage.getItem('tempRawData');
@@ -103,14 +89,12 @@
         } else {
             loadFromServer(fileName, textarea);
         }
-
         // Mostrar el diálogo de advertencia
         const dialogo = document.getElementById('Warning');
         const cerrarBtn = document.getElementById('cerrarBtn');
         dialogo.showModal(); 
         cerrarBtn.addEventListener('click', () => dialogo.close());
     })();
-
 
     // 2. Manejo de Eventos (Listeners)
 

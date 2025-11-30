@@ -39,7 +39,8 @@
       </div>
   </div>
   <script>
-  var showtestValue = "%SHOWTEST%"; // valor inyectado por el servidor
+  // @ts-expect-error - Token %SHOWTEST% será reemplazado por el servidor
+  var showtestValue = %SHOWTEST%; // @type {boolean}
   var testingSection = document.getElementById("testingSection");
   var container = document.querySelector(".containerbase");
 

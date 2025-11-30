@@ -181,6 +181,50 @@ static void sendFileAttachment(const String &path) {
 }    
 
 // ---------------------------
+// Helper para control del Cache
+// ---------------------------
+/**
+ * Configura las cabeceras de caché (Cache-Control, ETag) y comprueba 
+ * si el recurso se puede servir desde la caché (304 Not Modified).
+ * @param path La ruta del archivo (ej. "/index.htm" o "/datos/log.json").
+ * @param file El objeto File abierto, usado para obtener el LastWrite Time.
+ * @return true si la respuesta 304 fue enviada y se debe cortar el procesamiento, 
+ *         false si se debe servir el contenido (200 OK).
+ */
+// Usamos el flag isTokenized para forzar el ETag basado en el FW
+static bool checkAndSendCacheHeaders(const String &path, File &file, bool isTokenized) {
+    String etagValue;
+    bool needs304Validation = path.startsWith("/datos/") || isTokenized; // Tokenizados ahora necesitan revalidación 304/ETag
+    #ifdef RELEASE
+        if (needs304Validation) {
+            // **Tokenizados y /datos/: Revalidación ETag/304**
+            wserver.sendHeader("Cache-Control", "no-cache"); 
+            if (isTokenized) {
+                etagValue = String(FW_VERSION) + "-FW"; // ETag fuerte: solo cambia con el FW
+            } else { // /datos/
+                etagValue = String(file.getLastWrite()); // ETag débil: cambia con el timestamp del archivo
+            }
+        } else {
+            // **Estáticos puros (CSS, PNG): Caché Fuerte**
+            wserver.sendHeader("Cache-Control", "public, max-age=31536000, immutable"); 
+            return false; // El navegador no contactará al ESP32
+        }
+    #else // en modo DEVELOP (todos): Revalidación ETag/304 (usando timestamp del archivo)
+        etagValue = String(file.getLastWrite()); 
+        wserver.sendHeader("Cache-Control", "no-cache"); 
+    #endif
+    // --- Lógica de Comprobación y Envío 304 ---
+    wserver.sendHeader("ETag", etagValue);
+    String receivedEtag = wserver.header("If-None-Match");
+    if (receivedEtag.length() > 0 && receivedEtag == etagValue) { 
+        wserver.send(304);
+        LOG_DEBUG("Sent 304 Not Modified for path:", path, "ETag:", etagValue); 
+        return true; 
+    }
+    return false;
+}
+
+// ---------------------------
 // Server utils 
 // ---------------------------
 
@@ -222,43 +266,53 @@ const char* GetContentType(const String &filename) {
 void printArgs() {
   for (int i = 0; i < wserver.args(); i++) {LOG_DEBUG("  ", wserver.argName(i), ": ", wserver.arg(i));}
 }  
-    
+
+/**
+ * @brief Sirve un archivo estático desde el sistema de archivos LittleFS al cliente, 
+ * gestionando la compresión Gzip, el caching del navegador y la sustitución de tokens.
+ * * Esta función busca el archivo solicitado por 'path', priorizando la versión sin comprimir 
+ * y cayendo a la versión .gz si no encuentra la primera. Establece encabezados de caché 
+ * ETag/Cache-Control y maneja el envío de contenido, incluyendo la sustitución de 
+ * marcadores de posición (tokens) en archivos HTML/JS si es necesario.
+ * @param path          Ruta al archivo solicitado dentro de LittleFS (ej: "/index.html").
+ * @param contentType   Tipo MIME del contenido (ej: "text/html", "application/javascript").
+ */
 void serveFile(String path, String contentType) {
-   LOG_DEBUG("Serving file:", path, "contentType:", contentType);
-   // Intentar abrir el archivo; si no existe, probar con .gz
-   String filePath = path;
-   bool isGzipped = false;
-   File file = LittleFS.open(filePath, "r");
-   if (!file) {
-      String gzPath = path + ".gz";
-      LOG_DEBUG("File not found, trying gzip version:", gzPath);
-      file = LittleFS.open(gzPath, "r");
-      if (!file) {
-         LOG_ERROR("Failed to open file or gzip version:", path);
-         wserver.send(404, "text/plain", "File Not Found");
-         return;
-      }
-      filePath = gzPath;
-      isGzipped = true;
-      LOG_DEBUG("Serving gzip version:", filePath);
-   }
-   // Si es un archivo comprimido, informar al navegador con Content-Encoding
-   if (isGzipped) {
-      wserver.sendHeader("Content-Encoding", "gzip");
-      LOG_DEBUG("Added Content-Encoding: gzip header");
-   }
-   // En el caso de archivos html o javascript siempre los leemos para reemplazar tokens
-   // antes de enviarlos al cliente (salvo que esten comprimidos .gz)
-   if (contentType == "text/html" || path.endsWith(".htm") || path.endsWith(".html") || 
-       contentType == "text/javascript" || contentType == "application/javascript" || 
-       path.endsWith(".js")) {
-      String content = file.readString();
-      replaceTokens(content);
-      wserver.send(200, contentType, content);
-   } else {
-      size_t sent = wserver.streamFile(file, contentType);
-   }
-   file.close();
+    LOG_DEBUG("Serving file:", path, "contentType:", contentType);
+    // 1. Manejo de archivos .gz (Comprobación y apertura)
+    String filePath = path;
+    bool isGzipped = false;
+    File file = LittleFS.open(filePath, "r");
+    if (!file) {
+        String gzPath = path + ".gz";
+        file = LittleFS.open(gzPath, "r");
+        if (!file) {
+            LOG_ERROR("Failed to open file or gzip version:", path);
+            wserver.send(404, "text/plain", "File Not Found");
+            return;
+        }
+        filePath = gzPath; isGzipped = true; LOG_DEBUG("Serving gzip version:", filePath);
+    }
+    if (isGzipped) {
+        wserver.sendHeader("Content-Encoding", "gzip");
+        LOG_DEBUG("Added Content-Encoding: gzip header");
+    }
+    // 2. Lógica de Caching y Contenido
+    bool isTokenized = (contentType.startsWith("text/html") || contentType.startsWith("application/javascript"));
+    if (checkAndSendCacheHeaders(path, file, isTokenized)) {
+        file.close();
+        return; 
+    }    
+    if (isTokenized) {
+        // Bloque de archivos con tokens: Leer, reemplazar y enviar 200
+        String content = file.readString();
+        replaceTokens(content);
+        wserver.send(200, contentType, content); 
+    } else { 
+        // Bloque de archivos estáticos: Streamear (ya con cabeceras de caché puestas)
+        size_t sent = wserver.streamFile(file, contentType); 
+    }
+    file.close();
 }
 
 void serveFile(String path) {
@@ -324,8 +378,7 @@ void handleEndWS() {
 void handleSysInfo() {
   LOG_TRACE("handleSysInfo called");
   String result = sysInfo();
-  wserver.sendHeader("Cache-Control", "no-cache");
-  wserver.send(200, "text/javascript; charset=utf-8", result);
+  sendNoCacheJSON(result);
 }
 
 // save parmfile (body contains JSON)
@@ -400,6 +453,13 @@ void handleDownload() {
 // for all static file requests via the FileServerHandler.
 // Client-side can use apiGetJson() which auto-detects tokens (%) and routes to /token_file.
 // The /token_file endpoint below serves the same purpose as serveFile() for explicit token requests.
+// Handler para resolver tokens de ruta y servir el archivo.
+void handleTokenFile() {
+    String path;
+    if (resolveFilePath(path)) {
+        serveFile(path); 
+    }
+}
 
 // ------------------------------------------------------------------------
 // FileServerHandler 
@@ -590,16 +650,17 @@ void defWebpagesHandles() {
     wserver.on("/$upload.htm",     HTTP_GET, []() { wserver.send(200, "text/html", FPSTR(uploadContent)); }); // serve a built-in htm page
     wserver.on("/advanced.htm",    HTTP_GET,  handleAdvancedPage); // requiere auth
     wserver.on("/parmfile_editRaw.htm",    HTTP_GET,  handleEditRawPage); // requiere auth
-    // Rutas que devuelven/esperan un JSON renombradas a /api/ para coherencia
+    // apis que devuelven/esperan un JSON
     wserver.on("/api/list",        HTTP_GET,  handleListFiles);
     wserver.on("/api/sysinfo",     HTTP_GET,  handleSysInfo);
-    wserver.on("/api/restart",     HTTP_GET,  handleRestart); // mas facil de manejar GET que POST (y borra pagina)
-    wserver.on("/api/endWS",       HTTP_GET,  handleEndWS);
     wserver.on("/api/showZONElog", HTTP_GET,  handleShowZONElog);
-    wserver.on("/api/save_config", HTTP_POST, handleSaveConfig);
-    wserver.on("/api/setrestart",  HTTP_GET,  handleSetRestartRequired);
+    // otras apis
     wserver.on("/download",        HTTP_GET,  handleDownload);
-    wserver.on("/token_file",      HTTP_GET,  handleDownload);  // resolves tokens from client requests
+    wserver.on("/token_file",      HTTP_GET,  handleTokenFile);  // resolves tokens from client requests
+    wserver.on("/api/save_config", HTTP_POST, handleSaveConfig);
+    wserver.on("/api/endWS",       HTTP_GET,  handleEndWS);
+    wserver.on("/api/setrestart",  HTTP_GET,  handleSetRestartRequired);
+    wserver.on("/api/restart",     HTTP_GET,  handleRestart); // mas facil de manejar GET que POST (y borra pagina)
     // GET, UPLOAD, COPY and DELETE of files in the file system using a request handler.
     wserver.addHandler(new FileServerHandler());
     // enable CORS header in webserver results
@@ -622,6 +683,14 @@ void displayWSinfo() {
 
 void setupWS() {
   if (!MDNS.begin(HOSTNAME)) LOG_ERROR("Error iniciando mDNS");
+  // --- Guardar en el servidor cabecera recibida para control de cacheado en el navegador ---
+  const char *headerkeys[] = {
+      "If-None-Match",        // Necesario para la validación ETag
+      "If-Modified-Since"     // Necesario para la validación Last-Modified
+  };
+  size_t headerkeyssize = sizeof(headerkeys) / sizeof(char *);
+  wserver.collectHeaders(headerkeys, headerkeyssize);
+  // ---------------------------
   httpUpdater.setup(&wserver, update_path, update_username, update_password);
   defWebpagesHandles();
   MDNS.addService("http", "tcp", WSPORT);
