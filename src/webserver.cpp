@@ -699,7 +699,8 @@ void setupWS() {
   restartRequired = false;
   Serial.printf("[WS] HTTPUpdateServer ready!\n   --> Open http://%s.local:%d%s in your browser and login with username '%s' and password '%s'\n\n", WiFi.getHostname(), WSPORT, update_path, update_username, update_password);
   LOG_INFO("[WS] Activado webserverIP address: ", WiFi.localIP(), ":", WSPORT);
-  // logDays = getDomoticzSettingsInfo("LightHistoryDays").toInt(); //lee los dias de log a mostrar por defecto desde Domoticz
+  String response = getDomoticzSettingsInfo("LightHistoryDays"); //lee los dias de log a mostrar por defecto desde Domoticz
+  if (!response.startsWith("Err")) logDays = response.toInt();
   displayWSinfo();
 }
 

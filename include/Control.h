@@ -80,6 +80,7 @@
   #define QUERYDEVICE   "getdevices&rid=%d"
   #define GETSWITCHLOG  "getlightlog&idx=%d"
   #define GETSUNHOURS   "getSunRiseSet"
+  #define GETSETTINGS   "getsettings"
   //---------------------------------------------------------------------------------------
   
   /* You only need to format LittleFS the first time you run a
@@ -376,6 +377,7 @@
     uint8_t estado = STANDBY; 
     uint8_t tipo   = LOCAL;
     uint8_t error  = NOERROR;
+    bool failedStopRiego = false;
   } ;
 
   struct S_timeRiego {
@@ -403,10 +405,12 @@
   } ;
 
   //estructura para salvar parametros de una zona
+  #ifdef DOMOTICZ
   struct Zona_parm {
     char  desc[20] = "";      // descripcion de la zona
     uint16_t   idx = 0;        // IDX de la zona en Domoticz
   } ;
+  #endif
 
   //estructura para parametros configurables
   struct Config_parm {
@@ -471,7 +475,7 @@
 
   const char MESES[][12] = {"Ene.", "Feb.", "Mar.", "Abr.", "May.", "Jun.", "Jul.", "Ago.", "Sep.", "Oct.", "Nov.", "Dic."};
 
-   //Globales a todos los módulos
+   //Globales a _MAIN_ (Control.cpp)
   #ifdef __MAIN__
     #ifdef GRP4     // matriz Boton para caso de 9 zonas y 4 botones de grupos multirriego
       S_BOTON Boton [] =  { 
@@ -515,64 +519,21 @@
       };
     #endif
 
-    
     int NUM_S_BOTON = ELEMENTCOUNT(Boton);
-
-    S_MULTI multi;  //estructura con variables del grupo de multirriego activo
-    S_BOTON  *boton;
-    S_Estado Estado;
-    S_tm tm;          // variables contador de tiempo
-    bool connected;
-    bool modoDEMO;
-    bool noWIFI;
-    bool recoverableError;
-    bool webServerAct = false;
-    bool saveConfig = false;
-    bool reposo = false;
     
     const char *parmFile = "/datos/config_parm.json";         // fichero de parametros activos
     const char *backupParmFile = "/datos/config_backup.json"; // fichero de respaldo de los parametros
     const char *lastRiegosFile = "/datos/lastRiegos.json";        // fichero de ultimos riegos de zonas
     const char *lastGruposFile = "/datos/lastGrupos.json";        // fichero de ultimos riegos de grupos
     
+    S_MULTI multi;  //estructura con variables del grupo de multirriego activo
+    S_BOTON  *boton;
+    S_Estado Estado;
+    S_tm tm;          // variables contador de tiempo
     DisplayLCD lcd(LCD2004_address, 20, 4);  // 20 caracteres x 4 lineas
-    char buff[MAXBUFF];
-    bool checkReconInterval = false; // verificaciones de conexion cada RECONNECTINTERVAL minutosº
-    
     Config_parm config; //estructura parametros configurables y runtime
-    
-    #else
-    extern int NUM_S_BOTON;
-    extern S_BOTON Boton [];
-    extern S_MULTI multi;
-    extern S_BOTON  *boton;
-    extern S_Estado Estado;
-    extern S_tm tm;
-    extern bool connected;
-    extern bool modoDEMO;
-    extern bool noWIFI;
-    extern bool recoverableError;
-    extern bool webServerAct;
-    extern bool saveConfig;
-    extern bool reposo;
-    extern const char *parmFile; 
-    extern const char *backupParmFile;
-    extern const char *lastRiegosFile;
-    extern const char *lastGruposFile;
-    extern DisplayLCD lcd;
-    extern char buff[];
-    extern bool checkReconInterval;
-    extern Sonidos sonido;
-    extern Config_parm config; //estructura parametros configurables y runtime
-    
-    #endif
-    
-    #ifdef __MAIN__
-    //Globales a este módulo
     Sonidos sonido;   // se pasa por referencia la estructura config al constructor de la clase
     S_initFlags initFlags ;
-    WiFiClient client;
-    HTTPClient httpclient;
     CountUpDownTimer T(DOWN);
     S_BOTON  *ultimoBotonZona;
     S_simFlags simular; // estructura flags para simular errores
@@ -590,43 +551,78 @@
     uint factorRiegos[NUMZONAS];
     uint8_t prevseconds;
     uint8_t prevminutes;
-    int  ledID = 0;
-    unsigned long standbyTime;
     bool backlightOff = false;
-    unsigned long lastBlinkPause;
     bool holdPause = false;
-    unsigned long countHoldPause;
     bool flagV = OFF;
     bool flagVtimer = OFF;
     bool timeOK = false;
     bool tempOK = false;
     bool factorRiegosLeido = false;
-    bool errorOFF = false;
-    bool VERIFY = true;    // si true verifica periodicamente estado del riego en curso en Domoticz
     bool encoderSW = false;
-    char errorText[7];
+    bool connected;
+    bool modoDEMO;
+    bool noWIFI;
+    bool checkReconInterval = false; // verificaciones de conexion cada RECONNECTINTERVAL minutos
+    bool recoverableError;
+    bool webServerAct = false;
+    bool saveConfig = false;
+    bool reposo = false;
+    bool riegoFromPause = false;
+    unsigned long standbyTime;
+    unsigned long lastBlinkPause;
+    unsigned long countHoldPause;
     unsigned long currentMillisLoop = 0;
     unsigned long lastMillisLoop = 0;
+    int  ledID = 0;
     int numloops = 0;
-    bool riegoFromPause = false;
+    char errorText[7];
     char amanecer[] = "NO TIME";
     char anochecer[] = "NO TIME";
-
+    char buff[MAXBUFF];
+    
     #ifdef TEMPLOCAL 
-      DHT dht(DHTPIN, TEMPLOCAL);
+    DHT dht(DHTPIN, TEMPLOCAL);
     #endif
- 
-  #endif  // __MAIN__
+    
+    #else
+    // ademas de en main, son globales a todos los modulos:
+    extern int NUM_S_BOTON;
+    extern S_BOTON Boton [];
+    extern S_MULTI multi;
+    extern S_BOTON  *boton;
+    extern S_Estado Estado;
+    extern S_tm tm;
+    extern DisplayLCD lcd;
+    extern Sonidos sonido;
+    extern Config_parm config; //estructura parametros configurables y runtime
+    extern S_simFlags simular;
+    extern bool connected;
+    extern bool modoDEMO;
+    extern bool noWIFI;
+    extern bool recoverableError;
+    extern bool webServerAct;
+    extern bool saveConfig;
+    extern bool reposo;
+    extern bool checkReconInterval;
+    extern const char *parmFile; 
+    extern const char *backupParmFile;
+    extern const char *lastRiegosFile;
+    extern const char *lastGruposFile;
+    extern char buff[];
 
-  //Funciones (prototipos)
-  // *****************************************************************************************
+    
+  #endif
+
+// *****************************************************************************************
+//  Funciones (prototipos)
+// *****************************************************************************************
 void actLedError(void);
 void apagaLeds(void);
 int  bID2bIndex(uint16_t);
 void blinkDisplay(void);
+bool checkErrorgetFactor(int);
 void check(void);
 bool checkSCD(void);
-bool checkErrorgetFactor(int);
 int  checkWifi(bool level=false);
 void cleanFS(void);
 String cmdtoSCD(const char *mandato);
@@ -636,26 +632,27 @@ void debugloops(void);
 bool deleteParmFiles(void);
 void deleteParmSignal(uint);
 String deviceInfo(int idx, const char *campo);
+bool deviceSwitch(int idx, const char *msg, int retries, uint8_t *errorCode);
 void dimmerLeds(bool);
 void displayDemo(void);
 void displayGrupo(uint16_t *, int);
-int displayLCDGrupo(bool, int line=4);
-int displayLCDGrupo(uint16_t *, int, int , int );
+int  displayLCDGrupo(bool, int line=4);
+int  displayLCDGrupo(uint16_t *, int, int , int );
 void displayMultiTemporal(void);
 void displayNoFactorizado(void);
 void displayTimer(uint8_t, uint8_t, uint8_t, uint8_t);
-bool deviceSwitch(int, const char *, int);
 void enciendeLeds(void);
 void endWS(void);
 static const char* errorToString(uint8_t);
 void filesInfo(void);
-void finalTimeGrupo(S_timeRiego&, time_t tZona = 0); 
+void finalTimeGrupo(S_timeRiego&, time_t tZona = 0);
 void finalTimeLastRiego(S_timeRiego&);
 void flagVerificaciones(void);
-int  getFactor(uint16_t);
-bool getDiaNoche(void);
-float getRemoteTemperature(uint16_t);
+bool getDiaNoche(char*, char*);
+String getDomoticzSettingsInfo(const char*);
+int getFactor(uint16_t idx, bool &factorRiegosLeido);
 uint16_t getMultiStatus(void);
+float getRemoteTemperature(uint16_t);
 void handleDynamicZoneChange();
 void handleEncGrupoInStandby(int n_grupo);
 void handleEncGrupoInStop(int n_grupo);
@@ -691,10 +688,10 @@ bool initRiego(bool resume=false);
 void initWire(void);
 void led(uint8_t,int);
 int  ledlevel(void);
-void ledYellow(int);
 void ledPWM(uint8_t, int);
 void ledRGB(int,int,int);
 bool ledStatusId(int);
+void ledYellow(int);
 void leeSerial(void);
 void listAllFilesInDir(fs::FS &fs, String dir_path);
 void listDir(fs::FS &fs, const char * dirname, uint8_t levels, uint8_t depth = 0);
@@ -702,17 +699,17 @@ bool loadConfigFile(const char*);
 void mcpIinit(void);
 void mcpOinit(void);
 void memoryInfo(void);
+void parpadeoLedAP(void);
 void parpadeoLedError(void);
 void parpadeoLedWifi(void);
 void parpadeoLedZona(int);
 void parpadeoLedZonas24h(time_t);
-void parpadeoLedAP(void);
 S_BOTON *parseInputs(bool);
 void printCharArray(char*, size_t);
 void printFactoresRiego();
 void printFile(const char*);
-void printMulti(void);
 void printMultiGroup(int);
+void printMulti(void);
 void printParms();
 void procesaBotones(void);
 void procesaBotonMultirriego(void);
@@ -722,18 +719,18 @@ void procesaBotonZona(void);
 bool procesaDynamic(void);
 void procesaEncoderClock(void);
 void procesaEncoderConfig(void);
-void procesaEstados(void);
 void procesaEstadoConfigurando(void);
 void procesaEstadoError(void);
+void procesaEstadoPause(void);
 void procesaEstadoRegando(void);
 void procesaEstadoStandby(void);
-void procesaEstadoTerminando(void);
+void procesaEstados(void);
 void procesaEstadoStop(void);
-void procesaEstadoPause(void);
+void procesaEstadoTerminando(void);
 void procesaWebServer(void);
 bool queryStatus(uint16_t, const char *);
-String readLogFile(int zona);
 float readTemp();
+String readLogFile(int zona);
 void refreshTime(void);
 void reposoOFF(void);
 void reposoON(bool lcdOFF=true);
@@ -744,36 +741,36 @@ void resetLeds(void);
 void restoreRiego(void);
 bool saveConfigFile(const char*);
 void saveRiego(int znumber, int bID, int minutes, int seconds);
-void scWebserver();
 void scSorpresa();
+void scWebserver();
 bool serialDetect(void);
 void setbIDgrupos();
 void setClock(void);
 void setConnected(bool);
 void setEncoderMenu(int menuitems, int currentitem = 0);
-void setEncoderTime(void);
 void setEncoderRange(int , int , int , int);
+void setEncoderTime(void);
 void setEstado(uint8_t estado, int bnum = 0, int tipo = LOCAL);
 int  setGrupo();
 void setledRGB(void);
-void showTemp(void);
 int  setMultibyId(uint16_t);
 bool setMultirriego();
+void setzNumber(void);
 void setupConfig(void);
 void setupEstado(void);
 void setupInit(void);
 void setupParm(void);
 void setupRedWM(S_initFlags&);
 void setupWS();
-void setzNumber(void);
 void showInfoZona(int zIndex);
+void showTemp(void);
 void showTimeLastRiego(S_timeRiego&, int, int);
-void startZoneWatering();
 void startConfigPortal();
+void startZoneWatering();
 void StaticTimeUpdate(bool);
 void statusError(uint8_t, bool recoverable=false);
-bool stopRiego(uint16_t, bool update=true);
 bool stopAllRiego(void);
+bool stopRiego(uint16_t id, bool update = true, bool alertIfFails = true);
 String sysInfo(void);
 bool testButton(uint16_t, bool);
 time_t tLoc(void);
@@ -786,8 +783,8 @@ void ultimosRiegos(int);
 void updateZoneDescription(int i);
 bool validaBoton();
 void Verificaciones(void);
+bool VerifyRecoveryWifi(bool checkReconInterval);
 void VerifyRecoverySCD(void);
-bool VerifyRecoveryWifi();
 void wifiClearSignal(uint);
 bool wifiReconnect(void);
 void zeroConfig();
@@ -801,15 +798,13 @@ template<typename T>
 void saveTablaToFile(const char* filename, const char* arrayName, T* tabla, size_t size) {
     if(modoDEMO) return; // no guardar en modo demo
     JsonDocument doc;
-    JsonArray arr = doc[arrayName].to<JsonArray>(); // Forma recomendada en ArduinoJson v7
-
+    JsonArray arr = doc[arrayName].to<JsonArray>();
     for (size_t i = 0; i < size; i++) {
-        JsonObject obj = arr.add<JsonObject>();     // Forma recomendada en ArduinoJson v7 
+        JsonObject obj = arr.add<JsonObject>(); 
         obj["inicio"] = tabla[i].inicio;
         obj["final"]  = tabla[i].final;
         obj["total"]  = tabla[i].total;
     }
-
     File file = LittleFS.open(filename, "w");
     if (!file) {
         LOG_ERROR("Error abriendo el fichero para guardar", arrayName);
@@ -827,29 +822,24 @@ bool loadTablaFromFile(const char* filename, const char* arrayName, T* tabla, si
         LOG_WARN("Error abriendo el fichero para leer", arrayName);
         return false;
     }
-
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, file);
     file.close();
-
     if (error) {
         LOG_ERROR("Error al deserializar JSON:", error.c_str());
         return false;
     }
-
     JsonArray arr = doc[arrayName];
     if (!arr) {
         LOG_ERROR("No se encontró el array", arrayName, "en el fichero", filename);
         return false;
     }
-
     for (size_t i = 0; i < size && i < arr.size(); i++) {
         JsonObject obj = arr[i];
         tabla[i].inicio = obj["inicio"] | 0;
         tabla[i].final  = obj["final"]  | 0;
         tabla[i].total  = obj["total"]  | 0;
     }
-
     LOG_INFO(arrayName, "cargado correctamente.");
     return true;
 }

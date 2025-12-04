@@ -253,7 +253,7 @@ bool wifiReconnect () {
     } else return false;
 }    
 
-bool VerifyRecoveryWifi() {
+bool VerifyRecoveryWifi(bool checkReconInterval) {
   //LOG_TRACE("");
   //en modoDEMO sin conexion no verificamos (DEMO sin wifi)
   if (modoDEMO && !connected) return true;
@@ -292,9 +292,10 @@ bool VerifyRecoveryWifi() {
     */    
     if (connected && recoverableError) {
       LOG_INFO("conexion Wifi recuperada despues Setup, leemos factor riegos");
-      ledPWM(LEDG,OFF);
+      ledPWM(LEDG,OFF);  // TODO comprobar si es necesario
       Estado.estado = STANDBY; //borramos estado ERROR
       Estado.error = NOERROR; //reseteamos error
+      Estado.failedStopRiego = false;
       recoverableError = false; //reseteamos error recuperable
       initFactorRiegos(); //en caso de producirse error con esta funcion ya dejara este activado
       setupEstado();
