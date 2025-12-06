@@ -13,6 +13,18 @@
 //=================== Funciones primarias basicas y de ayuda     ===================================//
 //==================================================================================================//
 
+/**-------------------------------------------------------------------------------
+ * Obtiene el SCD_ID de una zona dado su numero de zona (1 a NUMZONAS).
+ */
+uint16_t getSCD_ID(uint8_t zonaNumber) {
+    // La zonaNumber va de 1 a N, el índice (zIndex) va de 0 a N-1.
+    int zIndex = zonaNumber - 1; 
+    if (zIndex >= 0 && zIndex < NUMZONAS) {
+        return config.zona[zIndex].idx; // En el caso de Domoticz, el ID es el IDX
+    }
+    return 0; // Devolver 0 si la zona no es válida
+}
+
 /**------------------------------------------------------------------------------------
  * Procesa la respuesta JSON de Domoticz y devuelve el valor del campo solicitado.
  * @param response  La cadena JSON de Domoticz.
@@ -157,9 +169,10 @@ String deviceInfo(int idx, const char *campo)
  * Devuelve el código de error específico a través del puntero errorCode. 
  * En caso de error no genera alertas visuales ni sonoras (lo hara la funcion llamante)
  */
-bool deviceSwitch(int idx, const char *msg, int retries, uint8_t *errorCode)
+bool deviceSwitch(uint8_t zona, const char *msg, int retries, uint8_t *errorCode)
 {
-    LOG_TRACE("idx:", idx, " ", msg, "(", retries, "intentos)");
+    uint16_t idx = getSCD_ID(zona);
+    LOG_DEBUG("idx:", idx, " ", msg, "(", retries, "intentos)");
     // 1. Caso IDX=0 (Simulación OK)
     if(idx == 0) { *errorCode = NOERROR; return true; }
     // 2. Caso E1 (Error de WiFi)
@@ -199,9 +212,10 @@ bool deviceSwitch(int idx, const char *msg, int retries, uint8_t *errorCode)
 /**---------------------------------------------------------------
  * lee factor de riego del Domoticz, almacenado en campo Description
  */
-int getFactor(uint16_t idx, bool &factorRiegosLeido)
+int getFactor(uint8_t zona, bool &factorRiegosLeido)
 {
   LOG_TRACE("");
+  uint16_t idx = getSCD_ID(zona);
   if(idx == 0) return 100; //si el IDX es 0 devolvemos 100 sin procesarlo (boton no asignado)
   factorRiegosLeido = false;
   String response = deviceInfo(idx, "Description");
@@ -265,8 +279,9 @@ String getDomoticzSettingsInfo(const char *campo)
  * lee datos de temperatura y humedad del sensor remoto con el idx pasado
  * devuelve 999 si no hay sensor asignado (idx=0) o si hay error
  */
-float getRemoteTemperature(uint16_t idx)
+float getRemoteTemperature(void)
 {
+  int idx = config.tempRemoteIdx;
   LOG_TRACE("sensor temp IDX: ", idx);
   // si el IDX es 0 devolvemos 999 sin procesarlo (sensor no asignado)
   if(idx == 0) return 999;
@@ -301,8 +316,9 @@ void updateZoneDescription(int i) {
 /**---------------------------------------------------------------
  * verifica status de la zona coincide con el pasado, devolviendo true en ese caso
  */
-bool queryStatus(uint16_t idx, const char *status)
+bool queryStatus(uint8_t zona, const char *status)
 {
+  uint16_t idx = getSCD_ID(zona);
   LOG_DEBUG("idx:", idx, "status:", status, "allSimFlags:", simular.all_simFlags);
 
   if(simular.ErrorVerifyON) {   // simulamos EV no esta ON en Domoticz

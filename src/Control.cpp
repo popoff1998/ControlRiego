@@ -383,7 +383,7 @@ void handleEncPauseInStandby() {
         initFactorRiegos();
         if(config.verify && Estado.estado != ERROR) {
           lcd.info("..y parando riegos",2);
-          stopAllRiego(); //verificamos operativa OFF para los IDX's
+          stopAllRiego(); //verificamos operativa OFF para las zonas
         }    
         ledPWM(LEDB,OFF);
       }    
@@ -703,7 +703,7 @@ void procesaEstadoRegando(void)
       tic_parpadeoLedZona.detach(); //detiene posible parpadeo led zona
       led(ledID,ON); //y lo dejamos fijo
     }               
-    if(queryStatus(config.zona[ultimoBotonZona->znumber-1].idx, "On")) return;
+    if(queryStatus(ultimoBotonZona->znumber, "On")) return;
     else {
       if(!Estado.error) { //riego zona parado: entramos en PAUSE y blink lento zona pausada remotamente 
         T.PauseTimer();
@@ -816,7 +816,7 @@ void procesaEstadoStop(void)
 
 void procesaEstadoPause(void) {
   if(flagV && config.verify && (!modoDEMO || simular.all_simFlags)) {  // verificamos zona sigue OFF en Domoticz periodicamente
-    if(queryStatus(config.zona[ultimoBotonZona->znumber-1].idx, "Off")) return;
+    if(queryStatus(ultimoBotonZona->znumber, "Off")) return;
     else {
       if(!Estado.error) { //riego zona activo: salimos del PAUSE y blink lento zona activada remotamente 
         sonido.bip(2);
@@ -981,7 +981,7 @@ void initFactorRiegos()
   
   for(uint i=0;i<NUMZONAS;i++) //leemos factores del Domoticz
   {
-    uint factorR = getFactor(config.zona[i].idx, factorRiegosLeido);
+    uint factorR = getFactor(i+1, factorRiegosLeido);
     if(factorR == 999) break;     //en modoDEMO no continuamos iterando si no se ha podido leer por alguna causa
     if (checkErrorgetFactor(bID2bIndex(ZONAS[i]))) break;   //al primer error salimos
     factorRiegos[i] = factorR;
@@ -1227,6 +1227,7 @@ void startZoneWatering() {
     LOG_DEBUG("Minutos:",tm.minutes,"Segundos:",tm.seconds,"FMinutos:",fminutes,"FSegundos:",fseconds);
     ultimoBotonZona = boton;
     // si tiempo factorizado de riego es 0 o IDX=0, nos saltamos este riego
+    // TODO: dependiente idx?
     if ((fminutes == 0 && fseconds == 0) || config.zona[(boton->znumber)-1].idx == 0) {
       setEstado(TERMINANDO);
       led(boton->led,ON); //para que se vea que zona es 
@@ -1400,17 +1401,16 @@ void initLastGrupos()
   }
 }
 
-// Inicia/reanuda el riego correspondiente al idx del boton de zona pulsado ultimo
+// Inicia/reanuda el riego correspondiente al boton de zona pulsado ultimo
 bool initRiego(bool resume)
 {
     int zIndex = ultimoBotonZona->znumber-1;
     uint8_t errorCode = NOERROR; // Variable local para capturar el error
     if (zIndex < 0) return false;
     led(ultimoBotonZona->led,ON);
-    LOG_DEBUG("Boton:",config.zona[zIndex].desc,"zona:",ultimoBotonZona->znumber,"IDX:",config.zona[zIndex].idx);
     if (resume) LOG_INFO( "Continuando riego: ", config.zona[zIndex].desc);
     else LOG_INFO( "Iniciando riego: ", config.zona[zIndex].desc);
-    if (deviceSwitch(config.zona[zIndex].idx, "On", DEFAULT_SWITCH_RETRIES, &errorCode)) { 
+    if (deviceSwitch(zIndex+1, "On", DEFAULT_SWITCH_RETRIES, &errorCode)) { 
         char zonaText[7];
         snprintf(zonaText, sizeof(zonaText), "ZONA%d", zIndex+1);
         inicioTimeLastRiego(lastRiegos[zIndex], zonaText, resume);
@@ -1426,7 +1426,7 @@ bool initRiego(bool resume)
     }
 }
 
-// Termina el riego correspondiente al idx del boton (id) pasado
+// Termina el riego correspondiente al boton de zona (id) pasado
 // alertIfFails: TRUE por defecto (para llamadas individuales). Si TRUE y falla, dispara la alerta.
 bool stopRiego(uint16_t id, bool update, bool alertIfFails)
 {
@@ -1436,7 +1436,7 @@ bool stopRiego(uint16_t id, bool update, bool alertIfFails)
     uint8_t errorCode = NOERROR; // Variable local para capturar el error
     LOG_DEBUG( "Terminando riego: ", config.zona[zIndex].desc);
     // Llamamos a deviceSwitch y capturamos el código de error
-    if (deviceSwitch(config.zona[zIndex].idx, "Off", DEFAULT_SWITCH_RETRIES, &errorCode)) {
+    if (deviceSwitch(zIndex+1, "Off", DEFAULT_SWITCH_RETRIES, &errorCode)) {
         LOG_INFO( "Terminado OK riego: " , config.zona[zIndex].desc );
         // solo actualizamos hora de fin si no hemos sido llamado desde stopAllRiego
         if(update) finalTimeLastRiego(lastRiegos[zIndex]);
@@ -1686,7 +1686,7 @@ float readTemp() {
     float humedad;
     tempOK=false;
     if(config.tempRemote) {
-      temperatura = getRemoteTemperature(config.tempRemoteIdx);
+      temperatura = getRemoteTemperature();
     }
     else {
       #ifdef TEMPLOCAL   // temperatura ambiente del sensor local
