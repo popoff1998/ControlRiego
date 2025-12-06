@@ -365,19 +365,26 @@
 
   struct S_BOTON {
     uint16_t   bID;       // ID del boton (bitmask)
-    bool   estado;
-    bool   ultimo_estado;
+    bool  estado;
+    bool  ultimo_estado;
     int   led;            // pin del led asociado al boton (0 si no tiene)
     S_bFLAGS  flags;      // flags varios
     char  desc[20];       // descripcion por defecto del boton
     uint16_t   znumber;   // numero de zona (1 a n) o 0 si no es zona
   } ;
 
+  // estructura para el estado general del sistema (State Machine)
   struct S_Estado {
     uint8_t estado = STANDBY; 
     uint8_t tipo   = LOCAL;
     uint8_t error  = NOERROR;
+    // Campos de flags/modos de operación
+    bool connected = false;
+    bool modoDEMO = false;
+    bool noWIFI = false;
+    bool reposo = false;    
     bool failedStopRiego = false;
+    bool recoverableError = false;
   } ;
 
   struct S_timeRiego {
@@ -391,8 +398,6 @@
     uint8_t minutes = 0;
     uint8_t seconds = 0;
     int  value = 0;
-    uint8_t savedMinutes = 0;
-    uint8_t savedSeconds = 0;
   } ;
 
 
@@ -407,8 +412,8 @@
   //estructura para salvar parametros de una zona
   #ifdef DOMOTICZ
   struct Zona_parm {
-    char  desc[20] = "";      // descripcion de la zona
-    uint16_t   idx = 0;        // IDX de la zona en Domoticz
+    char  desc[20] = "";     // nombre de la zona a mostrar en el display
+    uint16_t   idx = 0;      // identificador de la zona en el SCD (IDX en Domoticz)
   } ;
   #endif
 
@@ -526,53 +531,42 @@
     const char *lastRiegosFile = "/datos/lastRiegos.json";        // fichero de ultimos riegos de zonas
     const char *lastGruposFile = "/datos/lastGrupos.json";        // fichero de ultimos riegos de grupos
     
-    S_MULTI multi;  //estructura con variables del grupo de multirriego activo
-    S_BOTON  *boton;
-    S_Estado Estado;
-    S_tm tm;          // variables contador de tiempo
+    S_MULTI multi;     //estructura con variables del grupo de multirriego activo
+    S_BOTON  *boton;   // apuntador al boton en curso en la matriz Boton[]
+    S_Estado Estado;   // estructura con el estado actual de la maquina de estados
+    S_tm tm;           // variables contador de tiempo
     DisplayLCD lcd(LCD2004_address, 20, 4);  // 20 caracteres x 4 lineas
     Config_parm config; //estructura parametros configurables y runtime
-    Sonidos sonido;   // se pasa por referencia la estructura config al constructor de la clase
-    S_initFlags initFlags ;
-    CountUpDownTimer T(DOWN);
-    S_BOTON  *ultimoBotonZona;
-    S_simFlags simular; // estructura flags para simular errores
+    Sonidos sonido;     // se pasa por referencia la estructura config al constructor de la clase
+    S_initFlags initFlags ; // flags de inicializacion (borrado de parametros o wifi)
+    CountUpDownTimer timer(DOWN); // temporizador cuenta atras
+    S_BOTON  *ultimoBotonZona;    // apuntador al ultimo boton de zona pulsado en la matriz Boton[]
+    S_simFlags simular;           // estructura flags para simular errores
     Configure    *configure;
     AiEsp32RotaryEncoder rotaryEncoder(ENCDT,ENCCLK,-1, -1, ROTARY_ENCODER_STEPS);
-    Ticker tic_CountDownTimer;    //para llamar a la funcion de cuenta atras del temporizador
-    Ticker tic_parpadeoLedRecon;    //para parpadeo led LEDB con LEDR activo (morado)
-    Ticker tic_parpadeoLedError;    //para parpadeo led ERROR (LEDR)
-    Ticker tic_parpadeoLedZona;  //para parpadeo led zona de riego
+    Ticker tic_CountDownTimer;       //para llamar a la funcion de cuenta atras del temporizador
+    Ticker tic_parpadeoLedRecon;     //para parpadeo led LEDB con LEDR activo (morado)
+    Ticker tic_parpadeoLedError;     //para parpadeo led ERROR (LEDR)
+    Ticker tic_parpadeoLedZona;      //para parpadeo led zona de riego
     Ticker tic_parpadeoLedZonas24h;  //para parpadeo led zonas regadas ultimas 24h
-    Ticker tic_verificaciones;   //para verificaciones periodicas
+    Ticker tic_verificaciones;       //para verificaciones periodicas
     S_timeRiego lastRiegos[NUMZONAS];
     S_timeRiego lastGrupos[NUMGRUPOS];
     S_Riego_estado riegoSaved; // estructura con el estado del riego en curso
     uint factorRiegos[NUMZONAS];
-    uint8_t prevseconds;
-    uint8_t prevminutes;
     bool backlightOff = false;
-    bool holdPause = false;
+    // bool holdPause = false;
     bool flagV = OFF;
     bool flagVtimer = OFF;
     bool timeOK = false;
     bool tempOK = false;
     bool factorRiegosLeido = false;
     bool encoderSW = false;
-    bool connected;
-    bool modoDEMO;
-    bool noWIFI;
     bool checkReconInterval = false; // verificaciones de conexion cada RECONNECTINTERVAL minutos
-    bool recoverableError;
     bool webServerAct = false;
     bool saveConfig = false;
-    bool reposo = false;
     bool riegoFromPause = false;
     unsigned long standbyTime;
-    unsigned long lastBlinkPause;
-    unsigned long countHoldPause;
-    unsigned long currentMillisLoop = 0;
-    unsigned long lastMillisLoop = 0;
     int  ledID = 0;
     int numloops = 0;
     char errorText[7];
@@ -594,15 +588,10 @@
     extern S_tm tm;
     extern DisplayLCD lcd;
     extern Sonidos sonido;
-    extern Config_parm config; //estructura parametros configurables y runtime
+    extern Config_parm config;
     extern S_simFlags simular;
-    extern bool connected;
-    extern bool modoDEMO;
-    extern bool noWIFI;
-    extern bool recoverableError;
     extern bool webServerAct;
     extern bool saveConfig;
-    extern bool reposo;
     extern bool checkReconInterval;
     extern const char *parmFile; 
     extern const char *backupParmFile;
@@ -630,7 +619,7 @@ bool copyConfigFile(const char*, const char*);
 void debugloops(void);
 bool deleteParmFiles(void);
 void deleteParmSignal(uint);
-bool deviceSwitch(uint8_t zona, const char *msg, int retries, uint8_t *errorCode);
+bool deviceSwitch(uint8_t zona, const char *msg, int retries);
 void dimmerLeds(bool);
 void displayDemo(void);
 void displayGrupo(uint16_t *, int);
@@ -676,6 +665,7 @@ void inicioTimeLastRiego(S_timeRiego&, const char* texto = nullptr, bool resume=
 void initEncoder(void);
 void initFactorRiegos(void);
 void initGPIOs(void);
+void initHardware(void);
 void initLastGrupos(void);
 void initLastRiegos(void);
 void initLCD(void);
@@ -793,7 +783,7 @@ int  zNumber2bIndex(uint16_t);
 
 template<typename T>
 void saveTablaToFile(const char* filename, const char* arrayName, T* tabla, size_t size) {
-    if(modoDEMO) return; // no guardar en modo demo
+    if(Estado.modoDEMO) return; // no guardar en modo demo
     JsonDocument doc;
     JsonArray arr = doc[arrayName].to<JsonArray>();
     for (size_t i = 0; i < size; i++) {

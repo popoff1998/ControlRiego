@@ -29,11 +29,11 @@ void IRAM_ATTR readEncoderISR()
 void setup()
 {
   #ifdef DEMO
-                modoDEMO=true;
+                Estado.modoDEMO=true;
   #endif
   #ifdef NOWIFI
-                modoDEMO=true;
-                noWIFI=true;
+                Estado.modoDEMO=true;
+                Estado.noWIFI=true;
   #endif
 
   Serial.begin(115200);
@@ -49,20 +49,10 @@ void setup()
   #endif
   LOG_DEBUG("Startup reason: ", esp_reset_reason());
   LOG_TRACE("TRACE: in setup");
-  // init de los GPIOs y bus I2C
-  initGPIOs();
-  initWire();
-  //led encendido/error
-  ledPWM(LEDR,ON);
-  LOG_TRACE("Inicializando MCPs");
-  mcpOinit();
-  mcpIinit();
-  LOG_TRACE("Inicializando display");
-  lcd.initLCD();
-  LOG_TRACE("Inicializando Encoder");
-  initEncoder();
+  // init de GPIOs, bus I2C, Display, Encoder, Expansores MCP, LEDs, Buzzer
+  initHardware();
   LOG_TRACE("Inicializando Configure");
-  configure = new Configure();   // se pasa por referencia la estructura config al constructor de la clase
+  configure = new Configure();
   //preparo indicadores de inicializaciones opcionales
   setupInit();
   //setup parametros configuracion
@@ -76,7 +66,6 @@ void setup()
   //Chequeo de perifericos de salida (leds, display, buzzer)
   check();
   //Para la red
-  delay(1000);
   setupRedWM( initFlags);
   if (saveConfig) {
     if (saveConfigFile(parmFile))  sonido.bipOK();
@@ -85,7 +74,7 @@ void setup()
   }
   //Obtenemos hora del servidor ntp y ajustamos hora del sistema y timezone
   setClock();
-  //Cargamos factorRiegos
+  //Cargamos factores de riego desde el SCD
   initFactorRiegos();
   //Estado final en funcion de la conexion
   setupEstado();
@@ -113,7 +102,6 @@ void loop()
               /*----------------------------------------------*
               *                 Funciones                    *
               *----------------------------------------------*/
-
 
 /**---------------------------------------------------------------
  * Tratamiento boton pulsado (si ha cambiado de estado)
@@ -148,7 +136,7 @@ bool validaBoton() {
   // si no se ha pulsado ningun boton salimos
   if(boton == NULL) return false;
   //Si estamos en reposo pulsar cualquier boton solo nos saca de ese estado (salvo STOP que si actua y se procesa)
-  if (reposo && boton->bID != bSTOP) {
+  if (Estado.reposo && boton->bID != bSTOP) {
     reposoOFF();
     return false;
   }
@@ -174,13 +162,27 @@ void procesaEstados()
   }
 }  
 
+void initHardware() {
+    LOG_TRACE("-> Inicializando Hardware");
+    initGPIOs();
+    initWire();
+    // LED inicial de estado/error
+    ledPWM(LEDR, ON); 
+    // Expansores de I/O
+    mcpOinit();
+    mcpIinit();
+    // Display y Encoder
+    lcd.initLCD();
+    initEncoder();
+    LOG_TRACE("<- Hardware inicializado");}
+
 
 /**---------------------------------------------------------------
  * Estado final al acabar Setup en funcion de la conexion a la red
  */
 void setupEstado() 
 {
-  LOG_DEBUG("setupEstado entrada, Estado.error=", Estado.error, "recoverableError=", recoverableError, "modoDEMO=", modoDEMO);
+  LOG_DEBUG("setupEstado entrada, Estado.error=", Estado.error, "Estado.recoverableError=", Estado.recoverableError, "modoDEMO=", Estado.modoDEMO);
   
   Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true; //Deshabilitamos el hold de Pause
    
@@ -190,19 +192,19 @@ void setupEstado()
   }
 
   // Si estamos en modoDEMO pasamos a STANDBY (o STOP si esta pulsado) aunque no exista conexión wifi o estemos en ERROR
-  if (modoDEMO) {
+  if (Estado.modoDEMO) {
     if (testButton(bSTOP,ON))  setEstado(STOP,1);
     else setEstado(STANDBY,2);
-    LOG_DEBUG("setupEstado salida por modoDEMO=", modoDEMO);
+    LOG_DEBUG("setupEstado salida por modoDEMO=", Estado.modoDEMO);
     return;
   }
   
   if (Estado.estado == ERROR) {  // Si estado actual es ERROR seguimos así
-    LOG_DEBUG("setupEstado salida por estado ERROR (", errorText, ") recoverableError=", recoverableError, "modoDEMO=", modoDEMO);
+    LOG_DEBUG("setupEstado salida por estado ERROR (", errorText, ") Estado.recoverableError=", Estado.recoverableError, "modoDEMO=", Estado.modoDEMO);
     return;
   }
   
-  if (connected) {  //si estamos conectados a la red pasamos a STANDBY (o STOP si esta pulsado)
+  if (Estado.connected) {  //si estamos conectados a la red pasamos a STANDBY (o STOP si esta pulsado)
       if (testButton(bSTOP,ON))  setEstado(STOP,1);
       else setEstado(STANDBY,1);
   } else {  //si no estamos conectados a la red pasamos a estado ERROR
@@ -324,7 +326,7 @@ void handleEncPauseInRegando() {
   // si estamos en un multirriego y no es la ultima zona y todavia no hemos salvado el riego actual
   // --> salvamos el riego en curso en riegoSaved para poder continuarlo despues del multirriego
   if (multi.riegoON && (multi.actual < *multi.size) && !riegoSaved.zonevalid) {
-    saveRiego(ultimoBotonZona->znumber, ultimoBotonZona->bID, T.ShowMinutes(), T.ShowSeconds());
+    saveRiego(ultimoBotonZona->znumber, ultimoBotonZona->bID, timer.ShowMinutes(), timer.ShowSeconds());
     LOG_INFO("salvando riego de zona en curso en riegoSaved");
   }
 }
@@ -334,7 +336,7 @@ void handlePauseInRegando() {
   setEstado(PAUSE,1);
   tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
   led(ultimoBotonZona->led,ON);// y lo deja fijo
-  if (stopRiego(ultimoBotonZona->bID)) T.PauseTimer();
+  if (stopRiego(ultimoBotonZona->bID)) timer.PauseTimer();
   else { //error al parar riego
     LOG_WARN("error al pausar riego de zona en curso errorText :",errorText,"zona :",ultimoBotonZona->desc );
   }  
@@ -362,7 +364,7 @@ void handlePauseInPause() {
   } else {
     sonido.bip(2);
     lcd.clear(BORRA2H); //por si hubiera msgs de error (caso error al salir del pause previo)
-    T.ResumeTimer(); // reanudamos el timer de cuenta atras
+    timer.ResumeTimer(); // reanudamos el timer de cuenta atras
     refreshTime(); //actualizamos tiempo de cuenta atras en pantalla
     tic_parpadeoLedZona.detach(); //detiene parpadeo led zona (por si estuviera activo)
     led(ultimoBotonZona->led,ON);// y lo deja fijo
@@ -372,14 +374,14 @@ void handlePauseInPause() {
 
 // Si encoderSW+Pause --> conmutamos estado modoDEMO
 void handleEncPauseInStandby() {
-    if (modoDEMO) {
-      modoDEMO = false;
-      noWIFI = false;
+    if (Estado.modoDEMO) {
+      Estado.modoDEMO = false;
+      Estado.noWIFI = false;
       LOG_INFO("encoderSW+PAUSE pasamos a modo NORMAL y leemos factor riegos");
       sonido.bip(2);
       lcd.infoclear("Saliendo de DEMO");
       if (!checkWifi()) wifiReconnect();
-      if (connected) { 
+      if (Estado.connected) { 
         initFactorRiegos();
         if(config.verify && Estado.estado != ERROR) {
           lcd.info("..y parando riegos",2);
@@ -393,7 +395,7 @@ void handleEncPauseInStandby() {
       initLastGrupos();
     }
     else {
-      modoDEMO = true;
+      Estado.modoDEMO = true;
       LOG_INFO("encoderSW+PAUSE pasamos a modoDEMO (DEMO)");
       sonido.bip(2);
       ledPWM(LEDB,ON);
@@ -429,7 +431,7 @@ void handlePauseInStop() {
 
 void handlePauseInError() {
     LOG_INFO("estado en ERROR y PAUSA pulsada pasamos a modoDEMO y reset del error");
-    modoDEMO = true;
+    Estado.modoDEMO = true;
     sonido.bip(2);
     resetFlags();   //reset flags de status
     resetLeds();    //reset leds
@@ -439,6 +441,8 @@ void handlePauseInError() {
 
 // Detecta si se mantiene pulsado el boton PAUSE
 bool handleHoldPause() {
+    static unsigned long countHoldPause = 0;
+    static bool holdPause = false; 
     bool RC = false;
     if(boton->estado) {
       if(!holdPause) {
@@ -446,11 +450,13 @@ bool handleHoldPause() {
         holdPause = true;
       }
       else {
-        if((millis() - countHoldPause) > HOLDTIME) RC = true;
+        if((millis() - countHoldPause) > HOLDTIME) {
+          RC = true;
+          holdPause = false;
+        } 
       }
     }
-    //Si lo hemos soltado quitamos holdPause
-    else holdPause = false;
+    else holdPause = false; //Si lo hemos soltado quitamos holdPause
     return RC;
 }
 
@@ -481,7 +487,7 @@ void procesaBotonStop(void)
 
 void handleStopInRegandoPauseTerm() {
     lcd.infoclear("Parando riegos", 1, BIP, 6);
-    T.StopTimer();
+    timer.StopTimer();
     tic_CountDownTimer.detach(); //detiene actualizacion periodica del temporizador
     // paramos riego en curso y todas las zonas
     bool updateTimeFin = (Estado.estado == PAUSE? false : true); // si estamos en PAUSE no actualizamos tiempo fin
@@ -685,19 +691,19 @@ void procesaEstadoError(void)
   if (flagV) {   // acciones cada VERIFY_INTERVAL en estado ERROR
     if(Estado.failedStopRiego) sonido.bip(2);  //recordatorio error grave al parar un riego
     //se intenta recuperar error si en el SETUP no hemos podido conectar con la wifi o con domoticz
-    if(Estado.error == E1 && recoverableError) VerifyRecoveryWifi(checkReconInterval);
-    if(Estado.error == E2 && recoverableError && checkReconInterval) VerifyRecoverySCD();
+    if(Estado.error == E1 && Estado.recoverableError) VerifyRecoveryWifi(checkReconInterval);
+    if(Estado.error == E2 && Estado.recoverableError && checkReconInterval) VerifyRecoverySCD();
   }
 }; //fin de procesaEstadoError
 
 
 void procesaEstadoRegando(void)
 {
-  int tiempoTerminado = T.Timer();
-  if (T.TimeHasChanged()) refreshTime();
+  int tiempoTerminado = timer.Timer();
+  if (timer.TimeHasChanged()) refreshTime();
   if (tiempoTerminado == 0) setEstado(TERMINANDO);
   // verificamos periodicamente que el riego sigue activo en Domoticz
-  else if(flagV && config.verify && (!modoDEMO || simular.all_simFlags)) { 
+  else if(flagV && config.verify && (!Estado.modoDEMO || simular.all_simFlags)) { 
     ledID = ultimoBotonZona->led;
     if (Estado.tipo != REMOTO) {
       tic_parpadeoLedZona.detach(); //detiene posible parpadeo led zona
@@ -706,7 +712,7 @@ void procesaEstadoRegando(void)
     if(queryStatus(ultimoBotonZona->znumber, "On")) return;
     else {
       if(!Estado.error) { //riego zona parado: entramos en PAUSE y blink lento zona pausada remotamente 
-        T.PauseTimer();
+        timer.PauseTimer();
         finalTimeLastRiego(lastRiegos[ultimoBotonZona->znumber-1]); //actualizamos tiempo de riego de la zona
         tic_parpadeoLedZona.attach(LENTO, parpadeoLedZona, ledID);
         LOG_WARN(">>>>>>>>>> procesaEstadoRegando zona:", config.zona[ultimoBotonZona->znumber-1].desc, "en PAUSA remota <<<<<<<<");
@@ -774,14 +780,14 @@ void procesaEstadoTerminando(void)
 void procesaEstadoStandby(void)
 {
   //Apagamos el display si ha pasado el lapso STANDBYSECS sin actividad
-  if (reposo) standbyTime = millis();
+  if (Estado.reposo) standbyTime = millis();
   else {
     if (millis() > standbyTime + (1000 * STANDBYSECS)) {
       LOG_TRACE("LLamando a reposoON");
       reposoON();
     }
   }
-  if (reposo & encoderSW) reposoOFF(); // pulsar boton del encoder saca del reposo
+  if (Estado.reposo & encoderSW) reposoOFF(); // pulsar boton del encoder saca del reposo
   // leemos encoder
   procesaEncoderClock();
   // verificaciones en STANDBY cada VERIFY_INTERVAL segundos
@@ -794,7 +800,7 @@ void procesaEstadoStandby(void)
     if (VerifyRecoveryWifi(checkReconInterval)) { //verificacion de wifi y recuperacion si procede
       lcd.info("STANDBY",1);  //restaura pantalla (en caso de msg de reconexion)
       showTemp();  // muestra temperatura ambiente en standby
-      if (!timeOK && connected) setClock(); // si no hemos recibido time por NTP -> actualizamos time del sistema con el del servidor NTP
+      if (!timeOK && Estado.connected) setClock(); // si no hemos recibido time por NTP -> actualizamos time del sistema con el del servidor NTP
       }
   }   
 }; //fin de procesaEstadoStandby
@@ -804,9 +810,9 @@ void procesaEstadoStop(void)
 {
   //En stop activamos el comportamiento hold de pausa
   Boton[bID2bIndex(bPAUSE)].flags.holddisabled = false;
-  if (reposo & encoderSW) reposoOFF(); // pulsar boton del encoder saca del reposo
+  if (Estado.reposo & encoderSW) reposoOFF(); // pulsar boton del encoder saca del reposo
   //si estamos en Stop antinenes, apagamos el display pasado 4 x STANDBYSECS
-  if(reposo && !backlightOff) {
+  if(Estado.reposo && !backlightOff) {
     if (millis() > standbyTime + (4 * 1000 * STANDBYSECS)) {
       lcd.setBacklight(OFF);
       backlightOff = true;
@@ -815,7 +821,7 @@ void procesaEstadoStop(void)
 };
 
 void procesaEstadoPause(void) {
-  if(flagV && config.verify && (!modoDEMO || simular.all_simFlags)) {  // verificamos zona sigue OFF en Domoticz periodicamente
+  if(flagV && config.verify && (!Estado.modoDEMO || simular.all_simFlags)) {  // verificamos zona sigue OFF en Domoticz periodicamente
     if(queryStatus(ultimoBotonZona->znumber, "Off")) return;
     else {
       if(!Estado.error) { //riego zona activo: salimos del PAUSE y blink lento zona activada remotamente 
@@ -823,7 +829,7 @@ void procesaEstadoPause(void) {
         ledID = ultimoBotonZona->led;
         tic_parpadeoLedZona.attach(LENTO, parpadeoLedZona, ledID);
         LOG_WARN(">>>>>>>>>> procesaEstadoPause zona:", config.zona[ultimoBotonZona->znumber-1].desc,"activada REMOTAMENTE <<<<<<<");
-        T.ResumeTimer();
+        timer.ResumeTimer();
         char zonaText[7];
         snprintf(zonaText, sizeof(zonaText), "ZONA%d", ultimoBotonZona->znumber);
         inicioTimeLastRiego(lastRiegos[ultimoBotonZona->znumber-1], zonaText, RESUME); //actualizamos tiempo de riego de la zona
@@ -899,12 +905,12 @@ void setEstado(uint8_t estado, int bnum, int tipo)
   Estado.estado = estado;
   Estado.error = NOERROR;
   Estado.failedStopRiego = false;
-  recoverableError = false;
+  Estado.recoverableError = false;
   if(Estado.estado == !PAUSE) riegoFromPause = false; //reiniciamos flag
   strcpy(errorText, "");
   //Deshabilitamos el hold de Pause
   Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
-  if(reposo) reposoOFF();     //por si salimos de stop antinenes
+  if(Estado.reposo) reposoOFF();     //por si salimos de stop antinenes
   rotaryEncoder.disable();  // para que no cuente pasos salvo que lo habilitemos
   lcd.displayON();
   setledRGB();   // led RGB segun status wifi y modoDEMO
@@ -914,7 +920,7 @@ void setEstado(uint8_t estado, int bnum, int tipo)
   LOG_DEBUG( ">>>> Estado.tipo =", Estado.tipo);
   if((estado==REGANDO || estado==TERMINANDO ) && ultimoBotonZona != NULL) {
     lcd.infoEstado(nEstado[estado], config.zona[ultimoBotonZona->znumber-1].desc);
-    if(modoDEMO) displayDemo(); 
+    if(Estado.modoDEMO) displayDemo(); 
     if(multi.dynamic) displayNoFactorizado();
       else if(multi.temporal) displayMultiTemporal(); 
     return;
@@ -933,7 +939,7 @@ void setEstado(uint8_t estado, int bnum, int tipo)
     }  
     StaticTimeUpdate(REFRESH);
     setEncoderTime();
-    if(modoDEMO) displayDemo();
+    if(Estado.modoDEMO) displayDemo();
     standbyTime = millis();
     return;
   }
@@ -945,7 +951,7 @@ void setEstado(uint8_t estado, int bnum, int tipo)
     lcd.infoclear("CONFIGURANDO", NOBLINK, LOWBIP, bnum);
     ledYellow(ON);
     boton = NULL; //borramos boton pulsado para que no sea tratado más adelante en procesaEstadoConfigurando
-    holdPause = false;
+    // holdPause = false;
     return;
   }
 } //fin setEstado
@@ -968,14 +974,14 @@ void check(void)
  */
 void initFactorRiegos()
 {
-  LOG_DEBUG("entrada InitFactorRiegos Estado.error=", Estado.error, "recoverableError=", recoverableError, "noWIFI=", noWIFI);
+  LOG_DEBUG("entrada InitFactorRiegos Estado.error=", Estado.error, "Estado.recoverableError=", Estado.recoverableError, "noWIFI=", Estado.noWIFI);
   
   for(uint i=0;i<NUMZONAS;i++) {  //inicializamos a valor 100 por defecto para caso de error
     factorRiegos[i]=100;
   }
   factorRiegosLeido = false;
 
-  if((!connected) || noWIFI) return; //si no tenemos wifi o noWIFI, ni lo intentamos
+  if((!Estado.connected) || Estado.noWIFI) return; //si no tenemos wifi o noWIFI, ni lo intentamos
   lcd.info("conectando Domoticz", 2);
   lcd.clear(BORRA2H);
   
@@ -990,7 +996,7 @@ void initFactorRiegos()
     // si XNAME: true, leemos la descripcion de la zona del domoticz (si existe) y la guardamos en config
     if (config.xname) updateZoneDescription(i);
   }
-  LOG_DEBUG("salida  InitFactorRiegos Estado.error=", Estado.error, "recoverableError=", recoverableError, "noWIFI=", noWIFI);
+  LOG_DEBUG("salida  InitFactorRiegos Estado.error=", Estado.error, "Estado.recoverableError=", Estado.recoverableError, "Estado.noWIFI=", Estado.noWIFI);
   #ifdef VERBOSE
     printFactoresRiego();
   #endif
@@ -1018,11 +1024,11 @@ void timeByFactor(int factor,uint8_t *fminutes, uint8_t *fseconds)
   *fseconds = tseconds%60;
 }
 
-void cbSyncTime(struct timeval *tv)  { // callback function to show when NTP was synchronized
-  struct tm timeinfo;
-  getLocalTime(&timeinfo);
-  Serial.printf("<<<<   NTP time synched   >>>>   Local time: %s \n", asctime(&timeinfo));
-}
+// void cbSyncTime(struct timeval *tv)  { // callback function to show when NTP was synchronized
+//   struct tm timeinfo;
+//   getLocalTime(&timeinfo);
+//   Serial.printf("<<<<   NTP time synched   >>>>   Local time: %s \n", asctime(&timeinfo));
+// }
 
 // set reloj del ESP32 y timezone con el time recibido por NTP (se actualizara automaticamente cada 3 horas (default))
 void setClock()
@@ -1238,8 +1244,8 @@ void startZoneWatering() {
     if(initRiego(INICIO)) { //comenzamos el riego de la zona
       setEstado(REGANDO);
       //inicializamos el timer de cuenta atras
-      T.SetTimer(0,fminutes,fseconds);
-      T.StartTimer();
+      timer.SetTimer(0,fminutes,fseconds);
+      timer.StartTimer();
       tic_CountDownTimer.attach_ms(10, timerTick); // Llama a timerTick() cada 10 ms
     }  
 }
@@ -1285,7 +1291,7 @@ void printFactoresRiego() {
 void reposoOFF()
 {
   LOG_INFO(" salimos de reposo");
-  reposo = false;
+  Estado.reposo = false;
   dimmerLeds(OFF);
   lcd.setBacklight(ON);
   backlightOff = false;
@@ -1295,7 +1301,7 @@ void reposoOFF()
 void reposoON(bool lcdOFF)
 {
   LOG_INFO(" entramos en reposo");
-  reposo = true;
+  Estado.reposo = true;
   dimmerLeds(ON);
   if(lcdOFF) lcd.setBacklight(OFF);
 }
@@ -1369,7 +1375,7 @@ void procesaEncoderClock()
               tm.minutes = 0;
             }
     }
-  if(reposo) reposoOFF();
+  if(Estado.reposo) reposoOFF();
   configure->configuringTime() ? configure->Time_process_update() : StaticTimeUpdate(UPDATE);
   standbyTime = millis();
 }
@@ -1405,12 +1411,11 @@ void initLastGrupos()
 bool initRiego(bool resume)
 {
     int zIndex = ultimoBotonZona->znumber-1;
-    uint8_t errorCode = NOERROR; // Variable local para capturar el error
     if (zIndex < 0) return false;
     led(ultimoBotonZona->led,ON);
     if (resume) LOG_INFO( "Continuando riego: ", config.zona[zIndex].desc);
     else LOG_INFO( "Iniciando riego: ", config.zona[zIndex].desc);
-    if (deviceSwitch(zIndex+1, "On", DEFAULT_SWITCH_RETRIES, &errorCode)) { 
+    if (deviceSwitch(zIndex+1, "On", DEFAULT_SWITCH_RETRIES)) { 
         char zonaText[7];
         snprintf(zonaText, sizeof(zonaText), "ZONA%d", zIndex+1);
         inicioTimeLastRiego(lastRiegos[zIndex], zonaText, resume);
@@ -1420,8 +1425,8 @@ bool initRiego(bool resume)
         return true; 
     } else {
         // Error al iniciar: generamos la alerta con el código recibido
-        statusError(errorCode);
-        // statusError(errorCode, (errorCode == E1 || errorCode == E2));  caso de querer marcar E1/E2 como recuperables
+        statusError(Estado.error);
+        // statusError(Estado.error, (Estado.error == E1 || Estado.error == E2));  caso de querer marcar E1/E2 como recuperables
         return false; // error al iniciar el riego   
     }
 }
@@ -1433,10 +1438,8 @@ bool stopRiego(uint16_t id, bool update, bool alertIfFails)
     int bIndex = bID2bIndex(id);
     int zIndex = Boton[bIndex].znumber-1;
     ledID = Boton[bIndex].led;
-    uint8_t errorCode = NOERROR; // Variable local para capturar el error
     LOG_DEBUG( "Terminando riego: ", config.zona[zIndex].desc);
-    // Llamamos a deviceSwitch y capturamos el código de error
-    if (deviceSwitch(zIndex+1, "Off", DEFAULT_SWITCH_RETRIES, &errorCode)) {
+    if (deviceSwitch(zIndex+1, "Off", DEFAULT_SWITCH_RETRIES)) {
         LOG_INFO( "Terminado OK riego: " , config.zona[zIndex].desc );
         // solo actualizamos hora de fin si no hemos sido llamado desde stopAllRiego
         if(update) finalTimeLastRiego(lastRiegos[zIndex]);
@@ -1449,10 +1452,10 @@ bool stopRiego(uint16_t id, bool update, bool alertIfFails)
     } else { 
         // Error al apagar el dispositivo
         if (alertIfFails) {
-            // Este es el primer error del lote o la única parada. ¡Alertamos!
+            // Este es el primer error del lote o la única parada.
             tic_parpadeoLedError.attach(RAPIDO,parpadeoLedError);
             tic_parpadeoLedZona.attach(RAPIDO, parpadeoLedZona, ledID);
-            statusError(errorCode); 
+            statusError(Estado.error); //disparamos alerta con el error ya establecido
         }
         Estado.failedStopRiego = true; // El riego NO se detuvo, activar el recordatorio de error 
         return false;
@@ -1477,8 +1480,8 @@ void restoreRiego(void)
     riegoSaved.zonevalid = false; //ya no es valida    
     ultimoBotonZona = &Boton[bID2bIndex(riegoSaved.bID)];
     led(ultimoBotonZona->led,ON); //encendemos led de la zona
-    T.SetTimer(0,riegoSaved.minutes,riegoSaved.seconds);  //inicializamos el timer de cuenta atras
-    lcd.displayTime(T.ShowMinutes(), T.ShowSeconds());
+    timer.SetTimer(0,riegoSaved.minutes,riegoSaved.seconds);  //inicializamos el timer de cuenta atras
+    lcd.displayTime(timer.ShowMinutes(), timer.ShowSeconds());
     setEstado(PAUSE); //ponemos en PAUSE para que el usuario confirme el inicio del riego salvado
     // if(initRiego(RESUME)) setEstado(REGANDO); //ponemos en REGANDO directamente
 }    
@@ -1510,7 +1513,7 @@ void resetFlags()
   multi.dynamic  = false;
   multi.semaforo = false;
   Estado.failedStopRiego = false;
-  recoverableError = false;
+  Estado.recoverableError = false;
   webServerAct = false;
   simular.all_simFlags = false;
 }
@@ -1554,6 +1557,7 @@ bool stopAllRiego()
 
 void blinkDisplay()
 {
+  static unsigned long lastBlinkPause = 0; // Se inicializa solo en la primera llamada
   if (!lcd.get__displayOff()) {
     if (millis() > lastBlinkPause + 1.5*DEFAULTBLINKMILLIS) {  // *1.5 para compensar inercia LCD
       lastBlinkPause = millis();
@@ -1575,6 +1579,8 @@ void blinkDisplay()
 /// @param refresh si true actualiza incondicionalmente, en caso contrario solo si ha cambiado
 void StaticTimeUpdate(bool refresh)
 {
+  static uint8_t prevseconds = 255; // Inicialización de seguridad para forzar primera actualizacion
+  static uint8_t prevminutes = 255; 
   if (refresh) lcd.clear(BORRA2H);
   if(prevseconds != tm.seconds || prevminutes != tm.minutes || refresh) {
     lcd.displayTime(tm.minutes, tm.seconds); 
@@ -1585,13 +1591,13 @@ void StaticTimeUpdate(bool refresh)
 
 void refreshTime()   // Actualiza la cuenta atrás en pantalla
 {
-  lcd.displayTime(T.ShowMinutes(), T.ShowSeconds());
+  lcd.displayTime(timer.ShowMinutes(), timer.ShowSeconds());
 
 }
 
 // Para actualizar el temporizador de cuenta atrás
 void timerTick() {
-    T.Timer();
+    timer.Timer();
 }
 
 int tmvalue()
@@ -1613,7 +1619,7 @@ bool checkSCD()
   Estado.estado = STANDBY; //borramos estado ERROR
   Estado.error = NOERROR; //reseteamos error
   Estado.failedStopRiego = false;
-  recoverableError = false; //reseteamos error recuperable
+  Estado.recoverableError = false; //reseteamos error recuperable
   return true;
 }
 
@@ -1622,7 +1628,7 @@ void VerifyRecoverySCD()
 {  //verificamos que hay wifi y el Domoticz esta conectado, solo en este caso reintentamos leer factores de riego
   LOG_TRACE("");
   lcd.displayON(); //por si estuviera parpadeando(apagado) por error en pantalla
-  if(connected) {
+  if(Estado.connected) {
     if (checkSCD()) {
       LOG_INFO("Domoticz conectado OK");
       initFactorRiegos(); //en caso de producirse error con esta funcion ya dejara este activado
@@ -1632,7 +1638,7 @@ void VerifyRecoverySCD()
     lcd.clear(BORRA1H);
     statusError(E1, RECUPERABLE); //error de conexion recuperable
     }
-  if(recoverableError) LOG_INFO("reintento en ",RECONNECTINTERVAL," minutos \n");
+  if(Estado.recoverableError) LOG_INFO("reintento en ",RECONNECTINTERVAL," minutos \n");
 }
 
 
@@ -1658,7 +1664,7 @@ void Verificaciones()
   flagV = OFF;
   checkReconInterval = false;
   if (!flagVtimer) return;  //si no activada por Ticker salimos sin hacer nada
-  if (Estado.error) LOG_TRACE("-------flagVtimer ON----   recoverableError: ", recoverableError, "Estado.error: ", Estado.error);
+  if (Estado.error) LOG_TRACE("-------flagVtimer ON----   Estado.recoverableError: ", Estado.recoverableError, "Estado.error: ", Estado.error);
   flagVtimer = OFF;
   flagV = ON;  //activamos flagV para que se realicen las verificaciones en las funciones de estado correspondientes
   if(millis() > lastmillisReconnect + RECONNECTINTERVAL * 60000) {   
@@ -1735,7 +1741,7 @@ void displayMultiTemporal() {
  */
 void statusError(uint8_t errorID, bool recoverable) 
 {
-  recoverableError = recoverable; //error recuperable o no
+  Estado.recoverableError = recoverable; //error recuperable o no
   Estado.estado = ERROR;
   Estado.error = errorID;
   Estado.tipo = LOCAL;
@@ -1745,7 +1751,7 @@ void statusError(uint8_t errorID, bool recoverable)
   if (errorID == E0) sprintf(errorText, "Error0");
   else sprintf(errorText, "Error%d", errorID);
   LOG_ERROR("SET ERROR: ", errorText);
-  if (recoverableError) snprintf(buff, MAXBUFF, ">>>  %s  >>> R", errorText);
+  if (Estado.recoverableError) snprintf(buff, MAXBUFF, ">>>  %s  >>> R", errorText);
   else snprintf(buff, MAXBUFF, ">>>  %s  <<<", errorText);
   lcd.clear(BORRA2H);
   lcd.setCursor(2,2);
@@ -1898,7 +1904,7 @@ bool serialDetect() {
 // Shortcut Webserver
 void scWebserver() {
   #ifdef WEBSERVER
-    if(connected) {
+    if(Estado.connected) {
       setEstado(CONFIGURANDO);
       setupWS();
     }  
@@ -1993,6 +1999,8 @@ void scSorpresa() {
 
   void debugloops()
   {
+    static unsigned long currentMillisLoop = 0;
+    static unsigned long lastMillisLoop = 0;
     if (numloops < 10000) {
       ++numloops;
       currentMillisLoop = millis();
