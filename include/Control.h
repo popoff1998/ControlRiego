@@ -139,6 +139,7 @@
   #define TEMP_OFFSET_FACTOR  50      // * correccion temperatura factor ajuste (50% = x 0.5)
   #define TEMP_DATA_REMOTE    0       // * fuente del dato de temperatura 0=local/1=remota
   #define SHORTCUTSENABLED    true    // admite atajos en estado STOP
+  #define ENCSWASPAUSE        true    // encoderSW simula PAUSE en estado CONFIGURANDO
                                       // [*] = configurables
   // #define PARMFILE    "/config_parm.json"     // archivo de configuracion de parametros
   // #define BACKUPFILE  "/config_backup.json"   // archivo de backup de configuracion de parametros
@@ -446,6 +447,7 @@
     bool dynamic = false;                       // si true permite añadir/eliminar zonas durante el riego
     bool lastr24 = false;                       // muestra leds ultimos riegos desde las 0h (false) o ultimas 24h (true)
     bool shortcuts = SHORTCUTSENABLED;          // admite atajos de teclas en estado STOP
+    bool encSWasPause = ENCSWASPAUSE;           // simulacion PAUSE en modo CONFIGURANDO con encoderSW
   };
 
   // estructura del multirriego activo 
@@ -752,6 +754,7 @@ void setupWS();
 void showInfoZona(int zIndex);
 void showTemp(void);
 void showTimeLastRiego(S_timeRiego&, int, int);
+void simulaPauseWithEncoderSW();
 void startConfigPortal();
 void startZoneWatering();
 void StaticTimeUpdate(bool);

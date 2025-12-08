@@ -290,6 +290,19 @@ S_BOTON *parseInputs(bool read)
   return NULL;
 }
 
+/**---------------------------------------------------------------
+ * En modo configuracion, encoderSW simula pulsación de PAUSE
+ * (selecciona item menu, valida cambios, etc)
+ */
+void simulaPauseWithEncoderSW() {
+    // Obtenemos el índice del botón bPAUSE en el array Boton[]
+    int i = bID2bIndex(bPAUSE);
+    // Simular las acciones de parseInputs para bPAUSE:
+    Boton[i].estado = true;  // Simula que el botón está presionado
+    boton = &Boton[i];       // Apunta 'boton' al botón simulado
+    LOG_DEBUG("Simulando pulsación de PAUSE con encoderSW en modo CONFIGURANDO");
+}
+
 // devuelve la posicion en array Boton[] (bIndex) del boton que se le ha pasado (bID)
 int bID2bIndex(uint16_t id)
 {

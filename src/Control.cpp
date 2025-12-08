@@ -133,7 +133,15 @@ bool validaBoton() {
   //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multirriego
   if (multi.semaforo) multi.semaforo = false;  // si multisemaforo, no leemos botones: ya los pasa multirriego
   else  boton = parseInputs(READ);  // si no, vemos si algun boton ha cambiado de estado
-  // si no se ha pulsado ningun boton salimos
+  //En modo configuracion, si no se ha pulsado boton, pulsar encoderSW equivale a pause (enter)
+  //  (salvo en configuringMulti, en este caso se usa encoderSW+PAUSE para vaciar grupo)
+  static bool simulaPausePrev = false;
+  if (Estado.estado == CONFIGURANDO && boton == NULL && encoderSW 
+      && config.encSWasPause && !configure->configuringMulti() && !simulaPausePrev) {
+    simulaPausePrev = true;  // evitamos múltiples simulaciones mientras se mantiene pulsado  
+    simulaPauseWithEncoderSW(); }
+  else simulaPausePrev = encoderSW; // reseteamos si encoderSW ya no esta pulsado
+  //Si no se ha pulsado ningun boton salimos
   if(boton == NULL) return false;
   //Si estamos en reposo pulsar cualquier boton solo nos saca de ese estado (salvo STOP que si actua y se procesa)
   if (Estado.reposo && boton->bID != bSTOP) {
