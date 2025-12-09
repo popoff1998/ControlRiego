@@ -53,19 +53,19 @@ void setup()
     else sonido.bipKO();
     saveConfig = false;
   }
-  //Obtenemos hora del servidor ntp y ajustamos hora del sistema y timezone
-  setClock();
   //Cargamos factores de riego desde el SCD
   initFactorRiegos();
+  //Obtenemos hora del servidor ntp y ajustamos hora del sistema y timezone
+  setClock();
   //Estado final en funcion de la conexion
   setupEstado();
-  if(Estado.estado==STANDBY) sonido.bipOK();
   //Llamo a parseInputs CLEAR para eliminar prepulsaciones antes del bucle loop
   parseInputs(CLEAR);
   //lanzamos supervision periodica estado cada VERIFY_INTERVAL seg.
   tic_verificaciones.attach(VERIFY_INTERVAL, flagVerificaciones);
   standbyTime = millis();
   PRINTLN("   *** Setup finalizado *** \n\n");
+  inSetup = false;
 }
 
 
@@ -114,11 +114,10 @@ bool validaBoton() {
   //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multirriego
   if (multi.semaforo) multi.semaforo = false;  // si multisemaforo, no leemos botones: ya los pasa multirriego
   else  boton = parseInputs(READ);  // si no, vemos si algun boton ha cambiado de estado
-  //En modo configuracion, si no se ha pulsado boton, pulsar encoderSW equivale a pause (enter)
-  //  (salvo en configuringMulti, en este caso se usa encoderSW+PAUSE para vaciar grupo)
+  //En modo configuracion pulsar encoderSW equivale a pause (enter)
   static bool simulaPausePrev = false;
   if (Estado.estado == CONFIGURANDO && boton == NULL && encoderSW 
-      && config.encSWasPause && !configure->configuringMulti() && !simulaPausePrev) {
+      && config.encSWasPause && !simulaPausePrev) {
     simulaPausePrev = true;  // evitamos múltiples simulaciones mientras se mantiene pulsado  
     simulaPauseWithEncoderSW(); }
   else simulaPausePrev = encoderSW; // reseteamos si encoderSW ya no esta pulsado
@@ -196,6 +195,7 @@ void setupEstado()
   if (Estado.connected) {  //si estamos conectados a la red pasamos a STANDBY (o STOP si esta pulsado)
       if (testButton(bSTOP,ON))  setEstado(STOP,1);
       else setEstado(STANDBY,1);
+      if (inSetup) sonido.bipOK();
   } else {  //si no estamos conectados a la red pasamos a estado ERROR
     statusError(E1, RECUPERABLE); //error de conexion wifi recuperable
     LOG_DEBUG("setupEstado salida por estado ERROR(E1)"); 
@@ -606,8 +606,8 @@ void procesaEstadoConfigurando()
         case bPAUSE:
             if(!boton->estado) break; //no se procesa el release del PAUSE
             if(configure->statusMenu()) {       //si estamos en el menu:
-              configure->procesaSelectMenu();   // procesamos la seleccion
               LOG_DEBUG("[MENU] PAUSE pulsado recibido");
+              configure->procesaSelectMenu();   // procesamos la seleccion
               break;
             }
             LOG_DEBUG("PAUSE pulsado recibido y estamos configurando algo");
@@ -658,7 +658,7 @@ void handleParameterConsolidation()
         configure->Range_process_end();  //  salvamos en config nuevo valor del parametro
       }
       if(configure->configuringMulti()) {
-        configure->Multi_process_end(encoderSW);  // actualizamos config con las zonas introducidas
+        configure->Multi_process_end();  // actualizamos config con las zonas introducidas
       }
       if(configure->configuringMultiTemp()) {
         configure->MultiTemp_process_end();  // preparamos lanzamiento multirriego temporal
@@ -787,10 +787,8 @@ void procesaEstadoStandby(void)
     LOG_TRACE(".");
     if (multi.riegoON) return; //no se hacen verificaciones/acciones con multirriego en curso
     if (VerifyRecoveryWifi(checkReconInterval)) { //verificacion de wifi y recuperacion si procede
-      lcd.info("STANDBY",1);  //restaura pantalla (en caso de msg de reconexion)
-      showTemp();  // muestra temperatura ambiente en standby
       if (!timeOK && Estado.connected) setClock(); // si no hemos recibido time por NTP -> actualizamos time del sistema con el del servidor NTP
-      }
+    }
   }   
 }; //fin de procesaEstadoStandby
 
@@ -883,6 +881,24 @@ bool procesaDynamic(void)
   else return false; //no hay sitio --> zona ignorada   
 }   //fin de procesaDynamic
 
+/**---------------------------------------------------------------
+ * Resetea estado y elementos de interfaz comunes a todos los estados
+ */
+void resetEstadoAndInterfase(uint8_t estado)
+{
+  Estado.estado = estado;
+  Estado.error = NOERROR;
+  Estado.failedStopRiego = false;
+  Estado.recoverableError = false;
+  if(Estado.estado == !PAUSE) riegoFromPause = false; //reiniciamos flag
+  strcpy(errorText, "");
+  Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true; //Deshabilitamos el hold de Pause
+  if(Estado.reposo) reposoOFF();     //por si salimos de stop antinenes
+  rotaryEncoder.disable();  // para que no cuente pasos salvo que lo habilitemos
+  resetLCD(); // enciende display
+  setledRGB();   // led RGB segun status wifi y modoDEMO
+
+}
 
 /**---------------------------------------------------------------
  * Pone estado pasado y sus indicadores opcionales
@@ -891,57 +907,45 @@ void setEstado(uint8_t estado, int bnum, int tipo)
 {
   LOG_DEBUG( "recibido ", nEstado[estado], "bnum=", bnum, " tipo=", tipo);
   // setup y reseteos varios
-  Estado.estado = estado;
-  Estado.error = NOERROR;
-  Estado.failedStopRiego = false;
-  Estado.recoverableError = false;
-  if(Estado.estado == !PAUSE) riegoFromPause = false; //reiniciamos flag
-  strcpy(errorText, "");
-  //Deshabilitamos el hold de Pause
-  Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
-  if(Estado.reposo) reposoOFF();     //por si salimos de stop antinenes
-  rotaryEncoder.disable();  // para que no cuente pasos salvo que lo habilitemos
-  lcd.displayON();
-  setledRGB();   // led RGB segun status wifi y modoDEMO
+  resetEstadoAndInterfase(estado);
+  // display si tipo estado REMOTO
   lcd.setCursor(17, 1);
   if (tipo == REMOTO) {Estado.tipo = REMOTO; lcd.print("(R)");}
   else {Estado.tipo = LOCAL; lcd.print("   ");}
-  LOG_DEBUG( ">>>> Estado.tipo =", Estado.tipo);
-  if((estado==REGANDO || estado==TERMINANDO ) && ultimoBotonZona != NULL) {
-    lcd.infoEstado(nEstado[estado], config.zona[ultimoBotonZona->znumber-1].desc);
-    if(Estado.modoDEMO) displayDemo(); 
-    if(multi.dynamic) displayNoFactorizado();
-      else if(multi.temporal) displayMultiTemporal(); 
-    return;
+  // acciones segun estado
+  if((estado == REGANDO || estado == TERMINANDO ) && ultimoBotonZona != NULL) {
+      lcd.infoEstado(nEstado[estado], config.zona[ultimoBotonZona->znumber-1].desc);
+      if(Estado.modoDEMO) displayDemo(); 
+      if(multi.dynamic) displayNoFactorizado();
+        else if(multi.temporal) displayMultiTemporal(); 
+      return;
   }
-  if(estado==PAUSE) {
-    lcd.infoEstado(nEstado[estado], config.zona[ultimoBotonZona->znumber-1].desc); 
-    if(bnum) sonido.bip(bnum);
-    return;
+  if(estado == PAUSE) {
+      lcd.infoEstado(nEstado[estado], config.zona[ultimoBotonZona->znumber-1].desc); 
+      if(bnum) sonido.bip(bnum);
+      return;
   }
   if(estado == STANDBY) {
-    // if(!multi.riegoON && !multi.temporal) {
-    if(!multi.riegoON) {  //en los intervalos entre riegos no se muestra la pantalla de standby
-      resetLeds();
-      lcd.infoclear("STANDBY",NOBLINK,BIP,bnum);
-      showTemp();
-    }  
-    StaticTimeUpdate(REFRESH);
-    setEncoderTime();
-    if(Estado.modoDEMO) displayDemo();
-    standbyTime = millis();
-    return;
+      if(!multi.riegoON) {  //en los intervalos entre riegos no se muestra la pantalla de standby
+        resetLeds();
+        lcd.infoclear("STANDBY",NOBLINK,BIP,bnum);
+        showTemp();
+      }  
+      StaticTimeUpdate(REFRESH);
+      setEncoderTime();
+      if(Estado.modoDEMO) displayDemo();
+      standbyTime = millis();
+      return;
   }
   if(estado == STOP) {
-    lcd.infoclear("STOP", NOBLINK, LOWBIP, bnum);
-    return;
+      lcd.infoclear("STOP", NOBLINK, LOWBIP, bnum);
+      return;
   }
   if(estado == CONFIGURANDO) {
-    lcd.infoclear("CONFIGURANDO", NOBLINK, LOWBIP, bnum);
-    ledYellow(ON);
-    boton = NULL; //borramos boton pulsado para que no sea tratado más adelante en procesaEstadoConfigurando
-    // holdPause = false;
-    return;
+      lcd.infoclear("CONFIGURANDO", NOBLINK, LOWBIP, bnum);
+      ledYellow(ON);
+      boton = NULL; //borramos boton pulsado para que no sea tratado más adelante en procesaEstadoConfigurando
+      return;
   }
 } //fin setEstado
 
@@ -986,6 +990,7 @@ void initFactorRiegos()
     if (config.xname) updateZoneDescription(i);
   }
   LOG_DEBUG("salida  InitFactorRiegos Estado.error=", Estado.error, "Estado.recoverableError=", Estado.recoverableError, "Estado.noWIFI=", Estado.noWIFI);
+  if(!Estado.error && inSetup) lcd.info("Domoticz OK", 2);
   #ifdef VERBOSE
     printFactoresRiego();
   #endif
@@ -1030,14 +1035,15 @@ void setClock()
   struct tm timeinfo;
   if(!getLocalTime(&timeinfo, NTP_TIMEOUT)) {
     timeOK = false;
-    LOG_WARN(">>> NO TIME SET by NTP <<<");
+    const char* msg = ">>> NO TIME SET by NTP <<<"; 
+    inSetup ? PRINTLN("\n%s", msg) : LOG_WARN(msg);
     return;
   }
   timeOK = true;
   char message[150];
   strftime(message, sizeof(message), "\n>>> TIME SET by NTP <<<   Local time: %A, %B %d %Y %H:%M:%S (zone %Z %z)", &timeinfo);
   PRINTLN(message);
-  PRINTLN("NTP update every ", sntp_get_sync_interval()/(1000*60), " minutos\n");
+  PRINTLN("\t NTP update every ", sntp_get_sync_interval()/(1000*60), " minutos\n");
 }
 
 time_t tLoc()
@@ -1512,7 +1518,6 @@ void resetFlags()
 void resetLCD()
 {
   LOG_TRACE("LCD reseteado");
-  lcd.clear();
   lcd.setBacklight(ON);
   lcd.displayON();
 }
@@ -1678,8 +1683,7 @@ void Verificaciones()
 
 float readTemp() {
     float temperatura;
-    float humedad;
-    tempOK=false;
+    // float humedad;
     if(config.tempRemote) {
       temperatura = getRemoteTemperature();
     }
@@ -1691,14 +1695,13 @@ float readTemp() {
         if(isnan(temperatura)) temperatura = 999;
       #endif
     }
-    temperatura == 999 ? tempOK=false : tempOK=true;
     return temperatura;  
 }
 
 void showTemp() {
     float temperatura = readTemp();
-    LOG_TRACE("tempOK=",tempOK,"temperatura=",temperatura);
-    if(tempOK) {
+    LOG_TRACE("temperatura=",temperatura);
+    if(temperatura != 999) {
       temperatura = temperatura + ((float)config.tempOffset*(TEMP_OFFSET_FACTOR/100.0)); // offset correccion
       LOG_TRACE("temp OFFSET=",config.tempOffset,"TEMP_OFFSET_FACTOR %=",TEMP_OFFSET_FACTOR,"temperatura corregida=",temperatura);
       int temp_round = (temperatura < 0 ? (temperatura - 0.5) : (temperatura + 0.5)); //redondeo al entero mas cercano

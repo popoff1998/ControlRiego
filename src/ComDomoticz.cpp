@@ -260,9 +260,10 @@ String readLogFile(int zona)
   return cmdtoSCD(message);
 }
 
+//lee info amanecer/anochecer del Domoticz
 bool getDiaNoche(char* amanecer, char* anochecer)
 {
-  String response = cmdtoSCD(GETSUNHOURS); //lee info amanecer/anochecer del Domoticz
+  String response = cmdtoSCD(GETSUNHOURS);
   LOG_DEBUG("Respuesta recibida del Domoticz: ", response.c_str());
   if (response.startsWith("Err")) return false;
   JsonDocument jsondoc;

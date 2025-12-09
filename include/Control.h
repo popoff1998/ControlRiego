@@ -548,17 +548,16 @@
     S_Riego_estado riegoSaved; // estructura con el estado del riego en curso
     uint factorRiegos[NUMZONAS];
     bool backlightOff = false;
-    // bool holdPause = false;
     bool flagV = OFF;
     bool flagVtimer = OFF;
     bool timeOK = false;
-    bool tempOK = false;
     bool factorRiegosLeido = false;
     bool encoderSW = false;
     bool checkReconInterval = false; // verificaciones de conexion cada RECONNECTINTERVAL minutos
     bool webServerAct = false;
     bool saveConfig = false;
     bool riegoFromPause = false;
+    bool inSetup = true;
     unsigned long standbyTime;
     int  ledID = 0;
     int numloops = 0;

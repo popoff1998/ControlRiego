@@ -15,7 +15,7 @@ void Configure::menu(int item)
       if(item >= 0) _currentItem = item;
       _maxItems = this->showMenu(_currentItem);
       setEncoderMenu(_maxItems, _currentItem);
-      LOG_DEBUG("_currentitem=",_currentItem);
+      LOG_TRACE("_currentitem=",_currentItem);
 }
 
 void Configure::reset()
@@ -234,9 +234,10 @@ void Configure::Multi_process_update()
 }
 
 // actualizamos config con las zonas introducidas
-void Configure::Multi_process_end(bool clear)
+void Configure::Multi_process_end()
 {
-      if (multi.w_size && !clear) {  //solo si se ha pulsado alguna
+      char grupoText[21];
+      if (multi.w_size) {  //solo si se ha pulsado alguna zona
         *multi.size = multi.w_size;
         int g = _actualGrupo;
         for (int i=0; i<multi.w_size; ++i) {
@@ -246,19 +247,21 @@ void Configure::Multi_process_end(bool clear)
 
         LOG_INFO("SAVE PARM Multi : GRUPO",g,"tamaño:",*multi.size,"(",multi.desc,")");
         printMultiGroup( g-1);
-        sonido.bipOK();
-        lcd.info("guardado GRUPO",2);
+        snprintf(grupoText, sizeof(grupoText), "Guardado GRUPO%d", _actualGrupo);
+        lcd.info(grupoText,2);
         lcd.clear(BORRA2H);
+        sonido.bipOK();
         delay(config.msgdisplaymillis);
       }
-      else if(clear) {   //se borra contenido del grupo
+      else {   //se borra contenido del grupo
         *multi.size = 0;
         saveConfig = true;
 
         LOG_INFO("borrado GRUPO",_actualGrupo,"tamaño:",*multi.size,"(",multi.desc,")");
-        sonido.bipOK();
-        lcd.info("vaciado GRUPO",2);
+        snprintf(grupoText, sizeof(grupoText), ">> Vaciado GRUPO%d <<", _actualGrupo);
+        lcd.info(grupoText,2);
         lcd.clear(BORRA2H);
+        sonido.bipOK();
         delay(config.msgdisplaymillis);
 
       }
@@ -371,13 +374,12 @@ int Configure::showMenu(int opcion)
                                     /*   <------17------->     maxima longitud */ 
 
       const int MAXOPCIONES = ELEMENTCOUNT(opcionesMenuConf);
-      LOG_DEBUG("sizeof Total",sizeof(opcionesMenuConf),"sizeof [0]",sizeof(opcionesMenuConf[0]));
+      LOG_TRACE("sizeof Total",sizeof(opcionesMenuConf),"sizeof [0]",sizeof(opcionesMenuConf[0]));
       if(!_data_pos_valid) {
           for(int r=0; r<MAXOPCIONES; r++) {
             _data_pos[r] = opcionesMenuConf[r].length() + 3;
             //_data_pos[r] = strlen(opcionesMenuConf[r].c_str()) + 3; // otra opcion
             LOG_DEBUG("menuitem",r,"longitud",_data_pos[r]-3,"data_pos",_data_pos[r]);
-            LOG_DEBUG("menuitem",r,"sizeof",sizeof(opcionesMenuConf[r]));
           }
           _data_pos_valid = true;
       }    
@@ -403,7 +405,7 @@ int Configure::showMenu(int opcion)
       opcionesMenuConf[LASTRIEGOS24] += (config.lastr24 ? "ON" : "OFF");
 
 
-      LOG_DEBUG("opcion=",opcion,"_currentitem=",_currentItem,"MAXOPCIONES=",MAXOPCIONES);
+      LOG_TRACE("opcion=",opcion,"_currentitem_prev=",_currentItem,"MAXOPCIONES=",MAXOPCIONES);
       _currentItem = opcion;
       snprintf(_currenItemText,18,"%s",opcionesMenuConf[_currentItem].c_str());
       LOG_DEBUG("_currentitem=",_currentItem,"_currenItemText=",_currenItemText);

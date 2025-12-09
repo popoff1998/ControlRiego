@@ -229,7 +229,7 @@ void printParms() {
   Serial.printf("\tnumzonas= %d \n", config.n_Zonas);
   Serial.println(F("\tBotones: "));
   for(int i=0; i<config.n_Zonas; i++) {
-    Serial.printf("\t\t Zona%d: IDX=%d (%s) l=%d \n", i+1, config.zona[i].idx, config.zona[i].desc, sizeof(config.zona[i].desc));
+    Serial.printf("\t\t Zona%d: IDX=%d (%s) \n", i+1, config.zona[i].idx, config.zona[i].desc);
   }
   //--------------  imprime array y subarray de grupos  ----------------------------------------------
   Serial.printf("\tnumgroups= %d \n", config.n_Grupos);

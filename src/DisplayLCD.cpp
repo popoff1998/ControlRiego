@@ -131,9 +131,9 @@ void DisplayLCD::blinkLCD(int veces) //parpadea contenido actual de la pantalla 
     // parpadea pantalla n veces
       LOG_TRACE("[LCD]blink LCD  x",veces);
       for (int i=0; i<veces; i++) {
-        displayOFF(); // setBacklight(OFF);
+        displayOFF();
         delay(DEFAULTBLINKMILLIS);
-        displayON(); // setBacklight(ON);
+        displayON();
         delay(DEFAULTBLINKMILLIS);
       }
   }

@@ -72,8 +72,12 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
 
 //evento llamado en caso de conexion de la wifi
 void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info){
- LOG_INFO("    <<<<---  WiFi conectada  --->>>>");
- setConnected(true);
+  LOG_INFO("    <<<<---  WiFi conectada  --->>>>");
+  if (Estado.estado == STANDBY) {
+    lcd.info("STANDBY",1);  //restaura pantalla (borra msg de reconexion)
+    showTemp();  // muestra temperatura ambiente en standby
+  }
+  setConnected(true);
 }
 
 // conexion a la red por medio de WifiManager
@@ -249,6 +253,10 @@ bool wifiReconnect () {
     if (checkWifi()) {
       int msgl = snprintf(buff, MAXBUFF, "wifi OK: %s", WiFi.SSID().c_str());
       lcd.info(buff, 1, msgl);
+      if (Estado.estado == STANDBY) {
+          lcd.info("STANDBY",1);  //restaura pantalla (borra msg de reconexion)
+          showTemp();  // muestra temperatura ambiente en standby
+      }
       return true;
     } else return false;
 }    
@@ -275,9 +283,9 @@ bool VerifyRecoveryWifi(bool checkReconInterval) {
     int wifilevel = checkWifi(config.showwifilevel); // conectado a wifi?
     #endif
     if(wifilevel) {
-      LOG_DEBUG("Wifi verificada OK, nivel=",wifilevel,"%");
+      LOG_TRACE("Wifi verificada OK, nivel=",wifilevel,"%");
       if (config.showwifilevel && Estado.estado == STANDBY) {
-         LOG_DEBUG("showwifilevel=",config.showwifilevel,"wifilevel=",wifilevel);
+         LOG_TRACE("showwifilevel=",config.showwifilevel,"wifilevel=",wifilevel);
          if(wifilevel==100) wifilevel=99; 
          lcd.setCursor(0,3);
          snprintf(buff,MAXBUFF,"%02d%%",wifilevel);
