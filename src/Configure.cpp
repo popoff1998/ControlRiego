@@ -454,7 +454,7 @@ void Configure::procesaSelectMenu()
                 break; 
   #ifdef WEBSERVER
         case WEBSERVER_ACT :  // activamos webserver (no bloqueante, pero no respodemos a botones)
-                connected ? setupWS() : sonido.bipKO();
+                Estado.connected ? setupWS() : sonido.bipKO();
                 break;
   #endif 
         case LOAD_BACKUP :   // carga parametros de backup y reinicia

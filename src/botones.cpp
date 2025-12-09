@@ -171,7 +171,7 @@ void ledYellow(int estado)
 // deja led RGB segun estado wifi y modoDEMO
 void setledRGB()
 {
-    ledRGB(OFF,connected,modoDEMO);                 
+    ledRGB(OFF,Estado.connected,Estado.modoDEMO);                 
 }  
 
 
@@ -223,19 +223,19 @@ void dimmerLeds(bool status)
 {
   if(status) {
     LOG_TRACE("leds atenuados ");
-    if(connected) analogWrite(LEDG, config.dimmlevel);
-    if(modoDEMO) analogWrite(LEDB, config.dimmlevel);
+    if(Estado.connected) analogWrite(LEDG, config.dimmlevel);
+    if(Estado.modoDEMO) analogWrite(LEDB, config.dimmlevel);
   }
   else {
     LOG_TRACE("leds brillo normal ");
-    if(connected) analogWrite(LEDG, config.maxledlevel);
-    if(modoDEMO) analogWrite(LEDB, config.maxledlevel);
+    if(Estado.connected) analogWrite(LEDG, config.maxledlevel);
+    if(Estado.modoDEMO) analogWrite(LEDB, config.maxledlevel);
   }  
 }
 
 int  ledlevel()
 {
-  return (reposo ? config.dimmlevel : config.maxledlevel);
+  return (Estado.reposo ? config.dimmlevel : config.maxledlevel);
 }
 
 
@@ -288,6 +288,19 @@ S_BOTON *parseInputs(bool read)
     }
   }
   return NULL;
+}
+
+/**---------------------------------------------------------------
+ * En modo configuracion, encoderSW simula pulsación de PAUSE
+ * (selecciona item menu, valida cambios, etc)
+ */
+void simulaPauseWithEncoderSW() {
+    // Obtenemos el índice del botón bPAUSE en el array Boton[]
+    int i = bID2bIndex(bPAUSE);
+    // Simular las acciones de parseInputs para bPAUSE:
+    Boton[i].estado = true;  // Simula que el botón está presionado
+    boton = &Boton[i];       // Apunta 'boton' al botón simulado
+    LOG_DEBUG("Simulando pulsación de PAUSE con encoderSW en modo CONFIGURANDO");
 }
 
 // devuelve la posicion en array Boton[] (bIndex) del boton que se le ha pasado (bID)

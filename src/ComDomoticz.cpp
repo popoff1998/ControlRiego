@@ -8,10 +8,39 @@
  
  HTTPClient httpclient;
  WiFiClient client;
- 
+
+  //-----------------------  API con Domoticz ------nuevo formato v2023.2 en adelante------
+  #define COMMANDPRF    "/json.htm?type=command&param="
+  #define SWITCHDEVICE  "switchlight&idx=%d&switchcmd=%s"
+  #define QUERYDEVICE   "getdevices&rid=%d"
+  #define GETSWITCHLOG  "getlightlog&idx=%d"
+  #define GETSUNHOURS   "getSunRiseSet"
+  #define GETSETTINGS   "getsettings"
+  //---------------------------------------------------------------------------------------
+  
 //==================================================================================================//
 //=================== Funciones primarias basicas y de ayuda     ===================================//
 //==================================================================================================//
+
+/**-------------------------------------------------------------------------------
+ * Obtiene el SCD_ID de una zona dado su numero de zona (1 a NUMZONAS).
+ */
+uint16_t getSCD_ID(uint8_t zonaNumber) {
+    // La zonaNumber va de 1 a N, el índice (zIndex) va de 0 a N-1.
+    int zIndex = zonaNumber - 1; 
+    if (zIndex >= 0 && zIndex < NUMZONAS) {
+        return config.zona[zIndex].idx; // En el caso de Domoticz, el SCD_ID es el IDX
+    }
+    return 0; // Devolver 0 si la zona no es válida
+}
+
+// Función auxiliar que registra el error específico, el JSON completo, 
+// y devuelve el código de error ("Err3").
+String returnErr3(const String &fullResponse, const char* msg1, const char* msg2 = "", const char* msg3 = "") {
+    LOG_ERROR(" ** [ERROR] ", msg1, msg2, msg3); 
+    LOG_ERROR(" ** [ERROR] JSON de entrada: ", fullResponse.c_str());
+    return "Err3";
+}
 
 /**------------------------------------------------------------------------------------
  * Procesa la respuesta JSON de Domoticz y devuelve el valor del campo solicitado.
@@ -20,43 +49,39 @@
  * @param level     Nivel donde se espera el campo (TOP_LEVEL o RESULT_ARRAY_0).
  * @return          El valor del campo como String, o un código de error ("Err3").
  */ 
-// Definimos una forma de indicar el nivel para mejorar la legibilidad del código
 enum JsonLevel {
     TOP_LEVEL = 0,     // Para campos como "Sunrise", "ServerTime"
     RESULT_ARRAY_0 = 1 // Para campos de dispositivo dentro de "result[0]"
 };    
 String parseResponse(const String &response, const char *campo, JsonLevel level)
 {
-    // Asegurarse de que no sea un código de error de HTTP/comunicación
-    if (response.startsWith("Err")) return response; 
-    char* response_pointer = (char*)response.c_str();
-    JsonDocument jsondoc;
-    // Deserializar la respuesta
-    DeserializationError error = deserializeJson(jsondoc, response_pointer);
-    if (error) {
-        LOG_ERROR(" ** [ERROR] deserializeJson() failed: ", error.c_str());
-        return "Err3"; // error de deserializacion
-    }    
-    const char *contenido_campo = NULL;
-    // Lógica para acceder al nivel correcto
+    if (response.startsWith("Err")) return response;
+    String respTrim = response;
+    respTrim.trim(); // Sanitizar la respuesta
+    JsonDocument jsondoc; 
+    DeserializationError error = deserializeJson(jsondoc, respTrim);
+    if (error) return returnErr3(respTrim, "deserializeJson() failed: ", error.c_str());
+    JsonVariant field;
     if (level == TOP_LEVEL) {
-        // Acceso directo: jsondoc["Sunrise"]
-        contenido_campo = jsondoc[campo];
-    } else if (level == RESULT_ARRAY_0) {  
-        // Acceso al primer elemento del array 'result': jsondoc["result"][0]["Status"]
-        contenido_campo = jsondoc["result"][0][campo];
-    } else {  
-        // Manejo de un nivel no definido
-        LOG_ERROR(" ** [ERROR] Nivel de JSON no valido: ", (int)level);
-        return "Err3";
-    }    
-    if(contenido_campo == NULL) {
-        LOG_ERROR(" ** [ERROR] parseResponse: campo ", campo, " no encontrado en el nivel ", (int)level);
-        LOG_ERROR(" ** [ERROR] respuesta: ", response.c_str());
-        return "Err3"; // campo no encontrado
-    }    
-    return contenido_campo;
-} //fin parseResponse   
+        field = jsondoc[campo];
+    } else if (level == RESULT_ARRAY_0) {
+        // Validar que la ruta 'result[0]' exista y sea segura
+        if (!jsondoc.containsKey("result") || !jsondoc["result"].is<JsonArray>()) {
+          return returnErr3(respTrim, "parseResponse: 'result' no encontrado o no es array"); }
+        field = jsondoc["result"][0][campo];
+    } else {
+          return returnErr3(respTrim, "parseResponse: nivel desconocido");    }
+    // Verifica si el campo existe y no es null
+    if (field.isNull()) {
+          return returnErr3(respTrim, "parseResponse: campo '", campo, "' no encontrado o NULL");}
+    // Extrae el valor como String.
+    String contenido = field.as<String>();
+    contenido.trim();
+    // Informa si la String resultante esta vacía
+    if (contenido.isEmpty()) LOG_DEBUG(" ** [WARNING] parseResponse: campo '", campo, "' vacío");
+    else LOG_DEBUG("Campo '", campo, "': ", contenido);
+    return contenido;
+}
 
 /**---------------------------------------------------------------
  * Comunicacion con Domoticz usando httpGet
@@ -103,8 +128,8 @@ String httpGetDomoticz(const String &message)
   return response;
 }  
 
-/**-----------------------------------------------------------------------
- * Convierte una String (campo Description) a un valor entero para el factor.
+/**-----------------------------------------------------------------------------------
+ * Convierte una String (campo Description) a un valor entero para el factor de riego.
  * Devuelve 100 por defecto si no es un número válido.
  */
 int convertFactorString(const String &response)
@@ -154,23 +179,24 @@ String deviceInfo(int idx, const char *campo)
 
 /**---------------------------------------------------------------
  * Envia a domoticz orden de on/off del idx correspondiente.
- * Devuelve el código de error específico a través del puntero errorCode. 
- * En caso de error no genera alertas visuales ni sonoras (lo hara la funcion llamante)
+ * Devuelve el código de error específico a través de Estado.error. 
+ * En caso de error no lo activa ni genera alertas visuales o sonoras (lo hara la funcion llamante)
  */
-bool deviceSwitch(int idx, const char *msg, int retries, uint8_t *errorCode)
+bool deviceSwitch(uint8_t zona, const char *msg, int retries)
 {
-    LOG_TRACE("idx:", idx, " ", msg, "(", retries, "intentos)");
+    uint16_t idx = getSCD_ID(zona);
+    LOG_DEBUG("idx:", idx, " ", msg, "(", retries, "intentos)");
     // 1. Caso IDX=0 (Simulación OK)
-    if(idx == 0) { *errorCode = NOERROR; return true; }
+    if(idx == 0) return true;
     // 2. Caso E1 (Error de WiFi)
-    if(!connected && !modoDEMO) { *errorCode = E1; return false; }
+    if(!Estado.connected && !Estado.modoDEMO) { Estado.error = E1; return false; }
     char message[150];
     snprintf(message, sizeof(message), SWITCHDEVICE, idx, msg);
     String response;
     for (int i = 0; i < retries; i++) { //activacion con reintentos
         if ((simular.ErrorON && strcmp(msg, "On") == 0) || (simular.ErrorOFF && strcmp(msg, "Off") == 0))
             response = "ErrX";
-        else if (!modoDEMO)
+        else if (!Estado.modoDEMO)
             response = cmdtoSCD(message);
         if (response == "ErrX") {  // solo reintentamos si Domoticz informa del estado de la zona
             sonido.bip(1); // bip de "reintento"
@@ -183,39 +209,39 @@ bool deviceSwitch(int idx, const char *msg, int retries, uint8_t *errorCode)
     if (response.startsWith("Err")) {
         // Establecer el código de error explícitamente, sin lanzar alertas.
         if (response == "ErrX") {
-            if (strcmp(msg, "On") == 0) *errorCode = E4; // E4: error al iniciar riego
-            else *errorCode = E5; // E5: error al parar riego
+            if (strcmp(msg, "On") == 0) Estado.error = E4; // E4: error al iniciar riego
+            else Estado.error = E5; // E5: error al parar riego
         } else {
-            *errorCode = E2; // E2: otro error al comunicar con domoticz
+            Estado.error = E2; // E2: otro error al comunicar con domoticz
         }
         LOG_ERROR("IDX:", idx, "fallo en", msg);
         return false;
     }
     // 4. Caso OK
-    *errorCode = NOERROR;
+    Estado.error = NOERROR;
     return true;
 }
 
 /**---------------------------------------------------------------
  * lee factor de riego del Domoticz, almacenado en campo Description
  */
-int getFactor(uint16_t idx, bool &factorRiegosLeido)
+int getFactor(uint8_t zona, bool &factorRiegosLeido)
 {
   LOG_TRACE("");
+  uint16_t idx = getSCD_ID(zona);
   if(idx == 0) return 100; //si el IDX es 0 devolvemos 100 sin procesarlo (boton no asignado)
   factorRiegosLeido = false;
   String response = deviceInfo(idx, "Description");
   if (response.startsWith("Err")) {
-      if (modoDEMO) return 999;  //si estamos en modoDEMO devolvemos 999 y no damos error
+      if (Estado.modoDEMO) return 999;  //si estamos en modoDEMO devolvemos 999 y no damos error
       if(response != "Err2") {
         if (config.verify) statusError(E3); //error de deserializacion, posible IDX inexistente
       } else statusError(E2, RECUPERABLE); //error de conexion con Domoticz recuperable
       LOG_WARN("GETFACTOR IDX: ", idx, " respuesta recibida: ", response.c_str());
       return 100;
   }
-  //si hemos leido correctamente campo Description (numero, campo vacio o solo con comentarios)
-  //el IDX existe, consideramos leido OK el factor riego. 
-  //En los dos ultimos casos se devuelve valor por defecto 100.
+  // Si hemos leido correctamente campo Description (numero, campo vacio o solo con comentarios)
+  // el IDX existe, consideramos leido OK el factor riego. 
   factorRiegosLeido = true;
   return convertFactorString(response);
 } //fin getFactor
@@ -265,8 +291,9 @@ String getDomoticzSettingsInfo(const char *campo)
  * lee datos de temperatura y humedad del sensor remoto con el idx pasado
  * devuelve 999 si no hay sensor asignado (idx=0) o si hay error
  */
-float getRemoteTemperature(uint16_t idx)
+float getRemoteTemperature(void)
 {
+  int idx = config.tempRemoteIdx;
   LOG_TRACE("sensor temp IDX: ", idx);
   // si el IDX es 0 devolvemos 999 sin procesarlo (sensor no asignado)
   if(idx == 0) return 999;
@@ -301,8 +328,9 @@ void updateZoneDescription(int i) {
 /**---------------------------------------------------------------
  * verifica status de la zona coincide con el pasado, devolviendo true en ese caso
  */
-bool queryStatus(uint16_t idx, const char *status)
+bool queryStatus(uint8_t zona, const char *status)
 {
+  uint16_t idx = getSCD_ID(zona);
   LOG_DEBUG("idx:", idx, "status:", status, "allSimFlags:", simular.all_simFlags);
 
   if(simular.ErrorVerifyON) {   // simulamos EV no esta ON en Domoticz
@@ -311,8 +339,8 @@ bool queryStatus(uint16_t idx, const char *status)
   if(simular.ErrorVerifyOFF) {   // simulamos EV no esta OFF en Domoticz
     if(strcmp(status, "Off") == 0) return false; else return true; 
   } 
-  if(!connected) {
-    if(modoDEMO) return true; //si estamos en modoDEMO devolvemos true y no damos error
+  if(!Estado.connected) {
+    if(Estado.modoDEMO) return true; //si estamos en modoDEMO devolvemos true y no damos error
     else {
       Estado.error = E1;
       return false;
@@ -322,7 +350,7 @@ bool queryStatus(uint16_t idx, const char *status)
   LOG_DEBUG("response:", response);
   //procesamos la respuesta para ver si se ha producido error:
   if (response.startsWith("Err")) {
-    if (modoDEMO) return true;  //si estamos en modoDEMO devolvemos true y no damos error
+    if (Estado.modoDEMO) return true;  //si estamos en modoDEMO devolvemos true y no damos error
     if (response == "Err2") Estado.error = E2;
     else Estado.error = E3;
     LOG_WARN("queryStatus devuelve FALSE, error ", response.c_str());
@@ -334,7 +362,7 @@ bool queryStatus(uint16_t idx, const char *status)
   #endif
   if(strcmp(response.c_str(), status) == 0) return true; //si coinciden devolvemos true
   else{
-    if(modoDEMO) return true; //siempre devolvemos ok en modo simulacion
+    if(Estado.modoDEMO) return true; //siempre devolvemos ok en modo simulacion
     LOG_WARN("queryStatus devuelve FALSE, status / actual =",status,"/",response.c_str());
     return false;
   }  

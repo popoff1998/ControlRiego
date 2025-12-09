@@ -59,7 +59,7 @@
       })
       .catch(error => {
         console.error("Error al cargar riegos:", error);
-        document.querySelector('#tablaRiegos').innerHTML = '<tr><td colspan="5">Error cargando datos</td></tr>';
+        document.querySelector('#tablaRiegos').innerHTML = '<tr><td colspan="5">Sin datos o error cargandolos</td></tr>';
       });
 
     // Carga y muestra tabla de grupos
@@ -79,7 +79,7 @@
       })
       .catch(error => {
         console.error("Error al cargar grupos:", error);
-        document.querySelector('#tablaGrupos').innerHTML = '<tr><td colspan="4">Error cargando datos</td></tr>';
+        document.querySelector('#tablaGrupos').innerHTML = '<tr><td colspan="4">Sin datos o error cargandolos</td></tr>';
       });
 
     // Función para mostrar el log de una zona (por número de zona)
