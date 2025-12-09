@@ -8,7 +8,16 @@
  
  HTTPClient httpclient;
  WiFiClient client;
- 
+
+  //-----------------------  API con Domoticz ------nuevo formato v2023.2 en adelante------
+  #define COMMANDPRF    "/json.htm?type=command&param="
+  #define SWITCHDEVICE  "switchlight&idx=%d&switchcmd=%s"
+  #define QUERYDEVICE   "getdevices&rid=%d"
+  #define GETSWITCHLOG  "getlightlog&idx=%d"
+  #define GETSUNHOURS   "getSunRiseSet"
+  #define GETSETTINGS   "getsettings"
+  //---------------------------------------------------------------------------------------
+  
 //==================================================================================================//
 //=================== Funciones primarias basicas y de ayuda     ===================================//
 //==================================================================================================//
@@ -20,9 +29,17 @@ uint16_t getSCD_ID(uint8_t zonaNumber) {
     // La zonaNumber va de 1 a N, el índice (zIndex) va de 0 a N-1.
     int zIndex = zonaNumber - 1; 
     if (zIndex >= 0 && zIndex < NUMZONAS) {
-        return config.zona[zIndex].idx; // En el caso de Domoticz, el ID es el IDX
+        return config.zona[zIndex].idx; // En el caso de Domoticz, el SCD_ID es el IDX
     }
     return 0; // Devolver 0 si la zona no es válida
+}
+
+// Función auxiliar que registra el error específico, el JSON completo, 
+// y devuelve el código de error ("Err3").
+String returnErr3(const String &fullResponse, const char* msg1, const char* msg2 = "", const char* msg3 = "") {
+    LOG_ERROR(" ** [ERROR] ", msg1, msg2, msg3); 
+    LOG_ERROR(" ** [ERROR] JSON de entrada: ", fullResponse.c_str());
+    return "Err3";
 }
 
 /**------------------------------------------------------------------------------------
@@ -32,43 +49,39 @@ uint16_t getSCD_ID(uint8_t zonaNumber) {
  * @param level     Nivel donde se espera el campo (TOP_LEVEL o RESULT_ARRAY_0).
  * @return          El valor del campo como String, o un código de error ("Err3").
  */ 
-// Definimos una forma de indicar el nivel para mejorar la legibilidad del código
 enum JsonLevel {
     TOP_LEVEL = 0,     // Para campos como "Sunrise", "ServerTime"
     RESULT_ARRAY_0 = 1 // Para campos de dispositivo dentro de "result[0]"
 };    
 String parseResponse(const String &response, const char *campo, JsonLevel level)
 {
-    // Asegurarse de que no sea un código de error de HTTP/comunicación
-    if (response.startsWith("Err")) return response; 
-    char* response_pointer = (char*)response.c_str();
-    JsonDocument jsondoc;
-    // Deserializar la respuesta
-    DeserializationError error = deserializeJson(jsondoc, response_pointer);
-    if (error) {
-        LOG_ERROR(" ** [ERROR] deserializeJson() failed: ", error.c_str());
-        return "Err3"; // error de deserializacion
-    }    
-    const char *contenido_campo = NULL;
-    // Lógica para acceder al nivel correcto
+    if (response.startsWith("Err")) return response;
+    String respTrim = response;
+    respTrim.trim(); // Sanitizar la respuesta
+    JsonDocument jsondoc; 
+    DeserializationError error = deserializeJson(jsondoc, respTrim);
+    if (error) return returnErr3(respTrim, "deserializeJson() failed: ", error.c_str());
+    JsonVariant field;
     if (level == TOP_LEVEL) {
-        // Acceso directo: jsondoc["Sunrise"]
-        contenido_campo = jsondoc[campo];
-    } else if (level == RESULT_ARRAY_0) {  
-        // Acceso al primer elemento del array 'result': jsondoc["result"][0]["Status"]
-        contenido_campo = jsondoc["result"][0][campo];
-    } else {  
-        // Manejo de un nivel no definido
-        LOG_ERROR(" ** [ERROR] Nivel de JSON no valido: ", (int)level);
-        return "Err3";
-    }    
-    if(contenido_campo == NULL) {
-        LOG_ERROR(" ** [ERROR] parseResponse: campo ", campo, " no encontrado en el nivel ", (int)level);
-        LOG_ERROR(" ** [ERROR] respuesta: ", response.c_str());
-        return "Err3"; // campo no encontrado
-    }    
-    return contenido_campo;
-} //fin parseResponse   
+        field = jsondoc[campo];
+    } else if (level == RESULT_ARRAY_0) {
+        // Validar que la ruta 'result[0]' exista y sea segura
+        if (!jsondoc.containsKey("result") || !jsondoc["result"].is<JsonArray>()) {
+          return returnErr3(respTrim, "parseResponse: 'result' no encontrado o no es array"); }
+        field = jsondoc["result"][0][campo];
+    } else {
+          return returnErr3(respTrim, "parseResponse: nivel desconocido");    }
+    // Verifica si el campo existe y no es null
+    if (field.isNull()) {
+          return returnErr3(respTrim, "parseResponse: campo '", campo, "' no encontrado o NULL");}
+    // Extrae el valor como String.
+    String contenido = field.as<String>();
+    contenido.trim();
+    // Informa si la String resultante esta vacía
+    if (contenido.isEmpty()) LOG_DEBUG(" ** [WARNING] parseResponse: campo '", campo, "' vacío");
+    else LOG_DEBUG("Campo '", campo, "': ", contenido);
+    return contenido;
+}
 
 /**---------------------------------------------------------------
  * Comunicacion con Domoticz usando httpGet
@@ -115,8 +128,8 @@ String httpGetDomoticz(const String &message)
   return response;
 }  
 
-/**-----------------------------------------------------------------------
- * Convierte una String (campo Description) a un valor entero para el factor.
+/**-----------------------------------------------------------------------------------
+ * Convierte una String (campo Description) a un valor entero para el factor de riego.
  * Devuelve 100 por defecto si no es un número válido.
  */
 int convertFactorString(const String &response)
@@ -166,8 +179,8 @@ String deviceInfo(int idx, const char *campo)
 
 /**---------------------------------------------------------------
  * Envia a domoticz orden de on/off del idx correspondiente.
- * Devuelve el código de error específico a través del puntero errorCode. 
- * En caso de error no genera alertas visuales ni sonoras (lo hara la funcion llamante)
+ * Devuelve el código de error específico a través de Estado.error. 
+ * En caso de error no lo activa ni genera alertas visuales o sonoras (lo hara la funcion llamante)
  */
 bool deviceSwitch(uint8_t zona, const char *msg, int retries)
 {

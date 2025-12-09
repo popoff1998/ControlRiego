@@ -74,15 +74,6 @@
   #endif  
   #define WSPORT 8080
 
-  //-----------------------  API con Domoticz ------nuevo formato v2023.2 en adelante------
-  #define COMMANDPRF    "/json.htm?type=command&param="
-  #define SWITCHDEVICE  "switchlight&idx=%d&switchcmd=%s"
-  #define QUERYDEVICE   "getdevices&rid=%d"
-  #define GETSWITCHLOG  "getlightlog&idx=%d"
-  #define GETSUNHOURS   "getSunRiseSet"
-  #define GETSETTINGS   "getsettings"
-  //---------------------------------------------------------------------------------------
-  
   /* You only need to format LittleFS the first time you run a
   test or else use the LITTLEFS plugin to create a partition
   https://github.com/lorol/arduino-esp32littlefs-plugin */
