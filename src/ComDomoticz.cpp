@@ -129,8 +129,8 @@ String httpGetDomoticz(const String &message)
 }  
 
 /**-----------------------------------------------------------------------------------
- * Convierte una String (campo Description) a un valor entero para el factor de riego.
- * Devuelve 100 por defecto si no es un número válido.
+ * Extrae el factor de riego de un String (campo Description) si existe.
+ * Devuelve 100 por defecto en caso contrario.
  */
 int convertFactorString(const String &response)
 {
@@ -178,7 +178,7 @@ String deviceInfo(int idx, const char *campo)
 }
 
 /**---------------------------------------------------------------
- * Envia a domoticz orden de on/off del idx correspondiente.
+ * Envia a domoticz orden de on/off de la zona (idx correspondiente).
  * Devuelve el código de error específico a través de Estado.error. 
  * En caso de error no lo activa ni genera alertas visuales o sonoras (lo hara la funcion llamante)
  */
@@ -289,7 +289,7 @@ String getDomoticzSettingsInfo(const char *campo)
 }
 
 /**---------------------------------------------------------------
- * lee datos de temperatura y humedad del sensor remoto con el idx pasado
+ * lee datos de temperatura y humedad del sensor remoto asignado en config.tempRemoteIdx
  * devuelve 999 si no hay sensor asignado (idx=0) o si hay error
  */
 float getRemoteTemperature(void)

@@ -78,7 +78,9 @@
 - Si riego en pausa: ENC+PAUSA lo cancela también V3.3
 - En modo DEMO no se consolidan tiempos de riego (se recuperan los reales al salir) V3.3
 - Atajo: STOP+ENC+GRUPO1 activa Webserver V3.3
-- Refactorizado de funciones grandes para mejorar la legibilidad y el mantenimiento V3.3
-- Webserver: paginas con ultimos riegos y logs de riegos del Domoticz, pagina OTAupdate mejorada V3.3
+- Refactorizado general para mejorar la legibilidad y el mantenimiento V3.3
+- Modulo ComDomoticz.cpp para encapsular comunicacion con el SCD V3.3
+- Webserver: paginas con ultimos riegos y logs de riegos del Domoticz, mejoras validacion y visuales V3.3
+- En modo configuracion pueden usarse tanto PAUSE como el boton del encoder para seleccionar/validar V3.3
 
 
