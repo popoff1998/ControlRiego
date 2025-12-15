@@ -1,6 +1,7 @@
 #ifndef DisplayLCD_h
   #define DisplayLCD_h
   
+  #include "TiposGlobales.h"
   #include "LiquidCrystal_I2C.h"
 
   #define LCDBIGROW 2           // linea por defecto para timer en numeros grandes
@@ -32,7 +33,7 @@
       void displayTemp(int, int);
       void displayTime(uint8_t minute, uint8_t second, uint8_t col=LCDBIGCOL, uint8_t line=LCDBIGROW);
       void infoclear(const char *info, int line=1);
-      void infoclear(const char *info, int dnum, int btype, int bnum=0);
+      void infoclear(const char *info, int dnum, sonido_bips btype, int bnum=0);
       void infoEstado(const char* estado, const char* zona="         ");
       void info(const char* info, int line);
       void info(const char* info, int line, int size);

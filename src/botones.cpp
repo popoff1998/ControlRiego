@@ -261,12 +261,31 @@ bool testButton(uint16_t id,bool state)
    else return 0;
 }
 
+// Lee el estado del encoderSW (instantaneo o con antirebote segun modo)
+void leerEncoderSW() {
+  // Hace lectura instantanea si no estamos en modo CONFIGURANDO
+  // (encoderSw se comporta como modificador de otro boton)
+  if (Estado.estado != CONFIGURANDO) encoderSW = !digitalRead(ENCBOTON);
+  // Si estamos en modo CONFIGURANDO, aplicamos debounce
+  // (encoderSW se comporta como boton independiente emulando bPAUSE)
+  else {
+    static long lastDebounceTime = 0;
+    static int lastState = HIGH; // Asumiendo pull-up
+    int reading = !digitalRead(ENCBOTON);
+    if (reading != lastState) lastDebounceTime = millis();
+    if ((millis() - lastDebounceTime) > DEBOUNCEMILLIS) {
+        if (reading != encoderSW) encoderSW = reading;
+    }
+    lastState = reading;
+  }  
+}
+
 S_BOTON *parseInputs(bool read)
 {
   int i;
   //Para el debounce
   unsigned long currentMillis = millis();
-  if(currentMillis < (lastMillis + DEBOUNCEMILLIS)) return NULL;
+  if(currentMillis < (lastMillis + DEBOUNCEMILLIS)) return nullptr;
   else lastMillis = currentMillis;
   uint16_t inputs = readInputs();
   //analizamos estado de los botones habilitados en la estructura Boton[]
@@ -287,20 +306,31 @@ S_BOTON *parseInputs(bool read)
       }
     }
   }
-  return NULL;
+  return nullptr;
 }
 
 /**---------------------------------------------------------------
  * En modo configuracion, encoderSW simula pulsación de PAUSE
  * (selecciona item menu, valida cambios, etc)
  */
-void simulaPauseWithEncoderSW() {
-    // Obtenemos el índice del botón bPAUSE en el array Boton[]
-    int i = bID2bIndex(bPAUSE);
-    // Simular las acciones de parseInputs para bPAUSE:
-    Boton[i].estado = true;  // Simula que el botón está presionado
-    boton = &Boton[i];       // Apunta 'boton' al botón simulado
-    LOG_DEBUG("Simulando pulsación de PAUSE con encoderSW en modo CONFIGURANDO");
+void simulaPauseIfEncoderSW() {
+    static bool simulaPausePrev = false; 
+    int i = bID2bIndex(bPAUSE);         
+    // 1. TRANSICIÓN: PULSO (De false a true)
+    if (encoderSW && !simulaPausePrev) {
+        simulaPausePrev = true;
+        Boton[i].estado = true; 
+        boton = &Boton[i]; 
+        LOG_DEBUG("bPAUSE PULSO simulado.");
+        return;
+    }
+    // 2. TRANSICIÓN: LIBERACIÓN (De true a false)
+    if (!encoderSW && simulaPausePrev) {
+        simulaPausePrev = false;
+        // Limpiamos el estado simulado inmediatamente después de la liberación.
+        Boton[i].estado = false; // seguramente no es necesario, pero por claridad
+        LOG_DEBUG("bPAUSE LIBERACIÓN simulada.");
+    } 
 }
 
 // devuelve la posicion en array Boton[] (bIndex) del boton que se le ha pasado (bID)

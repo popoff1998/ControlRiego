@@ -84,45 +84,46 @@ void loop()
               *                 Funciones                    *
               *----------------------------------------------*/
 
+
 /**---------------------------------------------------------------
  * Tratamiento boton pulsado (si ha cambiado de estado)
  */
 void procesaBotones()
 {
-  // almacenamos estado pulsador del encoder (para modificar comportamiento de otros botones)
-  //NOTA: el encoderSW esta en estado HIGH en reposo y en estado LOW cuando esta pulsado
-  encoderSW = !digitalRead(ENCBOTON);
   if (!validaBoton()) return;
+  if (Estado.estado == CONFIGURANDO) return; // procesaEstadoConfigurando procesa sus botones
   //Procesamos el boton pulsado:
   switch (boton->bID) {
     //Primero procesamos los botones singulares, el resto van por default
     case bPAUSE:
-      procesaBotonPause();
-      break;
+    procesaBotonPause();
+    break;
     case bSTOP:
-      procesaBotonStop();
-      break;
+    procesaBotonStop();
+    break;
     case MULTIRRIEGO:
-      procesaBotonMultirriego(); 
-      break;
+    procesaBotonMultirriego(); 
+    break;
     default:
-      procesaBotonZona();
+    procesaBotonZona();
   }
+  //limpiamos el boton procesado (evitando borrar zona apuntada en multirriego) 
+  if (!multi.semaforo)  boton = nullptr;
 }
 
+
 bool validaBoton() {
+  // almacenamos estado pulsador del encoder (para modificar comportamiento de otros botones)
+  //NOTA: el encoderSW esta en estado HIGH en reposo y en estado LOW cuando esta pulsado
+  leerEncoderSW();
   //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multirriego
   if (multi.semaforo) multi.semaforo = false;  // si multisemaforo, no leemos botones: ya los pasa multirriego
   else  boton = parseInputs(READ);  // si no, vemos si algun boton ha cambiado de estado
   //En modo configuracion pulsar encoderSW equivale a pause (enter)
-  static bool simulaPausePrev = false;
-  if (Estado.estado == CONFIGURANDO && boton == NULL && encoderSW 
-      && config.encSWasPause && !simulaPausePrev) {
-    simulaPausePrev = true;  // evitamos múltiples simulaciones mientras se mantiene pulsado  
-    simulaPauseWithEncoderSW(); }
-  else simulaPausePrev = encoderSW; // reseteamos si encoderSW ya no esta pulsado
+  if (Estado.estado == CONFIGURANDO && boton == nullptr && config.encSWasPause) {
+    simulaPauseIfEncoderSW(); }
   //Si no se ha pulsado ningun boton salimos
-  if(boton == NULL) return false;
+  if(boton == nullptr) return false;
   //Si estamos en reposo pulsar cualquier boton solo nos saca de ese estado (salvo STOP que si actua y se procesa)
   if (Estado.reposo && boton->bID != bSTOP) {
     reposoOFF();
@@ -224,7 +225,7 @@ void setupEstado()
       lcd.info("EXIT -> release STOP",4);
       while (1) {
         boton = parseInputs(READ);
-        if(boton == NULL) continue;
+        if(boton == nullptr) continue;
         Serial.printf("parseImputs devuelve: boton->id %x  boton->estado %d \n", boton->bID ,boton->estado);
         
         if(boton->bID == bSTOP && !boton->estado ) break;
@@ -423,7 +424,6 @@ void handlePauseInError() {
     Estado.modoDEMO = true;
     sonido.bip(2);
     resetFlags();   //reset flags de status
-    resetLeds();    //reset leds
     if (Boton[bID2bIndex(bSTOP)].estado) setEstado(STOP,1);
     else setEstado(STANDBY);
 }
@@ -598,7 +598,7 @@ void procesaIfWebServer()
 */
 void procesaEstadoConfigurando()
 {
-  if (boton != NULL) {
+  if (boton != nullptr) {
     if (boton->flags.action) {
       if (boton->bID != bSTOP && webServerAct) return; //si webserver esta activo solo procesamos boton STOP
 
@@ -633,6 +633,9 @@ void procesaEstadoConfigurando()
             }
       }
     }
+    //limpiamos el boton procesado (evitando borrar zona apuntada si multirriego temporal) 
+    if (!multi.semaforo)  boton = nullptr;
+
   } else webServerAct ? procesaIfWebServer() : procesaEncoderConfig();
 }; //fin de procesaEstadoConfigurando
 
@@ -747,12 +750,12 @@ void procesaEstadoTerminando(void)
     }
     else {         // señalamos fin del multirriego y actualizamos timestamp de finalizacion
       if(!multi.temporal) finalTimeGrupo(lastGrupos[multi.ngrupo-1]);
+      resetFlags();  // reset flags de multirriego entre otros
       lcd.info("multirriego",1);
       int msgl = snprintf(buff, MAXBUFF, "%s finalizado", multi.desc);
       lcd.info(buff, 2, msgl);
-      resetFlags();
-      sonido.bipFIN();
       LOG_INFO("MULTIRRIEGO", multi.desc, "terminado");
+      sonido.bipFIN();
       delay(config.msgdisplaymillis*3);
       led(Boton[bID2bIndex(*multi.id)].led,OFF);  // apaga led grupo
       saveTablaToFile(lastGruposFile, "lastGrupos", lastGrupos, NUMGRUPOS);  //guardamos en fichero tabla de ultimos riegos de grupos
@@ -760,11 +763,18 @@ void procesaEstadoTerminando(void)
     }
   }
   else saveTablaToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
-  // si hay riego salvado y no estamos en multirriego lo recuperamos en pausa
-  if (riegoSaved.zonevalid && !multi.riegoON) restoreRiego();
-  else setEstado(STANDBY);
+  // 1. Caso especial: Si hay riego salvado y NO estamos en multirriego, lo recuperamos y terminamos.
+  if (!multi.riegoON && riegoSaved.zonevalid) {
+      restoreRiego();
+      return; 
+  }
+  // 2. Transición a STANDBY
+  if (!multi.riegoON) {
+      setEstado(STANDBY); // Si no estamos en multirriego, vamos a STANDBY normal
+  } else {
+      setStateMachine(STANDBY); // Si SÍ estamos en multirriego, vamos a STANDBY sin mostrar la pantalla
+  }
 }; //fin de procesaEstadoTerminando
-
 
 void procesaEstadoStandby(void)
 {
@@ -881,70 +891,71 @@ bool procesaDynamic(void)
   else return false; //no hay sitio --> zona ignorada   
 }   //fin de procesaDynamic
 
-/**---------------------------------------------------------------
- * Resetea estado y elementos de interfaz comunes a todos los estados
+/**----------------------------------------------------------------------------
+ * Inicializa estado pasado y flags asociados
  */
-void resetEstadoAndInterfase(uint8_t estado)
+void setStateMachine(m_estados estado, estado_tipos tipo)
 {
+  // set state (FSM):
   Estado.estado = estado;
   Estado.error = NOERROR;
+  Estado.tipo = tipo;
   Estado.failedStopRiego = false;
   Estado.recoverableError = false;
-  if(Estado.estado == !PAUSE) riegoFromPause = false; //reiniciamos flag
+  if (estado != PAUSE) riegoFromPause = false; //reiniciamos flag. TODO: ¿es necesario?
   strcpy(errorText, "");
   Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true; //Deshabilitamos el hold de Pause
   if(Estado.reposo) reposoOFF();     //por si salimos de stop antinenes
   rotaryEncoder.disable();  // para que no cuente pasos salvo que lo habilitemos
-  resetLCD(); // enciende display
-  setledRGB();   // led RGB segun status wifi y modoDEMO
-
+  
 }
 
-/**---------------------------------------------------------------
- * Pone estado pasado y sus indicadores opcionales
+/**--------------------------------------------------------------------------------------------------
+ * Activa estado pasado en la maquina de estados y en la interfaz de usuario (leds, display, sonidos)
  */
-void setEstado(uint8_t estado, int bnum, int tipo)
+void setEstado(m_estados estado, int bipcount, estado_tipos tipo)
 {
-  LOG_DEBUG( "recibido ", nEstado[estado], "bnum=", bnum, " tipo=", tipo);
-  // setup y reseteos varios
-  resetEstadoAndInterfase(estado);
-  // display si tipo estado REMOTO
-  lcd.setCursor(17, 1);
-  if (tipo == REMOTO) {Estado.tipo = REMOTO; lcd.print("(R)");}
-  else {Estado.tipo = LOCAL; lcd.print("   ");}
-  // acciones segun estado
-  if((estado == REGANDO || estado == TERMINANDO ) && ultimoBotonZona != NULL) {
+  LOG_DEBUG( "recibido ", nEstado[estado], "bipcount=", bipcount, " tipo=", tipo);
+  // setup estado y reseteos varios
+  setStateMachine(estado, tipo);
+  // setup elementos de interfaz (UI) comunes a todos los estados:
+  resetLCD();  // enciende display
+  setledRGB(); // led RGB segun status wifi y modoDEMO
+  lcd.setCursor(17, 1); 
+  tipo == REMOTO ? lcd.print("(R)") : lcd.print("   "); // display tipo estado REMOTO/LOCAL
+  // setup elementos de interfaz (visual y sonora) y elementos propios de cada estado
+  if (estado == REGANDO || estado == TERMINANDO ) {
+  // if((estado == REGANDO || estado == TERMINANDO ) && ultimoBotonZona != NULL) {
       lcd.infoEstado(nEstado[estado], config.zona[ultimoBotonZona->znumber-1].desc);
       if(Estado.modoDEMO) displayDemo(); 
       if(multi.dynamic) displayNoFactorizado();
-        else if(multi.temporal) displayMultiTemporal(); 
+      else if(multi.temporal) displayMultiTemporal(); 
       return;
   }
-  if(estado == PAUSE) {
+  if (estado == PAUSE) {
       lcd.infoEstado(nEstado[estado], config.zona[ultimoBotonZona->znumber-1].desc); 
-      if(bnum) sonido.bip(bnum);
+      if(bipcount) sonido.bip(bipcount);
       return;
   }
-  if(estado == STANDBY) {
-      if(!multi.riegoON) {  //en los intervalos entre riegos no se muestra la pantalla de standby
-        resetLeds();
-        lcd.infoclear("STANDBY",NOBLINK,BIP,bnum);
-        showTemp();
-      }  
+  if (estado == STANDBY) {
+      lcd.infoclear("STANDBY",NOBLINK,BIP,bipcount);
+      showTemp();
+      resetLeds();
       StaticTimeUpdate(REFRESH);
-      setEncoderTime();
       if(Estado.modoDEMO) displayDemo();
+      setEncoderTime();
       standbyTime = millis();
       return;
-  }
-  if(estado == STOP) {
-      lcd.infoclear("STOP", NOBLINK, LOWBIP, bnum);
+    }
+    if (estado == STOP) {
+      lcd.infoclear("STOP", NOBLINK, LOWBIP, bipcount);
+      resetLeds();
       return;
-  }
-  if(estado == CONFIGURANDO) {
-      lcd.infoclear("CONFIGURANDO", NOBLINK, LOWBIP, bnum);
+    }
+    if (estado == CONFIGURANDO) {
+      lcd.infoclear("CONFIGURANDO", NOBLINK, LOWBIP, bipcount);
+      resetLeds();
       ledYellow(ON);
-      boton = NULL; //borramos boton pulsado para que no sea tratado más adelante en procesaEstadoConfigurando
       return;
   }
 } //fin setEstado
@@ -1507,8 +1518,6 @@ void resetFlags()
   multi.temporal = false;
   multi.dynamic  = false;
   multi.semaforo = false;
-  Estado.failedStopRiego = false;
-  Estado.recoverableError = false;
   webServerAct = false;
   simular.all_simFlags = false;
 }
@@ -1594,10 +1603,10 @@ void timerTick() {
     timer.Timer();
 }
 
-int tmvalue()
+// set valor de tiempo de riego a configurar con el encoder (minutos o segundos)
+void tmvalue()
 {
   tm.value = ((tm.seconds==0)?tm.minutes:tm.seconds);
-  return tm.value;
 }
 
 
@@ -1610,10 +1619,7 @@ bool checkSCD()
   tic_parpadeoLedRecon.detach();
   ledPWM(LEDB,OFF);
   if(!SCD_OK) { LOG_ERROR(" ** sin conexion con Domoticz"); return false; }
-  Estado.estado = STANDBY; //borramos estado ERROR
-  Estado.error = NOERROR; //reseteamos error
-  Estado.failedStopRiego = false;
-  Estado.recoverableError = false; //reseteamos error recuperable
+  setStateMachine(STANDBY); // pasa a STANDBY sin mostrar mensajes en LCD
   return true;
 }
 
@@ -1665,7 +1671,6 @@ void Verificaciones()
     lastmillisReconnect = millis();
     checkReconInterval = true; //activamos el flag para que se realicen las verificaciones de reconexion
   }    
-
   /*
      Con flagV activado, se realizan las siguientes verificaciones periodicas:
       - estado de la wifi y recuperacion de la conexion si no la hay (en procesaEstadoStandby y procesaEstadoError)
@@ -1731,15 +1736,15 @@ void displayMultiTemporal() {
 /**---------------------------------------------------------------
  * pasa a estado ERROR
  */
-void statusError(uint8_t errorID, bool recoverable) 
+void statusError(error_tipos errorID, bool recoverable) 
 {
-  Estado.recoverableError = recoverable; //error recuperable o no
+  // set state (FSM): 
   Estado.estado = ERROR;
+  Estado.recoverableError = recoverable; //error recuperable o no
   Estado.error = errorID;
   Estado.tipo = LOCAL;
   rotaryEncoder.disable();
-  boton = NULL; //borramos boton pulsado para que no sea tratado más adelante en procesaEstadoError
-
+  // set user interfase (UI):
   if (errorID == E0) sprintf(errorText, "Error0");
   else sprintf(errorText, "Error%d", errorID);
   LOG_ERROR("SET ERROR: ", errorText);
@@ -1839,7 +1844,7 @@ void setupConfig()
     }  
   }
   for(int i=0;i<NUMGRUPOS;i++) {
-    //si en config campo desc del grupo esta vacio se copia el de por defectode la estructura Boton:
+    //si en config campo desc del grupo esta vacio se copia el de por defecto de la estructura Boton:
     if(strlen(config.group[i].desc) == 0) {
       strlcpy(config.group[i].desc, Boton[bID2bIndex(GRUPOS[i])].desc, sizeof(config.group[i].desc));
     }  
@@ -1929,7 +1934,7 @@ void scSorpresa() {
   void printMulti()
   {
       Serial.println(F("TRACE: in printMulti"));
-      if(multi.id == NULL) return;  // evita guru meditation si no se ha apuntado a ningun grupo
+      if(multi.id == nullptr) return;  // evita guru meditation si no se ha apuntado a ningun grupo
       Serial.printf("MULTI Boton_id x%04x: size=%d (%s)\n", *multi.id, *multi.size, multi.desc);
       for(int j = 0; j < *multi.size; j++) {
         Serial.printf("  Zona  id: x%04x \n", multi.serie[j]);

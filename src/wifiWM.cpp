@@ -301,10 +301,7 @@ bool VerifyRecoveryWifi(bool checkReconInterval) {
     if (Estado.connected && Estado.recoverableError) {
       LOG_INFO("conexion Wifi recuperada despues Setup, leemos factor riegos");
       ledPWM(LEDG,OFF);  // TODO comprobar si es necesario
-      Estado.estado = STANDBY; //borramos estado ERROR
-      Estado.error = NOERROR; //reseteamos error
-      Estado.failedStopRiego = false;
-      Estado.recoverableError = false; //reseteamos error recuperable
+      setStateMachine(STANDBY); // reseteamos estado ERROR
       initFactorRiegos(); //en caso de producirse error con esta funcion ya dejara este activado
       setupEstado();
     }

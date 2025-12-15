@@ -101,7 +101,7 @@ void Configure::Idx_process_end()
       delay(config.msgdisplaymillis);  // para que se vea el msg
       led(Boton[_actualIdxIndex].led,OFF);
 
-      tmvalue();  // restaura tiempo (en lugar del IDX)
+      // tmvalue();  // restaura tiempo (en lugar del IDX)
       this->menu(0);  // vuelve a mostrar menu de configuracion, primera linea
 }
 
@@ -334,7 +334,8 @@ void Configure::exit()
         }
       #endif
       LOG_TRACE("[poniendo estado STANDBY]");
-      setEstado(STANDBY);
+      lcd.clear(BORRA2H);  // para el caso de llamar a setStateMachine en lugar de a setEstado
+      multi.temporal ? setStateMachine(STANDBY) : setEstado(STANDBY);
 }
 
 

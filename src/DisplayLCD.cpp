@@ -197,7 +197,7 @@ void DisplayLCD::infoclear(const char *info, int line) {
  * @param btype = tipo de bip emitido
  * @param bnum = numero de bips emitidos
  */
-void DisplayLCD::infoclear(const char *info, int dnum, int btype, int bnum) {
+void DisplayLCD::infoclear(const char *info, int dnum, sonido_bips btype, int bnum) {
     LOG_DEBUG("[LCD]  Recibido: '",info, "'   (blink=",dnum, ") biptype=",btype,"(veces=",bnum,")");
     clear();
     if(info=="STOP") setCursor(8,1);

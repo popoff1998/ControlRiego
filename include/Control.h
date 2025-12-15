@@ -58,10 +58,12 @@
     #endif
   #endif
   
-  // librerias de terceros locales en carpeta /lib
+  //Librerias de terceros locales en carpeta /lib
   #include "AiEsp32RotaryEncoder.h" // libreria para el encoder rotatorio AiEsp32RotaryEncoder
   #include "MCP23017.h"  // expansor E/S MCP23017
   #include "pitches.h"   // notas musicales
+  //Para mis Tipos
+  #include "TiposGlobales.h"
   //Para mis clases
   #include "Configure.h"
   #include "DisplayLCD.h"
@@ -132,8 +134,6 @@
   #define SHORTCUTSENABLED    true    // admite atajos en estado STOP
   #define ENCSWASPAUSE        true    // encoderSW simula PAUSE en estado CONFIGURANDO
                                       // [*] = configurables
-  // #define PARMFILE    "/config_parm.json"     // archivo de configuracion de parametros
-  // #define BACKUPFILE  "/config_backup.json"   // archivo de backup de configuracion de parametros
 
  //----------------  dependientes del HW   ----------------------------------------
   #ifdef ESP32
@@ -194,65 +194,9 @@
   #define NORMAL 0.4
   #define RAPIDO 0.2
 
-  //Enums
-
-  enum _bips {
-    LONGBIP = 1,
-    LOWBIP,
-    BIP,
-    BIPOK,
-    BIPKO,
-    BIPFIN,
-  };
-
-  enum _melody {
-    LONGx3 = 1,
-    MIMI,
-    TARARI,
-  };
-
-  enum _estados {
-    STANDBY       ,
-    REGANDO       ,
-    CONFIGURANDO  ,
-    TERMINANDO    ,
-    PAUSE         ,
-    STOP          ,
-    ERROR         ,
-  };
-  
-  enum _opciones_varias {
-    ZONA = 1,
-    GRUPO,
-  };
-
   // literales para los estados en el display
   #define _ESTADOS "STANDBY" , "REGANDO:" , "CONFIGURANDO" , "TERMINANDO" , "PAUSA:" , "STOP" , "ERROR"
   const char nEstado[][15] = {_ESTADOS};
-
-  enum error_tipos {
-    NOERROR       = 0,
-    E0            = 10,
-    E1            = 1,
-    E2            = 2,
-    E3            = 3,
-    E4            = 4,
-    E5            = 5,
-  };
-
-  enum estado_tipos {
-    LOCAL       = 1,
-    REMOTO      = 2,
-  };
-
-  enum _flags {
-    ENABLED      = 0x01,
-    disabled     = 0x02,  // DISABLED en mayusculas daba error al compilar por ya definido en una libreria
-    ONLYSTATUS   = 0x04,
-    ACTION       = 0x08,
-    DUAL         = 0x10,
-    HOLD         = 0x20,
-  };
 
   //----------------  dependientes del HW   ----------------------------------------
   // ojo esta es la posición del bit de cada boton en el stream serie - no modificar -
@@ -367,9 +311,9 @@
 
   // estructura para el estado general del sistema (State Machine)
   struct S_Estado {
-    uint8_t estado = STANDBY; 
-    uint8_t tipo   = LOCAL;
-    uint8_t error  = NOERROR;
+    m_estados estado = STANDBY; 
+    estado_tipos tipo   = LOCAL;
+    error_tipos error  = NOERROR;
     // Campos de flags/modos de operación
     bool connected = false;
     bool modoDEMO = false;
@@ -585,6 +529,7 @@
     extern bool webServerAct;
     extern bool saveConfig;
     extern bool checkReconInterval;
+    extern bool encoderSW;
     extern const char *parmFile; 
     extern const char *backupParmFile;
     extern const char *lastRiegosFile;
@@ -671,6 +616,7 @@ void ledPWM(uint8_t, int);
 void ledRGB(int,int,int);
 bool ledStatusId(int);
 void ledYellow(int);
+void leerEncoderSW();
 void leeSerial(void);
 void listAllFilesInDir(fs::FS &fs, String dir_path);
 void listDir(fs::FS &fs, const char * dirname, uint8_t levels, uint8_t depth = 0);
@@ -696,6 +642,7 @@ void procesaBotonPause(void);
 void procesaBotonStop(void);
 void procesaBotonZona(void);
 bool procesaDynamic(void);
+void setStateMachine(m_estados estado, estado_tipos tipo=LOCAL);
 void procesaEncoderClock(void);
 void procesaEncoderConfig(void);
 void procesaEstadoConfigurando(void);
@@ -729,7 +676,7 @@ void setConnected(bool);
 void setEncoderMenu(int menuitems, int currentitem = 0);
 void setEncoderRange(int , int , int , int);
 void setEncoderTime(void);
-void setEstado(uint8_t estado, int bnum = 0, int tipo = LOCAL);
+void setEstado(m_estados estado, int bnum = 0, estado_tipos tipo = LOCAL);
 int  setGrupo();
 void setledRGB(void);
 int  setMultibyId(uint16_t);
@@ -744,11 +691,12 @@ void setupWS();
 void showInfoZona(int zIndex);
 void showTemp(void);
 void showTimeLastRiego(S_timeRiego&, int, int);
-void simulaPauseWithEncoderSW();
+void simulaPauseIfEncoderSW();
+void simulaPauseIfEncoderSW2();
 void startConfigPortal();
 void startZoneWatering();
 void StaticTimeUpdate(bool);
-void statusError(uint8_t, bool recoverable=false);
+void statusError(error_tipos, bool recoverable=false);
 bool stopAllRiego(void);
 bool stopRiego(uint16_t id, bool update = true, bool alertIfFails = true);
 String sysInfo(void);
@@ -756,7 +704,7 @@ bool testButton(uint16_t, bool);
 time_t tLoc(void);
 void timeByFactor(int,uint8_t *,uint8_t *);
 void timerTick(void);
-int  tmvalue(void);
+void  tmvalue(void);
 String TS2Date(time_t);
 String TS2Hour(time_t);
 void ultimosRiegos(int);
