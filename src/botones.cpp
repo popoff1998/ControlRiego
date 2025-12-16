@@ -7,7 +7,7 @@
 //Globales a este modulo
 unsigned long lastMillis;
 #define DEBOUNCEMILLIS 20
-volatile uint16_t ledStatus = 0;
+volatile uint16_t ledStatus = 0;  // necesita ser volatile porque se usa en interrupcion (ticker parpadeo leds de zonas)
 
 
 #define mcpO_ADDR 0x20    // MCP de salidas (LEDs)
@@ -23,33 +23,24 @@ bool sLEDB = LOW;
 
 
 void initWire() {
-
   Wire.begin(I2C_SDA, I2C_SCL, I2C_CLOCK_SPEED);     // primer bus I2C para la pantalla lcd
   Wire1.begin(I2C_SDA1, I2C_SCL1, I2C_CLOCK_SPEED);  // segundo bus I2C para los MCPs
 }
 
 void mcpOinit() {
-
     mcpO.init();
-    
 	/*set i/o pin direction as OUTPUT for both ports A and B en MCP de salidas (leds))*/
 	/* void portMode(port, directions, pullups, inverted); */
-
     mcpO.portMode(MCP23017Port::A, 0x00);  // output
     mcpO.portMode(MCP23017Port::B, 0b00001100, 0b00001100, 0b00001100);  // output (salvo B2-B3: input, pull-up, polaridad invertida)
-
 }
 
 void mcpIinit() {
-
     mcpI.init();
-    
 	/*set i/o pin direction as input for both ports A and B en MCP de entradas (botones)*/
 	/* void portMode(port, directions, pullups, inverted); */
-
     mcpI.portMode(MCP23017Port::A, 0b01111111, 0b01111111, 0b01111111);  // input (salvo A7), pull-up, polaridad invertida
     mcpI.portMode(MCP23017Port::B, 0b01111111, 0b01111111, 0b01111111);  // input (salvo B7), pull-up, polaridad invertida
-
 }
 
 
@@ -138,20 +129,13 @@ void actLedError(void) {
   ledRGB(ON,OFF,OFF);
 }
 
-void parpadeoLedWifi() {
-  sLEDG = !sLEDG;
-  ledPWM(LEDG,sLEDG);
-}
-
-void parpadeoLedAP() {
-  sLEDB = !sLEDB;
-  ledPWM(LEDB,sLEDB);
-}
-
-void parpadeoLedError()
-{
-  sLEDR = !sLEDR;
-  ledPWM(LEDR,sLEDR);
+void parpadeoLedPWM(int id) {
+  bool estadoActual;
+  if (id == LEDR) estadoActual = sLEDR;
+  else if (id == LEDG) estadoActual = sLEDG;
+  else if (id == LEDB) estadoActual = sLEDB;
+  else return; // Por seguridad, si el ID no es válido
+  ledPWM(id, !estadoActual);
 }
 
 void parpadeoLedZona(int ledid)
@@ -160,6 +144,20 @@ void parpadeoLedZona(int ledid)
   led(ledid,!estado);
 }
 
+// Versión para parpadeo RAPIDO, NORMAL y LENTO de leds PWM (RGB) o de zonas
+void setParpadeo(Ticker &t, velocidad_parpadeo vel, void (*f)(int), int id) {
+    t.detach();
+    if (vel <= FIJO) return;
+    t.attach(vel / 10.0, f, id);
+}
+
+// Versión solo para PARAR, APAGA o FIJO (led zona 1-16, led PWM 25-26-27)
+void setParpadeo(Ticker &t, velocidad_parpadeo vel, int ledid) {
+    t.detach();
+    if (vel == PARAR) return;
+    if (vel == APAGA)      ledid > 16? ledPWM(ledid,0) : led(ledid, 0);
+    else if (vel == FIJO)  ledid > 16? ledPWM(ledid,1) : led(ledid, 1);
+}
 
 //activa o desactiva el(los) led(s) indicadores de que estamos en modo configuracion (R+G=Y)
 void ledYellow(int estado)
@@ -263,14 +261,15 @@ bool testButton(uint16_t id,bool state)
 
 // Lee el estado del encoderSW (instantaneo o con antirebote segun modo)
 void leerEncoderSW() {
+  // NOTA: el encoderSW esta en estado HIGH en reposo y en estado LOW cuando esta pulsado
   // Hace lectura instantanea si no estamos en modo CONFIGURANDO
-  // (encoderSw se comporta como modificador de otro boton)
+  //   (encoderSw se comporta como modificador de otro boton)
   if (Estado.estado != CONFIGURANDO) encoderSW = !digitalRead(ENCBOTON);
   // Si estamos en modo CONFIGURANDO, aplicamos debounce
-  // (encoderSW se comporta como boton independiente emulando bPAUSE)
+  //   (encoderSW se comporta como boton independiente emulando bPAUSE)
   else {
     static long lastDebounceTime = 0;
-    static int lastState = HIGH; // Asumiendo pull-up
+    static int lastState = 0;
     int reading = !digitalRead(ENCBOTON);
     if (reading != lastState) lastDebounceTime = millis();
     if ((millis() - lastDebounceTime) > DEBOUNCEMILLIS) {
@@ -321,7 +320,7 @@ void simulaPauseIfEncoderSW() {
         simulaPausePrev = true;
         Boton[i].estado = true; 
         boton = &Boton[i]; 
-        LOG_DEBUG("bPAUSE PULSO simulado.");
+        LOG_DEBUG("bPAUSE PULSADO simulado.");
         return;
     }
     // 2. TRANSICIÓN: LIBERACIÓN (De true a false)
@@ -367,13 +366,4 @@ void setbIDgrupos()
   }
 }
 
-
-/* 
-int bID2zIndex(uint16_t id)
-{
-  for (uint i=0;i<NUMZONAS;i++) {
-    if(ZONAS[i] == id) return i;
-  }
-  return 999;
-}
- */
+// fin de src/botones.cpp

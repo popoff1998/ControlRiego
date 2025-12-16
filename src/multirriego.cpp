@@ -63,29 +63,29 @@ int setMultibyId(uint16_t id)
 // prepara el comienzo de un multirriego (normal o temporal)
 bool setMultirriego()
 {
-      sonido.bip(4); delay(50);
-      if(*multi.size > 0) {    // si grupo tiene zonas definidas
-          multi.riegoON = true;
-          multi.dynamic  = false;
-          multi.actual = 0;
-          multi.semaforo = true;
-          LOG_INFO("MULTIRRIEGO iniciado: ", multi.desc);
-          boton = &Boton[bID2bIndex(multi.serie[multi.actual])]; // simula pulsacion boton primera zona del grupo
-          if (multi.temporal) ultimosRiegos(HIDE); // apaga leds zonas seleccionadas en el multirriego temporal
-          else led(Boton[bID2bIndex(*multi.id)].led,ON); // enciende led del grupo pulsado si es normal
-          displayLCDGrupo(RESTO,2);  //  display zonas a regar
-          return true;
-      }
-      else {
-          lcd.info("  < VACIO >",2);  //muestra mensaje de grupo vacio
-          delay(config.msgdisplaymillis);
-          lcd.info("",2);   //borra msg de <VACIO>
-          return false;
-      }      
+  if(*multi.size > 0) {    // si grupo tiene zonas definidas
+      multi.riegoON = true;
+      multi.dynamic  = false;
+      multi.actual = 0;
+      multi.semaforo = true;
+      LOG_INFO("MULTIRRIEGO iniciado: ", multi.desc);
+      boton = &Boton[bID2bIndex(multi.serie[multi.actual])]; // simula pulsacion boton primera zona del grupo
+      if (multi.temporal) ultimosRiegos(HIDE); // apaga leds zonas seleccionadas en el multirriego temporal
+      else led(Boton[bID2bIndex(*multi.id)].led,ON); // enciende led del grupo pulsado si es normal
+      sonido.bip(4);
+      return true;
+  }
+  else {
+      lcd.info(" >> GRUPO VACIO <<",2);  //muestra mensaje de grupo vacio
+      sonido.bipKO();
+      delay(config.msgdisplaymillis);
+      lcd.info("",2);   //borra msg de <VACIO>
+      return false;
+  }      
 }
 
 
-void displayGrupo(uint16_t *serie, int serieSize)
+void displayLedsGrupo(uint16_t *serie, int serieSize)
 {
   led(Boton[bID2bIndex(*multi.id)].led,ON);
   int i;
@@ -102,14 +102,20 @@ void displayGrupo(uint16_t *serie, int serieSize)
   led(Boton[bID2bIndex(*multi.id)].led,OFF);
 }
 
-int displayLCDGrupo(bool full, int line)
+void displayLCDGrupo(bool full, int line, int znumber)
 {
   LOG_DEBUG("recibido full=",full,"line=",line);
   int posicion = 0;
   if(full) posicion = displayLCDGrupo(multi.zserie, *multi.size, line, 0);
-  else if( multi.actual+1 == *multi.size) lcd.info("", line);   // ultima zona por regar
+  else {
+      if( multi.actual+1 == *multi.size) lcd.info("", line);   // ultima zona por regar
        else posicion = displayLCDGrupo(multi.zserie, *multi.size, line, multi.actual+1);  //  display zonas quedan por regar
-  return posicion;     
+      if (znumber) {  // si hay zona salvada la mostramos con "+" a continuacion
+        lcd.setCursor(posicion, 1);
+        lcd.printf("+%d", znumber);
+      }
+  }    
+  return;     
 }
 
 int displayLCDGrupo(uint16_t *serieZonas, int serieSize, int line, int start)

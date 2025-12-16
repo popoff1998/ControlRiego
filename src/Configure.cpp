@@ -95,8 +95,8 @@ void Configure::Idx_process_end()
       saveConfig = true;
       
       LOG_INFO("Save Zona",zIndex+1,"(",Boton[_actualIdxIndex].desc,") IDX :",tm.value);
-      lcd.info("guardado IDX",2);
-      lcd.clear(BORRA2H);
+      lcd.info(" << GUARDADO >>",3);
+      // lcd.clear(BORRA2H);
       sonido.bipOK();
       delay(config.msgdisplaymillis);  // para que se vea el msg
       led(Boton[_actualIdxIndex].led,OFF);
@@ -212,7 +212,7 @@ void Configure::configureMulti_display(void)
       lcd.info(buff, 3);
 
       if(!_configuringMultiTemp) {    // no encendemos leds si grupo TEMPORAL
-        displayGrupo(multi.serie, *multi.size);
+        displayLedsGrupo(multi.serie, *multi.size);
         led(Boton[bID2bIndex(*multi.id)].led,ON);
       }  
 }              
@@ -334,7 +334,6 @@ void Configure::exit()
         }
       #endif
       LOG_TRACE("[poniendo estado STANDBY]");
-      lcd.clear(BORRA2H);  // para el caso de llamar a setStateMachine en lugar de a setEstado
       multi.temporal ? setStateMachine(STANDBY) : setEstado(STANDBY);
 }
 

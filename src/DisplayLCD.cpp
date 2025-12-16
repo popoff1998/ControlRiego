@@ -140,7 +140,7 @@ void DisplayLCD::blinkLCD(int veces) //parpadea contenido actual de la pantalla 
 }
 
 // muestra el estado de riego en curso y nombre de la zona en la primera linea del LCD
-void DisplayLCD::infoEstado(const char *estado, const char *zona) {
+void DisplayLCD::infoEstado(const char *estado, const char *zona, int bnum) {
     LOG_DEBUG("[LCD]  Recibido: ", estado, zona);
     setCursor(0, 0);
     LiquidCrystal_I2C::print(_blankline);
@@ -148,6 +148,7 @@ void DisplayLCD::infoEstado(const char *estado, const char *zona) {
     LiquidCrystal_I2C::print(estado);
     setCursor(11, 0);
     infoCut(zona, 9); // muestra el nombre de la zona con un maximo de 9 caracteres
+    if(bnum) sonido.bip(bnum);
 }    
 
 // muestra el texto pasado con un maximo de max caracteres

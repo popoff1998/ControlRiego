@@ -57,5 +57,14 @@
     HOLD         = 0x20,
   };
 
+  // frecuencia de parpadeo del led en decimas de segundo (para RAPIDO, NORMAL Y LENTO)  
+  enum velocidad_parpadeo {   
+    APAGA   = -2, // Detiene y apaga el LED
+    PARAR   = -1, // Solo detiene el Ticker (mantiene estado actual)
+    FIJO    = 0,  // Detiene y deja encendido fijo
+    RAPIDO  = 2,
+    NORMAL  = 4,
+    LENTO   = 8,     
+  };
 
 #endif

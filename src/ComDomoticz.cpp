@@ -231,11 +231,12 @@ int getFactor(uint8_t zona, bool &factorRiegosLeido)
   uint16_t idx = getSCD_ID(zona);
   if(idx == 0) return 100; //si el IDX es 0 devolvemos 100 sin procesarlo (boton no asignado)
   factorRiegosLeido = false;
+  ultimoBotonZona = &Boton[zNumber2bIndex(zona)]; //guardamos boton tratado para encender su led en statusError si se produjera
   String response = deviceInfo(idx, "Description");
   if (response.startsWith("Err")) {
       if (Estado.modoDEMO) return 999;  //si estamos en modoDEMO devolvemos 999 y no damos error
       if(response != "Err2") {
-        if (config.verify) statusError(E3); //error de deserializacion, posible IDX inexistente
+        if (config.verify) statusError(E3,NORECUPERABLE,NORMAL); //error de deserializacion, posible IDX inexistente, marcamos zona
       } else statusError(E2, RECUPERABLE); //error de conexion con Domoticz recuperable
       LOG_WARN("GETFACTOR IDX: ", idx, " respuesta recibida: ", response.c_str());
       return 100;

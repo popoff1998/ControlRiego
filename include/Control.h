@@ -115,7 +115,7 @@
   #define HOLDTIME            3000    // mseg que hay que mantener PAUSE pulsado para ciertas acciones
   #define MAXCONNECTRETRY     10      // numero maximo de reintentos de reconexion a la wifi tras el fallo en inicio
   #define VERIFY_INTERVAL     15      // intervalo en segundos entre verificaciones periodicas
-  #define HTTPCLIENTCONNECTTIMEOUT  500   // timeout (ms) para establecer conexion con el servidor Domoticz
+  #define HTTPCLIENTCONNECTTIMEOUT  1000  // timeout (ms) para establecer conexion con el servidor Domoticz
   #define HTTPCLIENTRESPONSETIMEOUT 1000  // timeout (ms) para recibir respuesta del servidor Domoticz
   #define MAX_UPLOAD_KBYTES   30      // tamaño maximo del fichero para hacer upload en KB
   #define DEFAULT_SWITCH_RETRIES 3    // numero de reintentos para parar o encender una zona de riego en el Domoticz
@@ -188,15 +188,10 @@
   #define BORRA2H 2
   #define LCDON 0
   #define RECUPERABLE 1
+  #define NORECUPERABLE 0
   #define INICIO 0
   #define RESUME 1
-  #define LENTO 0.8
-  #define NORMAL 0.4
-  #define RAPIDO 0.2
 
-  // literales para los estados en el display
-  #define _ESTADOS "STANDBY" , "REGANDO:" , "CONFIGURANDO" , "TERMINANDO" , "PAUSA:" , "STOP" , "ERROR"
-  const char nEstado[][15] = {_ESTADOS};
 
   //----------------  dependientes del HW   ----------------------------------------
   // ojo esta es la posición del bit de cada boton en el stream serie - no modificar -
@@ -341,7 +336,7 @@
   struct Grupo_parm {
     uint16_t bID;          // boton del grupo
     int size = 0;          // cantidad de zonas asociadas al grupo 
-    uint16_t zNumber[16];  // ojo! numero de las zonas, no es el boton asociado a ellas
+    uint16_t zNumber[ZONASXGRUPO];  // ojo! numero de las zonas, no es el boton asociado a ellas
     char desc[20] = "";    // descripcion del grupo
   } ;
 
@@ -405,17 +400,15 @@
 
   // estructura para salvar el estado de un riego en curso
   struct S_Riego_estado {
-    bool zonevalid = false;     // flag de datos riego en curso validos
-    uint16_t bID;                // id del boton de la zona en curso (bZona_x)
-    uint16_t znumber;           // numero de la zona en curso (Zona_x)
-    uint8_t minutes = 0;        // minutos restantes del riego en curso
-    uint8_t seconds = 0;        // segundos restantes del riego en curso
+    uint16_t bID = 0;            // id del boton de la zona en curso (bZona_x)
+    uint16_t znumber = 0;        // numero de la zona en curso (Zona_x)
+    uint8_t  minutes = 0;        // minutos restantes del riego en curso
+    uint8_t  seconds = 0;        // segundos restantes del riego en curso
     // CountUpDownTimer timer;         // temporizador del riego en curso ??
     // bool groupvalid = false;        // flag de datos grupo en curso validos
     // S_MULTI multirriego;            // estructura con los datos del multirriego en curso (si lo hay)
   };
 
-  const char MESES[][12] = {"Ene.", "Feb.", "Mar.", "Abr.", "May.", "Jun.", "Jul.", "Ago.", "Sep.", "Oct.", "Nov.", "Dic."};
 
    //Globales a _MAIN_ (Control.cpp)
   #ifdef __MAIN__
@@ -467,7 +460,6 @@
     const char *backupParmFile = "/datos/config_backup.json"; // fichero de respaldo de los parametros
     const char *lastRiegosFile = "/datos/lastRiegos.json";        // fichero de ultimos riegos de zonas
     const char *lastGruposFile = "/datos/lastGrupos.json";        // fichero de ultimos riegos de grupos
-    
     S_MULTI multi;     //estructura con variables del grupo de multirriego activo
     S_BOTON  *boton;   // apuntador al boton en curso en la matriz Boton[]
     S_Estado Estado;   // estructura con el estado actual de la maquina de estados
@@ -477,15 +469,15 @@
     Sonidos sonido;     // se pasa por referencia la estructura config al constructor de la clase
     S_initFlags initFlags ; // flags de inicializacion (borrado de parametros o wifi)
     CountUpDownTimer timer(DOWN); // temporizador cuenta atras
-    S_BOTON  *ultimoBotonZona;    // apuntador al ultimo boton de zona pulsado en la matriz Boton[]
+    S_BOTON  *ultimoBotonZona;    // apuntador al ultimo boton de zona pulsado/tratado en la matriz Boton[]
     S_simFlags simular;           // estructura flags para simular errores
     Configure    *configure;
     AiEsp32RotaryEncoder rotaryEncoder(ENCDT,ENCCLK,-1, -1, ROTARY_ENCODER_STEPS);
     Ticker tic_CountDownTimer;       //para llamar a la funcion de cuenta atras del temporizador
-    Ticker tic_parpadeoLedRecon;     //para parpadeo led LEDB con LEDR activo (morado)
-    Ticker tic_parpadeoLedError;     //para parpadeo led ERROR (LEDR)
-    Ticker tic_parpadeoLedZona;      //para parpadeo led zona de riego
-    Ticker tic_parpadeoLedZonas24h;  //para parpadeo led zonas regadas ultimas 24h
+    Ticker tic_LedRecon;     //para parpadeo led LEDB con LEDR activo (morado)
+    Ticker tic_LedError;     //para parpadeo led ERROR (LEDR)
+    Ticker tic_LedZona;      //para parpadeo led zona de riego
+    Ticker tic_LedZonas24h;  //para parpadeo led zonas regadas ultimas 24h
     Ticker tic_verificaciones;       //para verificaciones periodicas
     S_timeRiego lastRiegos[NUMZONAS];
     S_timeRiego lastGrupos[NUMGRUPOS];
@@ -503,7 +495,7 @@
     bool riegoFromPause = false;
     bool inSetup = true;
     unsigned long standbyTime;
-    int  ledID = 0;
+    // int  ledID = 0;
     int numloops = 0;
     char errorText[7];
     char amanecer[] = "NO TIME";
@@ -518,8 +510,9 @@
     // ademas de en main, son globales a todos los modulos:
     extern int NUM_S_BOTON;
     extern S_BOTON Boton [];
-    extern S_MULTI multi;
     extern S_BOTON  *boton;
+    extern S_BOTON  *ultimoBotonZona;
+    extern S_MULTI multi;
     extern S_Estado Estado;
     extern S_tm tm;
     extern DisplayLCD lcd;
@@ -546,7 +539,7 @@ void actLedError(void);
 void apagaLeds(void);
 int  bID2bIndex(uint16_t);
 void blinkDisplay(void);
-bool checkErrorgetFactor(int);
+// bool checkErrorgetFactor(int);
 void check(void);
 bool checkSCD(void);
 int  checkWifi(bool level=false);
@@ -559,12 +552,14 @@ void deleteParmSignal(uint);
 bool deviceSwitch(uint8_t zona, const char *msg, int retries);
 void dimmerLeds(bool);
 void displayDemo(void);
-void displayGrupo(uint16_t *, int);
-int  displayLCDGrupo(bool, int line=4);
+void displayEstadoRemoto(const char *estado_texto);
+void displayLedsGrupo(uint16_t *, int);
+void displayLCDGrupo(bool, int line=4, int znumber=0);
 int  displayLCDGrupo(uint16_t *, int, int , int );
 void displayMultiTemporal(void);
 void displayNoFactorizado(void);
 void displayTimer(uint8_t, uint8_t, uint8_t, uint8_t);
+void displayEstadoRemoto(estado_tipos tipo);
 void enciendeLeds(void);
 void endWS(void);
 static const char* errorToString(uint8_t);
@@ -624,9 +619,8 @@ bool loadConfigFile(const char*);
 void mcpIinit(void);
 void mcpOinit(void);
 void memoryInfo(void);
-void parpadeoLedAP(void);
-void parpadeoLedError(void);
-void parpadeoLedWifi(void);
+void pararLedsWifiAP();
+void parpadeoLedPWM(int id);
 void parpadeoLedZona(int);
 void parpadeoLedZonas24h(time_t);
 S_BOTON *parseInputs(bool);
@@ -642,7 +636,6 @@ void procesaBotonPause(void);
 void procesaBotonStop(void);
 void procesaBotonZona(void);
 bool procesaDynamic(void);
-void setStateMachine(m_estados estado, estado_tipos tipo=LOCAL);
 void procesaEncoderClock(void);
 void procesaEncoderConfig(void);
 void procesaEstadoConfigurando(void);
@@ -676,14 +669,17 @@ void setConnected(bool);
 void setEncoderMenu(int menuitems, int currentitem = 0);
 void setEncoderRange(int , int , int , int);
 void setEncoderTime(void);
-void setEstado(m_estados estado, int bnum = 0, estado_tipos tipo = LOCAL);
+void setEstado(m_estados estado, int bnum = 0, estado_tipos tipo = LOCAL, velocidad_parpadeo ledblink = FIJO);
 int  setGrupo();
 void setledRGB(void);
 int  setMultibyId(uint16_t);
 bool setMultirriego();
+void setParpadeo(Ticker &t, velocidad_parpadeo vel, void (*f_callback)(int), int ledid);
+void setParpadeo(Ticker &t, velocidad_parpadeo vel, int ledid=0);
+void setStateMachine(m_estados estado, estado_tipos tipo = LOCAL);
 void setzNumber(void);
 void setupConfig(void);
-void setupEstado(void);
+void setupEstadoFinal(void);
 void setupInit(void);
 void setupParm(void);
 void setupRedWM(S_initFlags&);
@@ -696,7 +692,7 @@ void simulaPauseIfEncoderSW2();
 void startConfigPortal();
 void startZoneWatering();
 void StaticTimeUpdate(bool);
-void statusError(error_tipos, bool recoverable=false);
+void statusError(error_tipos, bool recoverable=false, velocidad_parpadeo zonablink = FIJO, velocidad_parpadeo errorblink = FIJO);
 bool stopAllRiego(void);
 bool stopRiego(uint16_t id, bool update = true, bool alertIfFails = true);
 String sysInfo(void);

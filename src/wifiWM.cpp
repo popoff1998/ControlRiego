@@ -29,21 +29,19 @@ WiFiManagerParameter custom_timezone("timeZone", "timezone");
 void saveWifiCallback() {
     LOG_INFO("[CALLBACK] saveWifiCallback fired");
     // Eliminamos el temporizador y apagamos el led indicador de modo AP
-    tic_APLed.detach();
-    ledPWM(LEDB,OFF);
+    setParpadeo(tic_APLed, APAGA, LEDB);
     lcd.infoclear("conectando WIFI");
     // Empezamos el temporizador que hará parpadear el LED indicador de wifi
-    tic_WifiLed.attach(RAPIDO, parpadeoLedWifi);
+    setParpadeo(tic_WifiLed, RAPIDO, parpadeoLedPWM, LEDG);
 }
 
 //llamado cuando WiFiManager entra en modo configuracion
 void configModeCallback (WiFiManager *myWiFiManager) {
   LOG_INFO("[CALLBACK] configModeCallback fired");
   // apagamos el LED indicador de wifi
-  tic_WifiLed.detach();
-  ledPWM(LEDG,OFF);
+  setParpadeo(tic_WifiLed, APAGA, LEDG);
   // Empezamos el temporizador que hará parpadear el LED indicador de AP
-  tic_APLed.attach(NORMAL, parpadeoLedAP);
+  setParpadeo(tic_APLed, NORMAL, parpadeoLedPWM, LEDB);
   lcd.infoclear("   modo -AP- :", DEFAULTBLINK, LOWBIP, 1); //lo señalamos en display
   lcd.info("\"Ardomo\" activado", 3);
 }
@@ -127,8 +125,8 @@ void setupRedWM(S_initFlags &initFlags)
   custom_timezone.setValue(config.TZ, 100);
   if(Estado.noWIFI) return;
   lcd.infoclear("conectando WIFI");
-  tic_WifiLed.attach(RAPIDO, parpadeoLedWifi); // Empezamos el temporizador que hará parpadear el LED indicador de wifi
-  ledPWM(LEDR,OFF);   // y apagamos LEDR
+  ledPWM(LEDR,OFF);   // Apagamos LEDR
+  setParpadeo(tic_WifiLed, RAPIDO, parpadeoLedPWM, LEDG); // y empezamos el temporizador que hará parpadear el LED indicador de wifi
   // activamos conexion wifi y comprobamos si se establece
   if(!wm.autoConnect("Ardomo")) {
     LOG_WARN("Fallo en la conexión (timeout)");
@@ -142,9 +140,8 @@ void setupRedWM(S_initFlags &initFlags)
     *   - no nos hemos podido conectar a la red wifi almacenada o no habia y el modo configuracion ha 
     *     dado timeout (Estado.recoverableError=true)
     */
-  // detenemos parpadeo led AP (caso de que se hubiera activado antes AP)
-  tic_APLed.detach();
-  ledPWM(LEDB,OFF);   // y lo apagamos
+  // detenemos parpadeo y apagamos led AP (caso de que se hubiera activado antes AP)
+  setParpadeo(tic_APLed, APAGA, LEDB);
   //si no hemos podido conectar y existe una red wifi salvada,reintentamos hasta 20 seg.
   // (para caso corte de corriente)
   if (Estado.recoverableError && wm.getWiFiIsSaved()) {
@@ -152,7 +149,7 @@ void setupRedWM(S_initFlags &initFlags)
     LOG_INFO("Hay wifi salvada -> reintentamos la conexion");
     int j=0;
     Estado.recoverableError = false;
-    tic_WifiLed.attach(RAPIDO, parpadeoLedWifi);
+    setParpadeo(tic_WifiLed, RAPIDO, parpadeoLedPWM, LEDG);
     while(WiFi.status() != WL_CONNECTED) {
       Serial.print(F("."));
       WiFi.reconnect(); 
@@ -168,7 +165,7 @@ void setupRedWM(S_initFlags &initFlags)
   // dejamos LEDB segun estado de modoDEMO
   Estado.modoDEMO ? ledPWM(LEDB,ON) : ledPWM(LEDB,OFF);
   //detenemos parpadeo led wifi
-  tic_WifiLed.detach();
+  setParpadeo(tic_WifiLed, PARAR);
   if (checkWifi()) {
     LOG_INFO(" >>  Conectado a SSID: ", WiFi.SSID().c_str());
     LOG_INFO(" >>      IP address: ", WiFi.localIP());
@@ -210,10 +207,10 @@ void startConfigPortal()
     strcpy(config.TZ, custom_timezone.getValue());
   }
   // Eliminamos el temporizador y dejamos LEDB segun estado de modoDEMO
-  tic_APLed.detach();
+  setParpadeo(tic_APLed, PARAR);
   Estado.modoDEMO ? ledPWM(LEDB,ON) : ledPWM(LEDB,OFF);
   lcd.infoclear("reconectando WIFI");
-  tic_WifiLed.detach();
+  setParpadeo(tic_WifiLed, PARAR);
   checkWifi();  // ¿TODO es necesario?
 }
 
@@ -227,14 +224,15 @@ void setConnected(bool state) {
 int checkWifi(bool level) {
   //LOG_TRACE("in checkWifi");
   if(WiFi.status() == WL_CONNECTED) {
-    tic_WifiLed.detach();  // detenemos su parpadeo por si lo tuviera activo
-    ledPWM(LEDG,ON);  // Encendemos el LED indicador de wifi
+    // detenemos su parpadeo por si lo tuviera activo y encendemos el LEDG indicador de wifi
+    setParpadeo(tic_WifiLed, FIJO, LEDG);  
     Estado.connected = true;
     return level==true ? wm.getRSSIasQuality(WiFi.RSSI()) : true; // devuelve nivel señal wifi si level es true 
   }
   else {
     LOG_ERROR(" ** [ERROR] No estamos conectados a la wifi");
-    ledPWM(LEDG,OFF);  // apagamos el LED indicador de wifi
+    // detenemos su parpadeo por si lo tuviera activo y apagamos el LEDG indicador de wifi
+    setParpadeo(tic_WifiLed, APAGA, LEDG);  
     Estado.connected = false;
     return false;
   }
@@ -242,14 +240,14 @@ int checkWifi(bool level) {
 
 bool wifiReconnect () {
     LOG_WARN("----  INTENTANDO RECONEXION WIFI  ----");
-    tic_WifiLed.attach(RAPIDO, parpadeoLedWifi);
+    setParpadeo(tic_WifiLed, RAPIDO, parpadeoLedPWM, LEDG);
     lcd.info("conectando WIFI",1);
     // WiFi.reconnect(); 
     WiFi.disconnect();
     delay(3000);
     WiFi.begin();
     delay(3000);
-    tic_WifiLed.detach();
+    setParpadeo(tic_WifiLed, PARAR);
     if (checkWifi()) {
       int msgl = snprintf(buff, MAXBUFF, "wifi OK: %s", WiFi.SSID().c_str());
       lcd.info(buff, 1, msgl);
@@ -303,8 +301,13 @@ bool VerifyRecoveryWifi(bool checkReconInterval) {
       ledPWM(LEDG,OFF);  // TODO comprobar si es necesario
       setStateMachine(STANDBY); // reseteamos estado ERROR
       initFactorRiegos(); //en caso de producirse error con esta funcion ya dejara este activado
-      setupEstado();
+      setupEstadoFinal();
     }
     if (Estado.connected && !Estado.error) return true;
       else return false;
 }  
+
+void pararLedsWifiAP() {
+    setParpadeo(tic_WifiLed, PARAR);
+    setParpadeo(tic_APLed, PARAR);
+}

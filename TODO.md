@@ -82,5 +82,5 @@
 - Modulo ComDomoticz.cpp para encapsular comunicacion con el SCD Domoticz V3.3
 - Webserver: paginas con ultimos riegos y logs de riegos del Domoticz, mejoras de validacion y visuales V3.3
 - En modo configuracion pueden usarse tanto PAUSE como el boton del encoder para seleccionar/validar V3.3
-
+- Centralizacion de la mayoria de la UI (display, leds, sonidos) en setEstado y statusError V3.3
 
