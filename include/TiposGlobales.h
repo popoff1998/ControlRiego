@@ -26,6 +26,7 @@
     PAUSE         ,
     STOP          ,
     ERROR         ,
+    NUM_ESTADOS // numero de estados definidos en el enum
   };
   
   enum _opciones_varias {
@@ -35,12 +36,12 @@
 
   enum error_tipos {
     NOERROR       = 0,
-    E0            = 10,
     E1            = 1,
     E2            = 2,
     E3            = 3,
     E4            = 4,
     E5            = 5,
+    E0            = 10,
   };
 
   enum estado_tipos {

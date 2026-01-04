@@ -237,9 +237,9 @@ function validarEstructura(data) {
     if (!data.botones || !Array.isArray(data.botones)) {
         errores.push("Falta la clave 'botones' o no es un array.");
     }
-    if (!data.grupos || !Array.isArray(data.grupos)) {
-        errores.push("Falta la clave 'grupos' o no es un array.");
-    }
+    // if (!data.grupos || !Array.isArray(data.grupos)) {
+    //     errores.push("Falta la clave 'grupos' o no es un array.");
+    // }
     // --- Validación de contenido mínimo (solo si las claves principales existen) ---
     if (errores.length === 0) {
         // Verificar que 'botones' tenga al menos un elemento con la clave 'zona'
@@ -250,12 +250,12 @@ function validarEstructura(data) {
             errores.push("El array 'botones' debe contener al menos un objeto con la clave 'zona'.");
         }
         // Verificar que 'grupos' tenga al menos un elemento con la clave 'grupo'
-        const tieneGrupoValido = data.grupos.some(item => 
-            typeof item === 'object' && item !== null && 'grupo' in item
-        );
-        if (!tieneGrupoValido) {
-            errores.push("El array 'grupos' debe contener al menos un objeto con la clave 'grupo'.");
-        }
+        // const tieneGrupoValido = data.grupos.some(item => 
+        //     typeof item === 'object' && item !== null && 'grupo' in item
+        // );
+        // if (!tieneGrupoValido) {
+        //     errores.push("El array 'grupos' debe contener al menos un objeto con la clave 'grupo'.");
+        // }
     }
     if (errores.length > 0) {
         // Usamos throw para que el código llamador se detenga y muestre los errores.

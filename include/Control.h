@@ -350,7 +350,7 @@
 
   //estructura para parametros configurables
   struct Config_parm {
-    uint8_t   initialized=0;
+    bool initialized = false;
     static const int  n_Zonas = NUMZONAS;    //no modificable por fichero de parámetros (depende HW) 
     Zona_parm zona[n_Zonas];
     static const int  n_Grupos = NUMGRUPOS;  //no modificable por fichero de parámetros (depende HW)
@@ -407,6 +407,12 @@
     // CountUpDownTimer timer;         // temporizador del riego en curso ??
     // bool groupvalid = false;        // flag de datos grupo en curso validos
     // S_MULTI multirriego;            // estructura con los datos del multirriego en curso (si lo hay)
+  };
+
+  // estructura para los errores (tipo y descripcion)
+  struct ErrorEntry {
+      error_tipos id;
+      const char* descripcion;
   };
 
 
@@ -497,7 +503,6 @@
     unsigned long standbyTime;
     // int  ledID = 0;
     int numloops = 0;
-    char errorText[7];
     char amanecer[] = "NO TIME";
     char anochecer[] = "NO TIME";
     char buff[MAXBUFF];
@@ -562,7 +567,7 @@ void displayTimer(uint8_t, uint8_t, uint8_t, uint8_t);
 void displayEstadoRemoto(estado_tipos tipo);
 void enciendeLeds(void);
 void endWS(void);
-static const char* errorToString(uint8_t);
+static const char* errorToString(error_tipos);
 void filesInfo(void);
 void finalTimeGrupo(S_timeRiego&, time_t tZona = 0);
 void finalTimeLastRiego(S_timeRiego&);

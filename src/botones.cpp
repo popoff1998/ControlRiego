@@ -338,6 +338,7 @@ int bID2bIndex(uint16_t id)
   for (int i=0;i<NUM_S_BOTON;i++) {
     if (Boton[i].bID == id) return i;
   }
+  LOG_ERROR("!!! BUG DE CODIGO: bID no encontrado en Boton[]:", id);
   return 999;
 }
 
@@ -347,6 +348,7 @@ int zNumber2bIndex(uint16_t z)
   for (int i=0;i<NUM_S_BOTON;i++) {
     if (Boton[i].znumber == z) return i;
   }
+  LOG_ERROR("!!! BUG DE CODIGO: zona no encontrada en Boton[]:", z);
   return 999;
 }
 

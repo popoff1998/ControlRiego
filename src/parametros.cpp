@@ -17,55 +17,76 @@ bool loadConfigFile(const char *p_filename)
   LOG_INFO("\t tamaño de", p_filename, "-->", size, "bytes");
   if (size > 4096) {
     LOG_ERROR("Config file size is too large");
+    file.close();
     return false;
   }
-
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, file);
-
+  file.close();  // cerramos el fichero lo antes posible para caso de errores
   if (error) {
     LOG_ERROR("\t  deserializeJson() failed: ", error.c_str());
     return false;
   }
-  LOG_TRACE("procesa zonas");
-  //--------------  procesa botones zona (IDX)  --------------------------------------------------
-  for (JsonObject botones : doc["botones"].as<JsonArray>()) {
-      int numzonas = botones.size(); // cantidad de zonas que vienen definidas en el fichero
-      int i = botones["zona"] | 1;   // numero de la zona definida
-      if (numzonas > NUMZONAS || i > NUMZONAS || i <= 0) {
-        LOG_ERROR("ERROR cantidad de zonas o numero de la zona incorrecta. Mayor que:", NUMZONAS);
-        return false;
-      }  
-      config.zona[i-1].idx = botones["idx"] | 0;
-      strlcpy(config.zona[i-1].desc, botones["nombre"] | "", sizeof(config.zona[i-1].desc));
+  // 1. OBTENER ARRAYS Y VALIDAR TAMAÑO TOTAL ANTES DE ENTRAR EN BUCLES
+  JsonArray arrayBotones = doc["botones"].as<JsonArray>();
+  JsonArray arrayGrupos = doc["grupos"].as<JsonArray>();
+  LOG_INFO("\t Zonas definidas en fichero:", arrayBotones.size());
+  LOG_INFO("\t Grupos definidos en fichero:", arrayGrupos.size());
+  if (arrayBotones.size() == 0) {
+    LOG_ERROR("ERROR: No hay zonas en el fichero");
+    return false;
   }
-  LOG_TRACE("procesa grupos");
-  //--------------  procesa grupos  ---------------------------------------------------------
-  for (JsonObject grupos : doc["grupos"].as<JsonArray>()) {
-      int numgroups = grupos.size(); // cantidad de grupos que vienen definidas en el fichero
-      int i = grupos["grupo"] | 1;   // numero del grupo definido
-      if (numgroups > NUMGRUPOS || i > NUMGRUPOS || i <= 0) {
-        LOG_ERROR("ERROR cantidad de grupos o numero del grupo incorrecto. Mayor que:", NUMGRUPOS);
-        LOG_TRACE("check numgroups", numgroups,"i=",i);
-        return false;
-      }  
-      strlcpy(config.group[i-1].desc, grupos["desc"] | "", sizeof(config.group[i-1].desc)); 
-      JsonArray zonas = grupos["zonas"].as<JsonArray>();
-      int count = zonas.size();
-      if (count > ZONASXGRUPO) {
-        LOG_ERROR("ERROR zonas en el grupo", i,"mayor que:", ZONASXGRUPO);
-        LOG_TRACE("check count zonas", count,"i=",i);
-        return false;
-      }  
-      config.group[i-1].size = count;  //tamaño del grupo 
-      int j = 0;
-      for(JsonVariant zonas_item_elemento : zonas) {
-        config.group[i-1].zNumber[j] = zonas_item_elemento;
-        j++;
+  if (arrayBotones.size() > NUMZONAS) {
+    LOG_ERROR("ERROR: Demasiadas zonas:", arrayBotones.size(), ">", NUMZONAS);
+    return false;
+  }
+  if (arrayGrupos.size() > NUMGRUPOS) {
+    LOG_ERROR("ERROR: Demasiados grupos:", arrayGrupos.size(), ">", NUMGRUPOS);
+    return false;
+  }
+  // Reseteamos flag y contadores antes de procesar
+  config.initialized = false;
+  int zonasCargadasOk = 0;
+  int gruposCargadosOk = 0;  
+  // 2. PROCESAR ZONAS
+  LOG_TRACE("procesa zonas");
+  for (JsonObject z : arrayBotones) {
+      int i = z["zona"] | 0;  // numero de la zona definida
+      if (i > NUMZONAS || i <= 0) {
+          LOG_ERROR("ERROR: numero de zona incorrecto:", i);
+          return false;
       }
-      i++;
-      LOG_TRACE("config initialized");
-      config.initialized = 1; //solo marcamos como init config si pasa por este bucle
+      config.zona[i-1].idx = z["idx"] | 0;
+      strlcpy(config.zona[i-1].desc, z["nombre"] | "", sizeof(config.zona[i-1].desc));
+      zonasCargadasOk++;
+  }
+  if (zonasCargadasOk == arrayBotones.size()) {
+      config.initialized = true;  // solo si todas las zonas se han cargado OK
+  }
+  // 3. PROCESAR GRUPOS
+  LOG_TRACE("procesa grupos");
+  for (JsonObject g : arrayGrupos) {
+      int i = g["grupo"] | 0;  // numero del grupo definido
+      if (i > NUMGRUPOS || i <= 0) {
+          LOG_ERROR("ERROR: numero de grupo incorrecto:", i);
+          return false;
+      }
+      strlcpy(config.group[i-1].desc, g["desc"] | "", sizeof(config.group[i-1].desc));
+      JsonArray zonasArr = g["zonas"].as<JsonArray>();
+      int count = zonasArr.size();
+      if (count > ZONASXGRUPO) {
+          LOG_ERROR("ERROR: Zonas en grupo", i, "exceden el máximo de:", ZONASXGRUPO);
+          return false;
+      }
+      config.group[i-1].size = count;    //tamaño del grupo
+      int j = 0;
+      for(JsonVariant v : zonasArr) {
+          config.group[i-1].zNumber[j++] = v.as<int>();
+      }
+      gruposCargadosOk++;
+  }
+  if (gruposCargadosOk != arrayGrupos.size()) {
+      config.initialized = false;  // si falla algun grupo, no considera inicializada config
   }
   LOG_TRACE("procesa resto de parametros");
   //--------------  procesa parametro individuales   ----------------------------------------
@@ -91,10 +112,8 @@ bool loadConfigFile(const char *p_filename)
   config.dynamic = doc["dynamic"] | false;
   config.lastr24 = doc["lastr24"] | false;
   //-------------------------------------------------------------------------------------------
-  file.close();
-  if (!config.initialized) return false;
-  return true;
-}
+  return config.initialized;
+} // end loadConfigFile
 
 bool saveConfigFile(const char *p_filename)
 {
@@ -163,7 +182,7 @@ bool saveConfigFile(const char *p_filename)
   else LOG_DEBUG("    tamaño del jsondoc: (",docsize,")");
   file.close();
   return true;
-}
+} // end saveConfigFile
 
 
 bool copyConfigFile(const char *fileFrom, const char *fileTo)
@@ -194,7 +213,7 @@ bool copyConfigFile(const char *fileFrom, const char *fileTo)
     LOG_TRACE("copiado ",fileFrom," en ",fileTo, "OK returning true");
     return true;
   } 
-}
+} // end copyConfigFile
 
 //borrado de los ficheros de parametros,backup y riegos para resetear la configuracion
 bool deleteParmFiles()
@@ -211,6 +230,7 @@ bool deleteParmFiles()
 //init minimo de config para evitar fallos en caso de no poder cargar parametros de ficheros
 void zeroConfig() {
   LOG_TRACE("");
+  config = Config_parm(); //reset estructura config a valores por defecto
   for (int j=0; j<config.n_Grupos; j++) {
     config.group[j].bID = GRUPOS[j];
     config.group[j].size = 0;
@@ -260,6 +280,44 @@ void printParms() {
   Serial.printf("\tlastr24= %d \n", config.lastr24);
   Serial.println("----------------------------------------------------------------\n");
 }
+
+// void printParms2() {
+//   Serial.println(F("\n--- CONTENIDO ESTRUCTURA CONFIGURACIÓN ---"));
+//   // Zonas
+//   Serial.printf("Zonas definidas (MAX %d):\n", config.n_Zonas);
+//   for(int i = 0; i < config.n_Zonas; i++) {
+//     // Si la zona no tiene IDX, quizás no esté configurada
+//     if (config.zona[i].idx != 0) {
+//       Serial.printf("  [%d] IDX:%d | Desc: %s\n", i + 1, config.zona[i].idx, config.zona[i].desc);
+//     }
+//   }
+//   // Grupos
+//   Serial.printf("Grupos definidos (MAX %d):\n", config.n_Grupos);
+//   for(int i = 0; i < config.n_Grupos; i++) {
+//     if (config.group[i].size > 0) {
+//       Serial.printf("  G%d: %s (Zonas: %d)\n", i + 1, config.group[i].desc, config.group[i].size);
+//       Serial.print(F("      Lista IDs: "));
+//       for(int j = 0; j < config.group[i].size; j++) {
+//         Serial.printf("%d%s", config.group[i].zNumber[j], (j == config.group[i].size - 1) ? "" : ", ");
+//       }
+//       Serial.println();
+//     }
+//   }
+//   // Red y Tiempo
+//   Serial.println(F("Conexión y Sincronización:"));
+//   Serial.printf("  Domoticz: %s:%s\n", config.domoticz_ip, config.domoticz_port);
+//   Serial.printf("  NTP: %s | TZ: %s\n", config.ntpServer, config.TZ);
+//   // Parámetros de Sistema (Booleanos convertidos a texto para lectura rápida)
+//   Serial.println(F("Parámetros de Sistema:"));
+//   Serial.printf("  Riego defecto: %02d:%02d\n", config.minutes, config.seconds);
+//   Serial.printf("  Alertas: TempESP32 > %d°C | Mute: %s | Vol: %d\n", 
+//                 config.warnESP32temp, config.mute ? "SI" : "NO", config.volume);
+//   Serial.printf("  Flags: Dinámico:%s | Verify:%s | LastR24:%s | XName:%s\n",
+//                 config.dynamic ? "SI" : "NO", config.verify ? "SI" : "NO", 
+//                 config.lastr24 ? "SI" : "NO", config.xname ? "SI" : "NO");
+//   Serial.println(F("------------------------------------------\n"));
+// }
+
 
 void filesInfo() 
 {

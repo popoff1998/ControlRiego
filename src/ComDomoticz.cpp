@@ -83,50 +83,78 @@ String parseResponse(const String &response, const char *campo, JsonLevel level)
     return contenido;
 }
 
-/**---------------------------------------------------------------
- * Comunicacion con Domoticz usando httpGet
- * HTTPClient tiene dos timeouts:
- *    ConnectTimeout: tiempo maximo para establecer la conexion con el servidor (default 5000ms)
- *    response Timeout: tiempo maximo para recibir la respuesta del servidor (default 5000ms)
- *  En este caso, al ser la conexión local, nos interesa reducir el ConnectTimeout y tambien el Timeout
- *  para evitar bloqueos largos en caso de que Domoticz no responda.
- */ 
-String httpGetDomoticz(const String &message) 
-{
+/**
+ * Procesa un error ya ocurrido. 
+ * Gestiona errores de comunicación y asigna códigos de estado.
+ * Devuelve TRUE si el error es "ignorable" (Modo DEMO).
+ * Devuelve FALSE si el error es real y debe marcarse en el sistema.
+ */
+bool isErrorIgnorable(const String &response) {
+    if (Estado.modoDEMO) {
+        LOG_DEBUG("Modo DEMO: Error ignorado (", response.c_str(), ")");
+        return true; 
+    }
+    // Si no es DEMO, el error es real -> se informa
+    if (response == "Err2") Estado.error = E2;
+    else Estado.error = E3;
+    LOG_WARN("Fallo de comunicación: ", response.c_str());
+    return false;
+}
+
+/**------------------------------------------------------------------------------------------------
+ * @brief Realiza una petición GET HTTP a la API de Domoticz.
+ * * Construye la URL dinámicamente incluyendo IP, puerto y parámetros (pudiendo incluir user:password@). 
+ * * @param message String con el endpoint y parámetros (ej: "/json.htm?type=command...").
+ * @return String JSON con la respuesta o código de error interno:
+ * - "Err2": Fallo de conexión o Timeout de red.
+ * - "Err3": Respuesta del servidor distinta a HTTP 200 OK.
+ * - "ErrX": Domoticz respondió, pero el JSON contiene un error interno en Domoticz.
+ * - "{}":   Valor inicial por defecto.
+ * * @note Basado en HTTPClient. Usa HTTPCLIENTCONNECTTIMEOUT y HTTPCLIENTRESPONSETIMEOUT.
+ *   Al ser conexión local, se reducen estos tiempos para evitar retardos en la UI.
+ *---------------------------------------------------------------------------------------------------*/
+String httpGetDomoticz(const String &message) {
   LOG_TRACE("");
-  lcd.displayON();  // para evitar pantalla sin info en caso de retardo en la respuesta
-  String tmpStr = "http://" + String(config.domoticz_ip) + ":" + config.domoticz_port + String(message);
-  LOG_DEBUG("TMPSTR:", tmpStr);
+  lcd.displayON(); 
+  String tmpStr = "";
+  tmpStr.reserve(150); 
+  tmpStr += "http://";
+  tmpStr += config.domoticz_ip;
+  tmpStr += ":";
+  tmpStr += config.domoticz_port;
+  tmpStr += message;
+  LOG_DEBUG("URL Generada:", tmpStr);
   httpclient.begin(client, tmpStr);
   httpclient.setConnectTimeout(HTTPCLIENTCONNECTTIMEOUT);
   httpclient.setTimeout(HTTPCLIENTRESPONSETIMEOUT);
   String response = "{}";
-  unsigned long currentMillis = millis();
+  unsigned long startMs = millis();
   int httpCode = httpclient.GET();
-  LOG_DEBUG("respuesta recibida en :", millis()-currentMillis, "ms");
-  if(httpCode > 0) {
-    if(httpCode == HTTP_CODE_OK) {
-        response = httpclient.getString();
-        #ifdef EXTRADEBUG
-        Serial.print(F("httpGetDomoticz RESPONSE: "));Serial.println(response);
-        #endif
-    } else {  
-        LOG_WARN("respuesta no OK de Domoticz, HTTP_CODE: ", httpCode, "(see RFC7231)");
-        return "Err3";
-      }  
-    } else if(Estado.estado != ERROR) {   // para no repetir mensajes de error
-        LOG_ERROR("ERROR comunicando con Domoticz: ", httpclient.errorToString(httpCode).c_str()); 
-        return "Err2";
-  }      
-  //vemos si la respuesta recibida del Domoticz indica status error
-  int pos = response.indexOf("\"status\" : \"ERR");
-  if(pos != -1) {
-    LOG_ERROR(" ** Domoticz a devuelto error: ", response.c_str()); 
-    return "ErrX";
-  }  
-  httpclient.end();
+  LOG_DEBUG("Petición finalizada en:", millis() - startMs, "ms");
+  if (httpCode == HTTP_CODE_OK) {  // httpCode=200 OK
+      response = httpclient.getString();
+      #ifdef EXTRADEBUG
+        Serial.print(F("DOMO RSP: ")); Serial.println(response);
+      #endif
+      // Valida si el JSON reporta un error de ejecución en Domoticz
+      if (response.indexOf("\"status\" : \"ERR") != -1) {
+          LOG_ERROR("Domoticz reportó error interno:", response.c_str());
+          response = "ErrX";
+      }
+  } 
+  else if (httpCode > 0) {  // respuesta http no OK del servidor
+      LOG_WARN("HTTP Error:", httpCode);
+      response = "Err3";
+      } 
+      else {  //  httpCode<0 fallo en la conexion
+          if (Estado.estado != ERROR) {  // para no repetir mensajes de error
+              LOG_ERROR("Fallo conexión con Domoticz:", httpclient.errorToString(httpCode).c_str());
+          }
+          response = "Err2";
+      }
+  httpclient.end(); // Libera memoria y cierra el socket
   return response;
-}  
+}
 
 /**-----------------------------------------------------------------------------------
  * Extrae el factor de riego de un String (campo Description) si existe.
@@ -190,34 +218,32 @@ bool deviceSwitch(uint8_t zona, const char *msg, int retries)
     if(idx == 0) return true;
     // 2. Caso E1 (Error de WiFi)
     if(!Estado.connected && !Estado.modoDEMO) { Estado.error = E1; return false; }
+    // 3. Activacion con reintentos:
     char message[150];
     snprintf(message, sizeof(message), SWITCHDEVICE, idx, msg);
     String response;
-    for (int i = 0; i < retries; i++) { //activacion con reintentos
-        if ((simular.ErrorON && strcmp(msg, "On") == 0) || (simular.ErrorOFF && strcmp(msg, "Off") == 0))
-            response = "ErrX";
-        else if (!Estado.modoDEMO)
-            response = cmdtoSCD(message);
+    for (int i = 0; i < retries; i++) { 
+        if ((simular.ErrorON && strcmp(msg, "On") == 0) || (simular.ErrorOFF && strcmp(msg, "Off") == 0)) response = "ErrX";
+        else if (!Estado.modoDEMO) response = cmdtoSCD(message); // en modo DEMO no se envia mandato On/Off
         if (response == "ErrX") {  // solo reintentamos si Domoticz informa del estado de la zona
             sonido.bip(1); // bip de "reintento"
             LOG_WARN("IDX:", idx, "fallo en", msg, "(intento", i+1, "de", retries, ")");
-            delay(DELAYRETRY);
-        } else
-            break;
+            if (i < (retries - 1)) delay(DELAYRETRY);
+        } 
+        else break;  // salimos por reintentos agotados o respuesta recibida correcta
     }
-    // 3. Caso Error (Fallo en la Conmutación o Comunicación)
+    // 4. Gestión final si error tras agotar reintentos (Fallo en la conmutación o comunicación):
     if (response.startsWith("Err")) {
-        // Establecer el código de error explícitamente, sin lanzar alertas.
+        // Clasificamos el error base (E2 o E3) en Estado.error
+        isErrorIgnorable(response); 
+        // Pero para el riego, sobreescribimos con errores específicos (E4 inicio, E5 parada)
         if (response == "ErrX") {
-            if (strcmp(msg, "On") == 0) Estado.error = E4; // E4: error al iniciar riego
-            else Estado.error = E5; // E5: error al parar riego
-        } else {
-            Estado.error = E2; // E2: otro error al comunicar con domoticz
+            Estado.error = (strcmp(msg, "On") == 0) ? E4 : E5; 
         }
-        LOG_ERROR("IDX:", idx, "fallo en", msg);
+        LOG_ERROR("IDX:", idx, " fallo definitivo en ", msg, " con estado ", Estado.error);
         return false;
     }
-    // 4. Caso OK
+    // 5. Caso OK
     Estado.error = NOERROR;
     return true;
 }
@@ -234,8 +260,8 @@ int getFactor(uint8_t zona, bool &factorRiegosLeido)
   ultimoBotonZona = &Boton[zNumber2bIndex(zona)]; //guardamos boton tratado para encender su led en statusError si se produjera
   String response = deviceInfo(idx, "Description");
   if (response.startsWith("Err")) {
-      if (Estado.modoDEMO) return 999;  //si estamos en modoDEMO devolvemos 999 y no damos error
-      if(response != "Err2") {
+      if (isErrorIgnorable(response)) return 999;  //si estamos en modoDEMO devolvemos 999 y no damos error
+      if(Estado.error == E3) {
         if (config.verify) statusError(E3,NORECUPERABLE,NORMAL); //error de deserializacion, posible IDX inexistente, marcamos zona
       } else statusError(E2, RECUPERABLE); //error de conexion con Domoticz recuperable
       LOG_WARN("GETFACTOR IDX: ", idx, " respuesta recibida: ", response.c_str());
@@ -297,9 +323,8 @@ float getRemoteTemperature(void)
 {
   int idx = config.tempRemoteIdx;
   LOG_TRACE("sensor temp IDX: ", idx);
-  // si el IDX es 0 devolvemos 999 sin procesarlo (sensor no asignado)
-  if(idx == 0) return 999;
-  if(!checkWifi()) return 999; //si no hay conexion devolvemos 999 y no damos error
+  // si el IDX es 0 (sensor no asignado) o no hay conexion devolvemos 999 
+  if(idx == 0 || !Estado.connected) return 999;
   String response = deviceInfo(idx, "Data");  //campo Data devuelve temperatura como caracteres (ej. "9.4 C")
   //String response = deviceInfo(idx, "Temp");  //campo Temp devuelve temperatura como numero (ej. 9.4)
   LOG_INFO("Temperatura recibida del Domoticz: ", response);
@@ -334,40 +359,26 @@ bool queryStatus(uint8_t zona, const char *status)
 {
   uint16_t idx = getSCD_ID(zona);
   LOG_DEBUG("idx:", idx, "status:", status, "allSimFlags:", simular.all_simFlags);
-
-  if(simular.ErrorVerifyON) {   // simulamos EV no esta ON en Domoticz
-    if(strcmp(status, "On") == 0) return false; else return true; 
-  } 
-  if(simular.ErrorVerifyOFF) {   // simulamos EV no esta OFF en Domoticz
-    if(strcmp(status, "Off") == 0) return false; else return true; 
-  } 
-  if(!Estado.connected) {
-    if(Estado.modoDEMO) return true; //si estamos en modoDEMO devolvemos true y no damos error
-    else {
+  // simulacion de error en la verificacion:
+  if (simular.ErrorVerifyON  && (strcmp(status, "On") == 0)) return false; 
+  if (simular.ErrorVerifyOFF && (strcmp(status, "Off") == 0)) return false;
+  if (Estado.modoDEMO) return true; //en modoDEMO no se verifica status
+  if (!Estado.connected) {
       Estado.error = E1;
       return false;
-    }
   }
   String response = deviceInfo(idx, "Status");
   LOG_DEBUG("response:", response);
   //procesamos la respuesta para ver si se ha producido error:
   if (response.startsWith("Err")) {
-    if (Estado.modoDEMO) return true;  //si estamos en modoDEMO devolvemos true y no damos error
-    if (response == "Err2") Estado.error = E2;
-    else Estado.error = E3;
-    LOG_WARN("queryStatus devuelve FALSE, error ", response.c_str());
-    return false;
+      return isErrorIgnorable(response); // Set status error y return FALSE.
   }
   #ifdef EXTRADEBUG
     Serial.printf( "queryStatus verificando, status=%s / actual=%s \n" , status, response);
     Serial.printf( "                status_size=%d / actual_size=%d \n" , strlen(status), response.length());
   #endif
-  if(strcmp(response.c_str(), status) == 0) return true; //si coinciden devolvemos true
-  else{
-    if(Estado.modoDEMO) return true; //siempre devolvemos ok en modo simulacion
-    LOG_WARN("queryStatus devuelve FALSE, status / actual =",status,"/",response.c_str());
-    return false;
-  }  
+  // Verificamos si el estado coincide
+  return strcmp(response.c_str(), status) == 0;
 } //fin queryStatus
 
   //==================================================================================================//

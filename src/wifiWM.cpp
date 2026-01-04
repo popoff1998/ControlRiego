@@ -27,7 +27,7 @@ WiFiManagerParameter custom_timezone("timeZone", "timezone");
 
 //llamado cuando WiFiManager sale del modo configuracion
 void saveWifiCallback() {
-    LOG_INFO("[CALLBACK] saveWifiCallback fired");
+    LOG_INFO("[CALLBACK] fired");
     // Eliminamos el temporizador y apagamos el led indicador de modo AP
     setParpadeo(tic_APLed, APAGA, LEDB);
     lcd.infoclear("conectando WIFI");
@@ -37,7 +37,7 @@ void saveWifiCallback() {
 
 //llamado cuando WiFiManager entra en modo configuracion
 void configModeCallback (WiFiManager *myWiFiManager) {
-  LOG_INFO("[CALLBACK] configModeCallback fired");
+  LOG_INFO("[CALLBACK] fired");
   // apagamos el LED indicador de wifi
   setParpadeo(tic_WifiLed, APAGA, LEDG);
   // Empezamos el temporizador que hará parpadear el LED indicador de AP
@@ -49,7 +49,7 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 //llamado cuando WiFiManager recibe parametros adicionales
 void saveParamCallback()
 {
-  LOG_INFO("[CALLBACK] saveParamCallback fired");
+  LOG_INFO("[CALLBACK] fired");
   LOG_INFO("Should save config");
   saveConfig = true;
   wm.stopConfigPortal();
@@ -58,7 +58,7 @@ void saveParamCallback()
 //lamado antes de empezar carga del sketch via OTA
 void preOtaUpdateCallback()
 {
-  LOG_INFO("[CALLBACK] setPreOtaUpdateCallback fired");
+  LOG_INFO("[CALLBACK] fired");
   lcd.infoclear("OTA in progress", DEFAULTBLINK, LOWBIP, 1);
 }
 
@@ -99,9 +99,6 @@ void setupRedWM(S_initFlags &initFlags)
   //esp_wifi_set_ps( WIFI_PS_NONE );  // Set current WiFi power save type (Default is WIFI_PS_MIN_MODEM)
   //WiFi.setTxPower(WIFI_POWER_19_5dBm); // ajusta la potencia de transmision wifi al maximo
   wm.setHostname(HOSTNAME); 
-  // Descomentar para resetear configuración
-  //wm.resetSettings();
-  
   //sets timeout until configuration portal gets turned off
   wm.setConfigPortalTimeout(timeout);
   // callbacks
@@ -272,7 +269,7 @@ bool VerifyRecoveryWifi(bool checkReconInterval) {
     */
     if(!Estado.connected && checkReconInterval) {
       if(wifiReconnect()) LOG_INFO("Wifi reconectada OK"); //reconectamos a la wifi
-      else LOG_WARN("Reconnect failed, esperando ",RECONNECTINTERVAL," minutos para volver a intentar");
+      else LOG_WARN("Reconnect failed, esperando ",RECONNECTINTERVAL," minutos para reintentar");
     }
   //  Verificamos estado actual de la wifi (y display wifi level si procede)
     #ifdef DEVELOP
@@ -281,7 +278,7 @@ bool VerifyRecoveryWifi(bool checkReconInterval) {
     int wifilevel = checkWifi(config.showwifilevel); // conectado a wifi?
     #endif
     if(wifilevel) {
-      LOG_TRACE("Wifi verificada OK, nivel=",wifilevel,"%");
+      LOG_TRACE("Wifi OK, nivel=",wifilevel,"%");
       if (config.showwifilevel && Estado.estado == STANDBY) {
          LOG_TRACE("showwifilevel=",config.showwifilevel,"wifilevel=",wifilevel);
          if(wifilevel==100) wifilevel=99; 
