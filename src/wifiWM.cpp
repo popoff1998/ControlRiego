@@ -91,7 +91,7 @@ void setupRedWM(S_initFlags &initFlags)
   if(initFlags.initWifi) {
     wm.resetSettings(); //borra wifi guardada
     //delay(300);
-    LOG_INFO("encoderSW pulsado y multirriego en GRUPO3 --> borramos red WIFI");
+    PRINTLN("[setupRedWM] encoderSW pulsado y multirriego en GRUPO3 --> borramos red WIFI");
     lcd.infoclear("red WIFI borrada", DEFAULTBLINK, LOWBIP, 1); //señala borrado wifi
   }
   // explicitly set mode, esp defaults to STA+AP   
@@ -126,7 +126,7 @@ void setupRedWM(S_initFlags &initFlags)
   setParpadeo(tic_WifiLed, RAPIDO, parpadeoLedPWM, LEDG); // y empezamos el temporizador que hará parpadear el LED indicador de wifi
   // activamos conexion wifi y comprobamos si se establece
   if(!wm.autoConnect("Ardomo")) {
-    LOG_WARN("Fallo en la conexión (timeout)");
+    PRINTLN("[setupRedWM] Fallo en la conexión (timeout)");
     Estado.recoverableError = true;
     delay(1000);
   }
@@ -143,7 +143,7 @@ void setupRedWM(S_initFlags &initFlags)
   // (para caso corte de corriente)
   if (Estado.recoverableError && wm.getWiFiIsSaved()) {
     lcd.infoclear("conectando WIFI");
-    LOG_INFO("Hay wifi salvada -> reintentamos la conexion");
+    PRINTLN("[setupRedWM] Hay wifi salvada -> reintentamos la conexion");
     int j=0;
     Estado.recoverableError = false;
     setParpadeo(tic_WifiLed, RAPIDO, parpadeoLedPWM, LEDG);
@@ -164,14 +164,19 @@ void setupRedWM(S_initFlags &initFlags)
   //detenemos parpadeo led wifi
   setParpadeo(tic_WifiLed, PARAR);
   if (checkWifi()) {
-    LOG_INFO(" >>  Conectado a SSID: ", WiFi.SSID().c_str());
-    LOG_INFO(" >>      IP address: ", WiFi.localIP());
-    LOG_INFO(" >>      RSSI:", WiFi.RSSI(), "dBm  (",  wm.getRSSIasQuality(WiFi.RSSI()),"%)");
-    LOG_DEBUG(" >>      Autoreconnect:", WiFi.getAutoReconnect(), " (1 = enabled)");
+    PRINTLN("");
+    PRINTLN("[setupRedWM]  >>  Conectado a SSID: ", WiFi.SSID().c_str());
+    PRINTLN("[setupRedWM]  >>      IP address: ", WiFi.localIP());
+    PRINTLN("[setupRedWM]  >>      RSSI:", WiFi.RSSI(), "dBm  (",  wm.getRSSIasQuality(WiFi.RSSI()),"%)");
+    PRINTLN("");
+    // LOG_DEBUG(" >>      Autoreconnect:", WiFi.getAutoReconnect(), " (1 = enabled)");
     int msgl = snprintf(buff, MAXBUFF, "wifi OK: %s", WiFi.SSID().c_str());
     lcd.info(buff, 1, msgl);
   }
-  else if(!Estado.modoDEMO) statusError(E1, RECUPERABLE); //si no hemos podido conectar a la wifi señalamos error
+  else if(!Estado.modoDEMO) {
+     statusError(E1, RECUPERABLE); //si no hemos podido conectar a la wifi señalamos error
+     LOG_ERROR("setupRedWM SIN conexion wifi");
+  }
     // ----------------------------- save the custom parameters
   if (saveConfig) {
     strcpy(config.domoticz_ip, custom_domoticz_server.getValue());

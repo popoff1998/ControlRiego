@@ -264,7 +264,7 @@ int getFactor(uint8_t zona, bool &factorRiegosLeido)
       if(Estado.error == E3) {
         if (config.verify) statusError(E3,NORECUPERABLE,NORMAL); //error de deserializacion, posible IDX inexistente, marcamos zona
       } else statusError(E2, RECUPERABLE); //error de conexion con Domoticz recuperable
-      LOG_WARN("GETFACTOR IDX: ", idx, " respuesta recibida: ", response.c_str());
+      LOG_ERROR("GETFACTOR IDX: ", idx, " respuesta recibida: ", response.c_str());
       return 100;
   }
   // Si hemos leido correctamente campo Description (numero, campo vacio o solo con comentarios)
@@ -309,7 +309,7 @@ String getDomoticzSettingsInfo(const char *campo)
 {
     String response = cmdtoSCD(GETSETTINGS);
     if (response.startsWith("Err")) {
-        LOG_ERROR(" ** [ERROR]  [HTTP] GET... failed");
+        LOG_WARN(" ** [ERROR]  [HTTP] GET... failed");
         return response; 
     }
     return parseResponse(response, campo, TOP_LEVEL);

@@ -10,7 +10,7 @@ bool loadConfigFile(const char *p_filename)
   #endif
   File file = LittleFS.open(p_filename, "r");
   if(!file){
-    LOG_ERROR("Failed to open file for reading");
+    LOG_ERROR("Failed to open file for reading", p_filename);
     return false;
   }
   size_t size = file.size();
@@ -215,17 +215,31 @@ bool copyConfigFile(const char *fileFrom, const char *fileTo)
   } 
 } // end copyConfigFile
 
-//borrado de los ficheros de parametros,backup y riegos para resetear la configuracion
-bool deleteParmFiles()
+//borrado de los ficheros de parametros,backup,riegos, logs... para resetear la configuracion
+bool deleteDatos()
 {
-  LOG_TRACE("in deleteParmFiles");
+  LOG_TRACE("Iniciando borrado de contenidos en /datos");
   bool bRC = true;
-  if (LittleFS.exists(parmFile) && bRC) bRC = LittleFS.remove(parmFile);
-  if (LittleFS.exists(backupParmFile) && bRC) bRC = LittleFS.remove(backupParmFile);
-  if (LittleFS.exists(lastRiegosFile) && bRC) bRC = LittleFS.remove(lastRiegosFile);
-  if (LittleFS.exists(lastGruposFile) && bRC) bRC = LittleFS.remove(lastGruposFile);
+  File root = LittleFS.open("/datos");
+  if (!root) {
+    LOG_WARN("Error: No se pudo abrir el directorio /datos (¿existe?)");
+    return false;
+  }
+  File file = root.openNextFile();
+  while (file) {
+    String fileName = file.path(); 
+    file.close(); // cerramos el fichero antes de borrarlo
+    LOG_DEBUG("Borrando: " + fileName);
+    if (!LittleFS.remove(fileName)) {
+      LOG_WARN("Fallo al borrar: " + fileName);
+      bRC = false;
+    }
+    file = root.openNextFile();
+  }
+  root.close();
   return bRC;
 }
+
 
 //init minimo de config para evitar fallos en caso de no poder cargar parametros de ficheros
 void zeroConfig() {
@@ -418,9 +432,34 @@ String convertFileSize(const size_t bytes)
     return String(bytes / 1048576.0) + " MB";
   }
 
-  
-// funciones solo usadas en DEVELOP
-#ifdef EXTRADEBUG
+// Gestiona el tamaño del fichero de log de errores: rotación y limpieza
+void gestionarTamanoLog() {
+    const size_t MAXLOGFILESIZE = 10 * 1024; 
+    const size_t MINFSSPACE = 10 * 1024;
+    // 1. Limpieza por espacio crítico
+    if ((LittleFS.totalBytes() - LittleFS.usedBytes()) < MINFSSPACE) {
+        if (LittleFS.exists(logErrorFilePrev)) LittleFS.remove(logErrorFilePrev);
+    }
+    // 2. Rotación por tamaño
+    if (LittleFS.exists(logErrorFile)) {
+        File f = LittleFS.open(logErrorFile, "r");
+        size_t currentSize = f.size();
+        f.close();
+        if (currentSize > MAXLOGFILESIZE) {
+            if (LittleFS.exists(logErrorFilePrev)) LittleFS.remove(logErrorFilePrev);
+            if (LittleFS.rename(logErrorFile, logErrorFilePrev)) {
+                const char* msg = "--- Log Rotated: Previous file saved as _prev ---";
+                if (timeOK) LOG_ERROR(msg); // Si ya hay NTP, DebugLog se encarga de escribir el msg
+                else {
+                    // Si estamos en Setup (sin NTP), escribimos 'a pelo'
+                    Serial.println(msg); 
+                    File newLog = LittleFS.open(logErrorFile, "a"); 
+                    if (newLog) {newLog.printf("[SYSTEM] [ MS: %lu ] gestionarTamanoLog -> %s\n", millis(), msg); newLog.close();}
+                }
+            }
+        }
+    }
+}
 
 // Prints the content of a file to the Serial 
 void printFile(const char *p_filename) {
@@ -428,16 +467,19 @@ void printFile(const char *p_filename) {
   // Open file for reading
   File file = LittleFS.open(p_filename, "r");
   if (!file) {
-    LOG_ERROR("Failed to open config file");
+    LOG_ERROR("Failed to open file", p_filename);
     return;
   }
-  Serial.println(F("File Content:"));
+  Serial.printf("\n File %s Content: \n", p_filename);
   while(file.available()){
     Serial.write(file.read());
   }
   Serial.println(F("\n\n"));
   file.close();
 }
+
+// funciones solo usadas en DEVELOP
+#ifdef EXTRADEBUG
 
 void memoryInfo() 
 {

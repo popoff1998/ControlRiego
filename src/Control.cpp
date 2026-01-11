@@ -18,24 +18,29 @@ void setup()
   #endif
 
   Serial.begin(115200);
+
+  PRINTLN("\n\n CONTROL RIEGO V" + String(FW_VERSION) + "    Built on " __DATE__ " at " __TIME__  "\n");
   #ifdef RELEASE
       // if (!serialDetect()) LOG_SET_LEVEL(DebugLogLevel::LVL_NONE); 
       if (!serialDetect()) LOG_SET_LEVEL(DebugLogLevel::LVL_ERROR);
-  #else
-    Serial.print(F("Tamaño total de Config_parm: "));
-    Serial.print(sizeof(config));
-    Serial.println(F(" bytes"));     
   #endif
-  delay(500);
-
-  PRINTLN("\n\n CONTROL RIEGO V" + String(FW_VERSION) + "    Built on " __DATE__ " at " __TIME__  "\n");
   #ifndef DEBUGLOG_DISABLE_LOG
-    PRINTLN("\n (current log level is", (int)LOG_GET_LEVEL(), ")");
+      PRINTLN("\n (current log level is", (int)LOG_GET_LEVEL(), ")");
+      PRINTLN("[setup] Startup reason: ", esp_reset_reason());
   #endif
-  LOG_DEBUG("Startup reason: ", esp_reset_reason());
   LOG_TRACE("TRACE: in setup");
   // init de GPIOs, bus I2C, Display, Encoder, Expansores MCP, LEDs, Buzzer
   initHardware();
+  PRINTLN("[setup] Inicializando LittleFS...");
+  if(clean_FS) cleanFS();
+  if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
+    PRINTLN("[ERROR] [setup] An Error has occurred while mounting LittleFS");
+  }
+  // Borra/rota fichero de log de errores si su tamano es excesivo
+  #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
+    gestionarTamanoLog();
+    LOG_ATTACH_FS_AUTO(LittleFS, logErrorFile, FILE_APPEND);
+  #endif
   LOG_TRACE("Inicializando Configure");
   configure = new Configure();
   //preparo indicadores de inicializaciones opcionales
@@ -45,22 +50,29 @@ void setup()
   #ifdef EXTRADEBUG
    printFile(parmFile);
   #endif
-  //Recuperamos lastRiegos y lastGrupos (registro fecha/hora y riego realizado)
-  initLastRiegos();
-  initLastGrupos();
+  #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
+    if (config.logWarnToFile) {
+        LOG_FILE_SET_LEVEL(DebugLogLevel::LVL_WARN);
+        LOG_WARN("LOG_WARN messages will also be logged to file as per configuration");
+    }
+  #endif
   //Chequeo de perifericos de salida (leds, display, buzzer)
   check();
   //Para la red
   setupRedWM(initFlags);
+  //Obtenemos hora del servidor ntp y ajustamos hora del sistema y timezone
+  setClock();
+  //Si se ha modificado alguna opcion de configuracion en el portal AP, la guardamos
   if (saveConfig) {
     if (saveConfigFile(parmFile))  sonido.bipOK();
     else sonido.bipKO();
     saveConfig = false;
   }
+  //Recuperamos lastRiegos y lastGrupos (registro fecha/hora y riego realizado)
+  initLastRiegos();
+  initLastGrupos();
   //Cargamos factores de riego desde el SCD
   initFactorRiegos();
-  //Obtenemos hora del servidor ntp y ajustamos hora del sistema y timezone
-  setClock();
   //Estado final en funcion de la conexion
   setupEstadoFinal();
   inSetup = false;
@@ -180,8 +192,9 @@ void setupEstadoFinal()
     tic_verificaciones.attach(VERIFY_INTERVAL, flagVerificaciones);
   }
   // Si no se ha podido cargar parámetros desde ficheros -> señalamos el error 
-  if(!config.initialized) {  
+  if(!config.initialized) { 
     statusError(E0);  
+    LOG_ERROR("setupEstadoFinal salida por NO config.initialized"); 
     return;
   }
   // Si estamos en modoDEMO pasamos a STANDBY (o STOP si esta pulsado) aunque no exista conexión wifi o estemos en ERROR
@@ -201,10 +214,16 @@ void setupEstadoFinal()
   if (Estado.connected) {  
       if (testButton(bSTOP,ON))  setEstado(STOP,1);
       else setEstado(STANDBY,1);
-      if (inSetup) sonido.bipOK();
+      if (inSetup) {
+          sonido.bipOK();
+          #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
+            File newLog = LittleFS.open(logErrorFile, "a"); 
+            if (newLog) {newLog.printf("[SYSTEM] [ %s ] setupEstadoFinal -> Setup ended OK\n", getTimestamp()); newLog.close();}
+          #endif
+      }
   } else {  //si no estamos conectados a la red pasamos a estado ERROR
     statusError(E1, RECUPERABLE); //error de conexion wifi recuperable
-    LOG_DEBUG("setupEstadoFinal salida por estado ERROR(E1)"); 
+    LOG_ERROR("setupEstadoFinal salida por estado ERROR(E1)"); 
   }
 }  //fin de setupEstadoFinal
 
@@ -990,6 +1009,7 @@ void setEstado(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parp
  */
 void statusError(error_tipos errorID, bool recoverable, velocidad_parpadeo zonablink, velocidad_parpadeo errorblink) 
 {
+  gestionarTamanoLog(); // gestionamos tamano log tras escritura (previa) del nuevo error
   LOG_DEBUG( "recibido errorID ", errorID, "recuperable ", recoverable, "zonablink ", zonablink, "errorblink ", errorblink);
   // set state (FSM): 
       Estado.estado = ERROR;
@@ -1086,7 +1106,7 @@ void setClock()
   // sntp_set_time_sync_notification_cb(cbSyncTime);  // set a Callback function for time synchronization notification
   // sntp_set_sync_interval(60 * 60 * 1000UL); // 60 minutos (default ESP32 es 180 minutos - 3 horas)
 
-  LOG_INFO("Timezone: ", config.TZ, "   NTP server: ", config.ntpServer);
+  LOG_DEBUG("Timezone: ", config.TZ, "   NTP server: ", config.ntpServer);
   configTzTime(config.TZ, config.ntpServer); 
   struct tm timeinfo;
   if(!getLocalTime(&timeinfo, NTP_TIMEOUT)) {
@@ -1098,8 +1118,8 @@ void setClock()
   timeOK = true;
   char message[150];
   strftime(message, sizeof(message), "\n>>> TIME SET by NTP <<<   Local time: %A, %B %d %Y %H:%M:%S (zone %Z %z)", &timeinfo);
-  PRINTLN(message);
-  PRINTLN("\t NTP update every ", sntp_get_sync_interval()/(1000*60), " minutos\n");
+  PRINTLN("[setClock]", message);
+  LOG_INFO("NTP update every ", sntp_get_sync_interval()/(1000*60), " minutos");
 }
 
 time_t tLoc()
@@ -1478,6 +1498,7 @@ bool initRiego(bool resume)
     } else {
         // Error al iniciar: generamos la alerta con el código recibido
         statusError(Estado.error);
+        LOG_ERROR( "Error al iniciar riego de: ", config.zona[zIndex].desc );
         // statusError(Estado.error, (Estado.error == E1 || Estado.error == E2));  caso de querer marcar E1/E2 como recuperables
         return false; // error al iniciar el riego   
     }
@@ -1505,6 +1526,7 @@ bool stopRiego(uint16_t id, bool update, bool alertIfFails)
         // Error al apagar la EV
         if (alertIfFails) {  // Si este es el primer error del lote o la única parada.
             statusError(Estado.error,NORECUPERABLE,RAPIDO,RAPIDO); //disparamos alerta con el error ya establecido
+            LOG_ERROR( "Error al detener riego de: ", config.zona[zIndex].desc );
         }
         Estado.failedStopRiego = true; // El riego NO se detuvo, activar el recordatorio de error 
         return false;
@@ -1675,6 +1697,7 @@ void VerifyRecoverySCD()
   } else {
     lcd.clear(BORRA1H);
     statusError(E1, RECUPERABLE); //error de conexion recuperable
+    LOG_ERROR(" ** sin conexion wifi");
     }
   if(Estado.recoverableError) LOG_INFO("reintento en ",RECONNECTINTERVAL," minutos \n");
 }
@@ -1798,9 +1821,8 @@ void displayEstadoRemoto(const char* estado_texto) {
 void setupParm()
 {
   LOG_TRACE("");
-  if(clean_FS) cleanFS();
-  if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
-    LOG_ERROR("An Error has occurred while mounting LittleFS");
+  if (!fsOK) {
+    LOG_ERROR(" ** [ERROR] Fallo montando LittleFS");
     lcd.infoclear("No se ha podido montar el sistema de ficheros",1,BIPKO);
     delay(config.msgdisplaymillis*3);
     return;
@@ -1812,7 +1834,7 @@ void setupParm()
   //si se ha solicitado borrado de ficheros de parámetros y riegos
   if( initFlags.initParm) {
     LOG_WARN(">>>>>>>>>>>>>>  borrando ficheros de parámetros y riegos  <<<<<<<<<<<<<<");
-    bool bRC = deleteParmFiles();
+    bool bRC = deleteDatos();
     if(bRC) {
       LOG_WARN("borrado ficheros de parámetros y riegos OK");
       lcd.infoclear("RESET/ERASE parm OK",1,BIPOK); //señala el borrado ficheros de parámetros OK
@@ -1920,6 +1942,25 @@ bool serialDetect() {
   }
   return false;
 }    
+
+// Devuelve timestamp actual en formato "YYYY-MM-DD HH:MM:SS" si hay hora NTP
+// o bien "MS: xxxxxxx" con milisegundos desde arranque si no la hay
+const char* getTimestamp() {
+    static char buffer[25];
+    if (timeOK) {
+        struct tm *timeinfo;
+        time_t t = time(NULL); // time() devuelve el tiempo UTC actual (epoch time en segundos desde 00:00 1/1/1970) leyendolo del reloj del ESP32
+        timeinfo = localtime(&t); // localtime() convierte time_t a struct tm en la zona horaria local
+        strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", timeinfo);
+        return buffer;
+    }
+    // Fallback: Si no hay hora NTP, devolvemos milisegundos
+    unsigned long ms = millis();
+    strcpy(buffer, "MS: ");
+    ultoa(ms, buffer + 4, 10);        
+    return buffer;
+}    
+
 
 // **************************************************************************
 // Atajos Stop+Enc+Grupo_n

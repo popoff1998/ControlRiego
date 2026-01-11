@@ -42,20 +42,25 @@ static void sendNoCacheJSON(const String &payload) {
   wserver.send(200, "application/json; charset=utf-8", payload);
 }
 
-// Lista de tokens y sus valores de sustitución
-struct TokenData {
-    const char* token;
-    String value;
-} tokenList[] = {
-        {"%PARMFILE%",   String(parmFile)},
-        {"%BACKUPFILE%", String(backupParmFile)},
-        {"%LASTRIEGOS%", String(lastRiegosFile)},
-        {"%LASTGRUPOS%", String(lastGruposFile)},
-        {"%VERSION%",    String(FW_VERSION)},
-        {"%DIAS%",       String(logDays)},
-        {"%SHOWTEST%",   showtest_section ? "true" : "false"} 
-    };
 void replaceTokens(String &content) {
+    // Lista de tokens y sus valores de sustitución
+    // Definimos la lista DENTRO de la función, esto fuerza a que config.logWarnToFile y otras similares
+    // se evalúe CADA VEZ que se llame a la función.
+    struct TokenData {
+        const char* token;
+        String value;
+    } tokenList[] = {
+            {"%PARMFILE%",    String(parmFile)},
+            {"%BACKUPFILE%",  String(backupParmFile)},
+            {"%ERRORFILE%",   String(logErrorFile)},
+            {"%LASTRIEGOS%",  String(lastRiegosFile)},
+            {"%LASTGRUPOS%",  String(lastGruposFile)},
+            {"%VERSION%",     String(FW_VERSION)},
+            {"%DIAS%",        String(logDays)},
+            {"%LOGENABLED%",  (LOG_FILE_GET_LEVEL() != DebugLogLevel::LVL_NONE) ? "true" : "false"}, 
+            {"%LOGWARNFILE%", config.logWarnToFile ? "true" : "false"}, 
+            {"%SHOWTEST%",    showtest_section ? "true" : "false"} 
+        };
     const size_t numTokens = sizeof(tokenList) / sizeof(tokenList[0]);
     for (size_t i = 0; i < numTokens; i++) {
         const char* currentToken = tokenList[i].token;
@@ -422,6 +427,18 @@ void handleAdvancedPage() {
   serveFile("/advanced.htm", "text/html");
 }
 
+// Forzamos el volcado y cierre del log para liberar LittleFS
+void handleListLogs() {
+    #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
+      LOG_DEBUG("handleListLogs called - forcing log file flush and close");
+      const char* currentTs = getTimestamp();
+      PRINTLN_FILE("[SYSTEM] [", currentTs, "] --------------  log  refresh  ----------");
+      LOG_FILE_CLOSE(); // Fuerza el volcado y cierre del log
+      LOG_ATTACH_FS_AUTO(LittleFS, logErrorFile, FILE_APPEND); // Reabre el log
+    #endif
+    serveFile("/errores.htm", "text/html");
+}
+
 // parmfile_editraw page (requires auth)
 void handleEditRawPage() {
   if (!wserver.authenticate(update_username, update_password)) {
@@ -529,8 +546,20 @@ class FileServerHandler : public RequestHandler {
         }  
         if (requestMethod == HTTP_DELETE) {
           if (LittleFS.exists(fName)) {
+            // Si el archivo es el log, forzamos el cierre total
+            if (fName == logErrorFile) {
+                LOG_INFO("Cerrando Manager de DebugLog...");
+                LOG_FILE_CLOSE();
+            }
             LOG_DEBUG("DELETE request for:", fName);
             handleOK = LittleFS.remove(fName);
+            // Si era el log, lo volvemos a crear y enganchar
+            if (fName == logErrorFile) {
+                #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
+                LOG_ATTACH_FS_AUTO(LittleFS, logErrorFile, FILE_APPEND);
+                LOG_INFO("Logger reiniciado en archivo nuevo.");
+                #endif
+            }
           }
         }
         if (handleOK) {
@@ -646,9 +675,10 @@ class FileServerHandler : public RequestHandler {
 // ---------------------------
 void defWebpagesHandles() {
     wserver.on("/", HTTP_GET, handleRedirect);
-    // paginas html builting comienzan por $
+    // paginas html (las builting comienzan por $)
     wserver.on("/$upload.htm",     HTTP_GET, []() { wserver.send(200, "text/html", FPSTR(uploadContent)); }); // serve a built-in htm page
     wserver.on("/advanced.htm",    HTTP_GET,  handleAdvancedPage); // requiere auth
+    wserver.on("/errores.htm",     HTTP_GET,  handleListLogs); // fuerza cierre ficheros para actualizar timestamps
     wserver.on("/parmfile_editRaw.htm",    HTTP_GET,  handleEditRawPage); // requiere auth
     // apis que devuelven/esperan un JSON
     wserver.on("/api/list",        HTTP_GET,  handleListFiles);
