@@ -111,6 +111,7 @@ bool loadConfigFile(const char *p_filename)
   config.verify = doc["verify"] | true;
   config.dynamic = doc["dynamic"] | false;
   config.lastr24 = doc["lastr24"] | false;
+  config.logWarnToFile = doc["logWarnToFile"] | LOGWARNTOFILE;
   //-------------------------------------------------------------------------------------------
   return config.initialized;
 } // end loadConfigFile
@@ -167,7 +168,8 @@ bool saveConfigFile(const char *p_filename)
   doc["verify"]             = config.verify;
   doc["dynamic"]            = config.dynamic;
   doc["lastr24"]            = config.lastr24;
-
+  doc["logWarnToFile"]      = config.logWarnToFile;
+  //-------------------------------------------------------------------------------------------
   // Serialize JSON to file
   #ifdef EXTRADEBUG 
     LOG_DEBUG("Contenido del jsondoc a grabar en ",p_filename,":");
@@ -292,6 +294,7 @@ void printParms() {
   Serial.printf("\tverify= %d \n", config.verify);
   Serial.printf("\tdynamic= %d \n", config.dynamic);
   Serial.printf("\tlastr24= %d \n", config.lastr24);
+  Serial.printf("\tdebugmode= %d \n", config.logWarnToFile);
   Serial.println("----------------------------------------------------------------\n");
 }
 
@@ -431,35 +434,6 @@ String convertFileSize(const size_t bytes)
     }
     return String(bytes / 1048576.0) + " MB";
   }
-
-// Gestiona el tamaño del fichero de log de errores: rotación y limpieza
-void gestionarTamanoLog() {
-    const size_t MAXLOGFILESIZE = 10 * 1024; 
-    const size_t MINFSSPACE = 10 * 1024;
-    // 1. Limpieza por espacio crítico
-    if ((LittleFS.totalBytes() - LittleFS.usedBytes()) < MINFSSPACE) {
-        if (LittleFS.exists(logErrorFilePrev)) LittleFS.remove(logErrorFilePrev);
-    }
-    // 2. Rotación por tamaño
-    if (LittleFS.exists(logErrorFile)) {
-        File f = LittleFS.open(logErrorFile, "r");
-        size_t currentSize = f.size();
-        f.close();
-        if (currentSize > MAXLOGFILESIZE) {
-            if (LittleFS.exists(logErrorFilePrev)) LittleFS.remove(logErrorFilePrev);
-            if (LittleFS.rename(logErrorFile, logErrorFilePrev)) {
-                const char* msg = "--- Log Rotated: Previous file saved as _prev ---";
-                if (timeOK) LOG_ERROR(msg); // Si ya hay NTP, DebugLog se encarga de escribir el msg
-                else {
-                    // Si estamos en Setup (sin NTP), escribimos 'a pelo'
-                    Serial.println(msg); 
-                    File newLog = LittleFS.open(logErrorFile, "a"); 
-                    if (newLog) {newLog.printf("[SYSTEM] [ MS: %lu ] gestionarTamanoLog -> %s\n", millis(), msg); newLog.close();}
-                }
-            }
-        }
-    }
-}
 
 // Prints the content of a file to the Serial 
 void printFile(const char *p_filename) {

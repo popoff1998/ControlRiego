@@ -70,6 +70,8 @@ void initGPIOs()
   pinMode(LEDB, OUTPUT);
   pinMode(BUZZER, OUTPUT);
   pinMode(ENCBOTON, INPUT);
+  // LED inicial de estado/error
+  digitalWrite(LEDR, ON);
 }
 
 void apagaLeds()

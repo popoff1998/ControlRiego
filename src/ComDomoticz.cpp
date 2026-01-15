@@ -37,8 +37,8 @@ uint16_t getSCD_ID(uint8_t zonaNumber) {
 // Función auxiliar que registra el error específico, el JSON completo, 
 // y devuelve el código de error ("Err3").
 String returnErr3(const String &fullResponse, const char* msg1, const char* msg2 = "", const char* msg3 = "") {
-    LOG_ERROR(" ** [ERROR] ", msg1, msg2, msg3); 
-    LOG_ERROR(" ** [ERROR] JSON de entrada: ", fullResponse.c_str());
+    LOG_WARN(" ** [ERROR] ", msg1, msg2, msg3); 
+    LOG_WARN(" ** [ERROR] JSON de entrada: ", fullResponse.c_str());
     return "Err3";
 }
 
@@ -60,7 +60,7 @@ String parseResponse(const String &response, const char *campo, JsonLevel level)
     respTrim.trim(); // Sanitizar la respuesta
     JsonDocument jsondoc; 
     DeserializationError error = deserializeJson(jsondoc, respTrim);
-    if (error) return returnErr3(respTrim, "deserializeJson() failed: ", error.c_str());
+    if (error) return returnErr3(respTrim, "parseResponse: deserializeJson() failed: ", error.c_str());
     JsonVariant field;
     if (level == TOP_LEVEL) {
         field = jsondoc[campo];
@@ -198,7 +198,7 @@ String deviceInfo(int idx, const char *campo)
     // 1. Comunicación: Obtener la respuesta JSON
     String response = cmdtoSCD(message);
     if (response.startsWith("Err")) {
-        LOG_ERROR(" ** [ERROR] IDX: ", idx, " [HTTP] GET... failed");
+        LOG_WARN(" ** [ERROR] IDX: ", idx, " [HTTP] GET... failed");
         return response; 
     }
     // 2. Procesamiento: Usar parseResponse, especificando que el campo está en RESULT_ARRAY_0
@@ -261,10 +261,10 @@ int getFactor(uint8_t zona, bool &factorRiegosLeido)
   String response = deviceInfo(idx, "Description");
   if (response.startsWith("Err")) {
       if (isErrorIgnorable(response)) return 999;  //si estamos en modoDEMO devolvemos 999 y no damos error
+      LOG_WARN("IDX: ", idx, " respuesta recibida: ", response.c_str());
       if(Estado.error == E3) {
         if (config.verify) statusError(E3,NORECUPERABLE,NORMAL); //error de deserializacion, posible IDX inexistente, marcamos zona
       } else statusError(E2, RECUPERABLE); //error de conexion con Domoticz recuperable
-      LOG_ERROR("GETFACTOR IDX: ", idx, " respuesta recibida: ", response.c_str());
       return 100;
   }
   // Si hemos leido correctamente campo Description (numero, campo vacio o solo con comentarios)
@@ -277,9 +277,9 @@ int getFactor(uint8_t zona, bool &factorRiegosLeido)
  * Obtiene del Domoticz el log de la zona en formato JSON
  * (ultimos 15 dias, es un parametro ajustable en el Domoticz -> log historico de luces/interruptores)
  */ 
-String readLogFile(int zona)
+String readSCDLogFile(int zona)
 {
-  int idx = config.zona[zona-1].idx;
+  int idx = getSCD_ID(zona);
   LOG_DEBUG("zona:", zona, "idx:", idx);
   if(idx == 0) return "No asignado";
   char message[150];
@@ -317,7 +317,7 @@ String getDomoticzSettingsInfo(const char *campo)
 
 /**---------------------------------------------------------------
  * lee datos de temperatura y humedad del sensor remoto asignado en config.tempRemoteIdx
- * devuelve 999 si no hay sensor asignado (idx=0) o si hay error
+ * devuelve 999 si no hay sensor asignado (idx=0) o si hay error de cualquier tipo al leerlo
  */
 float getRemoteTemperature(void)
 {
@@ -327,15 +327,15 @@ float getRemoteTemperature(void)
   if(idx == 0 || !Estado.connected) return 999;
   String response = deviceInfo(idx, "Data");  //campo Data devuelve temperatura como caracteres (ej. "9.4 C")
   //String response = deviceInfo(idx, "Temp");  //campo Temp devuelve temperatura como numero (ej. 9.4)
-  LOG_INFO("Temperatura recibida del Domoticz: ", response);
+  LOG_DEBUG("Temperatura recibida del Domoticz: ", response);
   //procesamos la respuesta para ver si se ha producido error:
   if (response.startsWith("Err")) {
-    LOG_WARN("IDX: ", idx, " respuesta recibida: ", response.c_str());
+    if (!Estado.errorInformado) LOG_WARN("IDX: ", idx, " respuesta recibida: ", response.c_str());
     return 999;  //devolvemos 999 para indicar temperatura no valida
   }
   //devolvemos la temperatura del sensor en Domoticz del json (campo Data)
   float temp = strtof(response.c_str(), NULL); //strtof convierte a float (ej. 9.4 C -> 9.4)
-  LOG_INFO("devuelve temperatura = ",temp);
+  LOG_DEBUG("devuelve temperatura = ",temp);
   return temp;
 }
 

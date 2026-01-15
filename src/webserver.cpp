@@ -233,17 +233,17 @@ static bool checkAndSendCacheHeaders(const String &path, File &file, bool isToke
 // Server utils 
 // ---------------------------
 
-// MIME type mapping for file extensions
+// En tipos de texto se añade charset Unicode para mostrar caracteres especiales correctamente
 static const struct {
   const char* ext;
   const char* mime;
 } mimeTypes[] = {
-  {".htm",   "text/html"},
-  {".html",  "text/html"},
-  {".css",   "text/css"},
-  {".js",    "application/javascript"},
-  {".json",  "application/json"},
-  {".xml",   "text/xml"},
+  {".htm",   "text/html; charset=utf-8"},      // Añadido charset
+  {".html",  "text/html; charset=utf-8"},      // Añadido charset
+  {".css",   "text/css; charset=utf-8"},       // Recomendado para CSS con símbolos
+  {".js",    "application/javascript; charset=utf-8"},
+  {".json",  "application/json; charset=utf-8"},
+  {".xml",   "text/xml; charset=utf-8"},
   {".png",   "image/png"},
   {".gif",   "image/gif"},
   {".jpg",   "image/jpeg"},
@@ -252,12 +252,12 @@ static const struct {
   {".pdf",   "application/pdf"},
   {".zip",   "application/zip"},
   {".gz",    "application/gzip"},
-  {nullptr,  "text/plain"}  // default fallback
+  {nullptr,  "text/plain; charset=utf-8"}      // Fallback 
 };
 
 const char* GetContentType(const String &filename) {
   int lastDot = filename.lastIndexOf('.');
-  if (lastDot < 0) return "text/plain";
+  if (lastDot < 0) return "text/plain; charset=utf-8"; 
   String ext = filename.substring(lastDot);
   ext.toLowerCase();
   for (int i = 0; mimeTypes[i].ext != nullptr; i++) {
@@ -265,8 +265,9 @@ const char* GetContentType(const String &filename) {
       return mimeTypes[i].mime;
     }
   }
-  return "text/plain";
-}  
+  // Si no tiene extensión, devolvemos el fallback con UTF-8
+  return "text/plain; charset=utf-8"; // Fallback con UTF-8
+}
 
 void printArgs() {
   for (int i = 0; i < wserver.args(); i++) {LOG_DEBUG("  ", wserver.argName(i), ": ", wserver.arg(i));}
@@ -429,13 +430,7 @@ void handleAdvancedPage() {
 
 // Forzamos el volcado y cierre del log para liberar LittleFS
 void handleListLogs() {
-    #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
-      LOG_DEBUG("handleListLogs called - forcing log file flush and close");
-      const char* currentTs = getTimestamp();
-      PRINTLN_FILE("[SYSTEM] [", currentTs, "] --------------  log  refresh  ----------");
-      LOG_FILE_CLOSE(); // Fuerza el volcado y cierre del log
-      LOG_ATTACH_FS_AUTO(LittleFS, logErrorFile, FILE_APPEND); // Reabre el log
-    #endif
+    refreshLogFile();
     serveFile("/errores.htm", "text/html");
 }
 
@@ -452,7 +447,7 @@ void handleEditRawPage() {
 void handleShowZONElog() {
   int zona = wserver.arg("zona").toInt();
   LOG_DEBUG("Zona recibida:", zona);
-  String json = readLogFile(zona); // obtiene del Domoticz el log de riegos de la zona
+  String json = readSCDLogFile(zona); // obtiene del Domoticz el log de riegos de la zona
   sendNoCacheJSON(json);
 }
 
@@ -728,7 +723,7 @@ void setupWS() {
   webServerAct = true;
   restartRequired = false;
   Serial.printf("[WS] HTTPUpdateServer ready!\n   --> Open http://%s.local:%d%s in your browser and login with username '%s' and password '%s'\n\n", WiFi.getHostname(), WSPORT, update_path, update_username, update_password);
-  LOG_INFO("[WS] Activado webserverIP address: ", WiFi.localIP(), ":", WSPORT);
+  PRINTLN("[WS] Activado webserverIP address: ", WiFi.localIP(), ":", WSPORT);
   String response = getDomoticzSettingsInfo("LightHistoryDays"); //lee los dias de log a mostrar por defecto desde Domoticz
   if (!response.startsWith("Err")) logDays = response.toInt();
   displayWSinfo();

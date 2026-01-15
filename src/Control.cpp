@@ -3,6 +3,12 @@
 
 // interrupt para el encoder:
 void IRAM_ATTR readEncoderISR() {rotaryEncoder.readEncoder_ISR();}
+// variables persistentes al soft reset para control de reinicios:
+RTC_NOINIT_ATTR int bootCount; // contador de reinicios del sistema (persistente en reinicios por SW y deep sleep) 
+RTC_NOINIT_ATTR uint32_t magicNumber; // numero magico para detectar reinicios en frio
+RTC_NOINIT_ATTR uint32_t lastUptime; // Segundos de vida del ciclo anterior
+   
+
 
 /*----------------------------------------------*
  *               Setup inicial                  *
@@ -18,43 +24,28 @@ void setup()
   #endif
 
   Serial.begin(115200);
-
   PRINTLN("\n\n CONTROL RIEGO V" + String(FW_VERSION) + "    Built on " __DATE__ " at " __TIME__  "\n");
   #ifdef RELEASE
       // if (!serialDetect()) LOG_SET_LEVEL(DebugLogLevel::LVL_NONE); 
       if (!serialDetect()) LOG_SET_LEVEL(DebugLogLevel::LVL_ERROR);
   #endif
+  String bootmessage = registrarArranqueSistema();
   #ifndef DEBUGLOG_DISABLE_LOG
-      PRINTLN("\n (current log level is", (int)LOG_GET_LEVEL(), ")");
-      PRINTLN("[setup] Startup reason: ", esp_reset_reason());
+      PRINTLN("\n (current log level is", (int)LOG_GET_LEVEL(), ")\n");
+      PRINTLN(bootmessage);
   #endif
   LOG_TRACE("TRACE: in setup");
   // init de GPIOs, bus I2C, Display, Encoder, Expansores MCP, LEDs, Buzzer
-  initHardware();
-  PRINTLN("[setup] Inicializando LittleFS...");
-  if(clean_FS) cleanFS();
-  if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
-    PRINTLN("[ERROR] [setup] An Error has occurred while mounting LittleFS");
-  }
-  // Borra/rota fichero de log de errores si su tamano es excesivo
-  #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
-    gestionarTamanoLog();
-    LOG_ATTACH_FS_AUTO(LittleFS, logErrorFile, FILE_APPEND);
-  #endif
-  LOG_TRACE("Inicializando Configure");
-  configure = new Configure();
+  initHardware(bootmessage == "BOOTLOOP");
+  // inicializacion del sistema de ficheros
+  initFS();
+  logSystemStatus(bootmessage.c_str());
   //preparo indicadores de inicializaciones opcionales
   setupInit();
   //setup parametros configuracion
   setupParm();
   #ifdef EXTRADEBUG
    printFile(parmFile);
-  #endif
-  #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
-    if (config.logWarnToFile) {
-        LOG_FILE_SET_LEVEL(DebugLogLevel::LVL_WARN);
-        LOG_WARN("LOG_WARN messages will also be logged to file as per configuration");
-    }
   #endif
   //Chequeo de perifericos de salida (leds, display, buzzer)
   check();
@@ -75,6 +66,9 @@ void setup()
   initFactorRiegos();
   //Estado final en funcion de la conexion
   setupEstadoFinal();
+  #ifdef EXTRADEBUG
+    printFile(logErrorFile); //imprime log de errores
+  #endif
   inSetup = false;
   PRINTLN("   *** Setup finalizado *** \n\n");
 }
@@ -161,19 +155,19 @@ void procesaEstados()
   }
 }  
 
-void initHardware() {
-    LOG_TRACE("-> Inicializando Hardware");
+void initHardware(bool bootloop) {
+    LOG_DEBUG("-> Inicializando Hardware", bootloop ? "(modo BOOTLOOP)" : "");
     initGPIOs();
+    if (bootloop) stopHW(); // paramos el sistema
     initWire();
-    // LED inicial de estado/error
-    ledPWM(LEDR, ON); 
     // Expansores de I/O
     mcpOinit();
     mcpIinit();
     // Display y Encoder
     lcd.initLCD();
     initEncoder();
-    LOG_TRACE("<- Hardware inicializado");}
+    LOG_TRACE("<- Hardware inicializado");
+}
 
 
 /**---------------------------------------------------------------
@@ -214,12 +208,12 @@ void setupEstadoFinal()
   if (Estado.connected) {  
       if (testButton(bSTOP,ON))  setEstado(STOP,1);
       else setEstado(STANDBY,1);
+      const char* currentTs = getTimestamp();
       if (inSetup) {
           sonido.bipOK();
-          #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
-            File newLog = LittleFS.open(logErrorFile, "a"); 
-            if (newLog) {newLog.printf("[SYSTEM] [ %s ] setupEstadoFinal -> Setup ended OK\n", getTimestamp()); newLog.close();}
-          #endif
+          logSystemStatus(" <<<<<  Setup ended OK  >>>>");
+      } else {
+          logSystemStatus(" <<<<<  Conexiones Restablecidas  >>>>");
       }
   } else {  //si no estamos conectados a la red pasamos a estado ERROR
     statusError(E1, RECUPERABLE); //error de conexion wifi recuperable
@@ -727,7 +721,7 @@ void procesaEstadoRegando(void)
         setParpadeo(tic_LedZona, NORMAL, parpadeoLedZona, ledID);
         Estado.error = NOERROR; // si no hemos podido verificar estado, ignoramos el error
         sonido.bip(2);
-        LOG_ERROR("** SE HA DEVUELTO ERROR al verificar estado riego");
+        LOG_WARN("** SE HA DEVUELTO ERROR al verificar estado riego");
       }  
     }
   }
@@ -804,14 +798,13 @@ void procesaEstadoStandby(void)
   procesaEncoderClock();
   // verificaciones en STANDBY cada VERIFY_INTERVAL segundos
   //  - verificacion de wifi y recuperacion si procede
-  //  - actualiza y muestra temperatura ambiente
   //  - actualizacion de hora por NTP si no la tenemos actualizada
+  //  - actualiza y muestra temperatura ambiente
   if (flagV) { 
-    LOG_TRACE(".");
     if (multi.riegoON) return; //no se hacen verificaciones/acciones con multirriego en curso
-    if (VerifyRecoveryWifi(checkReconInterval)) { //verificacion de wifi y recuperacion si procede
-      if (!timeOK && Estado.connected) setClock(); // si no hemos recibido time por NTP -> actualizamos time del sistema con el del servidor NTP
-    }
+    VerifyRecoveryWifi(checkReconInterval); //verificacion de wifi y recuperacion si procede
+    if (!timeOK && Estado.connected) setClock(); // si no hemos recibido time por NTP -> actualizamos time del sistema con el del servidor NTP
+    showTemp(); // actualiza y muestra temperatura ambiente
   }   
 }; //fin de procesaEstadoStandby
 
@@ -913,6 +906,7 @@ void setStateMachine(m_estados estado, estado_tipos tipo)
   Estado.tipo = tipo;
   Estado.failedStopRiego = false;
   Estado.recoverableError = false;
+  Estado.errorInformado = false;
   if (estado != PAUSE) riegoFromPause = false; //reiniciamos flag. TODO: ¿es necesario?
   Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true; //Deshabilitamos el hold de Pause
   if(Estado.reposo) reposoOFF();     //por si salimos de stop antinenes
@@ -1007,10 +1001,12 @@ void setEstado(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parp
 /**---------------------------------------------------------------
  * pasa FSM a estado ERROR
  */
-void statusError(error_tipos errorID, bool recoverable, velocidad_parpadeo zonablink, velocidad_parpadeo errorblink) 
+void statusError(error_tipos errorID, bool recoverable, velocidad_parpadeo zonablinkvel, velocidad_parpadeo errorblinkvel) 
 {
-  gestionarTamanoLog(); // gestionamos tamano log tras escritura (previa) del nuevo error
-  LOG_DEBUG( "recibido errorID ", errorID, "recuperable ", recoverable, "zonablink ", zonablink, "errorblink ", errorblink);
+  if (Estado.estado != ERROR || Estado.error != errorID) LOG_ERROR("ERROR activado: ", errorToString(errorID));
+  else LOG_WARN("MISMO ERROR REITERADO: ", errorToString(errorID));  // por aqui no se deberia pasar nunca
+  gestionarTamanoLog(); // gestionamos tamaño log tras escritura (previa) del nuevo error
+  LOG_DEBUG( "recibido errorID:", errorID, "recuperable:", recoverable, "zonablinkvel:", zonablinkvel, "errorblinkvel:", errorblinkvel);
   // set state (FSM): 
       Estado.estado = ERROR;
       Estado.recoverableError = recoverable; //error recuperable o no
@@ -1027,11 +1023,11 @@ void statusError(error_tipos errorID, bool recoverable, velocidad_parpadeo zonab
       lcd.print(errorToString(errorID));  // mostramos explicacion del error en pantalla
       actLedError();
       sonido.bipKO();
-      if (zonablink) {  // señalamos zona que ha fallado (por stop o getfactor)
-        setParpadeo(tic_LedZona, zonablink, parpadeoLedZona, ultimoBotonZona->led);
+      if (zonablinkvel) {  // señalamos zona que ha fallado (por stop o getfactor)
+        setParpadeo(tic_LedZona, zonablinkvel, parpadeoLedZona, ultimoBotonZona->led);
       }
-      if (errorblink) {  // parpadeo del led RGB de error
-        setParpadeo(tic_LedError, errorblink, parpadeoLedPWM, LEDR);
+      if (errorblinkvel) {  // parpadeo del led RGB de error
+        setParpadeo(tic_LedError, errorblinkvel, parpadeoLedPWM, LEDR);
         sonido.longbip(5); // resaltamos error al parar riego
       }
 }  //fin statusError
@@ -1111,15 +1107,15 @@ void setClock()
   struct tm timeinfo;
   if(!getLocalTime(&timeinfo, NTP_TIMEOUT)) {
     timeOK = false;
-    const char* msg = ">>> NO TIME SET by NTP <<<"; 
-    inSetup ? PRINTLN("\n%s", msg) : LOG_WARN(msg);
+    if (inSetup) LOG_ERROR(">>> NO TIME SET by NTP <<<");
     return;
   }
   timeOK = true;
   char message[150];
-  strftime(message, sizeof(message), "\n>>> TIME SET by NTP <<<   Local time: %A, %B %d %Y %H:%M:%S (zone %Z %z)", &timeinfo);
-  PRINTLN("[setClock]", message);
+  strftime(message, sizeof(message), ">>> TIME SET by NTP <<<   Local time: %A, %B %d %Y %H:%M:%S (zone %Z %z)", &timeinfo);
+  PRINTLN("\n[setClock]", message);
   LOG_INFO("NTP update every ", sntp_get_sync_interval()/(1000*60), " minutos");
+  if (!inSetup) logSystemStatus(message); // registramos en log de errores que ya tenemos NTP time 
 }
 
 time_t tLoc()
@@ -1677,7 +1673,7 @@ bool checkSCD()
   LOG_INFO("----  VERIFICANDO RECONEXION DOMOTICZ  ----");
   bool SCD_OK = getDiaNoche(amanecer, anochecer); //enviamos mandato a Domoticz para comprobar que hay conexion
   setParpadeo(tic_LedRecon, APAGA, LEDB);
-  if(!SCD_OK) { LOG_ERROR(" ** sin conexion con Domoticz"); 
+  if(!SCD_OK) { LOG_DEBUG(" ** sin conexion con Domoticz"); 
     return false; }
   setStateMachine(STANDBY); // pasa a STANDBY sin mostrar mensajes en LCD
   return true;
@@ -1697,7 +1693,7 @@ void VerifyRecoverySCD()
   } else {
     lcd.clear(BORRA1H);
     statusError(E1, RECUPERABLE); //error de conexion recuperable
-    LOG_ERROR(" ** sin conexion wifi");
+    LOG_DEBUG(" ** sin conexion wifi");
     }
   if(Estado.recoverableError) LOG_INFO("reintento en ",RECONNECTINTERVAL," minutos \n");
 }
@@ -1722,18 +1718,26 @@ void Verificaciones()
   #endif
   
   static unsigned long lastmillisReconnect = 0;
+  // Reiniciamos flags de verificaciones
   flagV = OFF;
   checkReconInterval = false;
-  if (!flagVtimer) return;  //si no activada por Ticker salimos sin hacer nada
+  // Si no activada por Ticker salimos sin hacer nada mas
+  if (!flagVtimer) return;  
   if (Estado.error) LOG_TRACE("-------flagVtimer ON----   Estado.recoverableError: ", Estado.recoverableError, "Estado.error: ", Estado.error);
   flagVtimer = OFF;
-  flagV = ON;  //activamos flagV para que se realicen las verificaciones en las funciones de estado correspondientes
+  // Activamos flagV para que se realicen las verificaciones en las funciones de estado correspondientes
+  flagV = ON;
+  // Activamos el flag checkReconInterval para que se realicen las verificaciones de reconexion cada RECONNECTINTERVAL minutos  
   if(millis() > lastmillisReconnect + RECONNECTINTERVAL * 60000) {   
     lastmillisReconnect = millis();
-    checkReconInterval = true; //activamos el flag para que se realicen las verificaciones de reconexion
-  }    
+    checkReconInterval = true;
+  }
+  // Actualiza el "latido" en la RAM RTC
+  lastUptime = millis() / 1000;
+  // Si llevamos 1 dia vivos, "limpiamos" el contador de rearranques
+  if (millis() > 24*60*1000UL && bootCount > 0) bootCount = 0; 
   /*
-     Con flagV activado, se realizan las siguientes verificaciones periodicas:
+    Con flagV activado, se realizan las siguientes verificaciones periodicas:
       - estado de la wifi y recuperacion de la conexion si no la hay (en procesaEstadoStandby y procesaEstadoError)
       - actualiza y muestra nivel señal wifi si procede (en procesaEstadoStandby)
       - actualizacion de hora por NTP si no se hubiera hecho ya (en procesaEstadoStandby)
@@ -1741,7 +1745,7 @@ void Verificaciones()
       - recordatorio error grave al parar un riego (en procesaEstadoError)
       - si config.verify=true, verifica que el estado de la zona en RIEGO coincide con el de Domoticz (en procesaEstadoRegando)
       - si config.verify=true, verifica que el estado de la zona en PAUSA coincide con el de Domoticz (en procesaEstadoPause)
-      Con checkReconInterval activado, se realizan las siguientes verificaciones periodicas:
+    Con checkReconInterval activado, se realizan las siguientes verificaciones periodicas:
        - intento de recuperacion de la conexion wifi si no la hay (en procesaEstadoError)
        - intento de recuperacion de la conexion con Domoticz (en procesaEstadoError)
   */
@@ -1765,6 +1769,7 @@ float readTemp() {
 }
 
 void showTemp() {
+    static float prev_temp = -1000.0; // valor inicial imposible para forzar la primera actualizacion
     float temperatura = readTemp();
     LOG_TRACE("temperatura=",temperatura);
     if(temperatura != 999) {
@@ -1772,11 +1777,16 @@ void showTemp() {
       LOG_TRACE("temp OFFSET=",config.tempOffset,"TEMP_OFFSET_FACTOR %=",TEMP_OFFSET_FACTOR,"temperatura corregida=",temperatura);
       int temp_round = (temperatura < 0 ? (temperatura - 0.5) : (temperatura + 0.5)); //redondeo al entero mas cercano
       lcd.displayTemp(temp_round, config.warnESP32temp);
+      if (prev_temp == 999) Estado.errorInformado = false; // si antes habia error de temperatura, reseteamos flag
     }  
     else {
-      LOG_ERROR("Read temperature sensor failed");
+      if (!Estado.errorInformado) {
+        LOG_WARN("Read temperature sensor failed");
+        Estado.errorInformado = true; // para no repetir el mensaje hasta que se recupere
+     }
       lcd.displayTemp(999, config.warnESP32temp);  // borra temperatura del display 
     }
+    prev_temp = temperatura;
 }
 
 void displayDemo() {
@@ -1823,7 +1833,7 @@ void setupParm()
   LOG_TRACE("");
   if (!fsOK) {
     LOG_ERROR(" ** [ERROR] Fallo montando LittleFS");
-    lcd.infoclear("No se ha podido montar el sistema de ficheros",1,BIPKO);
+    lcd.infoclear("ERROR en FileSystem",1,BIPKO);
     delay(config.msgdisplaymillis*3);
     return;
   }
@@ -1833,14 +1843,14 @@ void setupParm()
   #endif
   //si se ha solicitado borrado de ficheros de parámetros y riegos
   if( initFlags.initParm) {
-    LOG_WARN(">>>>>>>>>>>>>>  borrando ficheros de parámetros y riegos  <<<<<<<<<<<<<<");
+    LOG_WARN(">>>>>>>>>>>>>>  borrando ficheros de datos  <<<<<<<<<<<<<<");
     bool bRC = deleteDatos();
     if(bRC) {
-      LOG_WARN("borrado ficheros de parámetros y riegos OK");
+      LOG_WARN("borrado ficheros de /datos OK");
       lcd.infoclear("RESET/ERASE parm OK",1,BIPOK); //señala el borrado ficheros de parámetros OK
       delay(config.msgdisplaymillis);
     }  
-    else LOG_ERROR(" **  [ERROR] en borrado ficheros de parámetros");
+    else LOG_ERROR(" **  [ERROR] en borrado ficheros de datos");
   }
   //intenta leer fichero de parametros (principal o de backup si falla el principal)
   if (!loadConfigFile(parmFile)) {
@@ -1901,6 +1911,9 @@ void setupConfig()
   tm.minutes = config.minutes;
   tm.seconds = config.seconds;
   tmvalue();
+  setLogToFile();  // tipo de mensages a grabar en el fichero de errores (ERROR , WARNING)
+  LOG_TRACE("Inicializando Configure");
+  configure = new Configure();
 } //fin setupConfig
 
 void resetESP32() {
@@ -1961,6 +1974,136 @@ const char* getTimestamp() {
     return buffer;
 }    
 
+// Gestiona el tamaño del fichero de log de errores: rotación y limpieza
+void gestionarTamanoLog() {
+    const size_t MAXLOGFILESIZE = 10 * 1024; // maximo tamaño del log en bytes antes de rotar (10KB)
+    const size_t MINFSSPACE = 20 * 1024;     // espacio libre minimo en LittleFS en bytes (20KB)
+    // 1. Limpieza por espacio crítico
+    if ((LittleFS.totalBytes() - LittleFS.usedBytes()) < MINFSSPACE) {
+        if (LittleFS.exists(logErrorFilePrev)) LittleFS.remove(logErrorFilePrev);
+    }
+    // 2. Rotación por tamaño
+    if (LittleFS.exists(logErrorFile)) {
+        File f = LittleFS.open(logErrorFile, "r");
+        if (f) {
+            size_t currentSize = f.size();
+            f.close();
+            if (currentSize > MAXLOGFILESIZE) {
+                logSystemStatus("--- Fin de este segmento (rotando) ---");
+                delay(100); // asegurar que el mensaje se graba (flush/close) antes de renombrar
+                if (LittleFS.exists(logErrorFilePrev)) LittleFS.remove(logErrorFilePrev);
+                LOG_FILE_CLOSE(); // cerrar log antes de renombrar
+                if (LittleFS.rename(logErrorFile, logErrorFilePrev)) {
+                    LOG_ATTACH_FS_AUTO(LittleFS, logErrorFile, FILE_APPEND); // Reabre el log
+                    const char* msg = " --- Log Rotated: Previous file saved as _prev ---";
+                    logSystemStatus(msg); // record log rotation message to logfile
+                    LOG_INFO(msg);
+                } else {
+                    LOG_ATTACH_FS_AUTO(LittleFS, logErrorFile, FILE_APPEND); // Reabre el log
+                    LOG_ERROR(" ** [ERROR] Renaming log file for rotation failed");
+                }
+            }    
+        }    
+    }
+}
+
+// Configura el nivel de logueo a fichero segun parametro config.logWarnToFile
+void setLogToFile() {
+    #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
+    if (config.logWarnToFile) {
+        LOG_FILE_SET_LEVEL(DebugLogLevel::LVL_WARN);
+        LOG_WARN("LOG_WARN messages will also be logged to file as per configuration");
+    } else {
+        LOG_FILE_SET_LEVEL(DebugLogLevel::LVL_ERROR);
+        logSystemStatus("Only error type messages will be logged to file");
+    }
+    #endif
+}
+
+// Fuerza el refresco del fichero de log
+void refreshLogFile() {
+      #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
+      logSystemStatus("-----------  log  refresh  ----------");
+      LOG_FILE_CLOSE(); // Fuerza el volcado y cierre del log
+      LOG_ATTACH_FS_AUTO(LittleFS, logErrorFile, FILE_APPEND); // Reabre el log
+      #endif
+
+}
+
+void logSystemStatus(const char* mensaje) {
+  #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
+    PRINTLN_FILE("[SYSTEM] [", getTimestamp(), "]", mensaje);
+  #endif
+}
+
+String registrarArranqueSistema() {
+    uint32_t uptimePrevio;
+    char msgArranque[160];
+    // Verificar si el sistema ha despertado de un deep sleep por boton manual
+    esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
+    if (wakeup_reason == ESP_SLEEP_WAKEUP_EXT0) {
+      bootCount = 0; // Reseteamos la variable de la RTC RAM
+      return String("Despertado manualmente. Limpiando contador de errores...");
+    }
+    //  Serial.printf("[DEBUG RTC] Antes: Magic=0x%08X, Count=%d\n", magicNumber, bootCount);
+    // Si el número mágico no coincide, es un arranque en frío (power-on o hard reset)
+    if (magicNumber != 0xCAFEBABE) {
+        magicNumber = 0xCAFEBABE;
+        bootCount = 1;
+        uptimePrevio = 0; // primer arranque por hard reset, no hay uptime previo 
+    } else {
+        bootCount++;
+        uptimePrevio = lastUptime; // Guardamos el uptime del ciclo anterior para el mensaje
+    }
+    // Detecta bootloop: más de 5 arranques por SW con uptime previo menor de 30 segundos
+    if (bootCount > 5 && uptimePrevio < 30) {
+        return String("BOOTLOOP"); 
+    }
+    esp_reset_reason_t reason = esp_reset_reason();
+    const char* razonTexto;
+    switch (reason) {
+        case ESP_RST_POWERON:  razonTexto = "Power-on / Hard Reset"; break;
+        case ESP_RST_EXT:      razonTexto = "External Pin Reset"; break;
+        case ESP_RST_SW:       razonTexto = "Software Reset (ESP.restart)"; break;
+        case ESP_RST_PANIC:    razonTexto = "Exception / Crash"; break;
+        case ESP_RST_INT_WDT:  razonTexto = "Interrupt Watchdog"; break;
+        case ESP_RST_TASK_WDT: razonTexto = "Task Watchdog"; break;
+        case ESP_RST_BROWNOUT: razonTexto = "Voltage Dip (Brownout)"; break;
+        default:               razonTexto = "Other / Unknown"; break;
+    }
+    lastUptime = 0; // Reseteamos para el ciclo actual
+    snprintf(msgArranque, sizeof(msgArranque), 
+             "\t\t <<<<< CCR Started (Boot #%d | Reason: %s | Last Uptime: %lu s) >>>>>", 
+             bootCount, razonTexto, uptimePrevio);    
+    return String(msgArranque);
+}
+
+// Inicializa el sistema de ficheros LittleFS y el logger a fichero si procede
+void initFS() {
+  if (fsOK) return; // ya inicializado
+  PRINTLN("[setup] Inicializando LittleFS...");
+  if(clean_FS) cleanFS();
+  fsOK = LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED);
+  if(!fsOK) PRINTLN("[ERROR] [initFS] An Error has occurred while mounting LittleFS");
+  #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
+    LOG_ATTACH_FS_AUTO(LittleFS, logErrorFile, FILE_APPEND); // open/close automatico, se añaden mensajes al final del fichero
+    gestionarTamanoLog(); // Borra/rota fichero de log de errores si su tamano es excesivo
+  #endif
+}
+
+void stopHW() {
+      initFS();
+      logSystemStatus("!!!BOOTLOOP DETECTADO !!! Sistema bloqueado para evitar daños");
+      PRINTLN(F("SISTEMA BLOQUEADO"));
+      esp_sleep_enable_ext0_wakeup(ENCBOTON, 0); // Configura wakeup por boton ENC a LOW
+      esp_deep_sleep_start();  // entra en deep sleep indefinidamente
+      // while(true) {  //bucle infinito
+      //   analogWrite(LEDR, 255);
+      //   delay(1000);
+      //   analogWrite(LEDR, 75);
+      //   delay(1000);
+      // } 
+}
 
 // **************************************************************************
 // Atajos Stop+Enc+Grupo_n
@@ -2021,13 +2164,14 @@ void scSorpresa() {
       int inputNumber = inputSerial.toInt();
       if (!inputNumber) {
           Serial.println(F("Teclee: "));
+          Serial.println(F("   0 o intro - anular simulacion errores"));
           Serial.println(F("   1 - simular error NTP"));
           Serial.println(F("   2 - simular error apagar riego"));
           Serial.println(F("   3 - simular error encender riego"));
           Serial.println(F("   4 - simular EV no esta ON en Domoticz"));
           Serial.println(F("   5 - simular EV no esta OFF en Domoticz"));
           Serial.println(F("   6 - simular error al salir del PAUSE"));
-          Serial.println(F("   9 - anular simulacion errores"));
+          Serial.println(F("   9 - simular crash de sw"));
       }
       switch (inputNumber) {
             case 1:
@@ -2055,7 +2199,11 @@ void scSorpresa() {
                 simular.ErrorPause = true;
                 break;
             case 9:
-                Serial.println(F("recibido:   9 - anular simulacion errores"));
+                Serial.println(F("recibido:   9 - simular crash de sw"));
+                *((int*)0) = 42; // access violation para simular crash
+                break;
+            case 0:
+                Serial.println(F("recibido:   0 - anular simulacion errores"));
                 timeOK = true;                         
                 simular.all_simFlags = false;
       }

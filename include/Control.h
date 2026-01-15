@@ -292,6 +292,7 @@
     bool reposo = false;    
     bool failedStopRiego = false;
     bool recoverableError = false;
+    bool errorInformado = false;  // para no repetir logs del mismo error "silencioso" (fallo wifi en standby o readRemoteTemp)
   } ;
 
   struct S_timeRiego {
@@ -490,7 +491,7 @@
     #ifdef TEMPLOCAL 
     DHT dht(DHTPIN, TEMPLOCAL);
     #endif
-    
+
     #else
     // ademas de en main, son globales a todos los modulos:
     extern int NUM_S_BOTON;
@@ -585,8 +586,9 @@ void handleStopInStandby();
 void inicioTimeLastRiego(S_timeRiego&, const char* texto = nullptr, bool resume=false);
 void initEncoder(void);
 void initFactorRiegos(void);
+void initFS();
 void initGPIOs(void);
-void initHardware(void);
+void initHardware(bool);
 void initLastGrupos(void);
 void initLastRiegos(void);
 void initLCD(void);
@@ -605,6 +607,7 @@ void leeSerial(void);
 void listAllFilesInDir(fs::FS &fs, String dir_path);
 void listDir(fs::FS &fs, const char * dirname, uint8_t levels, uint8_t depth = 0);
 bool loadConfigFile(const char*);
+void logSystemStatus(const char *mensaje);
 void mcpIinit(void);
 void mcpOinit(void);
 void memoryInfo(void);
@@ -638,8 +641,10 @@ void procesaEstadoTerminando(void);
 void procesaWebServer(void);
 bool queryStatus(uint8_t, const char *);
 float readTemp();
-String readLogFile(int zona);
+String readSCDLogFile(int zona);
+void refreshLogFile();
 void refreshTime(void);
+String registrarArranqueSistema();
 void reposoOFF(void);
 void reposoON(bool lcdOFF=true);
 void resetESP32();
@@ -661,7 +666,8 @@ void setEncoderTime(void);
 void setEstado(m_estados estado, int bnum = 0, estado_tipos tipo = LOCAL, velocidad_parpadeo ledblink = FIJO);
 int  setGrupo();
 void setledRGB(void);
-int  setMultibyId(uint16_t);
+void setLogToFile();
+int setMultibyId(uint16_t);
 bool setMultirriego();
 void setParpadeo(Ticker &t, velocidad_parpadeo vel, void (*f_callback)(int), int ledid);
 void setParpadeo(Ticker &t, velocidad_parpadeo vel, int ledid=0);
@@ -683,6 +689,7 @@ void startZoneWatering();
 void StaticTimeUpdate(bool);
 void statusError(error_tipos, bool recoverable=false, velocidad_parpadeo zonablink = FIJO, velocidad_parpadeo errorblink = FIJO);
 bool stopAllRiego(void);
+void stopHW();
 bool stopRiego(uint16_t id, bool update = true, bool alertIfFails = true);
 String sysInfo(void);
 bool testButton(uint16_t, bool);
