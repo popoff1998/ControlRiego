@@ -8,33 +8,6 @@
     #define MULTIRRIEGO bGRUPO1 ... bGRUPO4 
   #endif
 
-  /*
-  * Uncommenting DEBUGLOG_DISABLE_LOG disables ASSERT and all log (Release Mode)
-  * PRINT and PRINTLN are always valid even in Release Mode
-  * #define DEBUGLOG_DISABLE_LOG
-  * para cambiarlo posteriormente: LOG_SET_LEVEL(DebugLogLevel::LVL_TRACE);
-  *  0: NONE, 1: ERROR, 2: WARN, 3: INFO, 4: DEBUG, 5: TRACE
-  */
-  #ifdef DEVELOP
-    //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
-    //#define DEBUGLOG_DEFAULT_LOG_LEVEL_WARN
-    //#define DEBUGLOG_DEFAULT_LOG_LEVEL_TRACE
-    #define DEBUGLOG_DEFAULT_LOG_LEVEL_DEBUG
-    //#define EXTRADEBUG
-    //#define EXTRADEBUG2
-    //#define EXTRATRACE
-    #define VERBOSE
-  #endif
-
-  #ifdef RELEASE
-    //Comportamiento general para uso normal . DESCOMENTAR LO QUE CORRESPONDA
-    //#define DEBUGLOG_DISABLE_LOG
-    #define DEBUGLOG_DEFAULT_LOG_LEVEL_INFO
-    // #define DEBUGLOG_DEFAULT_LOG_LEVEL_TRACE
-    #define VERBOSE
-  #endif
-
-  #include <DebugLog.h>
 
   #include <DNSServer.h>
   #include <WiFiManager.h> 
@@ -68,6 +41,8 @@
   #include "Configure.h"
   #include "DisplayLCD.h"
   #include "Sonidos.h"
+
+  #include "DebuglogSetup.h"
 
   #ifdef DEVELOP
     #define HOSTNAME "ardomot"
@@ -133,6 +108,7 @@
   #define TEMP_DATA_REMOTE    0       // * fuente del dato de temperatura 0=local/1=remota
   #define SHORTCUTSENABLED    true    // admite atajos en estado STOP
   #define ENCSWASPAUSE        true    // encoderSW simula PAUSE en estado CONFIGURANDO
+  #define LOGWARNTOFILE       true   // LOG_WARN tambien se graba en el fichero de log de errores
                                       // [*] = configurables
 
  //----------------  dependientes del HW   ----------------------------------------
@@ -316,6 +292,7 @@
     bool reposo = false;    
     bool failedStopRiego = false;
     bool recoverableError = false;
+    bool errorInformado = false;  // para no repetir logs del mismo error "silencioso" (fallo wifi en standby o readRemoteTemp)
   } ;
 
   struct S_timeRiego {
@@ -378,6 +355,7 @@
     bool lastr24 = false;                       // muestra leds ultimos riegos desde las 0h (false) o ultimas 24h (true)
     bool shortcuts = SHORTCUTSENABLED;          // admite atajos de teclas en estado STOP
     bool encSWasPause = ENCSWASPAUSE;           // simulacion PAUSE en modo CONFIGURANDO con encoderSW
+    bool logWarnToFile = LOGWARNTOFILE;         // si true los LOG_WARN tambien se graban en el fichero de log de errores
   };
 
   // estructura del multirriego activo 
@@ -462,10 +440,12 @@
 
     int NUM_S_BOTON = ELEMENTCOUNT(Boton);
     
-    const char *parmFile = "/datos/config_parm.json";         // fichero de parametros activos
-    const char *backupParmFile = "/datos/config_backup.json"; // fichero de respaldo de los parametros
-    const char *lastRiegosFile = "/datos/lastRiegos.json";        // fichero de ultimos riegos de zonas
-    const char *lastGruposFile = "/datos/lastGrupos.json";        // fichero de ultimos riegos de grupos
+    const char *parmFile         = "/datos/config_parm.json";   // fichero de parametros activos
+    const char *backupParmFile   = "/datos/config_backup.json"; // fichero de respaldo de los parametros
+    const char *lastRiegosFile   = "/datos/lastRiegos.json";    // fichero de ultimos riegos de zonas
+    const char *lastGruposFile   = "/datos/lastGrupos.json";    // fichero de ultimos riegos de grupos
+    const char *logErrorFile     = "/datos/logError.txt";       // fichero de log de errores
+    const char *logErrorFilePrev = "/datos/logError_prev.txt";  // fichero de log de errores previo (renombrado al superar tamano maximo)
     S_MULTI multi;     //estructura con variables del grupo de multirriego activo
     S_BOTON  *boton;   // apuntador al boton en curso en la matriz Boton[]
     S_Estado Estado;   // estructura con el estado actual de la maquina de estados
@@ -500,6 +480,7 @@
     bool saveConfig = false;
     bool riegoFromPause = false;
     bool inSetup = true;
+    bool fsOK = false;  // filesystem ok
     unsigned long standbyTime;
     // int  ledID = 0;
     int numloops = 0;
@@ -510,7 +491,7 @@
     #ifdef TEMPLOCAL 
     DHT dht(DHTPIN, TEMPLOCAL);
     #endif
-    
+
     #else
     // ademas de en main, son globales a todos los modulos:
     extern int NUM_S_BOTON;
@@ -532,6 +513,8 @@
     extern const char *backupParmFile;
     extern const char *lastRiegosFile;
     extern const char *lastGruposFile;
+    extern const char *logErrorFile;
+    extern const char *logErrorFilePrev;
     extern char buff[];
 
     
@@ -550,9 +533,9 @@ bool checkSCD(void);
 int  checkWifi(bool level=false);
 void cleanFS(void);
 String convertFileSize(const size_t);
-bool copyConfigFile(const char*, const char*);
+bool copyConfigFile(const char *, const char *);
 void debugloops(void);
-bool deleteParmFiles(void);
+bool deleteDatos(void);
 void deleteParmSignal(uint);
 bool deviceSwitch(uint8_t zona, const char *msg, int retries);
 void dimmerLeds(bool);
@@ -572,11 +555,13 @@ void filesInfo(void);
 void finalTimeGrupo(S_timeRiego&, time_t tZona = 0);
 void finalTimeLastRiego(S_timeRiego&);
 void flagVerificaciones(void);
+void gestionarTamanoLog();
 bool getDiaNoche(char*, char*);
 String getDomoticzSettingsInfo(const char*);
 int getFactor(uint8_t zona, bool &factorRiegosLeido);
 uint16_t getMultiStatus(void);
 float getRemoteTemperature();
+const char* getTimestamp();
 void handleDynamicZoneChange();
 void handleEncGrupoInStandby(int n_grupo);
 void handleEncGrupoInStop(int n_grupo);
@@ -601,8 +586,9 @@ void handleStopInStandby();
 void inicioTimeLastRiego(S_timeRiego&, const char* texto = nullptr, bool resume=false);
 void initEncoder(void);
 void initFactorRiegos(void);
+void initFS();
 void initGPIOs(void);
-void initHardware(void);
+void initHardware(bool);
 void initLastGrupos(void);
 void initLastRiegos(void);
 void initLCD(void);
@@ -621,6 +607,7 @@ void leeSerial(void);
 void listAllFilesInDir(fs::FS &fs, String dir_path);
 void listDir(fs::FS &fs, const char * dirname, uint8_t levels, uint8_t depth = 0);
 bool loadConfigFile(const char*);
+void logSystemStatus(const char *mensaje);
 void mcpIinit(void);
 void mcpOinit(void);
 void memoryInfo(void);
@@ -654,8 +641,10 @@ void procesaEstadoTerminando(void);
 void procesaWebServer(void);
 bool queryStatus(uint8_t, const char *);
 float readTemp();
-String readLogFile(int zona);
+String readSCDLogFile(int zona);
+void refreshLogFile();
 void refreshTime(void);
+String registrarArranqueSistema();
 void reposoOFF(void);
 void reposoON(bool lcdOFF=true);
 void resetESP32();
@@ -677,7 +666,8 @@ void setEncoderTime(void);
 void setEstado(m_estados estado, int bnum = 0, estado_tipos tipo = LOCAL, velocidad_parpadeo ledblink = FIJO);
 int  setGrupo();
 void setledRGB(void);
-int  setMultibyId(uint16_t);
+void setLogToFile();
+int setMultibyId(uint16_t);
 bool setMultirriego();
 void setParpadeo(Ticker &t, velocidad_parpadeo vel, void (*f_callback)(int), int ledid);
 void setParpadeo(Ticker &t, velocidad_parpadeo vel, int ledid=0);
@@ -699,6 +689,7 @@ void startZoneWatering();
 void StaticTimeUpdate(bool);
 void statusError(error_tipos, bool recoverable=false, velocidad_parpadeo zonablink = FIJO, velocidad_parpadeo errorblink = FIJO);
 bool stopAllRiego(void);
+void stopHW();
 bool stopRiego(uint16_t id, bool update = true, bool alertIfFails = true);
 String sysInfo(void);
 bool testButton(uint16_t, bool);

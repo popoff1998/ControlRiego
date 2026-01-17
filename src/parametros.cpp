@@ -10,7 +10,7 @@ bool loadConfigFile(const char *p_filename)
   #endif
   File file = LittleFS.open(p_filename, "r");
   if(!file){
-    LOG_ERROR("Failed to open file for reading");
+    LOG_ERROR("Failed to open file for reading", p_filename);
     return false;
   }
   size_t size = file.size();
@@ -111,6 +111,7 @@ bool loadConfigFile(const char *p_filename)
   config.verify = doc["verify"] | true;
   config.dynamic = doc["dynamic"] | false;
   config.lastr24 = doc["lastr24"] | false;
+  config.logWarnToFile = doc["logWarnToFile"] | LOGWARNTOFILE;
   //-------------------------------------------------------------------------------------------
   return config.initialized;
 } // end loadConfigFile
@@ -167,7 +168,8 @@ bool saveConfigFile(const char *p_filename)
   doc["verify"]             = config.verify;
   doc["dynamic"]            = config.dynamic;
   doc["lastr24"]            = config.lastr24;
-
+  doc["logWarnToFile"]      = config.logWarnToFile;
+  //-------------------------------------------------------------------------------------------
   // Serialize JSON to file
   #ifdef EXTRADEBUG 
     LOG_DEBUG("Contenido del jsondoc a grabar en ",p_filename,":");
@@ -215,17 +217,31 @@ bool copyConfigFile(const char *fileFrom, const char *fileTo)
   } 
 } // end copyConfigFile
 
-//borrado de los ficheros de parametros,backup y riegos para resetear la configuracion
-bool deleteParmFiles()
+//borrado de los ficheros de parametros,backup,riegos, logs... para resetear la configuracion
+bool deleteDatos()
 {
-  LOG_TRACE("in deleteParmFiles");
+  LOG_TRACE("Iniciando borrado de contenidos en /datos");
   bool bRC = true;
-  if (LittleFS.exists(parmFile) && bRC) bRC = LittleFS.remove(parmFile);
-  if (LittleFS.exists(backupParmFile) && bRC) bRC = LittleFS.remove(backupParmFile);
-  if (LittleFS.exists(lastRiegosFile) && bRC) bRC = LittleFS.remove(lastRiegosFile);
-  if (LittleFS.exists(lastGruposFile) && bRC) bRC = LittleFS.remove(lastGruposFile);
+  File root = LittleFS.open("/datos");
+  if (!root) {
+    LOG_WARN("Error: No se pudo abrir el directorio /datos (¿existe?)");
+    return false;
+  }
+  File file = root.openNextFile();
+  while (file) {
+    String fileName = file.path(); 
+    file.close(); // cerramos el fichero antes de borrarlo
+    LOG_DEBUG("Borrando: " + fileName);
+    if (!LittleFS.remove(fileName)) {
+      LOG_WARN("Fallo al borrar: " + fileName);
+      bRC = false;
+    }
+    file = root.openNextFile();
+  }
+  root.close();
   return bRC;
 }
+
 
 //init minimo de config para evitar fallos en caso de no poder cargar parametros de ficheros
 void zeroConfig() {
@@ -278,6 +294,7 @@ void printParms() {
   Serial.printf("\tverify= %d \n", config.verify);
   Serial.printf("\tdynamic= %d \n", config.dynamic);
   Serial.printf("\tlastr24= %d \n", config.lastr24);
+  Serial.printf("\tdebugmode= %d \n", config.logWarnToFile);
   Serial.println("----------------------------------------------------------------\n");
 }
 
@@ -418,26 +435,25 @@ String convertFileSize(const size_t bytes)
     return String(bytes / 1048576.0) + " MB";
   }
 
-  
-// funciones solo usadas en DEVELOP
-#ifdef EXTRADEBUG
-
 // Prints the content of a file to the Serial 
 void printFile(const char *p_filename) {
   LOG_TRACE("printFile (",p_filename,")");
   // Open file for reading
   File file = LittleFS.open(p_filename, "r");
   if (!file) {
-    LOG_ERROR("Failed to open config file");
+    LOG_ERROR("Failed to open file", p_filename);
     return;
   }
-  Serial.println(F("File Content:"));
+  Serial.printf("\n File %s Content: \n", p_filename);
   while(file.available()){
     Serial.write(file.read());
   }
   Serial.println(F("\n\n"));
   file.close();
 }
+
+// funciones solo usadas en DEVELOP
+#ifdef EXTRADEBUG
 
 void memoryInfo() 
 {

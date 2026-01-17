@@ -370,6 +370,9 @@ int Configure::showMenu(int opcion)
       opcionesMenuConf[VERIFY_ONOFF]  = "VERIFY: ";
       opcionesMenuConf[DYNAMIC]       = "DYNAMIC: ";
       opcionesMenuConf[LASTRIEGOS24]  = "RIEGOS 24H: ";
+      #ifdef LOGTOFILE 
+      opcionesMenuConf[WARNTOLOG]     = "DEBUG mode: ";
+      #endif
       opcionesMenuConf[__ENDLINE__]   = "-----------------";
                                     /*   <------17------->     maxima longitud */ 
 
@@ -403,6 +406,10 @@ int Configure::showMenu(int opcion)
       opcionesMenuConf[VERIFY_ONOFF] += (config.verify ? "ON" : "OFF");
       opcionesMenuConf[DYNAMIC] += (config.dynamic ? "ON" : "OFF");
       opcionesMenuConf[LASTRIEGOS24] += (config.lastr24 ? "ON" : "OFF");
+      #ifdef LOGTOFILE 
+      opcionesMenuConf[WARNTOLOG] += (config.logWarnToFile ? "ON" : "OFF");
+      #endif
+
 
 
       LOG_TRACE("opcion=",opcion,"_currentitem_prev=",_currentItem,"MAXOPCIONES=",MAXOPCIONES);
@@ -454,14 +461,14 @@ void Configure::procesaSelectMenu()
                 ledYellow(ON);
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break; 
-  #ifdef WEBSERVER
+        #ifdef WEBSERVER
         case WEBSERVER_ACT :  // activamos webserver (no bloqueante, pero no respodemos a botones)
                 Estado.connected ? setupWS() : sonido.bipKO();
                 break;
-  #endif 
+        #endif 
         case LOAD_BACKUP :   // carga parametros de backup y reinicia
                 if (copyConfigFile(backupParmFile, parmFile)) {    // backupParmFile --> parmFile
-                  LOG_WARN("carga parametros de backup OK");
+                  LOG_WARN("carga parametros de backup OK, RESET ESP32");
                   lcd.infoclear("load BACKUP OK", DEFAULTBLINK, BIPOK);
                   lcd.info(">> RESET en 2 seg <<",3);
                   delay(2000);
@@ -551,6 +558,15 @@ void Configure::procesaSelectMenu()
                 saveConfig = true;
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break;
+        #ifdef LOGTOFILE 
+        case WARNTOLOG :   // toggle log de mensajes WARN en fichero de log
+                config.logWarnToFile = !config.logWarnToFile;
+                sonido.bip(2);
+                saveConfig = true;
+                setLogToFile();
+                this->menu();  // vuelve a mostrar menu de configuracion
+                break;
+        #endif
         default:         
                 LOG_DEBUG("salimos del CASE del MENU sin realizar accion");
       }

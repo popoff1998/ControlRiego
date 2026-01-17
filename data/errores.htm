@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Logs de Errores</title>
+  <meta charset="UTF-8">
+  <meta name='viewport' content='user-scalable=yes,initial-scale=1.0,width=device-width'>
+  <link rel="stylesheet" href="/style_base.css">
+  <link rel="stylesheet" href="/style_botones.css">
+  <link rel="stylesheet" href="/style_tableFiles.css">
+  <link rel="stylesheet" href="/style_datacard.css">
+  <style>
+    .button-update {
+    padding: 10px 20px;
+    font-size: 16px;
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    }
+    .button-update:hover {
+      background-color: #1976D2;
+    }
+    .banner {
+    margin-bottom: 20px;
+    border-radius: 5px;
+    font-family: sans-serif;
+    }
+    .banner-warning {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeeba;
+    }
+    .banner-info {
+        background-color: #d1ecf1;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+    }
+    /* Oculta el encabezado temporalmente para evitar destello al mostrarlo si usa cards */
+    @media (max-width: 600px) {thead { display: none !important; }}
+  </style>
+</head>
+
+<body>
+  <h1 style="margin-top: 20px;">Logs de errores</h1>
+  <div style="text-align: center; margin-bottom: 20px;">
+    <button onclick="window.location.href='/errores.htm'" class="button-update">
+      🔄 Actualizar y Sincronizar
+    </button>
+  </div>
+  <div id="banner-warn" class="banner banner-warning" style="display: none;">
+      ⚠️ <strong>Aviso:</strong> La grabación de mensajes <em>Warning</em> está activa. Esto puede llenar la memoria rápidamente; úselo solo para depuración temporal.
+  </div>
+  <div id="banner-off" class="banner banner-info" style="display: none;">
+      ℹ️ El sistema de registro en fichero está <strong>desactivado</strong>. No se están generando nuevos registros de errores.
+  </div>
+
+  <table style="margin: 0 auto;">
+        <thead><tr><th>Nombre</th><th>Tamaño</th><th>Timestamp</th><th>Acción</th></tr></thead>
+        <tbody id="logsTableBody">
+        <!-- Rows will be dynamically added here -->
+        </tbody>
+    </table>
+
+<script src="/funciones.js"></script>
+  <script>
+    function updateBanners(logEnabled, warnActive) {
+      const bannerWarn = document.getElementById('banner-warn');
+      const bannerOff = document.getElementById('banner-off');
+      const updateBtn = document.querySelector('.button-update');
+      if (warnActive === true || warnActive === "true") {
+        bannerWarn.style.display = 'block';
+      }
+      if (logEnabled === false || logEnabled === "false") {
+        bannerOff.style.display = 'block';
+        if (updateBtn) updateBtn.style.display = 'none'; 
+      } else {
+        bannerOff.style.display = 'none';
+        if (updateBtn) updateBtn.style.display = 'inline-block';
+      }
+    }
+
+    window.addEventListener("load", () => {
+      // 2. Ejecutamos la lógica de banners con los datos del servidor
+      const isLogEnabled = %LOGENABLED%;
+      const isWarnActive = %LOGWARNFILE%;
+      updateBanners(isLogEnabled, isWarnActive);
+      const fullPath = "%ERRORFILE%"; 
+      const lastSlash = fullPath.lastIndexOf('/');
+      const dir = fullPath.substring(0, lastSlash) || "/";
+      const fileNameWithExt = fullPath.substring(lastSlash + 1);
+      const filter = fileNameWithExt.split('.').slice(0, -1).join('.') || fileNameWithExt;
+      window.requestAnimationFrame(() => {
+          apiGetJson(`/api/list?dir=${encodeURIComponent(dir)}&file=${encodeURIComponent(filter)}`)
+            .then(data => {
+              populateTable(data, "logsTableBody");
+            })
+            .catch(error => console.error("Error fetching file data:", error));
+      });
+    });
+  </script>
+
+
+</body>
+</html>

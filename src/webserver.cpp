@@ -42,20 +42,25 @@ static void sendNoCacheJSON(const String &payload) {
   wserver.send(200, "application/json; charset=utf-8", payload);
 }
 
-// Lista de tokens y sus valores de sustitución
-struct TokenData {
-    const char* token;
-    String value;
-} tokenList[] = {
-        {"%PARMFILE%",   String(parmFile)},
-        {"%BACKUPFILE%", String(backupParmFile)},
-        {"%LASTRIEGOS%", String(lastRiegosFile)},
-        {"%LASTGRUPOS%", String(lastGruposFile)},
-        {"%VERSION%",    String(FW_VERSION)},
-        {"%DIAS%",       String(logDays)},
-        {"%SHOWTEST%",   showtest_section ? "true" : "false"} 
-    };
 void replaceTokens(String &content) {
+    // Lista de tokens y sus valores de sustitución
+    // Definimos la lista DENTRO de la función, esto fuerza a que config.logWarnToFile y otras similares
+    // se evalúe CADA VEZ que se llame a la función.
+    struct TokenData {
+        const char* token;
+        String value;
+    } tokenList[] = {
+            {"%PARMFILE%",    String(parmFile)},
+            {"%BACKUPFILE%",  String(backupParmFile)},
+            {"%ERRORFILE%",   String(logErrorFile)},
+            {"%LASTRIEGOS%",  String(lastRiegosFile)},
+            {"%LASTGRUPOS%",  String(lastGruposFile)},
+            {"%VERSION%",     String(FW_VERSION)},
+            {"%DIAS%",        String(logDays)},
+            {"%LOGENABLED%",  (LOG_FILE_GET_LEVEL() != DebugLogLevel::LVL_NONE) ? "true" : "false"}, 
+            {"%LOGWARNFILE%", config.logWarnToFile ? "true" : "false"}, 
+            {"%SHOWTEST%",    showtest_section ? "true" : "false"} 
+        };
     const size_t numTokens = sizeof(tokenList) / sizeof(tokenList[0]);
     for (size_t i = 0; i < numTokens; i++) {
         const char* currentToken = tokenList[i].token;
@@ -228,17 +233,17 @@ static bool checkAndSendCacheHeaders(const String &path, File &file, bool isToke
 // Server utils 
 // ---------------------------
 
-// MIME type mapping for file extensions
+// En tipos de texto se añade charset Unicode para mostrar caracteres especiales correctamente
 static const struct {
   const char* ext;
   const char* mime;
 } mimeTypes[] = {
-  {".htm",   "text/html"},
-  {".html",  "text/html"},
-  {".css",   "text/css"},
-  {".js",    "application/javascript"},
-  {".json",  "application/json"},
-  {".xml",   "text/xml"},
+  {".htm",   "text/html; charset=utf-8"},      // Añadido charset
+  {".html",  "text/html; charset=utf-8"},      // Añadido charset
+  {".css",   "text/css; charset=utf-8"},       // Recomendado para CSS con símbolos
+  {".js",    "application/javascript; charset=utf-8"},
+  {".json",  "application/json; charset=utf-8"},
+  {".xml",   "text/xml; charset=utf-8"},
   {".png",   "image/png"},
   {".gif",   "image/gif"},
   {".jpg",   "image/jpeg"},
@@ -247,12 +252,12 @@ static const struct {
   {".pdf",   "application/pdf"},
   {".zip",   "application/zip"},
   {".gz",    "application/gzip"},
-  {nullptr,  "text/plain"}  // default fallback
+  {nullptr,  "text/plain; charset=utf-8"}      // Fallback 
 };
 
 const char* GetContentType(const String &filename) {
   int lastDot = filename.lastIndexOf('.');
-  if (lastDot < 0) return "text/plain";
+  if (lastDot < 0) return "text/plain; charset=utf-8"; 
   String ext = filename.substring(lastDot);
   ext.toLowerCase();
   for (int i = 0; mimeTypes[i].ext != nullptr; i++) {
@@ -260,8 +265,9 @@ const char* GetContentType(const String &filename) {
       return mimeTypes[i].mime;
     }
   }
-  return "text/plain";
-}  
+  // Si no tiene extensión, devolvemos el fallback con UTF-8
+  return "text/plain; charset=utf-8"; // Fallback con UTF-8
+}
 
 void printArgs() {
   for (int i = 0; i < wserver.args(); i++) {LOG_DEBUG("  ", wserver.argName(i), ": ", wserver.arg(i));}
@@ -422,6 +428,12 @@ void handleAdvancedPage() {
   serveFile("/advanced.htm", "text/html");
 }
 
+// Forzamos el volcado y cierre del log para liberar LittleFS
+void handleListLogs() {
+    refreshLogFile();
+    serveFile("/errores.htm", "text/html");
+}
+
 // parmfile_editraw page (requires auth)
 void handleEditRawPage() {
   if (!wserver.authenticate(update_username, update_password)) {
@@ -435,7 +447,7 @@ void handleEditRawPage() {
 void handleShowZONElog() {
   int zona = wserver.arg("zona").toInt();
   LOG_DEBUG("Zona recibida:", zona);
-  String json = readLogFile(zona); // obtiene del Domoticz el log de riegos de la zona
+  String json = readSCDLogFile(zona); // obtiene del Domoticz el log de riegos de la zona
   sendNoCacheJSON(json);
 }
 
@@ -529,8 +541,20 @@ class FileServerHandler : public RequestHandler {
         }  
         if (requestMethod == HTTP_DELETE) {
           if (LittleFS.exists(fName)) {
+            // Si el archivo es el log, forzamos el cierre total
+            if (fName == logErrorFile) {
+                LOG_INFO("Cerrando Manager de DebugLog...");
+                LOG_FILE_CLOSE();
+            }
             LOG_DEBUG("DELETE request for:", fName);
             handleOK = LittleFS.remove(fName);
+            // Si era el log, lo volvemos a crear y enganchar
+            if (fName == logErrorFile) {
+                #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
+                LOG_ATTACH_FS_AUTO(LittleFS, logErrorFile, FILE_APPEND);
+                LOG_INFO("Logger reiniciado en archivo nuevo.");
+                #endif
+            }
           }
         }
         if (handleOK) {
@@ -646,9 +670,10 @@ class FileServerHandler : public RequestHandler {
 // ---------------------------
 void defWebpagesHandles() {
     wserver.on("/", HTTP_GET, handleRedirect);
-    // paginas html builting comienzan por $
+    // paginas html (las builting comienzan por $)
     wserver.on("/$upload.htm",     HTTP_GET, []() { wserver.send(200, "text/html", FPSTR(uploadContent)); }); // serve a built-in htm page
     wserver.on("/advanced.htm",    HTTP_GET,  handleAdvancedPage); // requiere auth
+    wserver.on("/errores.htm",     HTTP_GET,  handleListLogs); // fuerza cierre ficheros para actualizar timestamps
     wserver.on("/parmfile_editRaw.htm",    HTTP_GET,  handleEditRawPage); // requiere auth
     // apis que devuelven/esperan un JSON
     wserver.on("/api/list",        HTTP_GET,  handleListFiles);
@@ -698,7 +723,7 @@ void setupWS() {
   webServerAct = true;
   restartRequired = false;
   Serial.printf("[WS] HTTPUpdateServer ready!\n   --> Open http://%s.local:%d%s in your browser and login with username '%s' and password '%s'\n\n", WiFi.getHostname(), WSPORT, update_path, update_username, update_password);
-  LOG_INFO("[WS] Activado webserverIP address: ", WiFi.localIP(), ":", WSPORT);
+  PRINTLN("[WS] Activado webserverIP address: ", WiFi.localIP(), ":", WSPORT);
   String response = getDomoticzSettingsInfo("LightHistoryDays"); //lee los dias de log a mostrar por defecto desde Domoticz
   if (!response.startsWith("Err")) logDays = response.toInt();
   displayWSinfo();

@@ -25,6 +25,13 @@ WiFiManagerParameter custom_domoticz_port("domoticz_port", "puerto");
 WiFiManagerParameter custom_ntpserver("ntpServer", "NTP_server");
 WiFiManagerParameter custom_timezone("timeZone", "timezone");
 
+//mensaje de wifi OK con SSID
+const char* wifiOKmsg() {
+    static char buffer[70]; // Un poco más de margen por si el SSID es largo
+    snprintf(buffer, sizeof(buffer), "<<<<--- WiFi conectada (%s) --->>>>", WiFi.SSID().c_str());
+    return buffer;
+}
+
 //llamado cuando WiFiManager sale del modo configuracion
 void saveWifiCallback() {
     LOG_INFO("[CALLBACK] fired");
@@ -65,16 +72,20 @@ void preOtaUpdateCallback()
 //evento llamado en caso de desconexion de la wifi
 void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
   if (Estado.connected) LOG_ERROR("WiFi lost connection. Reason: ", info.wifi_sta_disconnected.reason);
+  else LOG_DEBUG("WiFi lost connection. Reason: ", info.wifi_sta_disconnected.reason);
+  Estado.errorInformado = true; // bloquea futuros LOG_WARN/ERROR
   setConnected(false);
 }
 
 //evento llamado en caso de conexion de la wifi
 void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info){
-  LOG_INFO("    <<<<---  WiFi conectada  --->>>>");
+  LOG_INFO(wifiOKmsg());
+  logSystemStatus(wifiOKmsg());
   if (Estado.estado == STANDBY) {
     lcd.info("STANDBY",1);  //restaura pantalla (borra msg de reconexion)
     showTemp();  // muestra temperatura ambiente en standby
   }
+  Estado.errorInformado = false; //reiniciamos bloqueo futuros LOG_WARN/ERROR
   setConnected(true);
 }
 
@@ -91,7 +102,7 @@ void setupRedWM(S_initFlags &initFlags)
   if(initFlags.initWifi) {
     wm.resetSettings(); //borra wifi guardada
     //delay(300);
-    LOG_INFO("encoderSW pulsado y multirriego en GRUPO3 --> borramos red WIFI");
+    PRINTLN("[setupRedWM] encoderSW pulsado y multirriego en GRUPO3 --> borramos red WIFI");
     lcd.infoclear("red WIFI borrada", DEFAULTBLINK, LOWBIP, 1); //señala borrado wifi
   }
   // explicitly set mode, esp defaults to STA+AP   
@@ -126,7 +137,7 @@ void setupRedWM(S_initFlags &initFlags)
   setParpadeo(tic_WifiLed, RAPIDO, parpadeoLedPWM, LEDG); // y empezamos el temporizador que hará parpadear el LED indicador de wifi
   // activamos conexion wifi y comprobamos si se establece
   if(!wm.autoConnect("Ardomo")) {
-    LOG_WARN("Fallo en la conexión (timeout)");
+    PRINTLN("[setupRedWM] Fallo en la conexión (timeout)");
     Estado.recoverableError = true;
     delay(1000);
   }
@@ -143,7 +154,7 @@ void setupRedWM(S_initFlags &initFlags)
   // (para caso corte de corriente)
   if (Estado.recoverableError && wm.getWiFiIsSaved()) {
     lcd.infoclear("conectando WIFI");
-    LOG_INFO("Hay wifi salvada -> reintentamos la conexion");
+    PRINTLN("[setupRedWM] Hay wifi salvada -> reintentamos la conexion");
     int j=0;
     Estado.recoverableError = false;
     setParpadeo(tic_WifiLed, RAPIDO, parpadeoLedPWM, LEDG);
@@ -164,14 +175,17 @@ void setupRedWM(S_initFlags &initFlags)
   //detenemos parpadeo led wifi
   setParpadeo(tic_WifiLed, PARAR);
   if (checkWifi()) {
-    LOG_INFO(" >>  Conectado a SSID: ", WiFi.SSID().c_str());
-    LOG_INFO(" >>      IP address: ", WiFi.localIP());
-    LOG_INFO(" >>      RSSI:", WiFi.RSSI(), "dBm  (",  wm.getRSSIasQuality(WiFi.RSSI()),"%)");
-    LOG_DEBUG(" >>      Autoreconnect:", WiFi.getAutoReconnect(), " (1 = enabled)");
+    PRINTLN("\n[setupRedWM]  >>  Conectado a SSID: ", WiFi.SSID().c_str());
+    PRINTLN(  "[setupRedWM]  >>      IP address: ", WiFi.localIP());
+    PRINTLN(  "[setupRedWM]  >>      RSSI:", WiFi.RSSI(), "dBm  (",  wm.getRSSIasQuality(WiFi.RSSI()),"%)\n");
+    // LOG_DEBUG(" >>      Autoreconnect:", WiFi.getAutoReconnect(), " (1 = enabled)");
     int msgl = snprintf(buff, MAXBUFF, "wifi OK: %s", WiFi.SSID().c_str());
     lcd.info(buff, 1, msgl);
   }
-  else if(!Estado.modoDEMO) statusError(E1, RECUPERABLE); //si no hemos podido conectar a la wifi señalamos error
+  else if(!Estado.modoDEMO) {
+     statusError(E1, RECUPERABLE); //si no hemos podido conectar a la wifi señalamos error
+     LOG_ERROR("SIN conexion wifi");
+  }
     // ----------------------------- save the custom parameters
   if (saveConfig) {
     strcpy(config.domoticz_ip, custom_domoticz_server.getValue());
@@ -222,21 +236,27 @@ int checkWifi(bool level) {
   //LOG_TRACE("in checkWifi");
   if(WiFi.status() == WL_CONNECTED) {
     // detenemos su parpadeo por si lo tuviera activo y encendemos el LEDG indicador de wifi
-    setParpadeo(tic_WifiLed, FIJO, LEDG);  
-    Estado.connected = true;
+    setParpadeo(tic_WifiLed, FIJO, LEDG);
+    if (!Estado.connected) {
+      LOG_INFO(wifiOKmsg());
+      logSystemStatus(wifiOKmsg());  
+      Estado.connected = true;
+      Estado.errorInformado = false; //reiniciamos bloqueo futuros LOG_WARN/ERROR
+    }
     return level==true ? wm.getRSSIasQuality(WiFi.RSSI()) : true; // devuelve nivel señal wifi si level es true 
   }
   else {
-    LOG_ERROR(" ** [ERROR] No estamos conectados a la wifi");
+    if (!Estado.errorInformado) LOG_ERROR(" ** [ERROR] No estamos conectados a la wifi");
     // detenemos su parpadeo por si lo tuviera activo y apagamos el LEDG indicador de wifi
     setParpadeo(tic_WifiLed, APAGA, LEDG);  
     Estado.connected = false;
+    Estado.errorInformado = true; // bloquea futuros LOG_ERROR
     return false;
   }
 }
 
 bool wifiReconnect () {
-    LOG_WARN("----  INTENTANDO RECONEXION WIFI  ----");
+    LOG_INFO("----  INTENTANDO RECONEXION WIFI  ----");
     setParpadeo(tic_WifiLed, RAPIDO, parpadeoLedPWM, LEDG);
     lcd.info("conectando WIFI",1);
     // WiFi.reconnect(); 
@@ -268,8 +288,15 @@ bool VerifyRecoveryWifi(bool checkReconInterval) {
     no generan el evento de conexion y no se recupera la conexion automaticamente).
     */
     if(!Estado.connected && checkReconInterval) {
-      if(wifiReconnect()) LOG_INFO("Wifi reconectada OK"); //reconectamos a la wifi
-      else LOG_WARN("Reconnect failed, esperando ",RECONNECTINTERVAL," minutos para reintentar");
+      // Intentamos reconectar
+      if(wifiReconnect()) {
+        LOG_INFO(wifiOKmsg());
+        logSystemStatus(wifiOKmsg());
+        Estado.errorInformado = false; //reiniciamos bloqueo futuros LOG_WARN/ERROR 
+      } else if (!Estado.errorInformado) {
+                LOG_WARN("Reconnect failed, reintentando cada ", RECONNECTINTERVAL, " minutos");
+                Estado.errorInformado = true; 
+            }
     }
   //  Verificamos estado actual de la wifi (y display wifi level si procede)
     #ifdef DEVELOP

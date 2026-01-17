@@ -34,6 +34,9 @@ class Configure
       VERIFY_ONOFF  ,
       DYNAMIC       ,
       LASTRIEGOS24  ,
+      #ifdef LOGTOFILE 
+      WARNTOLOG , 
+      #endif
       __ENDLINE__         //  ultimo item fijo (= numero de lineas del menu - 1)
     };
     int _actualIdxIndex;

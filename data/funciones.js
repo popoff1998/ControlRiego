@@ -25,11 +25,11 @@
         // Crear filas de tabla dinámicamente
         function createTableRow(file, tableId) {
             const row = document.createElement("tr");
-
             // Filename (en el JSON viene la ruta completa filepath)
             const filenameCell = document.createElement("td");
             filenameCell.className = file.type == "dir" ? "dirclass" : "filename"; // Add a class for styling (wrap long names if needed)
             filenameCell.setAttribute('data-label','Filename');
+            const prefix = file.type == "dir" ? "📁 " : "📄 "; // Definimos el prefijo (Emoji de carpeta o fichero)
             const filenameLink = document.createElement("a");
             if (tableId === "filesTableBody")
                  filenameLink.href = file.type == "dir" ? '/files.htm?dir='+file.name : file.name; 
@@ -37,8 +37,10 @@
             filenameLink.target = "_blank"; // Open in a new tab
             if (tableId === "parmTableBody" || tableId === "backupTableBody")
                  filenameLink.textContent = getFileName(file.name); // show only the file name, not the full path
-            else filenameLink.textContent = file.name;
-            filenameCell.appendChild(filenameLink);
+            else filenameLink.textContent = prefix + file.name; // muestra emoji de tipo
+            if (tableId !== "logsTableBody")  // no activa el link directo para los logs
+                 filenameCell.appendChild(filenameLink);
+            else filenameCell.textContent = "📜 " + getFileName(file.name); // show only the file name, not the full path     
             row.appendChild(filenameCell);
 
             // Size
@@ -56,26 +58,26 @@
 
             // Actions
             const actionCell = document.createElement("td");
-            actionCell.className = "buttoncolumn"; // Add a class for styling in CSS
-            actionCell.setAttribute('data-label','Acciones');
+            actionCell.className = "buttoncolumn";
+            actionCell.setAttribute('data-label', 'Acciones');
+            const buttonContainer = document.createElement("div");
+            buttonContainer.className = "button-group";
             if (tableId === "parmTableBody") {
-                const buttonContainer = document.createElement("div");
-                buttonContainer.className = "button-group"; // Add a class for styling in CSS
                 buttonContainer.appendChild(createButton("Export", () => downloadFile(file.name)));
                 buttonContainer.appendChild(createButton("Backup", () => handleFileAction("BACKUP", file.name)));
                 buttonContainer.appendChild(createButton("Edit", () => {
-                    window.open(`/parmfile_edit.htm?file=${file.name}`, '_self');  // Open in a the same tab
+                    window.open(`/parmfile_edit.htm?file=${file.name}`, '_self');
                 }));
                 actionCell.appendChild(buttonContainer);
-            } else if (tableId === "backupTableBody") {
+            } 
+            else if (tableId === "backupTableBody") {
                 const restoreButton = createButton("Restore", () => {
                     if (confirm("Copiar " + file.name + " a %PARMFILE% ?")) handleFileAction("RESTORE", file.name);
                 });
                 restoreButton.className = "button-restore";
-                actionCell.appendChild(restoreButton);
-            } else if (tableId === "filesTableBody" && file.type == "file") {
-                const buttonContainer = document.createElement("div");
-                buttonContainer.className = "button-group"; // Add a class for styling in CSS
+                actionCell.appendChild(restoreButton); // Aquí lo añades directo a la celda
+            } 
+            else if (tableId === "filesTableBody" && file.type == "file") {
                 buttonContainer.appendChild(createButton("Download", () => downloadFile(file.name)));
                 const deleteButton = createButton("Delete", () => {
                     if (confirm("Delete " + file.name + " ?")) handleFileDelete(file.name);
@@ -83,11 +85,26 @@
                 deleteButton.className = "button-delete";
                 buttonContainer.appendChild(deleteButton);
                 actionCell.appendChild(buttonContainer);
+            } 
+            else if (tableId === "logsTableBody" && file.type == "file") {
+                buttonContainer.appendChild(createButton("👁️ Ver", () => viewLogFile(file.name)));
+                if (file.name === "%ERRORFILE%") {
+                    const clearButton = createButton("🧹 Limpiar", () => {
+                        if (confirm("¿Vaciar el historial de errores actual?")) handleFileDelete(file.name);
+                    });
+                    buttonContainer.appendChild(clearButton);
+                } else {
+                    const deleteButton = createButton("🗑️ Eliminar", () => {
+                        if (confirm("¿Eliminar este archivo antiguo?")) handleFileDelete(file.name);
+                    });
+                    deleteButton.className = "button-delete";
+                    buttonContainer.appendChild(deleteButton);
+                }
+                actionCell.appendChild(buttonContainer);
             }
             row.appendChild(actionCell);
-
             return row;
-        }    
+        }
 
         // Crear botones dinámicamente
         function createButton(label, onClick) {
@@ -107,6 +124,14 @@
             a.click();
             a.remove();
         }
+
+        // Function to view logs files (force reload using Cache Buster)
+        function viewLogFile(filename) {
+            const cacheBuster = Date.now();
+            const path = filename.startsWith('/') ? filename : '/' + filename;
+            const url = `${path}?v=${cacheBuster}`;
+            window.open(url, '_blank');
+        }   
 
         // Function to handle file copy (Backup, Restore)
         function handleFileAction(action, filename) {
@@ -237,9 +262,6 @@ function validarEstructura(data) {
     if (!data.botones || !Array.isArray(data.botones)) {
         errores.push("Falta la clave 'botones' o no es un array.");
     }
-    // if (!data.grupos || !Array.isArray(data.grupos)) {
-    //     errores.push("Falta la clave 'grupos' o no es un array.");
-    // }
     // --- Validación de contenido mínimo (solo si las claves principales existen) ---
     if (errores.length === 0) {
         // Verificar que 'botones' tenga al menos un elemento con la clave 'zona'
@@ -249,13 +271,6 @@ function validarEstructura(data) {
         if (!tieneBotonValido) {
             errores.push("El array 'botones' debe contener al menos un objeto con la clave 'zona'.");
         }
-        // Verificar que 'grupos' tenga al menos un elemento con la clave 'grupo'
-        // const tieneGrupoValido = data.grupos.some(item => 
-        //     typeof item === 'object' && item !== null && 'grupo' in item
-        // );
-        // if (!tieneGrupoValido) {
-        //     errores.push("El array 'grupos' debe contener al menos un objeto con la clave 'grupo'.");
-        // }
     }
     if (errores.length > 0) {
         // Usamos throw para que el código llamador se detenga y muestre los errores.

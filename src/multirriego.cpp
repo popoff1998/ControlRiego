@@ -54,8 +54,8 @@ int setMultibyId(uint16_t id)
       return multi.ngrupo;
     }
   }
-  LOG_ERROR(" ** [ERROR] setMultibyID devuelve -not found-");
   statusError(E0); 
+  LOG_ERROR(" ** [ERROR] setMultibyID devuelve -not found-");
   return 0;
 }
 
