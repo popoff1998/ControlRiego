@@ -1,6 +1,7 @@
 #ifdef DOMOTICZ
 
 #include "Control.h"
+#include <HTTPClient.h>
 
   //==================================================================================================//
  //=================================== COMUNICACION CON DOMOTICZ ====================================//
@@ -133,7 +134,7 @@ String httpGetDomoticz(const String &message) {
   LOG_DEBUG("Petición finalizada en:", millis() - startMs, "ms");
   if (httpCode == HTTP_CODE_OK) {  // httpCode=200 OK
       response = httpclient.getString();
-      #ifdef EXTRADEBUG
+      #ifdef EXTRADEBUG2
         Serial.print(F("DOMO RSP: ")); Serial.println(response);
       #endif
       // Valida si el JSON reporta un error de ejecución en Domoticz

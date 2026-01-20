@@ -58,7 +58,7 @@ void initLeds()
   }
   delay(200);
   enciendeLeds();
-  delay(300);
+  delay(500);
   apagaLeds();
 }
 
@@ -82,7 +82,6 @@ void apagaLeds()
   mcpO.writePort(MCP23017Port::A, 0x00);
   mcpO.writePort(MCP23017Port::B, 0x00);
   ledStatus = 0;
-  delay(200);
 }
 
 void enciendeLeds()
@@ -93,7 +92,6 @@ void enciendeLeds()
   mcpO.writePort(MCP23017Port::A, 0xFF);
   mcpO.writePort(MCP23017Port::B, 0xFF);
   ledStatus = 0xFFFF;
-  delay(200);
 }
 
 void ledRGB(int  R, int G, int B)

@@ -14,17 +14,17 @@
   #include <SPI.h>
   #include <Time.h>
   #include <TimeLib.h>
-  // #include <esp_sntp.h>  // para poder cambiar el intervalo por defecto del ESP32 para sincronizar con el NTP
   #include <CountUpDownTimer.h>
   #include <ArduinoJson.h>
   #include <Ticker.h>
   #include <LittleFS.h>
   #include <Wire.h>
+  // #include <esp_sntp.h>  // para poder cambiar el intervalo por defecto del ESP32 para sincronizar con el NTP
   
   #ifdef ESP32
-    #include <HTTPClient.h>
-    #include <WiFi.h>
-    #include <WebServer.h>
+    // #include <HTTPClient.h>  // pasado a ComDomoticz.cpp
+    // #include <WiFi.h>        // ya lo incluye WiFiManager.h
+    // #include <WebServer.h>   // pasado a webserver.cpp (aunque ya lo incluye WiFiManager.h)
     #ifdef TEMPLOCAL
       #include <Adafruit_Sensor.h>
       #include <DHT.h>
@@ -51,17 +51,13 @@
   #endif  
   #define WSPORT 8080
 
-  /* You only need to format LittleFS the first time you run a
-  test or else use the LITTLEFS plugin to create a partition
-  https://github.com/lorol/arduino-esp32littlefs-plugin */
-  
   #define FORMAT_LITTLEFS_IF_FAILED true
   #ifndef clean_FS
     #define clean_FS false
   #endif
-  //#define CONFIG_LITTLEFS_SPIFFS_COMPAT 1  // modo compatibilidad con SPIFFS
 
-  #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0]))
+  // Macros utiles:
+  #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0])) // calcula el numero de elementos de un array
        
   //-------------------------------------------------------------------------------------
   //                #define FW_VERSION  movido a platformio.ini   // version del software
@@ -108,7 +104,7 @@
   #define TEMP_DATA_REMOTE    0       // * fuente del dato de temperatura 0=local/1=remota
   #define SHORTCUTSENABLED    true    // admite atajos en estado STOP
   #define ENCSWASPAUSE        true    // encoderSW simula PAUSE en estado CONFIGURANDO
-  #define LOGWARNTOFILE       true   // LOG_WARN tambien se graba en el fichero de log de errores
+  #define LOGWARNTOFILE       false   // * si true LOG_WARN tambien se graba en el fichero de log de errores
                                       // [*] = configurables
 
  //----------------  dependientes del HW   ----------------------------------------
@@ -328,12 +324,12 @@
   //estructura para parametros configurables
   struct Config_parm {
     bool initialized = false;
-    static const int  n_Zonas = NUMZONAS;    //no modificable por fichero de parámetros (depende HW) 
+    static const int  n_Zonas = NUMZONAS;       //no modificable por fichero de parámetros (depende HW) 
     Zona_parm zona[n_Zonas];
-    static const int  n_Grupos = NUMGRUPOS;  //no modificable por fichero de parámetros (depende HW)
-    Grupo_parm group[n_Grupos+1];            // +1 para sitio para grupo temporal n+1
-    char domoticz_ip[40] = "";               // IP o nombre del servidor Domoticz
-    char domoticz_port[6] = "";              // puerto del servidor Domoticz
+    static const int  n_Grupos = NUMGRUPOS;     //no modificable por fichero de parámetros (depende HW)
+    Grupo_parm group[n_Grupos+1];               // +1 para sitio para grupo temporal n+1
+    char domoticz_ip[40] = "";                  // IP o nombre del servidor Domoticz
+    char domoticz_port[6] = "";                 // puerto del servidor Domoticz
     char ntpServer[40] = NTPSERVER_SPAIN;       // servidor NTP por defecto
     char TZ[50] = TZ_Europe_Madrid;             // time zone por defecto en formato TZ posix
     uint8_t   minutes = DEFAULTMINUTES;         // tiempo de riego por defecto
@@ -482,7 +478,6 @@
     bool inSetup = true;
     bool fsOK = false;  // filesystem ok
     unsigned long standbyTime;
-    // int  ledID = 0;
     int numloops = 0;
     char amanecer[] = "NO TIME";
     char anochecer[] = "NO TIME";
@@ -527,7 +522,6 @@ void actLedError(void);
 void apagaLeds(void);
 int  bID2bIndex(uint16_t);
 void blinkDisplay(void);
-// bool checkErrorgetFactor(int);
 void check(void);
 bool checkSCD(void);
 int  checkWifi(bool level=false);
@@ -607,7 +601,8 @@ void leeSerial(void);
 void listAllFilesInDir(fs::FS &fs, String dir_path);
 void listDir(fs::FS &fs, const char * dirname, uint8_t levels, uint8_t depth = 0);
 bool loadConfigFile(const char*);
-void logSystemStatus(const char *mensaje);
+void logStatus(const char *mensaje);
+void logStatusF(const char *format, ...);
 void mcpIinit(void);
 void mcpOinit(void);
 void memoryInfo(void);

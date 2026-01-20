@@ -44,7 +44,7 @@ int setMultibyId(uint16_t id)
       for (int j=0; j < *multi.size; j++) {
         multi.serie[j] = ZONAS[config.group[i].zNumber[j]-1];  //obtiene el id del boton de cada zona (ojo: no viene en el json)
         multi.zserie[j] = config.group[i].zNumber[j];  //copia el numero de cada zona desde config
-        #ifdef EXTRADEBUG 
+        #ifdef EXTRADEBUG2 
           Serial.printf("  Zona%d   ", config.group[i].zNumber[j]);
           Serial.printf("bId: x%04x \n",multi.serie[j]); // bId(boton) asociado a la zona
           //Serial.println(Boton[zNumber2bIndex(config.group[i].zNumber[j])].bID,HEX); // bId(boton) asociado a la zona

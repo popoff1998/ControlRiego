@@ -31,20 +31,20 @@ void setup()
   #endif
   String bootmessage = registrarArranqueSistema();
   #ifndef DEBUGLOG_DISABLE_LOG
-      PRINTLN("\n (current log level is", (int)LOG_GET_LEVEL(), ")\n");
-      PRINTLN(bootmessage);
+      PRINTLN(" (current log level is", (int)LOG_GET_LEVEL(), ")\n");
+      PRINTLN(bootmessage, "\n");
   #endif
   LOG_TRACE("TRACE: in setup");
   // init de GPIOs, bus I2C, Display, Encoder, Expansores MCP, LEDs, Buzzer
   initHardware(bootmessage == "BOOTLOOP");
   // inicializacion del sistema de ficheros
   initFS();
-  logSystemStatus(bootmessage.c_str());
+  logStatus(bootmessage.c_str());
   //preparo indicadores de inicializaciones opcionales
   setupInit();
   //setup parametros configuracion
   setupParm();
-  #ifdef EXTRADEBUG
+  #ifdef DEVELOP
    printFile(parmFile);
   #endif
   //Chequeo de perifericos de salida (leds, display, buzzer)
@@ -66,11 +66,12 @@ void setup()
   initFactorRiegos();
   //Estado final en funcion de la conexion
   setupEstadoFinal();
-  #ifdef EXTRADEBUG
-    printFile(logErrorFile); //imprime log de errores
+  #ifdef DEVELOP
+    filesInfo();
+    printFile(logErrorFile);
   #endif
   inSetup = false;
-  PRINTLN("   *** Setup finalizado *** \n\n");
+  PRINTLN("   *** Setup finalizado *** MS:", millis() , "\n\n");
 }
 
 
@@ -211,9 +212,9 @@ void setupEstadoFinal()
       const char* currentTs = getTimestamp();
       if (inSetup) {
           sonido.bipOK();
-          logSystemStatus(" <<<<<  Setup ended OK  >>>>");
+          logStatusF(" <<<<<  Setup ended OK  >>>> MS: %lu", millis());
       } else {
-          logSystemStatus(" <<<<<  Conexiones Restablecidas  >>>>");
+          logStatusF(" <<<<<  Conexiones Restablecidas  >>>> MS: %lu", millis());
       }
   } else {  //si no estamos conectados a la red pasamos a estado ERROR
     statusError(E1, RECUPERABLE); //error de conexion wifi recuperable
@@ -329,7 +330,7 @@ void setupEstadoFinal()
 void handleEncPauseInRegando() {
   setEstado(TERMINANDO);
   LOG_INFO("encoderSW+PAUSE terminamos riego de zona en curso");
-  // si estamos en un multirriego y no es la ultima zona y todavia no hemos salvado el riego actual
+  // si estamos en un multirriego y no es la ultima zona y no hemos salvado ya un riego en curso
   // --> salvamos el riego en curso en riegoSaved para poder continuarlo despues del multirriego
   if (multi.riegoON && (multi.actual < *multi.size) && !riegoSaved.znumber) {
     saveRiego(ultimoBotonZona->znumber, ultimoBotonZona->bID, timer.ShowMinutes(), timer.ShowSeconds());
@@ -916,6 +917,7 @@ void setStateMachine(m_estados estado, estado_tipos tipo)
 
 /**--------------------------------------------------------------------------------------------------
  * Activa estado pasado en la maquina de estados y en la interfaz de usuario (leds, display, sonidos)
+ * (salvo el caso de estado ERROR que se gestiona en statusError)
  */
 void setEstado(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parpadeo ledblink)
 {
@@ -1115,7 +1117,7 @@ void setClock()
   strftime(message, sizeof(message), ">>> TIME SET by NTP <<<   Local time: %A, %B %d %Y %H:%M:%S (zone %Z %z)", &timeinfo);
   PRINTLN("\n[setClock]", message);
   LOG_INFO("NTP update every ", sntp_get_sync_interval()/(1000*60), " minutos");
-  if (!inSetup) logSystemStatus(message); // registramos en log de errores que ya tenemos NTP time 
+  if (!inSetup) logStatus(message); // registramos en log de errores que ya tenemos NTP time 
 }
 
 time_t tLoc()
@@ -1451,7 +1453,7 @@ void procesaEncoderClock()
 void initLastRiegos()
 {
   if (loadTablaFromFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS)) {
-    Serial.println("Ultimos riegos de zonas leidos de " + String(lastRiegosFile));
+    LOG_INFO("Ultimos riegos de zonas leidos de ", lastRiegosFile);
     return;
   }
   for(uint i=0;i<NUMZONAS;i++) {
@@ -1465,7 +1467,7 @@ void initLastRiegos()
 void initLastGrupos()
 {
   if (loadTablaFromFile(lastGruposFile, "lastGrupos", lastGrupos, NUMGRUPOS)) {
-    Serial.println("Ultimos riegos de grupos leidos de " + String(lastGruposFile) + "\n");
+    LOG_INFO("Ultimos riegos de grupos leidos de ",lastGruposFile);
     return;
   }
   for(uint i=0;i<NUMGRUPOS;i++) {
@@ -1542,6 +1544,7 @@ void saveRiego(int znumber, int bID, int minutes, int seconds)
 //Recupera el estado del riego salvado dejandolo en PAUSE para que el usuario confirme el reinicio
 void restoreRiego(void)
 {
+    if (riegoSaved.znumber == 0) return; //no hay riego salvado
     LOG_INFO("recuperando riego salvado de zona:", riegoSaved.znumber);
     ultimoBotonZona = &Boton[bID2bIndex(riegoSaved.bID)];
     led(ultimoBotonZona->led,ON); //encendemos led de la zona
@@ -1752,7 +1755,7 @@ void Verificaciones()
 }
 
 float readTemp() {
-    float temperatura;
+    float temperatura = 999;
     // float humedad;
     if(config.tempRemote) {
       temperatura = getRemoteTemperature();
@@ -1810,22 +1813,22 @@ void displayEstadoRemoto(const char* estado_texto) {
 }
 
 /**
-   * Devuelve texto asociado a un codigo de error
-   */
-  static const char* errorToString(error_tipos tipoerror)
-  {
-    static const ErrorEntry tablaErrores[] = {
-        { E0, "error en parametros" },
-        { E1, "sin conex. wifi" },
-        { E2, "sin conex. domoticz" },
-        { E3, "en factores riego" },
-        { E4, "al iniciar riego" },
-        { E5, "al parar riego" }
-    };
-    for (size_t i = 0; i < ELEMENTCOUNT(tablaErrores); i++) {
-        if (tablaErrores[i].id == tipoerror) return tablaErrores[i].descripcion;
-    }
-    return "[unknown error]"; 
+ * Devuelve texto asociado a un codigo de error
+ */
+static const char* errorToString(error_tipos tipoerror)
+{
+  static const ErrorEntry tablaErrores[] = {
+      { E0, "error en parametros" },
+      { E1, "sin conex. wifi" },
+      { E2, "sin conex. domoticz" },
+      { E3, "en factores riego" },
+      { E4, "al iniciar riego" },
+      { E5, "al parar riego" }
+  };
+  for (size_t i = 0; i < ELEMENTCOUNT(tablaErrores); i++) {
+      if (tablaErrores[i].id == tipoerror) return tablaErrores[i].descripcion;
+  }
+  return "[unknown error]"; 
 }
 
 void setupParm()
@@ -1839,7 +1842,6 @@ void setupParm()
   }
   #ifdef DEVELOP
     Serial.printf( "\n initParm= %d \n", initFlags.initParm );
-    filesInfo();
   #endif
   //si se ha solicitado borrado de ficheros de parámetros y riegos
   if( initFlags.initParm) {
@@ -1950,7 +1952,7 @@ bool serialDetect() {
   if(Serial.available()>0)
   {
     //If data is available, we enter here.
-    Serial.println("\n \t SERIAL available"); //Give feedback indicating mode
+    Serial.print("\n \t SERIAL available"); //Give feedback indicating mode
     return true;
   }
   return false;
@@ -1976,11 +1978,18 @@ const char* getTimestamp() {
 
 // Gestiona el tamaño del fichero de log de errores: rotación y limpieza
 void gestionarTamanoLog() {
-    const size_t MAXLOGFILESIZE = 10 * 1024; // maximo tamaño del log en bytes antes de rotar (10KB)
-    const size_t MINFSSPACE = 20 * 1024;     // espacio libre minimo en LittleFS en bytes (20KB)
+    static const size_t totalFS = LittleFS.totalBytes();
+    static const size_t MAXLOGFILESIZE = (totalFS * 4) / 100; // maximo tamaño del log en bytes antes de rotar (4% del total FS)
+    static const size_t MINFSSPACE = (totalFS * 8) / 100; // espacio libre minimo en LittleFS en bytes (8% del total FS)
     // 1. Limpieza por espacio crítico
-    if ((LittleFS.totalBytes() - LittleFS.usedBytes()) < MINFSSPACE) {
-        if (LittleFS.exists(logErrorFilePrev)) LittleFS.remove(logErrorFilePrev);
+    size_t freeSpace = totalFS - LittleFS.usedBytes();
+    if (freeSpace < MINFSSPACE) {
+        if (LittleFS.exists(logErrorFilePrev)) {
+            LittleFS.remove(logErrorFilePrev);
+            File f = LittleFS.open(logErrorFilePrev, "w");
+            if (f) { f.println("--- LOG_PREV ELIMINADO PARA LIBERAR ESPACIO (Limite 8% alcanzado) ---"); f.close(); }
+            LOG_INFO("Espacio libre (%u bytes). log_prev eliminado y reseteado.\n", freeSpace);
+        }
     }
     // 2. Rotación por tamaño
     if (LittleFS.exists(logErrorFile)) {
@@ -1989,14 +1998,14 @@ void gestionarTamanoLog() {
             size_t currentSize = f.size();
             f.close();
             if (currentSize > MAXLOGFILESIZE) {
-                logSystemStatus("--- Fin de este segmento (rotando) ---");
+                logStatus("--- Fin de este segmento (rotando) ---");
                 delay(100); // asegurar que el mensaje se graba (flush/close) antes de renombrar
                 if (LittleFS.exists(logErrorFilePrev)) LittleFS.remove(logErrorFilePrev);
                 LOG_FILE_CLOSE(); // cerrar log antes de renombrar
                 if (LittleFS.rename(logErrorFile, logErrorFilePrev)) {
                     LOG_ATTACH_FS_AUTO(LittleFS, logErrorFile, FILE_APPEND); // Reabre el log
                     const char* msg = " --- Log Rotated: Previous file saved as _prev ---";
-                    logSystemStatus(msg); // record log rotation message to logfile
+                    logStatus(msg); // record log rotation message to logfile
                     LOG_INFO(msg);
                 } else {
                     LOG_ATTACH_FS_AUTO(LittleFS, logErrorFile, FILE_APPEND); // Reabre el log
@@ -2007,7 +2016,7 @@ void gestionarTamanoLog() {
     }
 }
 
-// Configura el nivel de logueo a fichero segun parametro config.logWarnToFile
+// Configura el nivel de grabacion en fichero segun parametro config.logWarnToFile
 void setLogToFile() {
     #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
     if (config.logWarnToFile) {
@@ -2015,7 +2024,7 @@ void setLogToFile() {
         LOG_WARN("LOG_WARN messages will also be logged to file as per configuration");
     } else {
         LOG_FILE_SET_LEVEL(DebugLogLevel::LVL_ERROR);
-        logSystemStatus("Only error type messages will be logged to file");
+        logStatus("Only error type messages will be logged to file");
     }
     #endif
 }
@@ -2023,34 +2032,52 @@ void setLogToFile() {
 // Fuerza el refresco del fichero de log
 void refreshLogFile() {
       #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
-      logSystemStatus("-----------  log  refresh  ----------");
+      logStatus("-----------  log  refresh  ----------");
       LOG_FILE_CLOSE(); // Fuerza el volcado y cierre del log
       LOG_ATTACH_FS_AUTO(LittleFS, logErrorFile, FILE_APPEND); // Reabre el log
       #endif
 
 }
 
-void logSystemStatus(const char* mensaje) {
+// Formatea y graba un mensaje formateado en el fichero log
+void logStatusF(const char* format, ...) {
+    char buffer[128];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    logStatus(buffer); 
+}
+
+// Graba un mensaje en el fichero log
+void logStatus(const char* mensaje) {
   #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
     PRINTLN_FILE("[SYSTEM] [", getTimestamp(), "]", mensaje);
+    // en setup, abre y cierra para grabar fecha correcta de lastwrite (borrada en el primer open sin ntp)
+    if (inSetup && timeOK) { 
+        LOG_FILE_CLOSE();
+        LOG_ATTACH_FS_AUTO(LittleFS, logErrorFile, FILE_APPEND);
+    }
   #endif
 }
 
+// Gestiona el registro de arranques y deteccion de bootloop
+// Devuelve un String con el mensaje de arranque o "BOOTLOOP" si se detecta bootloop
 String registrarArranqueSistema() {
     uint32_t uptimePrevio;
     char msgArranque[160];
     // Verificar si el sistema ha despertado de un deep sleep por boton manual
     esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
     if (wakeup_reason == ESP_SLEEP_WAKEUP_EXT0) {
-      bootCount = 0; // Reseteamos la variable de la RTC RAM
+      // Reseteamos la variable de la RTC RAM (tenga un bootCount valido -lightsleep- o erroneo -deepsleep-)
+      bootCount = 0; 
       return String("Despertado manualmente. Limpiando contador de errores...");
     }
-    //  Serial.printf("[DEBUG RTC] Antes: Magic=0x%08X, Count=%d\n", magicNumber, bootCount);
-    // Si el número mágico no coincide, es un arranque en frío (power-on o hard reset)
+    // Si el número mágico no coincide, es un arranque en frío (power-on o hard reset que borra la RAM RTC)
     if (magicNumber != 0xCAFEBABE) {
         magicNumber = 0xCAFEBABE;
         bootCount = 1;
-        uptimePrevio = 0; // primer arranque por hard reset, no hay uptime previo 
+        uptimePrevio = 0; // arranque por hard reset, no hay uptime previo 
     } else {
         bootCount++;
         uptimePrevio = lastUptime; // Guardamos el uptime del ciclo anterior para el mensaje
@@ -2093,7 +2120,7 @@ void initFS() {
 
 void stopHW() {
       initFS();
-      logSystemStatus("!!!BOOTLOOP DETECTADO !!! Sistema bloqueado para evitar daños");
+      logStatus("!!!BOOTLOOP DETECTADO !!! Sistema bloqueado para evitar daños");
       PRINTLN(F("SISTEMA BLOQUEADO"));
       esp_sleep_enable_ext0_wakeup(ENCBOTON, 0); // Configura wakeup por boton ENC a LOW
       esp_deep_sleep_start();  // entra en deep sleep indefinidamente

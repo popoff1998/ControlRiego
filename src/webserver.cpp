@@ -4,6 +4,7 @@
 //
 #ifdef WEBSERVER
    #include "Control.h"
+   #include <WebServer.h>
    #include <ESPmDNS.h>
    
    #include "OTAupdateServer.h"  // HTTPUpdateServer adapted to use LittleFS

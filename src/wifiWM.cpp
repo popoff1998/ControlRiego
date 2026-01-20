@@ -80,7 +80,7 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
 //evento llamado en caso de conexion de la wifi
 void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info){
   LOG_INFO(wifiOKmsg());
-  logSystemStatus(wifiOKmsg());
+  logStatus(wifiOKmsg());
   if (Estado.estado == STANDBY) {
     lcd.info("STANDBY",1);  //restaura pantalla (borra msg de reconexion)
     showTemp();  // muestra temperatura ambiente en standby
@@ -239,7 +239,7 @@ int checkWifi(bool level) {
     setParpadeo(tic_WifiLed, FIJO, LEDG);
     if (!Estado.connected) {
       LOG_INFO(wifiOKmsg());
-      logSystemStatus(wifiOKmsg());  
+      logStatus(wifiOKmsg());  
       Estado.connected = true;
       Estado.errorInformado = false; //reiniciamos bloqueo futuros LOG_WARN/ERROR
     }
@@ -291,7 +291,7 @@ bool VerifyRecoveryWifi(bool checkReconInterval) {
       // Intentamos reconectar
       if(wifiReconnect()) {
         LOG_INFO(wifiOKmsg());
-        logSystemStatus(wifiOKmsg());
+        logStatus(wifiOKmsg());
         Estado.errorInformado = false; //reiniciamos bloqueo futuros LOG_WARN/ERROR 
       } else if (!Estado.errorInformado) {
                 LOG_WARN("Reconnect failed, reintentando cada ", RECONNECTINTERVAL, " minutos");
