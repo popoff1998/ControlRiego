@@ -189,19 +189,20 @@ void setupEstadoFinal()
   // Si no se ha podido cargar parámetros desde ficheros -> señalamos el error 
   if(!config.initialized) { 
     statusError(E0);  
-    LOG_ERROR("setupEstadoFinal salida por NO config.initialized"); 
+    LOG_ERROR("Salida por NO config.initialized"); 
     return;
   }
   // Si estamos en modoDEMO pasamos a STANDBY (o STOP si esta pulsado) aunque no exista conexión wifi o estemos en ERROR
   if (Estado.modoDEMO) {
     if (testButton(bSTOP,ON))  setEstado(STOP,1);
     else setEstado(STANDBY,2);
-    LOG_DEBUG("setupEstadoFinal salida por modoDEMO=", Estado.modoDEMO);
+    LOG_DEBUG("Salida por modoDEMO");
     return;
   }
   // Si estado actual es ERROR seguimos así
-  if (Estado.estado == ERROR) {  
-    LOG_DEBUG("setupEstadoFinal salida por ERROR(E", Estado.error, ") (", errorToString(Estado.error), ") ");
+  if (Estado.estado == ERROR) {
+    if (inSetup) LOG_ERROR(">>>>   Setup ended with ERROR ", Estado.error, "(", errorToString(Estado.error), ") ");
+    else LOG_DEBUG("Salida por ERROR", Estado.error, "(", errorToString(Estado.error), ") ");
     LOG_DEBUG("   Recuperable:", Estado.recoverableError, "modoDEMO:", Estado.modoDEMO);
     return;
   }
@@ -689,11 +690,16 @@ void handleStartMultiTemp()
 
 void procesaEstadoError(void)
 {
+  // gestion del tamano del fichero de log de errores cada LONGINTERVAL minutos
+  if (checkLogSize) {
+    gestionarTamanoLog(); // Borra/rota fichero de log de errores si su tamano es excesivo
+    checkLogSize = false;
+  }
   if (flagV) {   // acciones cada VERIFY_INTERVAL en estado ERROR
     if(Estado.failedStopRiego) sonido.bip(2);  //recordatorio error grave al parar un riego
     //se intenta recuperar error si en el SETUP no hemos podido conectar con la wifi o con domoticz
-    if(Estado.error == E1 && Estado.recoverableError) VerifyRecoveryWifi(checkReconInterval);
-    if(Estado.error == E2 && Estado.recoverableError && checkReconInterval) VerifyRecoverySCD();
+    if(Estado.error == E1 && Estado.recoverableError) VerifyRecoveryWifi(checkRecon);
+    if(Estado.error == E2 && Estado.recoverableError && checkRecon) VerifyRecoverySCD();
   }
 }; //fin de procesaEstadoError
 
@@ -786,6 +792,7 @@ void procesaEstadoTerminando(void)
 
 void procesaEstadoStandby(void)
 {
+  if (multi.riegoON) return; //no se hacen verificaciones/acciones con multirriego en curso
   //Apagamos el display si ha pasado el lapso STANDBYSECS sin actividad
   if (Estado.reposo) standbyTime = millis();
   else {
@@ -797,13 +804,17 @@ void procesaEstadoStandby(void)
   if (Estado.reposo & encoderSW) reposoOFF(); // pulsar boton del encoder saca del reposo
   // leemos encoder
   procesaEncoderClock();
+  // gestion del tamano del fichero de log de errores cada LONGINTERVAL minutos
+  if (checkLogSize) {
+    gestionarTamanoLog(); // Borra/rota fichero de log de errores si su tamano es excesivo
+    checkLogSize = false;
+  }
   // verificaciones en STANDBY cada VERIFY_INTERVAL segundos
   //  - verificacion de wifi y recuperacion si procede
   //  - actualizacion de hora por NTP si no la tenemos actualizada
   //  - actualiza y muestra temperatura ambiente
   if (flagV) { 
-    if (multi.riegoON) return; //no se hacen verificaciones/acciones con multirriego en curso
-    VerifyRecoveryWifi(checkReconInterval); //verificacion de wifi y recuperacion si procede
+    VerifyRecoveryWifi(checkRecon); //verificacion de wifi y recuperacion si procede
     if (!timeOK && Estado.connected) setClock(); // si no hemos recibido time por NTP -> actualizamos time del sistema con el del servidor NTP
     showTemp(); // actualiza y muestra temperatura ambiente
   }   
@@ -1005,7 +1016,7 @@ void setEstado(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parp
  */
 void statusError(error_tipos errorID, bool recoverable, velocidad_parpadeo zonablinkvel, velocidad_parpadeo errorblinkvel) 
 {
-  if (Estado.estado != ERROR || Estado.error != errorID) LOG_ERROR("ERROR activado: ", errorToString(errorID));
+  if (Estado.estado != ERROR || Estado.error != errorID) LOG_ERROR("ERROR activado: ", errorToString(errorID), recoverable ? " [RECUPERABLE]" : "");
   else LOG_WARN("MISMO ERROR REITERADO: ", errorToString(errorID));  // por aqui no se deberia pasar nunca
   gestionarTamanoLog(); // gestionamos tamaño log tras escritura (previa) del nuevo error
   LOG_DEBUG( "recibido errorID:", errorID, "recuperable:", recoverable, "zonablinkvel:", zonablinkvel, "errorblinkvel:", errorblinkvel);
@@ -1721,19 +1732,25 @@ void Verificaciones()
   #endif
   
   static unsigned long lastmillisReconnect = 0;
+  static unsigned long lastmillisLargo = 0;
   // Reiniciamos flags de verificaciones
   flagV = OFF;
-  checkReconInterval = false;
+  checkRecon = false;
   // Si no activada por Ticker salimos sin hacer nada mas
   if (!flagVtimer) return;  
   if (Estado.error) LOG_TRACE("-------flagVtimer ON----   Estado.recoverableError: ", Estado.recoverableError, "Estado.error: ", Estado.error);
   flagVtimer = OFF;
   // Activamos flagV para que se realicen las verificaciones en las funciones de estado correspondientes
   flagV = ON;
-  // Activamos el flag checkReconInterval para que se realicen las verificaciones de reconexion cada RECONNECTINTERVAL minutos  
+  // Cada RECONNECTINTERVAL minutos activamos checkRecon para intentar reconectar si no hay conexion wifi o con Domoticz  
   if(millis() > lastmillisReconnect + RECONNECTINTERVAL * 60000) {   
     lastmillisReconnect = millis();
-    checkReconInterval = true;
+    checkRecon = true;
+  }
+  // Cada LONGINTERVAL minutos activamos checkLogSize para verificar tamaño log y rotacion si procede
+  if (millis() - lastmillisLargo >= LONGINTERVAL * 60000UL) {
+      lastmillisLargo = millis();
+      checkLogSize = true; 
   }
   // Actualiza el "latido" en la RAM RTC
   lastUptime = millis() / 1000;
@@ -1748,9 +1765,11 @@ void Verificaciones()
       - recordatorio error grave al parar un riego (en procesaEstadoError)
       - si config.verify=true, verifica que el estado de la zona en RIEGO coincide con el de Domoticz (en procesaEstadoRegando)
       - si config.verify=true, verifica que el estado de la zona en PAUSA coincide con el de Domoticz (en procesaEstadoPause)
-    Con checkReconInterval activado, se realizan las siguientes verificaciones periodicas:
+    Con checkRecon activado, se realizan las siguientes verificaciones periodicas:
        - intento de recuperacion de la conexion wifi si no la hay (en procesaEstadoError)
        - intento de recuperacion de la conexion con Domoticz (en procesaEstadoError)
+    Con checkLogSize activado, se realiza la verificacion del tamaño del log y rotacion si procede
+      (en procesaEstadoStandby y procesaEstadoError)   
   */
 }
 
@@ -1978,11 +1997,12 @@ const char* getTimestamp() {
 
 // Gestiona el tamaño del fichero de log de errores: rotación y limpieza
 void gestionarTamanoLog() {
-    static const size_t totalFS = LittleFS.totalBytes();
-    static const size_t MAXLOGFILESIZE = (totalFS * 4) / 100; // maximo tamaño del log en bytes antes de rotar (4% del total FS)
-    static const size_t MINFSSPACE = (totalFS * 8) / 100; // espacio libre minimo en LittleFS en bytes (8% del total FS)
+  static const size_t totalFS = LittleFS.totalBytes();
+  static const size_t MAXLOGFILESIZE = (totalFS * 4) / 100; // maximo tamaño del log en bytes antes de rotar (4% del total FS)
+  static const size_t MINFSSPACE = (totalFS * 8) / 100; // espacio libre minimo en LittleFS en bytes (8% del total FS)
+  size_t freeSpace = totalFS - LittleFS.usedBytes();
+  LOG_DEBUG("Espacio libre FS:", freeSpace, "bytes");
     // 1. Limpieza por espacio crítico
-    size_t freeSpace = totalFS - LittleFS.usedBytes();
     if (freeSpace < MINFSSPACE) {
         if (LittleFS.exists(logErrorFilePrev)) {
             LittleFS.remove(logErrorFilePrev);
@@ -2111,7 +2131,16 @@ void initFS() {
   PRINTLN("[setup] Inicializando LittleFS...");
   if(clean_FS) cleanFS();
   fsOK = LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED);
-  if(!fsOK) PRINTLN("[ERROR] [initFS] An Error has occurred while mounting LittleFS");
+  if(!fsOK) {
+    PRINTLN("[ERROR] [initFS] An Error has occurred while mounting LittleFS");
+    return;
+  }
+  // Verificamos si existe el directorio /datos para crearlo en caso contrario
+  if (!LittleFS.exists("/datos")) {
+      PRINTLN("[initFS] El directorio /datos no existe. Creándolo...");
+      if (!LittleFS.mkdir("/datos")) PRINTLN("[ERROR] No se pudo crear el directorio /datos");
+      else PRINTLN("[OK] Directorio /datos creado correctamente");
+  }  
   #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
     LOG_ATTACH_FS_AUTO(LittleFS, logErrorFile, FILE_APPEND); // open/close automatico, se añaden mensajes al final del fichero
     gestionarTamanoLog(); // Borra/rota fichero de log de errores si su tamano es excesivo

@@ -165,7 +165,7 @@ void setupRedWM(S_initFlags &initFlags)
       j++;
       if(j == MAXCONNECTRETRY) {
         Estado.recoverableError = true;
-        LOG_ERROR("Fallo en la reconexión");
+        LOG_WARN("Fallo en la reconexión");
         break;
       }
     }
@@ -276,19 +276,18 @@ bool wifiReconnect () {
     } else return false;
 }    
 
-bool VerifyRecoveryWifi(bool checkReconInterval) {
+bool VerifyRecoveryWifi(bool checkRecon) {
   //LOG_TRACE("");
   //en modoDEMO sin conexion no verificamos (DEMO sin wifi)
   if (Estado.modoDEMO && !Estado.connected) return true;
   lcd.displayON(); //por si estuviera parpadeando(apagado) por error en pantalla
   /*
     Si no estamos conectados a la wifi, intentamos reconexion cada RECONNECTINTERVAL minutos.
-    Normalmente no se ejecutara, ya que el evento WiFiStationConnected se ejecutara
-    cuando se recupere la conexion a la wifi, pero por si acaso lo dejamos (algunos fallos wifi del ESP32
+    Normalmente el evento WiFiStationConnected se ejecutara cuando se recupere la conexion a la wifi,
+    pero por si acaso lo dejamos (algunos fallos wifi del ESP32
     no generan el evento de conexion y no se recupera la conexion automaticamente).
-    */
-    if(!Estado.connected && checkReconInterval) {
-      // Intentamos reconectar
+  */
+    if(!Estado.connected && checkRecon) {
       if(wifiReconnect()) {
         LOG_INFO(wifiOKmsg());
         logStatus(wifiOKmsg());
@@ -318,7 +317,7 @@ bool VerifyRecoveryWifi(bool checkReconInterval) {
       Caso de haber recuperado la conexion wifi despues del Setup leemos factor riegos.
       Si este diese error de conexion con Domoticz, se dejara el flag Estado.recoverableError activado
       y VerifyRecoverySCD será llamada en procesaEstadoError cada RECONNECTINTERVAL 
-      para seguir reintentando hasta que se recupere la conexion.
+      para seguir reintentando hasta que se recupere la conexion con Domoticz.
     */    
     if (Estado.connected && Estado.recoverableError) {
       LOG_INFO("conexion Wifi recuperada despues Setup, leemos factor riegos");

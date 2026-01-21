@@ -67,12 +67,14 @@
   #ifdef RELEASE
     #define DEFAULTMINUTES      10    // * tiempo de riego por defecto (minutos)
     #define DEFAULTSECONDS      0     // * tiempo de riego por defecto (segundos)
-    #define RECONNECTINTERVAL   2       // tiempo en minutos para intentar reconexion a la wifi
+    #define RECONNECTINTERVAL   2     // tiempo en minutos para intentar reconexion a la wifi
+    #define LONGINTERVAL        15    // tiempo en minutos para verificaciones largo plazo 
   #endif
   #ifdef DEVELOP
     #define DEFAULTMINUTES      0
     #define DEFAULTSECONDS      10
-    #define RECONNECTINTERVAL   1       // tiempo en minutos para intentar reconexion a la wifi
+    #define RECONNECTINTERVAL   1      // tiempo en minutos para intentar reconexion a la wifi
+    #define LONGINTERVAL        2      // tiempo en minutos para verificaciones largo plazo 
   #endif
   #define NTPSERVER_SPAIN     "es.pool.ntp.org"  // servidor NTP por defecto
   #define TZ_Europe_Madrid    "CET-1CEST,M3.5.0,M10.5.0/3"  // time zone en formato TZ posix
@@ -471,7 +473,8 @@
     bool timeOK = false;
     bool factorRiegosLeido = false;
     bool encoderSW = false;
-    bool checkReconInterval = false; // verificaciones de conexion cada RECONNECTINTERVAL minutos
+    bool checkRecon = false; // verificaciones de conexion cada RECONNECTINTERVAL minutos
+    bool checkLogSize = false; // verificaciones de tamano log errores cada LONGINTERVAL minutos
     bool webServerAct = false;
     bool saveConfig = false;
     bool riegoFromPause = false;
@@ -502,7 +505,7 @@
     extern S_simFlags simular;
     extern bool webServerAct;
     extern bool saveConfig;
-    extern bool checkReconInterval;
+    extern bool checkRecon;
     extern bool encoderSW;
     extern const char *parmFile; 
     extern const char *backupParmFile;
@@ -698,7 +701,7 @@ void ultimosRiegos(int);
 void updateZoneDescription(int i);
 bool validaBoton();
 void Verificaciones(void);
-bool VerifyRecoveryWifi(bool checkReconInterval);
+bool VerifyRecoveryWifi(bool checkRecon);
 void VerifyRecoverySCD(void);
 void wifiClearSignal(uint);
 bool wifiReconnect(void);

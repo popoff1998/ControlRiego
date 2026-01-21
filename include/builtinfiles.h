@@ -45,7 +45,11 @@ R"==(
         <input type="file" multiple id="fileInput" style="display:none" />
     </div>
     
-    <a style="color:#828282; font-size:0.9em; text-decoration:none;" title="Go to OTA page" href="/$update">OTA</a>
+    <div style="margin-top: 15px;">
+        <a style="color:#828282; font-size:0.9em; text-decoration:none;" title="Go to OTA page" href="/$update">OTA</a>
+        <span style="color:#828282; font-size:0.9em;"> | </span>
+        <a style="color:#d9534f; font-size:0.9em; text-decoration:none; font-weight:bold;" title="Ver Log de Errores" href="/datos/logError.txt">VER LOG</a>
+    </div>    
     
     <script>
         function dragHelper(e) {
@@ -130,7 +134,7 @@ static const char notFoundContent[] PROGMEM = R"==(
 <body>
   <p>The resource was not found.</p>
   <p><a title="Go to INDEX page" href="/">Start again</a></p>
-  <a style="color:#828282; font-size:0.9em; text-decoration:none;" title="Go to OTA page" href="/$upload.htm">or go to UPLOAD page</a>
+  <a style="color:#828282; font-size:0.9em; text-decoration:none;" title="Go to UPLOAD/OTA page" href="/$upload.htm">or go to UPLOAD page</a>
 </body>
 </html>
 )==";
