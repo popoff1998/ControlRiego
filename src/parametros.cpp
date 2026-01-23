@@ -96,22 +96,24 @@ bool loadConfigFile(const char *p_filename)
   strlcpy(config.domoticz_port, doc["domoticz"]["port"] | "", sizeof(config.domoticz_port));
   strlcpy(config.ntpServer, doc["time"]["ntpServer"] | NTPSERVER_SPAIN, sizeof(config.ntpServer));
   strlcpy(config.TZ, doc["time"]["timeZone"] | TZ_Europe_Madrid, sizeof(config.TZ));
-  config.warnESP32temp = doc["warnESP32temp"] | MAX_ESP32_TEMP; 
-  config.maxledlevel = doc["ledRGB"]["maxledlevel"] | MAXLEDLEVEL; 
-  config.dimmlevel = doc["ledRGB"]["dimmlevel"] | DIMMLEVEL; 
-  config.tempOffset = doc["tempOffset"] | TEMP_OFFSET; 
-  config.tempRemote = doc["tempRemote"] | TEMP_DATA_REMOTE; 
+  config.warnESP32temp = doc["warnESP32temp"] | DFLT_MAX_ESP32_TEMP; 
+  config.maxledlevel = doc["ledRGB"]["maxledlevel"] | DFLT_MAXLEDLEVEL; 
+  config.dimmlevel = doc["ledRGB"]["dimmlevel"] | DFLT_DIMMLEVEL; 
+  config.tempOffset = doc["tempOffset"] | DFLT_TEMP_OFFSET; 
+  // leemos como bool (false si: 0 o false o ausente, true si: cualquier otro valor o true): 
+  bool readValue = doc["tempRemote"] | (bool)DFLT_TEMP_DATA_REMOTE;  // DFLT_TEMP_DATA_REMOTE es 0 (int) pero lo convertimos a bool
+  config.tempRemote = readValue ? 1 : 0;  // pasamos el bool a int (0 o 1)
   config.tempRemoteIdx = doc["tempRemoteIdx"] | 0; 
-  config.msgdisplaymillis = doc["msgdisplaymillis"] | MSGDISPLAYMILLIS; 
+  config.msgdisplaymillis = doc["msgdisplaymillis"] | DFLT_MSGDISPLAYMS; 
   config.mute = doc["mute"] | false; 
-  config.volume = doc["volume"] | DEFAULTVOLUME; 
-  config.finMelody = doc["finMelody"] | DEFAULTFINMELODY; 
+  config.volume = doc["volume"] | DFLT_VOLUME; 
+  config.finMelody = doc["finMelody"] | DFLT_FINMELODY; 
   config.showwifilevel = doc["showwifilevel"] | false; 
-  config.xname = doc["xname"] | false;
-  config.verify = doc["verify"] | true;
-  config.dynamic = doc["dynamic"] | false;
-  config.lastr24 = doc["lastr24"] | false;
-  config.logWarnToFile = doc["logWarnToFile"] | LOGWARNTOFILE;
+  config.xname = doc["xname"] | DEFAULTXNAME;
+  config.verify = doc["verify"] | DEFAULTVERIFY;
+  config.dynamic = doc["dynamic"] | DEFAULTDYNAMIC;
+  config.lastr24 = doc["lastr24"] | DEFAULTLASTR24;
+  config.logWarnToFile = doc["logWarnToFile"] | DFLT_LOGWARNTOFILE;
   //-------------------------------------------------------------------------------------------
   return config.initialized;
 } // end loadConfigFile
@@ -157,7 +159,7 @@ bool saveConfigFile(const char *p_filename)
   doc["ledRGB"]["maxledlevel"]  = config.maxledlevel; 
   doc["ledRGB"]["dimmlevel"]    = config.dimmlevel; 
   doc["tempOffset"]         = config.tempOffset;
-  doc["tempRemote"]         = config.tempRemote; 
+  doc["tempRemote"]         = config.tempRemote!=0; // guardamos como bool (false si 0, true si cualquier otro valor)
   doc["tempRemoteIdx"]      = config.tempRemoteIdx; 
   doc["msgdisplaymillis"]   = config.msgdisplaymillis; 
   doc["mute"]               = config.mute;
@@ -187,35 +189,29 @@ bool saveConfigFile(const char *p_filename)
 } // end saveConfigFile
 
 
-bool copyConfigFile(const char *fileFrom, const char *fileTo)
-{
-  LOG_TRACE("in copyConfigFile");
+bool copyFile(const char *fileFrom, const char *fileTo) {
   File origen = LittleFS.open(fileFrom, "r");
   if (!origen) {
-    LOG_ERROR("- failed to open file ",fileFrom);
+    LOG_ERROR("Failed to open file for reading",fileFrom);
+    return false;
+  }  
+  LOG_INFO("copiando",fileFrom,"en",fileTo);
+  File destino = LittleFS.open(fileTo, "w"); // "w" ya sobrescribe, no hace falta borrar antes
+  if (!destino) {
+    LOG_ERROR("Failed to open file for writing",fileTo);
+    origen.close();
     return false;
   }
-  else{
-    // Delete existing file, otherwise the configuration is appended to the file
-    LOG_DEBUG("borrando file destino",fileTo);
-    if (LittleFS.exists(fileTo)) LittleFS.remove(fileTo);
-    LOG_INFO("copiando",fileFrom,"en",fileTo);
-    File destino = LittleFS.open(fileTo, "w+");
-    if(!destino){
-      LOG_ERROR("Failed to open file for writing",fileTo);
-      return false;
-    }
-    else {
-      while(origen.available()){
-        destino.print(origen.readStringUntil('\n')+"\n");
-      }
-      destino.close(); 
-    }
-    origen.close();  
-    LOG_TRACE("copiado ",fileFrom," en ",fileTo, "OK returning true");
-    return true;
-  } 
-} // end copyConfigFile
+  uint8_t buffer[64]; // Un buffer pequeño para no agotar la RAM
+  while (origen.available()) {
+    int bytesLeidos = origen.read(buffer, sizeof(buffer));
+    destino.write(buffer, bytesLeidos);
+  }
+  destino.close();
+  origen.close();
+  LOG_TRACE("copiado ",fileFrom," en ",fileTo, "OK returning true");
+  return true;
+} // end copyFile
 
 //borrado de los ficheros de parametros,backup,riegos, logs... para resetear la configuracion
 bool deleteDatos()
@@ -283,18 +279,18 @@ void printParms() {
   Serial.printf("\twarnESP32temp= %d \n", config.warnESP32temp);
   Serial.printf("\tmaxledlevel= %d / dimmlevel= %d \n", config.maxledlevel, config.dimmlevel);
   Serial.printf("\ttempOffset (x %.1f)= %d \n", TEMP_OFFSET_FACTOR/100.0, config.tempOffset);
-  Serial.printf("\ttemp (0 LOCAL / 1 REMOTE)= %d \n", config.tempRemote);
+  Serial.printf("\ttemp mode= %s (raw: %d) \n", (config.tempRemote != 0) ? "REMOTE" : "LOCAL", config.tempRemote);
   Serial.printf("\ttempRemoteIdx= %d \n", config.tempRemoteIdx);
   Serial.printf("\tmsgdisplaymillis= %d \n", config.msgdisplaymillis);
-  Serial.printf("\tmute= %d \n", config.mute);
+  Serial.printf("\tmute= %s \n", config.mute ? "TRUE" : "FALSE");
   Serial.printf("\tvolume= %d \n", config.volume);
   Serial.printf("\tfinMelody= %d \n", config.finMelody);
-  Serial.printf("\tshowwifilevel= %d \n", config.showwifilevel);
-  Serial.printf("\txname= %d \n", config.xname);
-  Serial.printf("\tverify= %d \n", config.verify);
-  Serial.printf("\tdynamic= %d \n", config.dynamic);
-  Serial.printf("\tlastr24= %d \n", config.lastr24);
-  Serial.printf("\tdebugmode= %d \n", config.logWarnToFile);
+  Serial.printf("\tshowwifilevel= %s \n", config.showwifilevel ? "TRUE" : "FALSE");
+  Serial.printf("\txname= %s \n", config.xname ? "TRUE" : "FALSE");
+  Serial.printf("\tverify= %s \n", config.verify ? "TRUE" : "FALSE");
+  Serial.printf("\tdynamic= %s \n", config.dynamic ? "TRUE" : "FALSE");
+  Serial.printf("\tlastr24= %s \n", config.lastr24 ? "TRUE" : "FALSE");
+  Serial.printf("\tdebugmode= %s \n", config.logWarnToFile ? "TRUE" : "FALSE");
   Serial.println("----------------------------------------------------------------\n");
 }
 
@@ -357,7 +353,6 @@ void listDir(fs::FS &fs, const char * dirname, uint8_t levels, uint8_t depth) {
     };
     printIndent();
     Serial.printf("Listing directory: %s\r\n", dirname);
-    // if (depth == 0) Serial.printf("Listing directory: %s\r\n", dirname);
     File root = fs.open(dirname);
     if (!root) {
         if (depth == 0) Serial.println("- failed to open directory");

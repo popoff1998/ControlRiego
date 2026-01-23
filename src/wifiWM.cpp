@@ -49,7 +49,7 @@ void configModeCallback (WiFiManager *myWiFiManager) {
   setParpadeo(tic_WifiLed, APAGA, LEDG);
   // Empezamos el temporizador que hará parpadear el LED indicador de AP
   setParpadeo(tic_APLed, NORMAL, parpadeoLedPWM, LEDB);
-  lcd.infoclear("   modo -AP- :", DEFAULTBLINK, LOWBIP, 1); //lo señalamos en display
+  lcd.infoclear("   modo -AP- :", BLINKDISPLAY, LOWBIP, 1); //lo señalamos en display
   lcd.info("\"Ardomo\" activado", 3);
 }
 
@@ -66,7 +66,7 @@ void saveParamCallback()
 void preOtaUpdateCallback()
 {
   LOG_INFO("[CALLBACK] fired");
-  lcd.infoclear("OTA in progress", DEFAULTBLINK, LOWBIP, 1);
+  lcd.infoclear("OTA in progress", BLINKDISPLAY, LOWBIP, 1);
 }
 
 //evento llamado en caso de desconexion de la wifi
@@ -79,7 +79,6 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
 
 //evento llamado en caso de conexion de la wifi
 void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info){
-  LOG_INFO(wifiOKmsg());
   logStatus(wifiOKmsg());
   if (Estado.estado == STANDBY) {
     lcd.info("STANDBY",1);  //restaura pantalla (borra msg de reconexion)
@@ -103,7 +102,7 @@ void setupRedWM(S_initFlags &initFlags)
     wm.resetSettings(); //borra wifi guardada
     //delay(300);
     PRINTLN("[setupRedWM] encoderSW pulsado y multirriego en GRUPO3 --> borramos red WIFI");
-    lcd.infoclear("red WIFI borrada", DEFAULTBLINK, LOWBIP, 1); //señala borrado wifi
+    lcd.infoclear("red WIFI borrada", BLINKDISPLAY, LOWBIP, 1); //señala borrado wifi
   }
   // explicitly set mode, esp defaults to STA+AP   
   WiFi.mode(WIFI_STA);
@@ -238,7 +237,6 @@ int checkWifi(bool level) {
     // detenemos su parpadeo por si lo tuviera activo y encendemos el LEDG indicador de wifi
     setParpadeo(tic_WifiLed, FIJO, LEDG);
     if (!Estado.connected) {
-      LOG_INFO(wifiOKmsg());
       logStatus(wifiOKmsg());  
       Estado.connected = true;
       Estado.errorInformado = false; //reiniciamos bloqueo futuros LOG_WARN/ERROR
@@ -289,7 +287,6 @@ bool VerifyRecoveryWifi(bool checkRecon) {
   */
     if(!Estado.connected && checkRecon) {
       if(wifiReconnect()) {
-        LOG_INFO(wifiOKmsg());
         logStatus(wifiOKmsg());
         Estado.errorInformado = false; //reiniciamos bloqueo futuros LOG_WARN/ERROR 
       } else if (!Estado.errorInformado) {

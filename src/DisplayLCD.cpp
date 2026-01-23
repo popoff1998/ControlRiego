@@ -132,9 +132,9 @@ void DisplayLCD::blinkLCD(int veces) //parpadea contenido actual de la pantalla 
       LOG_TRACE("[LCD]blink LCD  x",veces);
       for (int i=0; i<veces; i++) {
         displayOFF();
-        delay(DEFAULTBLINKMILLIS);
+        delay(BLINKMILLIS);
         displayON();
-        delay(DEFAULTBLINKMILLIS);
+        delay(BLINKMILLIS);
       }
   }
 }
@@ -213,10 +213,10 @@ void DisplayLCD::infoclear(const char *info, int dnum, sonido_bips btype, int bn
     if(dnum) lcd.blinkLCD(dnum);
 }
 
-void DisplayLCD::displayTemp(int temperature, int warnESP32temp) 
+void DisplayLCD::displayTemp(int temperature) 
 {
   LOG_TRACE("temperatura recibida=",temperature,"temp ESP32=",temperatureRead());
-  if(temperatureRead() > warnESP32temp) {   // aviso de temperatura excesiva del ESP32
+  if(temperatureRead() > config.warnESP32temp) {   // aviso de temperatura excesiva del ESP32
     setCursor(14, 0); print("!"); sonido.bip(2);
     setCursor(15, 0); print(temperatureRead());
   }
@@ -226,6 +226,7 @@ void DisplayLCD::displayTemp(int temperature, int warnESP32temp)
     else LiquidCrystal_I2C::printf(" %2d",temperature);
   }  
   setCursor(17, 0); print("\xDF" "C"); // xDF = caracter grado centigrado
+  print(config.tempRemote>0? "." : " "); // punto indica si temp remota 
 }
 
 void DisplayLCD::displayTime(uint8_t minute, uint8_t second, uint8_t col, uint8_t line) 

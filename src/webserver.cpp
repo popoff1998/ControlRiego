@@ -538,7 +538,7 @@ class FileServerHandler : public RequestHandler {
           if (fName == "/BACKUP") {fileFrom = parmFile; fileTo = backupParmFile;}
           if (fName == "/RESTORE") {fileFrom = backupParmFile; fileTo = parmFile; restartRequired = true;}
           LOG_DEBUG("Copying file from ", fileFrom, " to ", fileTo);
-          handleOK = copyConfigFile(fileFrom.c_str(), fileTo.c_str());
+          handleOK = copyFile(fileFrom.c_str(), fileTo.c_str());
         }  
         if (requestMethod == HTTP_DELETE) {
           if (LittleFS.exists(fName)) {

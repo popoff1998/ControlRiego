@@ -207,6 +207,7 @@ void led(uint8_t id,int estado)
     mcpO.writePort(MCP23017Port::B, alto);
 }
 
+// devuelve el estado actual de un led (ON/OFF)
 bool ledStatusId(int ledID)
 {
   #ifdef EXTRADEBUG2
@@ -231,12 +232,13 @@ void dimmerLeds(bool status)
   }  
 }
 
+// devuelve el nivel de brillo actual para leds RGB
 int  ledlevel()
 {
   return (Estado.reposo ? config.dimmlevel : config.maxledlevel);
 }
 
-
+// Lee el estado de todas las entradas (botones) y devuelve un bitmask de 16 bits
 uint16_t readInputs()
 {
   uint8_t    alto, bajo, altoMCPO;
@@ -249,10 +251,10 @@ uint16_t readInputs()
   return bajo | (alto << 8);
 }
 
+//testea estado instantaneo del boton(id) pasado
+//devolviendo 1 si es igual a state y 0 en caso contrario 
 bool testButton(uint16_t id,bool state)
 {
-  //testea estado instantaneo del boton(id) pasado
-  //devolviendo 1 si es igual a state y 0 en caso contrario 
   uint16_t buttons = readInputs();
   bool result = ((buttons & id) == 0)?0:1;
   if (result == state) return 1;
@@ -279,6 +281,7 @@ void leerEncoderSW() {
   }  
 }
 
+// Lee el estado de los botones y devuelve un puntero al primer boton que ha cambiado de estado
 S_BOTON *parseInputs(bool read)
 {
   int i;

@@ -10,7 +10,7 @@
     //Comportamiento general para PRUEBAS . DESCOMENTAR LO QUE CORRESPONDA
     // #define DEBUGLOG_DEFAULT_LOG_LEVEL_TRACE
     #define DEBUGLOG_DEFAULT_LOG_LEVEL_DEBUG
-    #define VERBOSE
+    #define VERBOSE  // muestra info adicional en el arranque
     // #define EXTRADEBUG
     // #define EXTRADEBUG2
     // #define EXTRATRACE
@@ -22,17 +22,18 @@
     // #define DEBUGLOG_DISABLE_LOG
     #define DEBUGLOG_DEFAULT_LOG_LEVEL_INFO
     // #define DEBUGLOG_DEFAULT_LOG_LEVEL_WARN
-    // #define VERBOSE
-    // En RELEASE: [2026-01-02 21:05:15] [función] -> mensaje
+    // En RELEASE: [tipo] [timestamp] [función] -> mensaje
     #define LOG_PREAMBLE "[", getTimestamp(), "] [", __func__, "] ->"
+    #define VERBOSE  // muestra info adicional en el arranque
   #endif
-    #ifdef LOGTOFILE
-      // Enable file logging errors to LittleFS
-      #define DEBUGLOG_ENABLE_FILE_LOGGER
-      #define DEBUGLOG_DEFAULT_FILE_LEVEL_ERROR
-    #else
-      #define DEBUGLOG_DEFAULT_FILE_LEVEL_NONE    
-    #endif  
+
+  #ifdef LOGTOFILE
+    // Enable file logging errors to LittleFS
+    #define DEBUGLOG_ENABLE_FILE_LOGGER
+    #define DEBUGLOG_DEFAULT_FILE_LEVEL_ERROR
+  #else
+    #define DEBUGLOG_DEFAULT_FILE_LEVEL_NONE    
+  #endif  
 
   #include <DebugLog.h>
 

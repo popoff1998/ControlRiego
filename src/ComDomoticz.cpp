@@ -38,8 +38,8 @@ uint16_t getSCD_ID(uint8_t zonaNumber) {
 // Función auxiliar que registra el error específico, el JSON completo, 
 // y devuelve el código de error ("Err3").
 String returnErr3(const String &fullResponse, const char* msg1, const char* msg2 = "", const char* msg3 = "") {
-    LOG_WARN(" ** [ERROR] ", msg1, msg2, msg3); 
-    LOG_WARN(" ** [ERROR] JSON de entrada: ", fullResponse.c_str());
+    LOG_DEBUG(" ** [ERROR] ", msg1, msg2, msg3); 
+    LOG_DEBUG(" ** [ERROR] JSON de entrada: ", fullResponse.c_str());
     return "Err3";
 }
 

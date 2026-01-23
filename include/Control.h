@@ -63,7 +63,7 @@
   //                #define FW_VERSION  movido a platformio.ini   // version del software
   //-------------------------------------------------------------------------------------
 
-  //Comportamiento General
+  // Comportamiento General: valores fijos o por defecto los modificables por el usuario [*]
   #ifdef RELEASE
     #define DEFAULTMINUTES      10    // * tiempo de riego por defecto (minutos)
     #define DEFAULTSECONDS      0     // * tiempo de riego por defecto (segundos)
@@ -80,9 +80,9 @@
   #define TZ_Europe_Madrid    "CET-1CEST,M3.5.0,M10.5.0/3"  // time zone en formato TZ posix
   #define NTP_TIMEOUT         7000    // tiempo de espera para recibir respuesta del servidor NTP en mseg
   #define STANDBYSECS         30      // tiempo en segundos para pasar a reposo desde standby (apagar pantalla y atenuar leds)
-  #define DEFAULTBLINK        3       // numero de parpadeos de la pantalla
-  #define DEFAULTBLINKMILLIS  500     // mseg entre parpadeo de la pantalla
-  #define MSGDISPLAYMILLIS    1000    // * mseg se mantienen mensajes informativos
+  #define BLINKDISPLAY        3       // numero de parpadeos de la pantalla
+  #define BLINKMILLIS         500     // mseg entre parpadeo de la pantalla
+  #define DFLT_MSGDISPLAYMS   1000    // * mseg se mantienen mensajes informativos
   #define MAXMINUTES          59      // corte automatico de seguridad a los 60 min. en los arduinos
   #define MINSECONDS          5       // minimo de segundos ajustables en el temporizador
   #define HOLDTIME            3000    // mseg que hay que mantener PAUSE pulsado para ciertas acciones
@@ -91,22 +91,27 @@
   #define HTTPCLIENTCONNECTTIMEOUT  1000  // timeout (ms) para establecer conexion con el servidor Domoticz
   #define HTTPCLIENTRESPONSETIMEOUT 1000  // timeout (ms) para recibir respuesta del servidor Domoticz
   #define MAX_UPLOAD_KBYTES   30      // tamaño maximo del fichero para hacer upload en KB
-  #define DEFAULT_SWITCH_RETRIES 3    // numero de reintentos para parar o encender una zona de riego en el Domoticz
+  #define SWITCH_RETRIES      3       // numero de reintentos para parar o encender una zona de riego en el Domoticz
   #define DELAYRETRY          1500    // mseg de retardo entre reintentos
-  #define MAXLEDLEVEL         255     // * nivel maximo leds RGB (0 a 255)
-  #define DIMMLEVEL           50      // * nivel atenuacion leds RGB (0 a 255)
-  #define DEFAULTVOLUME       8       // * volumen por defecto (0 a 10)
-  #define DEFAULTFINMELODY    MIMI    // * melodia final riego grupo por defecto
   #define I2C_CLOCK_SPEED     400000  // frecuencia del bus I2C en Hz (default 100000)
   #define LCD2004_address     0x27    // direccion bus I2C de la pantalla LCD
   #define ROTARY_ENCODER_STEPS 4      // TODO documentar
-  #define MAX_ESP32_TEMP      80      // * max temp. ESP32 para mostrar aviso (con wifi funciona mal)
-  #define TEMP_OFFSET         0       // * correccion temperatura sensor local o remoto
-  #define TEMP_OFFSET_FACTOR  50      // * correccion temperatura factor ajuste (50% = x 0.5)
-  #define TEMP_DATA_REMOTE    0       // * fuente del dato de temperatura 0=local/1=remota
+  #define DFLT_MAXLEDLEVEL    255     // * nivel maximo leds RGB (0 a 255)
+  #define DFLT_DIMMLEVEL      50      // * nivel atenuacion leds RGB (0 a 255)
+  #define DFLT_VOLUME         8       // * volumen por defecto (0 a 10)
+  #define DFLT_FINMELODY      MIMI    // * melodia final riego grupo por defecto
+  #define DFLT_MAX_ESP32_TEMP 80      // * max temp. ESP32 para mostrar aviso (con wifi funciona mal)
+  #define DFLT_TEMP_OFFSET    0       // * correccion temperatura medida (en saltos segun TEMP_OFFSET_FACTOR)
+  #define TEMP_OFFSET_FACTOR  50      // correccion temperatura factor ajuste (50% = x 0.5)
+  #define DFLT_TEMP_DATA_REMOTE 0     // * fuente del dato de temperatura 0=local/1=remota
+  #define DEFAULTXNAME        false   // * actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
+  #define DEFAULTVERIFY       true    // * verifica estado dispositivo en el Domoticz
+  #define DEFAULTDYNAMIC      false   // * si true permite añadir/eliminar zonas durante el riego
+  #define DEFAULTLASTR24      false   // * muestra leds ultimos riegos desde las 0h (false) o ultimas 24h (true)
+  #define DFLT_LOGWARNTOFILE  false   // * si true LOG_WARN tambien se graba en el fichero de log de errores
   #define SHORTCUTSENABLED    true    // admite atajos en estado STOP
   #define ENCSWASPAUSE        true    // encoderSW simula PAUSE en estado CONFIGURANDO
-  #define LOGWARNTOFILE       false   // * si true LOG_WARN tambien se graba en el fichero de log de errores
+  #define ZONASXGRUPO         9       // maximo de zonas en un grupo multirriego (9 para coja en pantalla, max. 16)
                                       // [*] = configurables
 
  //----------------  dependientes del HW   ----------------------------------------
@@ -167,7 +172,7 @@
   #define RESUME 1
 
 
-  //----------------  dependientes del HW   ----------------------------------------
+  //----------------  dependientes del HW   (caso de 4 botones de grupos multirriego)  ---------------
   // ojo esta es la posición del bit de cada boton en el stream serie - no modificar -
   #ifdef GRP4
     enum _botones {
@@ -189,15 +194,14 @@
       bSTOP       = 0x8000,  // mcpO B3  (OJO conectados a mcpO se integran como bits 15 y 16 de readInputs)
       //          = 0x8000,  // mcpI B7  (NO USAR para inputs)
     };
-      // lista de todos los botones de zonas de riego disponibles (el orden define la zona):
+    // lista de todos los botones de zonas de riego disponibles (el orden define la zona):
     #define _ZONAS  bZONA1 , bZONA2 , bZONA3 , bZONA4 , bZONA5 , bZONA6 , bZONA7 , bZONA8 , bZONA9
-      // lista de todos los botones de grupos disponibles (el orden define el grupo):
+    // lista de todos los botones de grupos disponibles (el orden define el grupo):
     #define _GRUPOS bGRUPO1 , bGRUPO2 , bGRUPO3 , bGRUPO4
-  //----------------  fin dependientes del HW   ----------------------------------------
-    #define ZONASXGRUPO          9  // maximo de zonas en un grupo multirriego (9 para coja en pantalla, max. 16)
-
   #endif
+  //----------------  fin dependientes del HW   ----------------------------------------
 
+  //----------------  dependientes del HW   (caso de boton multirriego + selector 3 grupos)   ---------------
   #ifdef M3GRP
     enum _botones {
       bZONA1      = 0x0001,  // mcpI A0
@@ -218,19 +222,18 @@
       bSTOP       = 0x8000,  // mcpO B3  (OJO conectados a mcpO se integran como bits 15 y 16 de readInputs)
       //          = 0x8000,  // mcpI B7  (NO USAR para inputs)
     };
-
-      // lista de todos los botones de zonas de riego disponibles (el orden define la zona):
+    // lista de todos los botones de zonas de riego disponibles (el orden define la zona):
     #define _ZONAS  bZONA1 , bZONA2 , bZONA3 , bZONA4 , bZONA5 , bZONA6 , bZONA7 , bZONA8 , bZONA9
-      // lista de todos los botones (selector) de grupos disponibles (el orden define el grupo):
+    // lista de todos los botones (selector) de grupos disponibles (el orden define el grupo):
     #define _GRUPOS bGRUPO1 , bGRUPO2 , bGRUPO3 
-  //----------------  fin dependientes del HW   ----------------------------------------
-    #define ZONASXGRUPO          9  // maximo de zonas en un grupo multirriego (9 para coja en pantalla, max. 16)
   #endif
-
-  const uint16_t ZONAS[] = {_ZONAS};
-  const uint16_t GRUPOS[]  = {_GRUPOS};
-  const int NUMZONAS = ELEMENTCOUNT(ZONAS); // numero de zonas (botones riego individual)
-  const int NUMGRUPOS = ELEMENTCOUNT(GRUPOS); // numero de grupos multirriego
+  //----------------  fin dependientes del HW   ----------------------------------------
+ 
+  // constexpr calculado por el preprocesador y no modificable en tiempo de ejecucion
+  constexpr uint16_t ZONAS[] = {_ZONAS};
+  constexpr uint16_t GRUPOS[]  = {_GRUPOS};
+  constexpr int NUMZONAS = ELEMENTCOUNT(ZONAS); // numero de zonas (botones riego individual)
+  constexpr int NUMGRUPOS = ELEMENTCOUNT(GRUPOS); // numero de grupos multirriego
 
   union S_bFLAGS
   {
@@ -323,7 +326,7 @@
   } ;
   #endif
 
-  //estructura para parametros configurables
+  //estructura para parametros configurables (creada inicialmente con valores por defecto)
   struct Config_parm {
     bool initialized = false;
     static const int  n_Zonas = NUMZONAS;       //no modificable por fichero de parámetros (depende HW) 
@@ -336,24 +339,22 @@
     char TZ[50] = TZ_Europe_Madrid;             // time zone por defecto en formato TZ posix
     uint8_t   minutes = DEFAULTMINUTES;         // tiempo de riego por defecto
     uint8_t   seconds = DEFAULTSECONDS;         // tiempo de riego por defecto
-    int  warnESP32temp = MAX_ESP32_TEMP;        // temperatura ESP32 maxima con aviso 
-    int  maxledlevel = MAXLEDLEVEL;             // nivel brillo maximo led RGB 
-    int  dimmlevel = DIMMLEVEL;                 // nivel atenuacion led RGB 
-    int  tempOffset = TEMP_OFFSET;              // correccion temperatura sensor local DHTxx 
-    int  tempRemote = TEMP_DATA_REMOTE;         // si true obtiene temperatura via Domoticz
+    int  warnESP32temp = DFLT_MAX_ESP32_TEMP;   // temperatura ESP32 maxima con aviso 
+    int  maxledlevel = DFLT_MAXLEDLEVEL;        // nivel brillo maximo led RGB 
+    int  dimmlevel = DFLT_DIMMLEVEL;            // nivel atenuacion led RGB 
+    int  tempOffset = DFLT_TEMP_OFFSET;         // correccion temperatura sensor local DHTxx 
+    int  tempRemote = DFLT_TEMP_DATA_REMOTE;    // si true obtiene temperatura via Domoticz
     int  tempRemoteIdx = 0;                     // IDX del sensor remoto en Domoticz
-    int  msgdisplaymillis = MSGDISPLAYMILLIS;   // tiempo que se muestran mensajes (mseg.) 
-    int  volume = DEFAULTVOLUME;                // volumen sonidos por defecto
-    int  finMelody = DEFAULTFINMELODY;          // melodia final riego grupo por defecto
+    int  msgdisplaymillis = DFLT_MSGDISPLAYMS;  // tiempo que se muestran mensajes (mseg.) 
+    int  volume = DFLT_VOLUME;                  // volumen sonidos por defecto
+    int  finMelody = DFLT_FINMELODY;            // melodia final riego grupo por defecto
     bool mute = OFF;                            // sonidos activos
     bool showwifilevel = OFF;                   // muestra en standby nivel de la señal wifi
-    bool xname = false;                         // actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
-    bool verify = true;                         // verifica estado dispositivo en el Domoticz
-    bool dynamic = false;                       // si true permite añadir/eliminar zonas durante el riego
-    bool lastr24 = false;                       // muestra leds ultimos riegos desde las 0h (false) o ultimas 24h (true)
-    bool shortcuts = SHORTCUTSENABLED;          // admite atajos de teclas en estado STOP
-    bool encSWasPause = ENCSWASPAUSE;           // simulacion PAUSE en modo CONFIGURANDO con encoderSW
-    bool logWarnToFile = LOGWARNTOFILE;         // si true los LOG_WARN tambien se graban en el fichero de log de errores
+    bool xname = DEFAULTXNAME;                  // actualiza desc de botones con el Name del dispositivo que devuelve Domoticz
+    bool verify = DEFAULTVERIFY;                // verifica estado dispositivo en el Domoticz
+    bool dynamic = DEFAULTDYNAMIC;              // si true permite añadir/eliminar zonas durante el riego
+    bool lastr24 = DEFAULTLASTR24;              // muestra leds ultimos riegos desde las 0h (false) o ultimas 24h (true)
+    bool logWarnToFile = DFLT_LOGWARNTOFILE;    // si true los LOG_WARN tambien se graban en el fichero de log de errores
   };
 
   // estructura del multirriego activo 
@@ -530,7 +531,7 @@ bool checkSCD(void);
 int  checkWifi(bool level=false);
 void cleanFS(void);
 String convertFileSize(const size_t);
-bool copyConfigFile(const char *, const char *);
+bool copyFile(const char *, const char *);
 void debugloops(void);
 bool deleteDatos(void);
 void deleteParmSignal(uint);

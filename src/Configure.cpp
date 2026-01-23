@@ -321,7 +321,7 @@ void Configure::exit()
       if (saveConfig) {
         LOG_INFO("saveConfig=true  --> salvando parametros a fichero");
         if (saveConfigFile(parmFile)) {
-          lcd.infoclear("SAVED parameters", DEFAULTBLINK, BIPOK);
+          lcd.infoclear("SAVED parameters", BLINKDISPLAY, BIPOK);
           delay(config.msgdisplaymillis);
         }  
         saveConfig = false;
@@ -395,7 +395,7 @@ int Configure::showMenu(int opcion)
       opcionesMenuConf[LED_MAX_LVL]  += String(config.maxledlevel);
       sprintf(buff, "%+g", config.tempOffset*(TEMP_OFFSET_FACTOR/100.0)); //elimina ceros decimales al final y pone + si positivo
       opcionesMenuConf[TEMP_ADJ]  += buff;
-      opcionesMenuConf[TEMP_SOURCE] = (config.tempRemote ?  "TEMP: REM.  " : "TEMP: LOCAL ") + (readTemp()==999 ? "--" : String(readTemp()));
+      opcionesMenuConf[TEMP_SOURCE] = (config.tempRemote>0 ?  "TEMP: REM.  " : "TEMP: LOCAL ") + (readTemp()==999 ? "--" : String(readTemp()));
       opcionesMenuConf[REM_TEMP_IDX] += String(config.tempRemoteIdx);
       opcionesMenuConf[MSG_TIME] += String(config.msgdisplaymillis);
       opcionesMenuConf[MUTE] += (config.mute ? "ON" : "OFF");
@@ -446,9 +446,9 @@ void Configure::procesaSelectMenu()
                 this->Time_process_start();   
                 break;
         case COPY_BACKUP :  // copiamos fichero parametros en fichero backup
-                if (copyConfigFile(parmFile, backupParmFile)) {    // parmFile --> backupParmFile
+                if (copyFile(parmFile, backupParmFile)) {    // parmFile --> backupParmFile
                   LOG_INFO("[ConF] salvado fichero de parametros actuales como BACKUP");
-                  lcd.infoclear("Save to BACKUP OK", DEFAULTBLINK, BIPOK);
+                  lcd.infoclear("Save to BACKUP OK", BLINKDISPLAY, BIPOK);
                   delay(config.msgdisplaymillis); 
                 }
                 else BIPKO;  
@@ -467,9 +467,9 @@ void Configure::procesaSelectMenu()
                 break;
         #endif 
         case LOAD_BACKUP :   // carga parametros de backup y reinicia
-                if (copyConfigFile(backupParmFile, parmFile)) {    // backupParmFile --> parmFile
+                if (copyFile(backupParmFile, parmFile)) {    // backupParmFile --> parmFile
                   LOG_WARN("carga parametros de backup OK, RESET ESP32");
-                  lcd.infoclear("load BACKUP OK", DEFAULTBLINK, BIPOK);
+                  lcd.infoclear("load BACKUP OK", BLINKDISPLAY, BIPOK);
                   lcd.info(">> RESET en 2 seg <<",3);
                   delay(2000);
                   ESP.restart();  // reset ESP32

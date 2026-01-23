@@ -101,17 +101,10 @@ void procesaBotones()
   //Procesamos el boton pulsado:
   switch (boton->bID) {
     //Primero procesamos los botones singulares, el resto van por default
-    case bPAUSE:
-    procesaBotonPause();
-    break;
-    case bSTOP:
-    procesaBotonStop();
-    break;
-    case MULTIRRIEGO:
-    procesaBotonMultirriego(); 
-    break;
-    default:
-    procesaBotonZona();
+    case bPAUSE:       procesaBotonPause(); break;
+    case bSTOP:        procesaBotonStop(); break;
+    case MULTIRRIEGO:  procesaBotonMultirriego(); break;
+    default:           procesaBotonZona();
   }
   //limpiamos el boton procesado (evitando borrar zona apuntada si multirriego) 
   if (!multi.semaforo)  boton = nullptr;
@@ -125,7 +118,7 @@ bool validaBoton() {
   if (multi.semaforo) multi.semaforo = false;  // si multisemaforo, no leemos botones: ya los pasa multirriego
   else  boton = parseInputs(READ);  // si no, vemos si algun boton ha cambiado de estado
   //En modo configuracion pulsar encoderSW equivale a pause (enter)
-  if (Estado.estado == CONFIGURANDO && boton == nullptr && config.encSWasPause) {
+  if (Estado.estado == CONFIGURANDO && boton == nullptr && ENCSWASPAUSE) {
     simulaPauseIfEncoderSW(); }
   //Si no se ha pulsado ningun boton salimos
   if(boton == nullptr) return false;
@@ -156,10 +149,10 @@ void procesaEstados()
   }
 }  
 
-void initHardware(bool bootloop) {
-    LOG_DEBUG("-> Inicializando Hardware", bootloop ? "(modo BOOTLOOP)" : "");
+void initHardware(bool bootloopdetected) {
+    LOG_DEBUG("-> Inicializando Hardware", bootloopdetected ? "(modo BOOTLOOP)" : "");
     initGPIOs();
-    if (bootloop) stopHW(); // paramos el sistema
+    if (bootloopdetected) stopHW(); // paramos el sistema
     initWire();
     // Expansores de I/O
     mcpOinit();
@@ -210,12 +203,15 @@ void setupEstadoFinal()
   if (Estado.connected) {  
       if (testButton(bSTOP,ON))  setEstado(STOP,1);
       else setEstado(STANDBY,1);
-      const char* currentTs = getTimestamp();
       if (inSetup) {
           sonido.bipOK();
           logStatusF(" <<<<<  Setup ended OK  >>>> MS: %lu", millis());
       } else {
           logStatusF(" <<<<<  Conexiones Restablecidas  >>>> MS: %lu", millis());
+          if (config.tempRemote = -1) {
+              config.tempRemote = 1; // restauramos temp remota si estaba asi configurada
+              logStatus("Restored remote temperature sensor mode");
+          }    
       }
   } else {  //si no estamos conectados a la red pasamos a estado ERROR
     statusError(E1, RECUPERABLE); //error de conexion wifi recuperable
@@ -363,7 +359,7 @@ void handlePauseInPause() {
   if(Estado.estado == ERROR) { // caso de error al reanudar el riego seguimos en PAUSE y señalamos con blink rapido zona
     LOG_WARN("error al salir de PAUSE ERROR(E",Estado.error, ") (", errorToString(Estado.error), ") zona :",ultimoBotonZona->desc );
     lcd.displayON();
-    delay(MSGDISPLAYMILLIS);
+    delay(config.msgdisplaymillis);
     setEstado(PAUSE,1,LOCAL,RAPIDO);
   } else {
     timer.ResumeTimer(); // reanudamos el timer de cuenta atras
@@ -494,7 +490,7 @@ void handleStopInRegandoPauseTerm() {
       return; 
     }
     saveTablaToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
-    lcd.infoclear("STOP riegos OK", DEFAULTBLINK, BIP, 0);
+    lcd.infoclear("STOP riegos OK", BLINKDISPLAY, BIP, 0);
     setEstado(STOP,1);
 }
 
@@ -532,8 +528,9 @@ void procesaBotonMultirriego(void)
     else handleGrupoInStandby(n_grupo);               //inicia el multirriego
   }
   // En STOP si pulsamos junto con encoderSW tenemos atajos de teclas (si habilitados en config.shortcuts)
-  else if (encoderSW && Estado.estado == STOP && config.shortcuts) handleEncGrupoInStop(n_grupo);  
+  else if (encoderSW && Estado.estado == STOP && SHORTCUTSENABLED) handleEncGrupoInStop(n_grupo);  
 } //fin de procesaBotonMultiriego
+
 
 // Hacemos encendido de los leds del grupo y mostramos en el display info de este
 void handleEncGrupoInStandby(int n_grupo) {
@@ -591,6 +588,7 @@ void procesaBotonZona(void)
   /* (1) la comprobacion de multi.riegoON es necesaria para evitar que al cancelar el riego de una zona en multirriego
   salte a mostrar info de la siguiente al detectar el enc pulsado  */
   } //fin de procesaBotonZona
+
 
 void procesaIfWebServer()
 {
@@ -744,7 +742,7 @@ void procesaEstadoTerminando(void)
   stopRiego(ultimoBotonZona->bID, updateTimeFin); // paramos riego en curso
   riegoFromPause = false; //reiniciamos flag
   if (Estado.estado == ERROR) return; //no continuamos si se ha producido error al parar el riego
-  lcd.blinkLCD(DEFAULTBLINK);
+  lcd.blinkLCD(BLINKDISPLAY);
   led(ultimoBotonZona->led,OFF);  // apaga led zona
   //Comprobamos si estamos en un multirriego
   if (multi.riegoON) {
@@ -790,13 +788,14 @@ void procesaEstadoTerminando(void)
   }
 }; //fin de procesaEstadoTerminando
 
+
 void procesaEstadoStandby(void)
 {
   if (multi.riegoON) return; //no se hacen verificaciones/acciones con multirriego en curso
   //Apagamos el display si ha pasado el lapso STANDBYSECS sin actividad
   if (Estado.reposo) standbyTime = millis();
   else {
-    if (millis() > standbyTime + (1000 * STANDBYSECS)) {
+    if (millis() - standbyTime >= (1000UL * STANDBYSECS)) {
       LOG_TRACE("LLamando a reposoON");
       reposoON();
     }
@@ -828,15 +827,16 @@ void procesaEstadoStop(void)
   if (Estado.reposo & encoderSW) reposoOFF(); // pulsar boton del encoder saca del reposo
   //si estamos en Stop antinenes, apagamos el display pasado 4 x STANDBYSECS
   if(Estado.reposo && !backlightOff) {
-    if (millis() > standbyTime + (4 * 1000 * STANDBYSECS)) {
+    if (millis() - standbyTime >= (4 * 1000UL * STANDBYSECS)) {
       lcd.setBacklight(OFF);
       backlightOff = true;
     }
   }
 };
 
+// verificamos zona sigue OFF en Domoticz periodicamente
 void procesaEstadoPause(void) {
-  if(flagV && config.verify && (!Estado.modoDEMO || simular.all_simFlags)) {  // verificamos zona sigue OFF en Domoticz periodicamente
+  if(flagV && config.verify && (!Estado.modoDEMO || simular.all_simFlags)) {  
     if(queryStatus(ultimoBotonZona->znumber, "Off")) return;
     else {
       if(!Estado.error) { //riego zona activo: salimos del PAUSE y blink lento zona activada remotamente 
@@ -1114,7 +1114,7 @@ void setClock()
 {
   // sntp_set_time_sync_notification_cb(cbSyncTime);  // set a Callback function for time synchronization notification
   // sntp_set_sync_interval(60 * 60 * 1000UL); // 60 minutos (default ESP32 es 180 minutos - 3 horas)
-
+  if (inSetup) lcd.info("sincronizando clock", 2);
   LOG_DEBUG("Timezone: ", config.TZ, "   NTP server: ", config.ntpServer);
   configTzTime(config.TZ, config.ntpServer); 
   struct tm timeinfo;
@@ -1131,6 +1131,7 @@ void setClock()
   if (!inSetup) logStatus(message); // registramos en log de errores que ya tenemos NTP time 
 }
 
+// devuelve time_t en hora local a partir del time_t del sistema (UTC)
 time_t tLoc()
 {
   if (!timeOK) return 0; //no tenemos time, devolvemos 0
@@ -1195,29 +1196,29 @@ void ultimosRiegos(int modo)
   LOG_TRACE("modo:",modo);
   switch(modo) {
     case SHOW:
-    lcd.infoclear("Hora actual:");
-    if (timeOK) {
-        time_t t = tLoc();
-        for(uint i=0;i<NUMZONAS;i++) { // enciende leds zonas regadas desde medianoche
-          if(lastRiegos[i].inicio > previousMidnight(t)) {
-              LOG_DEBUG("[ULTIMOSRIEGOS] zona:", i+1, "time:",lastRiegos[i].inicio);
-              led(Boton[bID2bIndex(ZONAS[i])].led,ON);
-          }
-        }
-        if (config.lastr24) //activa parpadeo leds zonas regadas entre 24h y medianoche
-          tic_LedZonas24h.attach(RAPIDO/10.0, parpadeoLedZonas24h, t);
-        sprintf(buff, " %d", day(t));
-        lcd.info(buff,3);
-        lcd.info(MESES[month(t)-1],4);
-        lcd.displayTime(hour(t),minute(t));
-      } else {lcd.info("   <<< NO TIME >>>",3); sonido.bipKO();}
-      break;
+        lcd.infoclear("Hora actual:");
+        if (timeOK) {
+            time_t t = tLoc();
+            for(uint i=0;i<NUMZONAS;i++) { // enciende leds zonas regadas desde medianoche
+              if(lastRiegos[i].inicio > previousMidnight(t)) {
+                  LOG_DEBUG("[ULTIMOSRIEGOS] zona:", i+1, "time:",lastRiegos[i].inicio);
+                  led(Boton[bID2bIndex(ZONAS[i])].led,ON);
+              }
+            }
+            if (config.lastr24) //activa parpadeo leds zonas regadas entre 24h y medianoche
+              tic_LedZonas24h.attach(RAPIDO/10.0, parpadeoLedZonas24h, t);
+            sprintf(buff, " %d", day(t));
+            lcd.info(buff,3);
+            lcd.info(MESES[month(t)-1],4);
+            lcd.displayTime(hour(t),minute(t));
+          } else {lcd.info("   <<< NO TIME >>>",3); sonido.bipKO();}
+        break;
     case HIDE:
-      setParpadeo(tic_LedZonas24h, PARAR);
-      for(unsigned int i=0;i<NUMZONAS;i++) {
-        led(Boton[bID2bIndex(ZONAS[i])].led,OFF);
-      }
-      break;
+        setParpadeo(tic_LedZonas24h, PARAR);
+        for(unsigned int i=0;i<NUMZONAS;i++) {
+          led(Boton[bID2bIndex(ZONAS[i])].led,OFF);
+        }
+        break;
   }
 }
 
@@ -1496,7 +1497,7 @@ bool initRiego(bool resume)
     led(ultimoBotonZona->led,ON);
     if (resume) LOG_INFO( "Continuando riego: ", config.zona[zIndex].desc);
     else LOG_INFO( "Iniciando riego: ", config.zona[zIndex].desc);
-    if (deviceSwitch(zIndex+1, "On", DEFAULT_SWITCH_RETRIES)) { 
+    if (deviceSwitch(zIndex+1, "On", SWITCH_RETRIES)) { 
         char zonaText[7];
         snprintf(zonaText, sizeof(zonaText), "ZONA%d", zIndex+1);
         inicioTimeLastRiego(lastRiegos[zIndex], zonaText, resume);
@@ -1521,7 +1522,7 @@ bool stopRiego(uint16_t id, bool update, bool alertIfFails)
     int zIndex = Boton[bIndex].znumber-1;
     // ledID = Boton[bIndex].led;
     LOG_DEBUG( "Terminando riego: ", config.zona[zIndex].desc);
-    if (deviceSwitch(zIndex+1, "Off", DEFAULT_SWITCH_RETRIES)) {
+    if (deviceSwitch(zIndex+1, "Off", SWITCH_RETRIES)) {
         LOG_INFO( "Terminado OK riego: " , config.zona[zIndex].desc );
         // solo actualizamos hora de fin si no hemos sido llamado desde stopAllRiego
         if(update) finalTimeLastRiego(lastRiegos[zIndex]);
@@ -1632,14 +1633,14 @@ void blinkDisplay()
 {
   static unsigned long lastBlinkPause = 0; // Se inicializa solo en la primera llamada
   if (!lcd.get__displayOff()) {
-    if (millis() > lastBlinkPause + 1.5*DEFAULTBLINKMILLIS) {  // *1.5 para compensar inercia LCD
+    if (millis() - lastBlinkPause >= 1.5*BLINKMILLIS) {  // *1.5 para compensar inercia LCD
       lastBlinkPause = millis();
       lcd.displayOFF();
       if(Estado.estado == PAUSE) ledYellow(OFF);
     }
   }
   else {
-    if (millis() > lastBlinkPause + DEFAULTBLINKMILLIS) {
+    if (millis() - lastBlinkPause >= BLINKMILLIS) {
       lastBlinkPause = millis();
       lcd.displayON();
       if(Estado.estado == PAUSE) ledYellow(ON);
@@ -1743,7 +1744,7 @@ void Verificaciones()
   // Activamos flagV para que se realicen las verificaciones en las funciones de estado correspondientes
   flagV = ON;
   // Cada RECONNECTINTERVAL minutos activamos checkRecon para intentar reconectar si no hay conexion wifi o con Domoticz  
-  if(millis() > lastmillisReconnect + RECONNECTINTERVAL * 60000) {   
+  if (millis() - lastmillisReconnect >= RECONNECTINTERVAL * 60000UL) {   
     lastmillisReconnect = millis();
     checkRecon = true;
   }
@@ -1773,41 +1774,59 @@ void Verificaciones()
   */
 }
 
+// Lee la temperatura ambiente (sensor local o remoto segun config). Devuelve 999 si error de lectura.
+// Otras posibles lecturas (no usadas): 
+//    float humedad = dht.readHumidity();
+//    float temp_sense = dht.computeHeatIndex(false); // false para calculo en grados centigrados
 float readTemp() {
     float temperatura = 999;
-    // float humedad;
-    if(config.tempRemote) {
+    if(config.tempRemote>0) {
       temperatura = getRemoteTemperature();
     }
     else {
       #ifdef TEMPLOCAL   // temperatura ambiente del sensor local
         temperatura = dht.readTemperature();
-        //humedad = dht.readHumidity();
-        //float temp_sense = dht.computeHeatIndex(false); // false para calculo en grados centigrados
         if(isnan(temperatura)) temperatura = 999;
       #endif
     }
     return temperatura;  
 }
 
+/* Calcula y muestra la temperatura ambiente en el display
+ * Aplica offset de calibracion si procede
+ * Gestiona el timeout de lectura de temperatura remota y cambio a sensor local si procede */
 void showTemp() {
     static float prev_temp = -1000.0; // valor inicial imposible para forzar la primera actualizacion
-    float temperatura = readTemp();
-    LOG_TRACE("temperatura=",temperatura);
+    static unsigned long lastValidTempMillis = millis();
+    float temperatura = 999;
+    bool tiempoExcedido = (millis() - lastValidTempMillis > LONGINTERVAL * 60000UL);
+    if (tiempoExcedido) {
+        if (config.tempRemote>0) {
+          config.tempRemote = -1; // si fallo lectura temp remota, pasamos a temp local temporal
+          Estado.errorInformado = false; // reseteamos flag para informar si error en temp local
+          LOG_WARN("Tiempo excedido sin lectura valida de temperatura, cambiando a sensor local");
+        }   
+        lastValidTempMillis = millis();
+    } 
+    temperatura = readTemp();
+    LOG_TRACE("temperatura=",temperatura,"prev_temp=",prev_temp,"errinfo=",Estado.errorInformado);
     if(temperatura != 999) {
       temperatura = temperatura + ((float)config.tempOffset*(TEMP_OFFSET_FACTOR/100.0)); // offset correccion
       LOG_TRACE("temp OFFSET=",config.tempOffset,"TEMP_OFFSET_FACTOR %=",TEMP_OFFSET_FACTOR,"temperatura corregida=",temperatura);
-      int temp_round = (temperatura < 0 ? (temperatura - 0.5) : (temperatura + 0.5)); //redondeo al entero mas cercano
-      lcd.displayTemp(temp_round, config.warnESP32temp);
-      if (prev_temp == 999) Estado.errorInformado = false; // si antes habia error de temperatura, reseteamos flag
+      temperatura = (temperatura < 0 ? (temperatura - 0.5) : (temperatura + 0.5)); //redondeo al entero mas cercano
+      if (prev_temp == 999) { 
+        Estado.errorInformado = false; // si antes habia error de temperatura, reseteamos flag
+        logStatusF("Temperature sensor OK (%s)", config.tempRemote>0? "remote" : "local");
+      }
+      lastValidTempMillis = millis(); // actualizamos tiempo ultima lectura valida
     }  
     else {
       if (!Estado.errorInformado) {
-        LOG_WARN("Read temperature sensor failed");
+        LOG_WARN("Read", config.tempRemote>0? "remote" : "local", "temperature sensor failed");
         Estado.errorInformado = true; // para no repetir el mensaje hasta que se recupere
-     }
-      lcd.displayTemp(999, config.warnESP32temp);  // borra temperatura del display 
+      }
     }
+    lcd.displayTemp((int)temperatura);
     prev_temp = temperatura;
 }
 
@@ -1877,7 +1896,7 @@ void setupParm()
   if (!loadConfigFile(parmFile)) {
     LOG_ERROR(" ** [ERROR] Leyendo fichero parametros " , parmFile);
     config = Config_parm(); //reset estructura config a valores por defecto
-    if (loadConfigFile(backupParmFile)) {lcd.infoclear("BACKUP parm loaded");delay(MSGDISPLAYMILLIS*3);}
+    if (loadConfigFile(backupParmFile)) {lcd.infoclear("BACKUP parm loaded");delay(config.msgdisplaymillis*3);}
     else LOG_ERROR(" ** [ERROR] Leyendo fichero parametros backup ", backupParmFile);
   }
   //si no se ha podido leer ningun fichero de parametros, inicializa con zero-config
@@ -2024,9 +2043,7 @@ void gestionarTamanoLog() {
                 LOG_FILE_CLOSE(); // cerrar log antes de renombrar
                 if (LittleFS.rename(logErrorFile, logErrorFilePrev)) {
                     LOG_ATTACH_FS_AUTO(LittleFS, logErrorFile, FILE_APPEND); // Reabre el log
-                    const char* msg = " --- Log Rotated: Previous file saved as _prev ---";
-                    logStatus(msg); // record log rotation message to logfile
-                    LOG_INFO(msg);
+                    logStatus(" --- Log Rotated: Previous file saved as _prev ---"); // record log rotation message to logfile
                 } else {
                     LOG_ATTACH_FS_AUTO(LittleFS, logErrorFile, FILE_APPEND); // Reabre el log
                     LOG_ERROR(" ** [ERROR] Renaming log file for rotation failed");
@@ -2069,8 +2086,9 @@ void logStatusF(const char* format, ...) {
     logStatus(buffer); 
 }
 
-// Graba un mensaje en el fichero log
+// Graba un mensaje en el puerto serie y en fichero log si procede
 void logStatus(const char* mensaje) {
+  LOG_INFO("[SYSTEM]", mensaje);
   #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
     PRINTLN_FILE("[SYSTEM] [", getTimestamp(), "]", mensaje);
     // en setup, abre y cierra para grabar fecha correcta de lastwrite (borrada en el primer open sin ntp)
@@ -2150,7 +2168,6 @@ void initFS() {
 void stopHW() {
       initFS();
       logStatus("!!!BOOTLOOP DETECTADO !!! Sistema bloqueado para evitar daños");
-      PRINTLN(F("SISTEMA BLOQUEADO"));
       esp_sleep_enable_ext0_wakeup(ENCBOTON, 0); // Configura wakeup por boton ENC a LOW
       esp_deep_sleep_start();  // entra en deep sleep indefinidamente
       // while(true) {  //bucle infinito
