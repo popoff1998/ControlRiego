@@ -525,7 +525,7 @@ void Configure::procesaSelectMenu()
                 break;
         case FIN_MELODY :   //configuramos melodia final riego grupo
                 configValuep = &config.finMelody;  
-                this->Range_process_start(1, 3);   
+                this->Range_process_start(1, 4);   
                 _configuringMelody = true;
                 break; 
         case NIVEL_WIFI :   // toggle display nivel señal wifi

@@ -16,6 +16,7 @@
     LONGx3 = 1,
     MIMI,
     TARARI,
+    MARIO,
   };
 
   enum m_estados {

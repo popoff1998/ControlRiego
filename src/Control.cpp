@@ -2203,7 +2203,17 @@ void scSorpresa() {
     }
     else lcd.infoclear("    EASTER EGG!", 2);
     enciendeLeds();
-    sonido.bipTarari();
+    // Reproduce un tema musical aleatorio
+    int probabilidad = micros() % 100; // Generamos un número aleatorio entre 0 y 99 (resto de dividir por 100)
+    Serial.printf("Probabilidad tema musical: %d\n", probabilidad); 
+    if (probabilidad < 15) {  // 15% de probabilidad (0 a 14)
+      lcd.infoclear("    !!!PREMIO!!!", 2);
+      lcd.info("  SUPER MARIO BROS", 3);
+      sonido.temaMario(true);
+      (probabilidad % 2 == 0) ? sonido.temaStarWars(true) : sonido.temaPiratas(true);
+    }
+    else if (probabilidad < 55) {sonido.temaPiratas();} // 40% de probabilidad (15 a 54)
+    else {sonido.temaStarWars();} // 45% de probabilidad (55 a 99)
     delay(config.msgdisplaymillis);
     apagaLeds();
     setEstado(STOP);
