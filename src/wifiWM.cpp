@@ -281,13 +281,12 @@ bool VerifyRecoveryWifi(bool checkRecon) {
   lcd.displayON(); //por si estuviera parpadeando(apagado) por error en pantalla
   /*
     Si no estamos conectados a la wifi, intentamos reconexion cada RECONNECTINTERVAL minutos.
-    Normalmente el evento WiFiStationConnected se ejecutara cuando se recupere la conexion a la wifi,
-    pero por si acaso lo dejamos (algunos fallos wifi del ESP32
+    El evento WiFiStationConnected se deberia ejecutar cuando se recupere la conexion a la wifi,
+    pero no siempre es asi (algunos fallos wifi del ESP32
     no generan el evento de conexion y no se recupera la conexion automaticamente).
   */
     if(!Estado.connected && checkRecon) {
       if(wifiReconnect()) {
-        logStatus(wifiOKmsg());
         Estado.errorInformado = false; //reiniciamos bloqueo futuros LOG_WARN/ERROR 
       } else if (!Estado.errorInformado) {
                 LOG_WARN("Reconnect failed, reintentando cada ", RECONNECTINTERVAL, " minutos");

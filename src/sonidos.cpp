@@ -43,7 +43,7 @@ void Sonidos::bipOK() {
 void Sonidos::bipKO() {
     int tempo = TEMPO_120; // Set the tempo.
     for (int thisNote = 0; thisNote < ELEMENTCOUNT(bipKO_melody); thisNote++) {
-        int noteDuration = tempo / bipKO_figure[thisNote]; // Calculate note duration.
+        int noteDuration = ((unsigned long)tempo * bipKO_figure[thisNote]) / FIG_NG;
         playNote(bipKO_melody[thisNote], noteDuration);
       }
     }
@@ -51,7 +51,7 @@ void Sonidos::bipKO() {
 void Sonidos::bipTarari() {
   int tempo = TEMPO_80; // Set the tempo.
   for (int thisNote = 0; thisNote < ELEMENTCOUNT(Tarari_melody); thisNote++) { // Loop through the notes in the array.
-    int noteDuration = tempo / Tarari_figure[thisNote]; // Calculate note duration.
+    int noteDuration = ((unsigned long)tempo * Tarari_figure[thisNote]) / FIG_NG;
     playNote(Tarari_melody[thisNote], noteDuration); // Play melody[thisNote] for duration[thisNote].
   }
 }
@@ -60,10 +60,20 @@ void Sonidos::bipMimi(int veces) {
   int tempo = TEMPO_250; // Set the tempo.
   for (int i = 0; i < veces; i++) {
     for (int thisNote = 0; thisNote < ELEMENTCOUNT(bipMimi_melody); thisNote++) {
-      int noteDuration = tempo / bipMimi_figure; // Calculate note duration.
+      int noteDuration = ((unsigned long)tempo * bipMimi_figure) / FIG_NG;
         playNote(bipMimi_melody[thisNote], noteDuration);
       }
   }  
+}
+
+void Sonidos::bipMario(bool luces){
+    int tempo = TEMPO_150;
+    for (int i = 0; i < ELEMENTCOUNT(Mario_melody); i++) {
+        int noteDuration = ((unsigned long)tempo * Mario_figure[i]) / FIG_NG;
+        if (luces && Mario_melody[i] != 0) enciendeLeds();
+        playNote(Mario_melody[i], noteDuration, luces);
+        if (luces) apagaLeds();
+    }
 }
 
 void Sonidos::bipFIN() {
@@ -72,9 +82,33 @@ void Sonidos::bipFIN() {
         case LONGx3: longbip(3);  break;
         case MIMI:   bipMimi(2);  break;
         case TARARI: bipTarari(); break;
+        case MARIO:  bipMario(); break;
+        default:     longbip(3);  break;
       }
 }
     
+void Sonidos::temaPiratas(bool luces) {
+    int tempo = TEMPO_150; 
+    for (size_t thisNote = 0; thisNote < ELEMENTCOUNT(Pirates_melody); thisNote++) {
+        int noteDuration = ((unsigned long)tempo * Pirates_figure[thisNote]) / FIG_NG;
+        // if (luces && Pirates_melody[thisNote] != 0 && Pirates_figure[thisNote] >= FIG_CO) enciendeLeds();
+        if (luces && Pirates_melody[thisNote] != 0) enciendeLeds();
+        playNote(Pirates_melody[thisNote], noteDuration, luces);
+        if (luces) apagaLeds();
+    }
+}
+
+void Sonidos::temaStarWars(bool luces) {
+    int tempo = TEMPO_120;
+    for (int i = 0; i < STARWARS_SIZE; i++) {
+        int noteDuration = ((unsigned long)tempo * StarWars_figure[i]) / FIG_NG;
+        if (luces && StarWars_melody[i] > 0 && (i % 2 == 0)) enciendeLeds();
+        playNote(StarWars_melody[i], noteDuration, luces);
+        if (luces) apagaLeds(); 
+    }
+}
+
+
 void Sonidos::mitone(int pin, unsigned long frequency, unsigned int duration, int volume) {
     if (frequency == 0 || volume == 0 || config.mute == 1) { // If frequency or volume are zero, just wait duration and exit.
         delay(duration);
@@ -92,8 +126,8 @@ void Sonidos::mitone(int pin, unsigned long frequency, unsigned int duration, in
     }    
 }    
 
-void Sonidos::playNote(int note, int duration) {
-    mitone(BUZZER, note, duration, config.volume);
-    delay(duration * 0.3); // separacion entre notas 30% duracion
+void Sonidos::playNote(int note, int duration, int fullvolume) {
+    mitone(BUZZER, note, duration, fullvolume? 10 : config.volume);
+    delay(duration * 0.15); // separacion entre notas 15% duracion
 }
     

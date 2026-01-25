@@ -395,7 +395,7 @@ int Configure::showMenu(int opcion)
       opcionesMenuConf[LED_MAX_LVL]  += String(config.maxledlevel);
       sprintf(buff, "%+g", config.tempOffset*(TEMP_OFFSET_FACTOR/100.0)); //elimina ceros decimales al final y pone + si positivo
       opcionesMenuConf[TEMP_ADJ]  += buff;
-      opcionesMenuConf[TEMP_SOURCE] = (config.tempRemote>0 ?  "TEMP: REM.  " : "TEMP: LOCAL ") + (readTemp()==999 ? "--" : String(readTemp()));
+      opcionesMenuConf[TEMP_SOURCE] = (config.tempRemote==0 ?  "TEMP: LOCAL " : "TEMP: REM.  ") + (readTemp()==999 ? "--" : String(readTemp()));
       opcionesMenuConf[REM_TEMP_IDX] += String(config.tempRemoteIdx);
       opcionesMenuConf[MSG_TIME] += String(config.msgdisplaymillis);
       opcionesMenuConf[MUTE] += (config.mute ? "ON" : "OFF");
@@ -525,7 +525,7 @@ void Configure::procesaSelectMenu()
                 break;
         case FIN_MELODY :   //configuramos melodia final riego grupo
                 configValuep = &config.finMelody;  
-                this->Range_process_start(1, 3);   
+                this->Range_process_start(1, 4);   
                 _configuringMelody = true;
                 break; 
         case NIVEL_WIFI :   // toggle display nivel señal wifi
