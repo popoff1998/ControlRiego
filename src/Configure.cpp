@@ -334,6 +334,8 @@ void Configure::exit()
         }
       #endif
       LOG_TRACE("[poniendo estado STANDBY]");
+      // Si salimos de modo ConF para comenzar multirriego temporal, ponemos STANDBY silencioso
+      // (sin cambios en la UI) , si no ponemos STANDBY normal.
       multi.temporal ? setStateMachine(STANDBY) : setEstado(STANDBY);
 }
 

@@ -7,7 +7,7 @@
 //Globales a este modulo
 unsigned long lastMillis;
 #define DEBOUNCEMILLIS 20
-volatile uint16_t ledStatus = 0;  // necesita ser volatile porque se usa en interrupcion (ticker parpadeo leds de zonas)
+volatile uint16_t estadoLeds = 0;  // necesita ser volatile porque se usa en interrupcion (ticker parpadeo leds de zonas)
 
 
 #define mcpO_ADDR 0x20    // MCP de salidas (LEDs)
@@ -81,7 +81,7 @@ void apagaLeds()
   analogWrite(LEDB, 0);
   mcpO.writePort(MCP23017Port::A, 0x00);
   mcpO.writePort(MCP23017Port::B, 0x00);
-  ledStatus = 0;
+  estadoLeds = 0;
 }
 
 void enciendeLeds()
@@ -91,7 +91,7 @@ void enciendeLeds()
   analogWrite(LEDB, ledlevel());
   mcpO.writePort(MCP23017Port::A, 0xFF);
   mcpO.writePort(MCP23017Port::B, 0xFF);
-  ledStatus = 0xFFFF;
+  estadoLeds = 0xFFFF;
 }
 
 void ledRGB(int  R, int G, int B)
@@ -125,10 +125,6 @@ void wifiClearSignal(uint veces)
   }
 }
 
-void actLedError(void) {
-  ledRGB(ON,OFF,OFF);
-}
-
 void parpadeoLedPWM(int id) {
   bool estadoActual;
   if (id == LEDR) estadoActual = sLEDR;
@@ -140,7 +136,7 @@ void parpadeoLedPWM(int id) {
 
 void parpadeoLedZona(int ledid)
 {
-  byte estado = ledStatusId(ledid);
+  byte estado = estadoLedId(ledid);
   led(ledid,!estado);
 }
 
@@ -159,17 +155,19 @@ void setParpadeo(Ticker &t, velocidad_parpadeo vel, int ledid) {
     else if (vel == FIJO)  ledid > 16? ledPWM(ledid,1) : led(ledid, 1);
 }
 
-//activa o desactiva el(los) led(s) indicadores de que estamos en modo configuracion (R+G=Y)
+//activa o desactiva el led RGB con color amarillo (R+G=Y)
 void ledYellow(int estado)
 {
   if(estado == ON)  ledRGB(ON,ON,OFF);     //  LED AMARILLO
   if(estado == OFF) ledRGB(OFF,OFF,OFF);  //  los apaga para parpadeo
 }
 
-// deja led RGB segun estado wifi y modoDEMO
-void setledRGB()
+// deja led RGB segun estado wifi y modoDEMO, o estados error y configurando
+void setLedStatus()
 {
-    ledRGB(OFF,Estado.connected,Estado.modoDEMO);                 
+  if (Estado.estado == ERROR) ledRGB(ON,OFF,OFF);            // rojo fijo
+  else if (Estado.estado == CONFIGURANDO) ledRGB(ON,ON,OFF); // amarillo fijo
+  else ledRGB(OFF,Estado.connected,Estado.modoDEMO);         // verde si wifi + azul si demo                
 }  
 
 
@@ -192,29 +190,29 @@ void led(uint8_t id,int estado)
 {
     #ifdef EXTRADEBUG2
     Serial.print(F("[TRACE: en funcion led]"));
-    Serial.print(F("ledStatus : "));Serial.println(ledStatus,BIN);
+    Serial.print(F("estadoLeds : "));Serial.println(estadoLeds,BIN);
     Serial.print(F("ledID : "));Serial.println(id,DEC);
     #endif
 
     //Por seguridad no hacemos nada si id=0
     if(id==0) return;
-    if(estado == ON) ledStatus |= (1 << (id-1));
-    else ledStatus &= ~(1 << (id-1));
+    if(estado == ON) estadoLeds |= (1 << (id-1));
+    else estadoLeds &= ~(1 << (id-1));
     //convertimos a la parte baja y alta
-    uint8_t bajo = (uint8_t)((ledStatus & 0x00FF));
-    uint8_t alto = (uint8_t)((ledStatus & 0xFF00) >> 8);
+    uint8_t bajo = (uint8_t)((estadoLeds & 0x00FF));
+    uint8_t alto = (uint8_t)((estadoLeds & 0xFF00) >> 8);
     mcpO.writePort(MCP23017Port::A, bajo);
     mcpO.writePort(MCP23017Port::B, alto);
 }
 
 // devuelve el estado actual de un led (ON/OFF)
-bool ledStatusId(int ledID)
+bool estadoLedId(int ledID)
 {
   #ifdef EXTRADEBUG2
-    Serial.print(F("ledStatus : "));Serial.println(ledStatus,BIN);
+    Serial.print(F("estadoLeds : "));Serial.println(estadoLeds,BIN);
     Serial.print(F("ledID : "));Serial.println(ledID,DEC);
   #endif
-  return((ledStatus & (1 << (ledID-1))));
+  return((estadoLeds & (1 << (ledID-1))));
 }
 
 // ON/OFF atenuacion LEDG y LEDB
@@ -279,6 +277,7 @@ void leerEncoderSW() {
     }
     lastState = reading;
   }  
+  if (Estado.reposo && encoderSW) reposoOFF(); // pulsar boton del encoder saca del reposo
 }
 
 // Lee el estado de los botones y devuelve un puntero al primer boton que ha cambiado de estado

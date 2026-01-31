@@ -170,6 +170,7 @@
   #define NORECUPERABLE 0
   #define INICIO 0
   #define RESUME 1
+  #define SHORT 1
 
 
   //----------------  dependientes del HW   (caso de 4 botones de grupos multirriego)  ---------------
@@ -468,7 +469,6 @@
     S_timeRiego lastGrupos[NUMGRUPOS];
     S_Riego_estado riegoSaved; // estructura con el estado del riego en curso
     uint factorRiegos[NUMZONAS];
-    bool backlightOff = false;
     bool flagV = OFF;
     bool flagVtimer = OFF;
     bool timeOK = false;
@@ -522,7 +522,6 @@
 // *****************************************************************************************
 //  Funciones (prototipos)
 // *****************************************************************************************
-void actLedError(void);
 void apagaLeds(void);
 int  bID2bIndex(uint16_t);
 void blinkDisplay(void);
@@ -598,7 +597,7 @@ void led(uint8_t,int);
 int  ledlevel(void);
 void ledPWM(uint8_t, int);
 void ledRGB(int,int,int);
-bool ledStatusId(int);
+bool estadoLedId(int);
 void ledYellow(int);
 void leerEncoderSW();
 void leeSerial(void);
@@ -627,7 +626,7 @@ void procesaBotonPause(void);
 void procesaBotonStop(void);
 void procesaBotonZona(void);
 bool procesaDynamic(void);
-void procesaEncoderClock(void);
+void procesaEncoderTime(void);
 void procesaEncoderConfig(void);
 void procesaEstadoConfigurando(void);
 void procesaEstadoError(void);
@@ -645,7 +644,7 @@ void refreshLogFile();
 void refreshTime(void);
 String registrarArranqueSistema();
 void reposoOFF(void);
-void reposoON(bool lcdOFF=true);
+void reposoON(void);
 void resetESP32();
 void resetFlags(void);
 void resetLCD(void);
@@ -664,7 +663,7 @@ void setEncoderRange(int , int , int , int);
 void setEncoderTime(void);
 void setEstado(m_estados estado, int bnum = 0, estado_tipos tipo = LOCAL, velocidad_parpadeo ledblink = FIJO);
 int  setGrupo();
-void setledRGB(void);
+void setLedStatus(void);
 void setLogToFile();
 int setMultibyId(uint16_t);
 bool setMultirriego();
