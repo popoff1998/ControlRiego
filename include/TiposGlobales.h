@@ -60,13 +60,18 @@
   };
 
   // frecuencia de parpadeo del led en decimas de segundo (para RAPIDO, NORMAL Y LENTO)  
-  enum velocidad_parpadeo {   
-    APAGA   = -2, // Detiene y apaga el LED
-    PARAR   = -1, // Solo detiene el Ticker (mantiene estado actual)
-    FIJO    = 0,  // Detiene y deja encendido fijo
+  enum velocidad_parpadeo {
+    NULO    = 0, // No se especifica parpadeo o se deja el estado actual
+    PARAR   = 0, // Solo detiene el Ticker (mantiene estado actual segun le haya pillado)
     RAPIDO  = 2,
     NORMAL  = 4,
     LENTO   = 8,     
+  };
+
+  // apager y encender leds (deteniendo posible parpadeo)  
+  enum estado_led {   
+    APAGA    = 0,  // Detiene y apaga el LED
+    ENCIENDE = 1,  // Detiene y deja encendido fijo
   };
 
 #endif

@@ -6,11 +6,15 @@
  
 #define TEMPO_60   1000 // 60 bpm = 1 segundo
 #define TEMPO_80   750  // 80 bpm = 0.75 segundos
+#define TEMPO_100  600  // 100 bpm = 0.6 segundos
 #define TEMPO_120  500  // 120 bpm = 0.5 segundos
+#define TEMPO_130  462  // 130 bpm = 0.462 segundos
+#define TEMPO_140  428  // 140 bpm = 0.428 segundos
 #define TEMPO_150  400  // 150 bpm = 0.4 segundos
+#define TEMPO_160  375  // 160 bpm = 0.375 segundos
+#define TEMPO_170  353  // 170 bpm = 0.353 segundos
 #define TEMPO_180  333  // 180 bpm = 0.33 segundos
 #define TEMPO_250  240  // 250 bpm = 0.24 segundos
- 
 
 #define FIG_SE   1   // Semifusa (1/16 negra)
 #define FIG_FU   2   // Fusa (1/8 negra)

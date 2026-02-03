@@ -95,9 +95,13 @@ void loop()
  */
 void procesaBotones()
 {
-  if (!validaBoton()) return;
-  if (Estado.estado == CONFIGURANDO) return; // procesaEstadoConfigurando procesa sus botones
-  //Procesamos el boton pulsado:
+  // Si no hay boton a procesar salimos
+  if (!validaBoton())   
+      return;
+  // procesaEstadoConfigurando procesa sus botones    
+  if (Estado.estado == CONFIGURANDO)  
+      return; 
+  // Procesamos el boton pulsado:
   switch (boton->bID) {
     //Primero procesamos los botones singulares, el resto van por default
     case bPAUSE:       procesaBotonPause(); break;
@@ -314,7 +318,8 @@ void setupEstadoFinal()
 
   void procesaBotonPause(void)
   {
-    if(!boton->estado && Estado.estado != STOP) return; //No procesamos los release del boton salvo en STOP
+    if(!boton->estado && Estado.estado != STOP) //No procesamos los release del boton salvo en STOP
+       return;
     switch (Estado.estado) {
       case REGANDO:
         if(encoderSW) handleEncPauseInRegando();  //cancela riego zona en curso
@@ -353,8 +358,6 @@ void handleEncPauseInRegando() {
 // Pausa el riego en curso
 void handlePauseInRegando() {
   setEstado(PAUSE,1);
-  //detiene parpadeo led zona (por si estuviera activo) y lo deja fijo:
-  setParpadeo(tic_LedZona, FIJO, ultimoBotonZona->led);
   if (stopRiego(ultimoBotonZona->bID)) timer.PauseTimer();
   else { //error al parar riego
     LOG_WARN("error al pausar riego ERROR(E",Estado.error, ") (", errorToString(Estado.error), ") zona :",ultimoBotonZona->desc );
@@ -534,15 +537,17 @@ void handleStopInError() {
 
 void procesaBotonMultirriego(void)
 {
-  if (multi.riegoON) return; //ya hay un multirriego en curso,, ignoramos boton
+  if (multi.riegoON)  //ya hay un multirriego en curso,, ignoramos boton
+      return;
   int n_grupo = setGrupo(); //apunta estructura multi al grupo seleccionado
-  if (n_grupo == 0) return; //error en setup de apuntadores
+  if (n_grupo == 0)  //error en setup de apuntadores
+      return;
   LOG_DEBUG("en MULTIRRIEGO, encoderSW status  :", encoderSW );
   if (Estado.estado == STANDBY) {
     if (encoderSW) handleEncGrupoInStandby(n_grupo);  //muestra info del grupo
     else handleGrupoInStandby(n_grupo);               //inicia el multirriego
   }
-  // En STOP si pulsamos junto con encoderSW tenemos atajos de teclas (si habilitados en config.shortcuts)
+  // En STOP si pulsamos junto con encoderSW tenemos atajos de teclas (si habilitados con SHORTCUTSENABLED)
   else if (encoderSW && Estado.estado == STOP && SHORTCUTSENABLED) handleEncGrupoInStop(n_grupo);  
 } //fin de procesaBotonMultiriego
 
@@ -692,10 +697,11 @@ void procesaIfWebServer()
 */
 void procesaEstadoConfigurando()
 {
+  // Si hay boton pulsado (con flag ACTION), lo procesamos segun el menu en el que estemos
   if (boton != nullptr) {
     if (boton->flags.action) {
-      if (boton->bID != bSTOP && webServerAct) return; //si webserver esta activo solo procesamos boton STOP
-
+      if (boton->bID != bSTOP && webServerAct)  //si webserver esta activo solo procesamos boton STOP
+        return;
       switch(boton->bID) {
         case bPAUSE:
             if(!boton->estado) break; //no se procesa el release del PAUSE
@@ -731,7 +737,7 @@ void procesaEstadoConfigurando()
     }
     //limpiamos el boton procesado (evitando borrar zona apuntada caso de multirriego temporal) 
     if (!multi.semaforo)  boton = nullptr;
-
+    // Si no se ha pulsado boton procesamos el webserver si esta activado o el encoder en caso contrario
   } else webServerAct ? procesaIfWebServer() : procesaEncoderConfig();
 }; //fin de procesaEstadoConfigurando
 
@@ -790,48 +796,59 @@ void procesaEstadoError(void)
 }; //fin de procesaEstadoError
 
 
-void procesaEstadoRegando(void)
+void procesaEstadoRegando(void) 
 {
-  int tiempoTerminado = timer.Timer();
-  if (timer.TimeHasChanged()) refreshTime();
-  if (tiempoTerminado == 0) setEstado(TERMINANDO);
-  // verificamos periodicamente que el riego sigue activo en Domoticz
-  else if(flagV && config.verify && (!Estado.modoDEMO || simular.all_simFlags)) { 
-    int ledID = ultimoBotonZona->led;
-    if (Estado.tipo != REMOTO) {
-      //detiene parpadeo led zona (por si estuviera activo) y lo deja fijo:
-      setParpadeo(tic_LedZona, FIJO, ultimoBotonZona->led);
-    }               
-    if(queryStatus(ultimoBotonZona->znumber, "On")) return;
-    else {
-      if(!Estado.error) { //riego zona parado: entramos en PAUSE y blink lento zona pausada remotamente 
-        timer.PauseTimer();
-        finalTimeLastRiego(lastRiegos[ultimoBotonZona->znumber-1]); //actualizamos tiempo de riego de la zona
-        LOG_WARN(">>>>>>>>>> procesaEstadoRegando zona:", config.zona[ultimoBotonZona->znumber-1].desc, "en PAUSA remota <<<<<<<<");
-        setEstado(PAUSE,1,REMOTO,LENTO); //pasamos a PAUSE remoto
-      }
-      else {  // si no hemos podido verificar estado, señalamos zona blink rapido y continuamos
-        setParpadeo(tic_LedZona, NORMAL, parpadeoLedZona, ledID);
-        Estado.error = NOERROR; // si no hemos podido verificar estado, ignoramos el error
-        sonido.bip(2);
-        LOG_WARN("** SE HA DEVUELTO ERROR al verificar estado riego");
-      }  
+    // Actualiza el temporizador de cuenta atrás (devuelve false si llega a 0)
+    bool timerActivo = timer.Timer();
+    if (timer.TimeHasChanged()) refreshTime();
+    if (!timerActivo) {
+        setEstado(TERMINANDO);
+        return; 
     }
-  }
-}; //fin de procesaEstadoRegando
+    // Si NO se cumplen las condiciones de verificación, salimos ya.
+    bool debeVerificar = flagV && config.verify && (!Estado.modoDEMO || simular.all_simFlags);
+    if (!debeVerificar) {
+        return;
+    }
+    // Verificación del estado del riego en Domoticz esta activo
+    if (queryStatus(ultimoBotonZona->znumber, "On")) {
+        if (Estado.tipo != REMOTO) setLed(tic_LedZona, ENCIENDE, ultimoBotonZona->led); //si local: led zona encendido fijo
+        else setParpadeo(tic_LedZona, LENTO, parpadeoLedZona, ultimoBotonZona->led); //si remoto: parpadeo lento led zona
+        return;
+    }
+    // Escenario 1: queryStatus falló
+    if (Estado.error) {
+        // Si no hemos podido verificar estado, señalamos zona con parpadeo rapido e ignoramos el error
+        setParpadeo(tic_LedZona, RAPIDO, parpadeoLedZona, ultimoBotonZona->led);
+        sonido.bip(2);
+        Estado.error = NOERROR; 
+        LOG_WARN("** SE HA DEVUELTO ERROR al verificar estado riego");
+        return;
+    }
+    // Escenario 2: El riego se ha parado remotamente
+    timer.PauseTimer();
+    finalTimeLastRiego(lastRiegos[ultimoBotonZona->znumber - 1]);
+    LOG_WARN(">>>>>>>>>> procesaEstadoRegando zona:", config.zona[ultimoBotonZona->znumber - 1].desc, "en PAUSA remota <<<<<<<<");
+    setEstado(PAUSE, 1, REMOTO, LENTO);
+}   //fin de procesaEstadoRegando
 
 
 void procesaEstadoTerminando(void)
 {
   sonido.bip(5);
-  setParpadeo(tic_LedZona, PARAR); //detiene parpadeo led zona (por si estuviera activo)
   tic_CountDownTimer.detach(); //detiene actualizacion periodica del temporizador
-  bool updateTimeFin = (riegoFromPause? false : true); // si veniamos de PAUSE no actualizamos tiempo fin
-  stopRiego(ultimoBotonZona->bID, updateTimeFin); // paramos riego en curso
-  riegoFromPause = false; //reiniciamos flag
-  if (Estado.estado == ERROR) return; //no continuamos si se ha producido error al parar el riego
+  // si veniamos de PAUSE no actualizamos tiempo fin
+  bool updateTimeFin = (riegoFromPause? false : true);
+  riegoFromPause = false;
+  // paramos riego en curso
+  stopRiego(ultimoBotonZona->bID, updateTimeFin);
+  // no continuamos si se ha producido error al parar el riego 
+  if (Estado.estado == ERROR)
+      return;
   lcd.blinkLCD(BLINKDISPLAY);
-  led(ultimoBotonZona->led,OFF);  // apaga led zona
+  // aseguramos led zona apagado si hemos podido parar riego 
+  // (ya que si estamos en multirriego pasaremos por STANDBY sin cambiar la UI)
+  setLed(tic_LedZona, APAGA, ultimoBotonZona->led);
   //Comprobamos si estamos en un multirriego
   if (multi.riegoON) {
     //sumamos tiempo riego zona terminada al tiempo de riego del grupo
@@ -870,7 +887,8 @@ void procesaEstadoTerminando(void)
 
 void procesaEstadoStandby(void)
 {
-  if (multi.riegoON) return; //no se hacen verificaciones/acciones con multirriego en curso
+  if (multi.riegoON)  //no se hacen verificaciones/acciones con multirriego en curso
+      return;
   //Apagamos el display y atenuamos led status si ha pasado el lapso STANDBYSECS sin actividad
   if (!Estado.reposo && (millis() - standbyTime >= (1000UL * STANDBYSECS))) reposoON();
   // leemos encoder
@@ -902,20 +920,23 @@ void procesaEstadoStop(void)
 
 // verificamos zona sigue OFF en Domoticz periodicamente
 void procesaEstadoPause(void) {
+  // Solo verificamos si toca, VERIFY ON y no estamos en modoDEMO (o estamos en modo simulacion)
   if(flagV && config.verify && (!Estado.modoDEMO || simular.all_simFlags)) {  
-    if(queryStatus(ultimoBotonZona->znumber, "Off")) return;
-    else {
-      if(!Estado.error) { //riego zona activo: salimos del PAUSE y blink lento zona activada remotamente 
-        sonido.bip(2);
-        LOG_WARN(">>>>>>>>>> procesaEstadoPause zona:", config.zona[ultimoBotonZona->znumber-1].desc,"activada REMOTAMENTE <<<<<<<");
-        timer.ResumeTimer();
-        char zonaText[7];
-        snprintf(zonaText, sizeof(zonaText), "ZONA%d", ultimoBotonZona->znumber);
-        inicioTimeLastRiego(lastRiegos[ultimoBotonZona->znumber-1], zonaText, RESUME); //actualizamos tiempo de riego de la zona
-        setEstado(REGANDO,2,REMOTO,LENTO); //pasamos a REGANDO remoto
-      }
-      else Estado.error = NOERROR; // si no hemos podido verificar estado, ignoramos el error
+    // Verificamos que el riego sigue parado en Domoticz, si es así salimos sin hacer nada.
+    if(queryStatus(ultimoBotonZona->znumber, "Off")) 
+      return;
+    // Hemos detectado riego zona activo: salimos del PAUSE y blink lento zona activada remotamente  
+    if(!Estado.error) {  
+      sonido.bip(2);
+      LOG_WARN(">>>>>>>>>> procesaEstadoPause zona:", config.zona[ultimoBotonZona->znumber-1].desc,"activada REMOTAMENTE <<<<<<<");
+      timer.ResumeTimer();
+      char zonaText[7];
+      snprintf(zonaText, sizeof(zonaText), "ZONA%d", ultimoBotonZona->znumber);
+      inicioTimeLastRiego(lastRiegos[ultimoBotonZona->znumber-1], zonaText, RESUME); //actualizamos tiempo de riego de la zona
+      setEstado(REGANDO,2,REMOTO,LENTO); //pasamos a REGANDO remoto
     }
+    // Si no hemos podido verificar estado, ignoramos el error (posible pause  por mantenimiento de la wifi o del domoticz)
+    else Estado.error = NOERROR; 
   }
 } //fin de procesaEstadoPause
 
@@ -989,12 +1010,12 @@ void setEstado(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parp
             }
             refreshTime(); //actualizamos tiempo de cuenta atras en pantalla 
             if (ledblink) {setParpadeo(tic_LedZona, ledblink, parpadeoLedZona, ultimoBotonZona->led);} 
-             else {setParpadeo(tic_LedZona, FIJO, ultimoBotonZona->led);}  
+             else {setLed(tic_LedZona, ENCIENDE, ultimoBotonZona->led);}  
             break;
             
         case TERMINANDO:
             lcd.infoEstado(textoEstado, config.zona[ultimoBotonZona->znumber-1].desc, bipcount);
-            setParpadeo(tic_LedZona, FIJO, ultimoBotonZona->led);
+            setLed(tic_LedZona, ENCIENDE, ultimoBotonZona->led); //aseguramos led zona detenido parpadeo y encendido
             break;
             
         case PAUSE:
@@ -1005,7 +1026,7 @@ void setEstado(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parp
             else if(multi.temporal) displayMultiTemporal(); 
             refreshTime(); //actualizamos tiempo de cuenta atras en pantalla
             if (ledblink) {setParpadeo(tic_LedZona, ledblink, parpadeoLedZona, ultimoBotonZona->led);}
-              else {setParpadeo(tic_LedZona, FIJO, ultimoBotonZona->led);} 
+              else {setLed(tic_LedZona, ENCIENDE, ultimoBotonZona->led);} 
             break;
             
         case STANDBY:
@@ -1056,7 +1077,7 @@ void statusError(error_tipos errorID, bool recoverable, velocidad_parpadeo zonab
       lcd.print(errorToString(errorID));  // mostramos explicacion del error en pantalla
       setLedStatus(); // led RGB rojo
       sonido.bipKO();
-      if (zonablinkvel) {  // señalamos zona que ha fallado (por stop o getfactor)
+      if (zonablinkvel) {  // señalamos parpadeando zona que ha fallado (por stop o getfactor)
         setParpadeo(tic_LedZona, zonablinkvel, parpadeoLedZona, ultimoBotonZona->led);
       }
       if (errorblinkvel) {  // parpadeo del led RGB de error
@@ -1096,7 +1117,8 @@ void initFactorRiegos()
   }
   factorRiegosLeido = false;
   //si no tenemos wifi o noWIFI, ni lo intentamos
-  if((!Estado.connected) || Estado.noWIFI) return;
+  if((!Estado.connected) || Estado.noWIFI) 
+      return;
   lcd.info("conectando Domoticz", 2);
   lcd.clear(BORRA2H);
   //leemos factores del Domoticz:
@@ -1414,7 +1436,7 @@ void procesaEncoderConfig()
 
   if(configure->statusMenu()) {  //encoder selecciona item menu
       int menuOption = rotaryEncoder.readEncoder();  //devuelve valor actual del encoder (se haya movido o no)
-      if(menuOption == configure->get_currentItem()) return;
+      if(menuOption == configure->get_currentItem()) return;  //no ha cambiado
       LOG_DEBUG("rotaryEncoder.readEncoder() devuelve menuOption =", menuOption, "currentItem =", configure->get_currentItem());
       configure->showMenu(menuOption);
       return;
@@ -1535,7 +1557,7 @@ bool initRiego(bool resume)
     }
 }
 
-// Termina el riego correspondiente al boton de zona (id) pasado
+// Termina/interrumpe el riego correspondiente al boton de zona (id) pasado
 // alertIfFails: TRUE por defecto (para llamadas individuales). Si TRUE y falla, dispara la alerta.
 bool stopRiego(uint16_t id, bool update, bool alertIfFails)
 {
@@ -1599,7 +1621,8 @@ void saveRiego(int znumber, int bID, int minutes, int seconds)
 //Recupera el estado del riego salvado dejandolo en PAUSE para que el usuario confirme el reinicio
 void restoreRiego(void)
 {
-    if (riegoSaved.znumber == 0) return; //no hay riego salvado
+    if (riegoSaved.znumber == 0)  //no hay riego salvado
+        return;
     LOG_INFO("recuperando riego salvado de zona:", riegoSaved.znumber);
     ultimoBotonZona = &Boton[bID2bIndex(riegoSaved.bID)];
     led(ultimoBotonZona->led,ON); //encendemos led de la zona
@@ -1624,9 +1647,7 @@ void resetLeds()
     led(Boton[bID2bIndex(ZONAS[i])].led,OFF);
   }
   //restablece led RGB
-  setParpadeo(tic_LedError, PARAR); //por si estuviera parpadeando
-  pararLedsWifiAP();                //por si estuvieran parpadeando
-  setLedStatus();                   //restablece led RGB a estado normal  
+  setLedStatus();                   //restablece led RGB a estado actual  
 }
 
 //Pone a false diversos flags de estado
@@ -1710,7 +1731,7 @@ bool checkSCD()
   setParpadeo(tic_LedRecon, RAPIDO, parpadeoLedPWM, LEDB);
   LOG_INFO("----  VERIFICANDO RECONEXION DOMOTICZ  ----");
   bool SCD_OK = getDiaNoche(amanecer, anochecer); //enviamos mandato a Domoticz para comprobar que hay conexion
-  setParpadeo(tic_LedRecon, APAGA, LEDB);
+  setLed(tic_LedRecon, APAGA, LEDB); //paramos parpadeo led recon y lo dejamos apagado
   if(!SCD_OK) { LOG_DEBUG(" ** sin conexion con Domoticz"); 
     return false; }
   setStateMachine(STANDBY); // pasa a STANDBY sin mostrar mensajes en LCD
@@ -1763,7 +1784,8 @@ void Verificaciones()
   flagV = OFF;
   checkRecon = false;
   // Si no activada por Ticker salimos sin hacer nada mas
-  if (!flagVtimer) return;  
+  if (!flagVtimer) 
+      return;  
   if (Estado.error) LOG_TRACE("-------flagVtimer ON----   Estado.recoverableError: ", Estado.recoverableError, "Estado.error: ", Estado.error);
   flagVtimer = OFF;
   // Activamos flagV para que se realicen las verificaciones en las funciones de estado correspondientes
@@ -2171,7 +2193,8 @@ String registrarArranqueSistema() {
 
 // Inicializa el sistema de ficheros LittleFS y el logger a fichero si procede
 void initFS() {
-  if (fsOK) return; // ya inicializado
+  if (fsOK)  // ya inicializado
+      return;
   PRINTLN("[setup] Inicializando LittleFS...");
   if(clean_FS) cleanFS();
   fsOK = LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED);
@@ -2229,27 +2252,36 @@ void scWebserver() {
 void scSorpresa() {
     if (getDiaNoche(amanecer, anochecer)) {
         lcd.infoclear("Hoy amanece a las..", 1);
-        lcd.setCursor(7, 1);lcd.print(amanecer);
+        lcd.setCursor(7, 1); lcd.print(amanecer);
         lcd.info("..y anochece a las", 3);
-        lcd.setCursor(7, 3);lcd.print(anochecer);
-    }
-    else lcd.infoclear("    EASTER EGG!", 2);
+        lcd.setCursor(7, 3); lcd.print(anochecer);
+    } else lcd.infoclear("    EASTER EGG!", 2);
     enciendeLeds();
-    // Reproduce un tema musical aleatorio
-    int probabilidad = micros() % 100; // Generamos un número aleatorio entre 0 y 99 (resto de dividir por 100)
-    Serial.printf("Probabilidad tema musical: %d\n", probabilidad); 
-    if (probabilidad < 15) {  // 15% de probabilidad (0 a 14)
+    bool premio =false;
+    int probabilidad = esp_random() % 100; 
+    // Serial.printf("Probabilidad premio (<15): %d\n", probabilidad); 
+    if (probabilidad < 15) {  // 15% probabilidad PREMIO
       lcd.infoclear("    !!!PREMIO!!!", 2);
       lcd.info("  SUPER MARIO BROS", 3);
-      sonido.bipMario(true); // true para parpadear leds durante la melodia
-      (probabilidad % 2 == 0) ? sonido.temaStarWars(true) : sonido.temaPiratas(true);
+      premio = true;
+      sonido.bipMario(premio);
+    }    
+    // 85% de probabilidad tema individual o bien segundo tema con luces
+    int temaAleatorio = esp_random() % 4;
+    // Serial.printf("Eleccion tema (0 a 3): %d\n", temaAleatorio); 
+    switch(temaAleatorio) {
+        case 0: sonido.temaPiratas(premio); break;
+        case 1: sonido.temaStarWars(premio); break;
+        case 2: sonido.temaIndianaJones(premio); break;
+        case 3: sonido.temaHarry2(premio); break;
     }
-    else if (probabilidad < 60) {sonido.temaPiratas();} // 45% de probabilidad (15 a 59)
-    else {sonido.temaStarWars();} // 40% de probabilidad (60 a 99)
     delay(config.msgdisplaymillis);
     apagaLeds();
     setEstado(STOP);
 }
+
+
+
 
 // **************************************************************************
 // funciones solo usadas en DEVELOP

@@ -108,6 +108,28 @@ void Sonidos::temaStarWars(bool luces) {
     }
 }
 
+void Sonidos::temaHarry2(bool luces) {
+    int tempo = TEMPO_100;
+    for (int i = 0; i < HARRY2_SIZE; i++) {
+        int noteDuration = ((unsigned long)tempo * Harry2_figure[i]) / FIG_NG;
+        if (luces && Harry2_melody[i] > 0 && (i % 2 == 0)) enciendeLeds();
+        playNote(Harry2_melody[i], noteDuration);
+        if (luces) apagaLeds();
+    }
+}
+
+void Sonidos::temaIndianaJones(bool luces) {
+    int tempo = TEMPO_150;
+    for (int i = 0; i < INDY_SIZE; i++) {
+        int noteDuration = ((unsigned long)tempo * Indy_figure[i]) / FIG_NG;
+        if (luces && Indy_melody[i] > 0 && (i % 2 == 0)) enciendeLeds();
+        playNote(Indy_melody[i], noteDuration);
+        if (luces) apagaLeds();
+    }
+}
+
+
+
 
 void Sonidos::mitone(int pin, unsigned long frequency, unsigned int duration, int volume) {
     if (frequency == 0 || volume == 0 || config.mute == 1) { // If frequency or volume are zero, just wait duration and exit.

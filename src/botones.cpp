@@ -143,16 +143,19 @@ void parpadeoLedZona(int ledid)
 // Versión para parpadeo RAPIDO, NORMAL y LENTO de leds PWM (RGB) o de zonas
 void setParpadeo(Ticker &t, velocidad_parpadeo vel, void (*f)(int), int id) {
     t.detach();
-    if (vel <= FIJO) return;
+    if (vel <= 0) return;
     t.attach(vel / 10.0, f, id);
 }
 
-// Versión solo para PARAR, APAGA o FIJO (led zona 1-16, led PWM 25-26-27)
-void setParpadeo(Ticker &t, velocidad_parpadeo vel, int ledid) {
+// Versión solo para PARAR temporizador de parpadeo
+void setParpadeo(Ticker &t, velocidad_parpadeo vel) {
     t.detach();
-    if (vel == PARAR) return;
-    if (vel == APAGA)      ledid > 16? ledPWM(ledid,0) : led(ledid, 0);
-    else if (vel == FIJO)  ledid > 16? ledPWM(ledid,1) : led(ledid, 1);
+}
+
+// Enciende o apaga un led deteniendo su posible parpadeo (led zona 1-16, led PWM 25-26-27)
+void setLed(Ticker &t, estado_led estado, int ledid) {
+    t.detach();
+    ledid > 16? ledPWM(ledid,estado) : led(ledid, estado);
 }
 
 //activa o desactiva el led RGB con color amarillo (R+G=Y)
@@ -165,6 +168,12 @@ void ledYellow(int estado)
 // deja led RGB segun estado wifi y modoDEMO, o estados error y configurando
 void setLedStatus()
 {
+  extern Ticker tic_LedError;
+  extern Ticker tic_APLed;
+  extern Ticker tic_WifiLed;
+  setParpadeo(tic_APLed, PARAR);
+  setParpadeo(tic_WifiLed, PARAR);
+  setParpadeo(tic_LedError, PARAR);
   if (Estado.estado == ERROR) ledRGB(ON,OFF,OFF);            // rojo fijo
   else if (Estado.estado == CONFIGURANDO) ledRGB(ON,ON,OFF); // amarillo fijo
   else ledRGB(OFF,Estado.connected,Estado.modoDEMO);         // verde si wifi + azul si demo                

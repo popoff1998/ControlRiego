@@ -85,6 +85,40 @@ class Sonidos {
             FIG_RE // Final apoteósico con Redonda
         };
 
+        #define HARRY2_SIZE 9
+        const int Harry2_melody[HARRY2_SIZE] = {
+            NOTE_B4, 
+            NOTE_E5, NOTE_G5, NOTE_FS5,
+            NOTE_E5, NOTE_B5, NOTE_A5,      
+            NOTE_FS5,                       
+            NOTE_E5
+        };
+        const int Harry2_figure[HARRY2_SIZE] = {
+            FIG_CO,                         
+            FIG_NG + FIG_CO, FIG_CO, FIG_NG, 
+            FIG_BL, FIG_NG,                  
+            FIG_BL + FIG_NG,                 
+            FIG_BL + FIG_NG,                 
+            FIG_BL + FIG_NG                
+         };
+
+        #define INDY_SIZE 19
+        const int Indy_melody[INDY_SIZE] = {
+            // El motivo principal
+            NOTE_E4, NOTE_F4, NOTE_G4, NOTE_C5, 0, // ¡Ta-ta-ta-TAAA!
+            NOTE_D4, NOTE_E4, NOTE_F4, 0,          // ¡Ta-ta-ta!
+            NOTE_G4, NOTE_A4, NOTE_B4, NOTE_F5, 0, // ¡Ta-ta-ta-TAAA!
+            NOTE_A4, NOTE_B4, NOTE_C5, NOTE_D5, NOTE_E5 // ¡Ta-ta-ta-ta-TAA!
+        };
+        const int Indy_figure[INDY_SIZE] = {
+            FIG_CO, FIG_SC, FIG_NG, FIG_BL, FIG_SC, // El 0 es un silencio breve
+            FIG_CO, FIG_SC, FIG_BL, FIG_SC,
+            FIG_CO, FIG_SC, FIG_NG, FIG_BL, FIG_SC,
+            FIG_CO, FIG_SC, FIG_CO, FIG_CO, FIG_BL
+        };
+
+
+
 
         void mitone(int pin, unsigned long frequency, unsigned int duration, int volume);
         void playNote(int note, int duration, int fullvolume=false);
@@ -103,6 +137,8 @@ class Sonidos {
         void temaPiratas(bool luces=false);
         void bipMario(bool luces=false);
         void temaStarWars(bool luces=false);
+        void temaHarry2(bool luces=false);
+        void temaIndianaJones(bool luces=false);
 };
 
 #endif // SONIDOS_H
