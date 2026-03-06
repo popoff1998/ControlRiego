@@ -223,28 +223,28 @@ void startConfigPortal()
 //set del estado de la conexion wifi y del led indicador si procede
 void setConnected(bool state) {
   Estado.connected = state;
-  if (Estado.estado != ERROR && Estado.estado != PAUSE && Estado.estado != CONFIGURANDO) ledPWM(ledWifi,state);
+  if (Estado.estado != ERROR && Estado.estado != PAUSE && Estado.estado != CONFIGURANDO) 
+      setLed(tic_WifiLed, state? ENCIENDE : APAGA, ledWifi);
 }
 
-// verificacion estado de la conexion wifi
+// Verificacion estado de la conexion wifi
+// Si level es true devuelve nivel de señal wifi, si es false solo verifica conexion wifi
+// y devuelve true si hay conexion o false si no la hay
 int checkWifi(bool level) {
-  //LOG_TRACE("in checkWifi");
+  // Hay conexion wifi: si no la habia previamente, informamos recuperacion
   if(WiFi.status() == WL_CONNECTED) {
-    // detenemos su parpadeo por si lo tuviera activo y encendemos el LEDG indicador de wifi
-    setLed(tic_WifiLed, ENCIENDE, ledWifi);
     if (!Estado.connected) {
       logStatus(wifiOKmsg());  
-      Estado.connected = true;
-      Estado.errorInformado = false; //reiniciamos bloqueo futuros LOG_WARN/ERROR
+      Estado.errorInformado = false; // reiniciamos bloqueo futuros LOG_WARN/ERROR
     }
-    return level==true ? wm.getRSSIasQuality(WiFi.RSSI()) : true; // devuelve nivel señal wifi si level es true 
+    setConnected(true);
+    return level==true ? wm.getRSSIasQuality(WiFi.RSSI()) : true; 
   }
+  // No hay conexion wifi: informamos error si no se habia informado previamente
   else {
     if (!Estado.errorInformado) LOG_ERROR(" ** [ERROR] No estamos conectados a la wifi");
-    // detenemos su parpadeo por si lo tuviera activo y apagamos el LEDG indicador de wifi
-    setLed(tic_WifiLed, APAGA, ledWifi);  
-    Estado.connected = false;
     Estado.errorInformado = true; // bloquea futuros LOG_ERROR
+    setConnected(false);  
     return false;
   }
 }
@@ -270,7 +270,6 @@ bool wifiReconnect () {
 }    
 
 bool VerifyRecoveryWifi(bool checkRecon) {
-  //LOG_TRACE("");
   //en modoDEMO sin conexion no verificamos (DEMO sin wifi)
   if (Estado.modoDEMO && !Estado.connected) return true;
   lcd.displayON(); //por si estuviera parpadeando(apagado) por error en pantalla
@@ -289,11 +288,7 @@ bool VerifyRecoveryWifi(bool checkRecon) {
             }
     }
   //  Verificamos estado actual de la wifi (y display wifi level si procede)
-    #ifdef DEVELOP
-    int wifilevel = checkWifi(true); // conectado a wifi?
-    #else
     int wifilevel = checkWifi(config.showwifilevel); // conectado a wifi?
-    #endif
     if(wifilevel) {
       LOG_TRACE("Wifi OK, nivel=",wifilevel,"%");
       if (config.showwifilevel && Estado.estado == STANDBY) {

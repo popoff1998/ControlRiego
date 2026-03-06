@@ -243,7 +243,6 @@ void Configure::Multi_process_end()
         for (int i=0; i<multi.w_size; ++i) {
           config.group[g-1].zNumber[i] = multi.zserie[i];
         }
-        saveConfig = true;
 
         LOG_INFO("SAVE PARM Multi : GRUPO",g,"tamaño:",*multi.size,"(",multi.desc,")");
         printMultiGroup( g-1);
@@ -255,16 +254,16 @@ void Configure::Multi_process_end()
       }
       else {   //se borra contenido del grupo
         *multi.size = 0;
-        saveConfig = true;
-
+        
         LOG_INFO("borrado GRUPO",_actualGrupo,"tamaño:",*multi.size,"(",multi.desc,")");
         snprintf(grupoText, sizeof(grupoText), ">> Vaciado GRUPO%d <<", _actualGrupo);
         lcd.info(grupoText,2);
         lcd.clear(BORRA2H);
         sonido.bipOK();
         delay(config.msgdisplaymillis);
-
+        
       }
+      saveConfig = true;
       ultimosRiegos(HIDE);
       led(Boton[bID2bIndex(*multi.id)].led,OFF);
       this->menu(0);  // vuelve a mostrar menu de configuracion, primera linea

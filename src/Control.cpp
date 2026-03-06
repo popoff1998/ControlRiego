@@ -387,6 +387,7 @@ void handlePauseInPause() {
 
 // Si encoderSW+Pause --> conmutamos estado modoDEMO
 void handleEncPauseInStandby() {
+    // modoDEMO --> NORMAL ,leemos factores de riego y recuperamos tablas de ultimos riegos reales
     if (Estado.modoDEMO) {
       Estado.modoDEMO = false;
       Estado.noWIFI = false;
@@ -398,7 +399,7 @@ void handleEncPauseInStandby() {
         initFactorRiegos();
         if(config.verify && Estado.estado != ERROR) {
           lcd.info("..y parando riegos",2);
-          stopAllRiego(); //verificamos operativa OFF para las zonas
+          stopAllRiegos(); //verificamos operativa OFF para las zonas
         }    
         ledPWM(LEDB,OFF);
       }    
@@ -407,6 +408,7 @@ void handleEncPauseInStandby() {
       initLastRiegos();
       initLastGrupos();
     }
+    // NORMAL --> modoDEMO
     else {
       Estado.modoDEMO = true;
       LOG_INFO("encoderSW+PAUSE pasamos a modoDEMO (DEMO)");
@@ -501,9 +503,9 @@ void handleStopInRegandoPauseTerm() {
     if (!Estado.modoDEMO) lcd.infoclear("Parando riegos", 1, BIP, 6);
     timer.StopTimer();
     tic_CountDownTimer.detach(); //detiene actualizacion periodica del temporizador
-    // paramos riego en curso primero y todas las zonas
     bool updateTimeFin = (Estado.estado == PAUSE? false : true); // si estamos en PAUSE no actualizamos tiempo fin
-    if (!stopRiego(ultimoBotonZona->bID, updateTimeFin) || !stopAllRiego()) {
+    // paramos riego en curso primero y todas las zonas despues
+    if (!stopRiego(ultimoBotonZona->bID, updateTimeFin) || !stopAllRiegos()) {
       return;    //error al parar riegos
     }
     saveTablaToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
@@ -515,7 +517,7 @@ void handleStopInRegandoPauseTerm() {
 void handleStopInStandby() {
     reposoOFF();
     if (!Estado.modoDEMO) lcd.infoclear("Parando riegos", NOBLINK, BIP, 6);
-    if (!stopAllRiego()) {   //error al parar riegos
+    if (!stopAllRiegos()) {   //error al parar riegos
       return; 
     }
     if (!Estado.modoDEMO) lcd.infoclear("STOP riegos OK", 1, BIP, 0);
@@ -530,8 +532,12 @@ void handleEncStopInStandby() {
 }
 
 void handleStopInError() {
+  // si el error es no cargar parametros, lanzamos webserver para que el usuario pueda cargar unos nuevos  
+  if (Estado.error == E0) scWebserver();
+  else {
     LOG_WARN("ERROR + STOP --> Reset.....");
     resetESP32();
+  }  
 }
 
 
@@ -1559,15 +1565,15 @@ bool initRiego(bool resume)
 
 // Termina/interrumpe el riego correspondiente al boton de zona (id) pasado
 // alertIfFails: TRUE por defecto (para llamadas individuales). Si TRUE y falla, dispara la alerta.
-bool stopRiego(uint16_t id, bool update, bool alertIfFails)
+bool stopRiego(uint16_t id, bool update, bool alertIfFails, int retries)
 {
     int bIndex = bID2bIndex(id);
     int zIndex = Boton[bIndex].znumber-1;
     // ledID = Boton[bIndex].led;
     LOG_DEBUG( "Terminando riego: ", config.zona[zIndex].desc);
-    if (deviceSwitch(zIndex+1, "Off", SWITCH_RETRIES)) {
+    if (deviceSwitch(zIndex+1, "Off", retries)) {
         LOG_INFO( "Terminado OK riego: " , config.zona[zIndex].desc );
-        // solo actualizamos hora de fin si no hemos sido llamado desde stopAllRiego
+        // solo actualizamos hora de fin si no hemos sido llamado desde stopAllRiegos
         if(update) finalTimeLastRiego(lastRiegos[zIndex]);
         #ifdef EXTRADEBUG
             for(uint i=0;i<NUMZONAS;i++) {
@@ -1578,31 +1584,33 @@ bool stopRiego(uint16_t id, bool update, bool alertIfFails)
     } else { 
         // Error al apagar la EV
         if (alertIfFails) {  // Si este es el primer error del lote o la única parada.
-            statusError(Estado.error,NORECUPERABLE,RAPIDO,RAPIDO); //disparamos alerta con el error ya establecido
-            LOG_ERROR( "Error al detener riego de: ", config.zona[zIndex].desc );
+          LOG_ERROR( "Error al detener riego de: ", config.zona[zIndex].desc );
+          statusError(Estado.error,NORECUPERABLE,RAPIDO,RAPIDO); //disparamos alerta con el error ya establecido
+            Estado.failedStopRiego = true; // El riego NO se detuvo, activar el recordatorio de error 
+        } else {
+            LOG_WARN( "Error al detener riego de: ", config.zona[zIndex].desc);
+            statusError(Estado.error);
         }
-        Estado.failedStopRiego = true; // El riego NO se detuvo, activar el recordatorio de error 
         return false;
     }
 }
 
-//Pone a off todos los leds de riegos y detiene riegos
-bool stopAllRiego()
+//Pone a off todos los leds de riegos e intenta detener todas las EV de riegos
+bool stopAllRiegos()
 {
     LOG_TRACE("");
     bool allRiegoOK = true;
-    bool firstErrorReported = false;
+    int retries = SWITCH_RETRIES;
     // Apago los leds de multirriego y zonas y sus tickers de parpadeos
     resetLeds();
     // Paramos todas las zonas de riego
     for(unsigned int i=0;i<NUMZONAS;i++) { 
-        // Si aún no hemos reportado el primer error, pasamos 'true' a alertIfFails para que stopRiego alerte si falla.
-        bool alertIfFails = !firstErrorReported; 
-        if(!stopRiego(ZONAS[i], false, alertIfFails)) { // Si stopRiego falla (retorna false):
+        // Si falla no se activa la alerta de pendiente de parar riego de zona
+        if(!stopRiego(ZONAS[i], false, false, retries)) { 
             allRiegoOK = false; // Marcamos que el lote falló
-            // Si stopRiego falló y le pedimos que alertara, significa que esta es la primera alerta.
-            if (alertIfFails) firstErrorReported = true; 
-            return false; // Salimos inmediatamente tras el primer error
+            // Salimos inmediatamente tras el primer error general
+            if (Estado.error == E1 || Estado.error == E2) return false;
+            retries = 1; // Reducimos el número de reintentos para las siguientes zonas
         }
     }
     return allRiegoOK; // Retornamos el resultado del lote
@@ -2003,6 +2011,7 @@ void setupConfig()
   LOG_TRACE("Inicializando Configure");
   configure = new Configure();
 } //fin setupConfig
+
 
 void resetESP32() {
     LOG_WARN("REINICIANDO ESP32...");
