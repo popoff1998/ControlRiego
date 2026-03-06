@@ -8,80 +8,44 @@
     <link rel="stylesheet" href="/style_tableFiles.css">
     <title>System Info</title>
     <style>
-        table {
-            margin: 20px auto;
-            background-color: #fff;
-        }
-        /* ---------------------------------------------------- */
-        /* REGLA RESPONSIVA: MOBILE-FIRST (Por defecto: 70%/30%) */
-        /* ---------------------------------------------------- */
-        
-        /* Primera columna (Nombre) - 70% */
-        #sysInfoTable th:first-child,
-        #sysInfoTable td:first-child {
-            width: 70%;
-        }
-
-        /* Segunda columna (Valor) - 30% */
-        #sysInfoTable th:last-child,
-        #sysInfoTable td:last-child {
-            width: 30%;
-        }
-        /* ---------------------------------------------------- */
-        /* MEDIA QUERY: DESKTOP (Ancho mínimo de 768px: 50%/50%) */
-        /* ---------------------------------------------------- */
-        @media (min-width: 768px) {
-            #sysInfoTable th:first-child,
-            #sysInfoTable td:first-child {
-                width: 50%; /* Override a 50% */
-            }
-
-            #sysInfoTable th:last-child,
-            #sysInfoTable td:last-child {
-                width: 50%; /* Override a 50% */
-            }
-        }
+    table {margin: 20px auto; background-color: #fff;}
+    /* ---------------------------------------------------- */
+    /* REGLA RESPONSIVA: MOBILE-FIRST (Por defecto: 70%/30%) */
+    /* ---------------------------------------------------- */
+    #sysInfoTable th:first-child, #sysInfoTable td:first-child {width: 70%;}
+    #sysInfoTable th:last-child, #sysInfoTable td:last-child {width: 30%;}
+    /* ---------------------------------------------------- */
+    /* MEDIA QUERY: DESKTOP (Ancho mínimo de 768px: 50%/50%) */
+    /* ---------------------------------------------------- */
+    @media (min-width: 768px) {
+        #sysInfoTable th:first-child, #sysInfoTable td:first-child {width: 50%;}
+        #sysInfoTable th:last-child, #sysInfoTable td:last-child {width: 50%;}
+    }
     </style>
 </head>
 <body>
-    <h1>System Information</h1>
-    <table id="sysInfoTable">
-        <thead><tr><th>Nombre</th><th>Valor</th></tr></thead>
-        <tbody id="sysInfoTableBody">
-            <!-- Rows will be dynamically added here -->
-        </tbody>
-    </table>
-
-    <script src="/funciones.js"></script>
-    <script>
-        const tableBody = document.getElementById("sysInfoTableBody");
-        apiGetJson('/api/sysinfo')
-            .then(sysInfo => {
-                if (Object.keys(sysInfo).length === 0) {
-                    const row = document.createElement("tr");
-                    const cell = document.createElement("td");
-                    cell.colSpan = 2;
-                    cell.textContent = "No data available";
-                    cell.style.textAlign = "center";
-                    row.appendChild(cell);
-                    tableBody.appendChild(row);
-                } else {
-                    Object.keys(sysInfo).forEach(key => {
-                        const row = document.createElement("tr");
-                        const keyCell = document.createElement("td");
-                        keyCell.textContent = key;
-                        row.appendChild(keyCell);
-                        const valueCell = document.createElement("td");
-                        valueCell.textContent = sysInfo[key];
-                        row.appendChild(valueCell);
-                        tableBody.appendChild(row);
-                    });
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching system info:', error);
-                tableBody.innerHTML = '<tr><td colspan="2" style="text-align: center;">Error cargando system info</td></tr>';
-            });
+<h1>System Information</h1>
+<table id="sysInfoTable">
+    <thead><tr><th>Nombre</th><th>Valor</th></tr></thead>
+    <tbody id="sysInfoTableBody">
+        <!-- Rows will be dynamically added here -->
+    </tbody>
+</table>
+<script src="/funciones.js"></script>
+<script>
+const tableBody = document.getElementById("sysInfoTableBody");
+apiGetJson('/api/sysinfo')
+    .then(sysInfo => {
+        if (Object.keys(sysInfo).length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="2" style="text-align: center;">No data available</td></tr>';
+        } else {
+            loadSimpleTable(sysInfo, "sysInfoTableBody", false); // false = solo lectura
+        }
+    })
+    .catch(error => {
+        console.error('Error fetching system info:', error);
+        tableBody.innerHTML = '<tr><td colspan="2" style="text-align: center;">Error cargando system info</td></tr>';
+    });
 </script>
 </body>
 </html>

@@ -7,23 +7,24 @@
   <link rel="stylesheet" href="/style_base.css">
   <link rel="stylesheet" href="/style_botones.css">
   <link rel="stylesheet" href="/style_tableFiles.css">
-  <style>
-    .table-container { max-width: 900px; margin: auto; }
-    h2 { margin-top: 2em; margin-bottom: 0.5em; }
-    table.files-table th, table.files-table td {
-      text-align: center;
-      vertical-align: middle;
-    }
-    @media (max-width: 600px) {
-      .table-container { max-width: 100%; }
-      table { font-size: 0.95em; }
-      th, td { padding: 4px; }
-      h2 { margin-top: 0.5em; }
-    }
-  </style>
+<style>
+.table-container { max-width: 900px; margin: auto; }
+h2 { margin-top: 2em; margin-bottom: 0.5em; }
+table.files-table th, table.files-table td { text-align: center; vertical-align: middle; }
+/* Estilo para el cuadro flotante */
+.info-flotante { 
+    position: absolute; background: #333; color: #fff; padding: 8px; border-radius: 6px; 
+    font-size: .85em; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,.4); pointer-events: none; line-height: 1.4;
+    transition: opacity .4s ease; opacity: 0; visibility: hidden; }
+.info-flotante.show { opacity: 1; visibility: visible;}    
+.info-flotante b { color: #2ecc71; }
+@media (max-width: 600px) {
+  .table-container { max-width: 100%; } table { font-size: 0.95em; } th, td { padding: 4px; } h2 { margin-top: 1em; }
+}
+</style>
 </head>
 <body>
-    <h1 style="margin-top: 20px;">Últimos riegos desde CCR registrados</h1>
+    <h1 style="margin-top: 20px;">Últimos riegos registrados</h1>
     <div class="table-container">
     <h2>Zonas</h2>
     <table class="files-table" style="margin: 0 auto;">
@@ -37,55 +38,79 @@
       <tbody id="tablaGrupos"></tbody>
     </table>
   </div>
-  <script src="/funciones.js"></script>
-  <script>
-    // Carga y muestra tabla de riegos
-    apiGetJson('%LASTRIEGOS%')
-      .then(data => {
+
+<script src="/funciones.js"></script>
+<script>
+// Funciones de apoyo
+function showZONElog(znumber) { window.location.href = `showLog.htm?zona=${znumber}`; }
+// Lógica principal
+window.addEventListener("load", async () => {
+  try {
+    const infoBox = document.createElement("div");
+    infoBox.className = "info-flotante";
+    document.body.appendChild(infoBox);
+    // Variable global para guardar los parámetros cuando lleguen
+    let params = {};
+    const showInfo = (e, txt) => {
+        infoBox.innerHTML = txt;
+        infoBox.style.left = `${e.pageX + 10}px`;
+        infoBox.style.top = `${e.pageY + 10}px`;
+        infoBox.classList.add("show");
+        if (infoBox.timer) clearTimeout(infoBox.timer);
+        e.target.onmouseleave = () => infoBox.classList.remove("show");
+        infoBox.timer = setTimeout(() => infoBox.classList.remove("show"), 2500);
+    };    
+    // 1. Cargar configuración básica e INMEDIATAMENTE después las tablas
+    const config = await getServerConfig();
+    // 2. Mostrar tabla de Riegos (Zonas) - Ahora carga en paralelo
+    apiGetJson(config.lastRiegos).then(data => {
         const tbody = document.querySelector('#tablaRiegos');
-        data.lastRiegos.forEach((riego, zoneIndex) => {
+        tbody.innerHTML = "";
+        data.lastRiegos.forEach((riego, i) => {
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td data-label="Zona" class="orla-verde">${zoneIndex + 1}</td>
-            <td data-label="Inicio">${formatDateLocal(riego.inicio)}</td>
-            <td data-label="Final">${formatDateLocal(riego.final)}</td>
-            <td data-label="Minutos">${formatMinutes(riego.total)}</td>
-            <td data-label="LOG">
-              <button class="btn-log" onclick="showZONElog(${zoneIndex + 1})">LOG</button>
-            </td>
+            <td><span class="orla-v clicable">${i+1}</span></td>
+            <td>${formatDateLocal(riego.inicio)}</td>
+            <td>${formatDateLocal(riego.final)}</td>
+            <td>${formatMinutes(riego.total)}</td>
+            <td><button class="btn-log" onclick="showZONElog(${i+1})">LOG</button></td>
           `;
+          // La lógica del click buscará en 'params' en el momento de pulsar
+          tr.querySelector('.orla-v').onclick = (e) => {
+              const nombre = params.botones?.[i]?.nombre || `Zona ${i+1}`;
+              showInfo(e, `<b>${nombre}</b>`);
+          };
           tbody.appendChild(tr);
         });
-      })
-      .catch(error => {
-        console.error("Error al cargar riegos:", error);
-        document.querySelector('#tablaRiegos').innerHTML = '<tr><td colspan="5">Sin datos o error cargandolos</td></tr>';
-      });
-
-    // Carga y muestra tabla de grupos
-    apiGetJson('%LASTGRUPOS%')
-      .then(data => {
+    });
+    // 3. Mostrar tabla de Grupos
+    apiGetJson(config.lastGrupos).then(data => {
         const tbody = document.querySelector('#tablaGrupos');
-        data.lastGrupos.forEach((grupo, groupIndex) => {
+        tbody.innerHTML = "";
+        data.lastGrupos.forEach((grupo, i) => {
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td data-label="Grupo" class="orla-azul">${groupIndex + 1}</td>
-            <td data-label="Inicio">${formatDateLocal(grupo.inicio)}</td>
-            <td data-label="Final">${formatDateLocal(grupo.final)}</td>
-            <td data-label="Minutos">${formatMinutes(grupo.total)}</td>
+            <td><span class="orla-a clicable">${i+1}</span></td>
+            <td>${formatDateLocal(grupo.inicio)}</td>
+            <td>${formatDateLocal(grupo.final)}</td>
+            <td>${formatMinutes(grupo.total)}</td>
           `;
+          tr.querySelector('.orla-a').onclick = (e) => {
+              const gPar = params.grupos?.[i] || {};
+              const nombreG = gPar.desc || `Grupo ${i+1}`;
+              const zonasG = gPar.zonas ? gPar.zonas.join(", ") : "---";
+              showInfo(e, `<b>${nombreG}</b><br>Zonas: ${zonasG}`);
+          };
           tbody.appendChild(tr);
         });
-      })
-      .catch(error => {
-        console.error("Error al cargar grupos:", error);
-        document.querySelector('#tablaGrupos').innerHTML = '<tr><td colspan="4">Sin datos o error cargandolos</td></tr>';
-      });
-
-    // Función para mostrar el log de una zona (por número de zona)
-    function showZONElog(znumber) {
-      window.location.href = `showLog.htm?zona=${znumber}`;
-    }
-  </script>
+    });
+    // 4. Disparar la carga del parmFile en segundo plano (SIN await)
+    apiGetJson(config.parmFile).then(data => {
+        params = data;
+        console.log("Parámetros cargados en segundo plano");
+    }).catch(() => console.log("Usando nombres por defecto"));
+  } catch (e) { console.error("Error:", e); }
+});
+</script>
 </body>
 </html>

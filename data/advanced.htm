@@ -1,16 +1,20 @@
 <!DOCTYPE html>
 <html>
-
 <head>
   <title>Advanced</title>
   <link type="text/css" href="/style_base.css" rel="stylesheet" />
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    /* Ocultamos la sección por defecto para evitar el parpadeo */
+    #testingSection { display: none; }
+    .muted { color: #888; font-size: 0.8em; margin-top: 20px; text-align: center; }
+  </style>
 </head>
 
 <body>
   <h1>Ardomo Webserver Maintenance Menu</h1>
-  <div class = containerbase>
+  <div class="containerbase">
       <img src="logo_Ardomo.png" class="logo">
       <br>
       <ul>
@@ -20,59 +24,70 @@
       <p style="font-weight:bold;">OTA & File management:</p>
       <ul>
         <p style="color: red;font-weight:bold;">(ATENCION: Las siguientes opciones pueden alterar el funcionamiento del sistema)</p>
-        <li><a href="/files.htm?style=cards">FILES</a> - Manage files on the server (browse, download or delete)</li>
-        <li><a href="/$upload.htm">UPLOAD</a> - Upload individual files</a></li>
+        <li><a href="/files.htm?style=cards">FILES</a> - Manage files on the server</li>
+        <li><a href="/$upload">UPLOAD</a> - Upload individual files</li>
         <li><a href="/$update">OTA update</a> - Update Firmware or Filesystem</li>
       </ul>
+      
       <div id="testingSection">
         <p style="font-weight:bold;">Testing:</p>
         <ul>
-          <li><a href="/$update?page=builtin">OTA update (builtin)</a> - Force built-in page</li>
-          <li><a href="/api/endWS">End webserver</a> - Terminate Webserver</li>
-          
+          <li><a href="/$update?page=builtin">OTA update (builtin)</a></li>
+          <li><a href="/api/endWS">End webserver</a></li>
           <p>The following REST services return a JSON:</p>
-          <li><a href="/api/sysinfo">/api/sysinfo</a> - Some system level information</a></li>
-          <li><a href="/api/list">/api/list</a> - Array of all files</a></li>
-          <li><a href="/api/list?dir=/backup">/api/list?dir=/backup</a> - Array of all files in backup directory</a></li>
-          <li><a href="/api/showZONElog?zona=1">/api/showZONElog?zona=1</a> - Show ZONE log</a></li>
+          <li><a href="/api/sysinfo">/api/sysinfo</a></li>
+          <li><a href="/api/serverVars">/api/serverVars</a></li>
+          <li><a href="/api/list">/api/list</a></li>
+          <li><a href="/api/list?dir=/datos">/api/list?dir=/datos</a></li>
+          <li><a href="/api/showZONElog?zona=1">/api/showZONElog?zona=1</a></li>
+
         </ul>
       </div>
   </div>
+
+  <script src="/funciones.js"></script>
+
   <script>
-  // @ts-expect-error - Token %SHOWTEST% será reemplazado por el servidor
-  var showtestValue = %SHOWTEST%; // @type {boolean}
-  var testingSection = document.getElementById("testingSection");
-  var container = document.querySelector(".containerbase");
+  // Envolvemos todo en una función asíncrona que se ejecuta al cargar
+  window.addEventListener("load", async () => {
+    try {
+      const config = await getServerConfig();  
+      const showtestValue = config.showTest;
+      const testingSection = document.getElementById("testingSection");
+      const container = document.querySelector(".containerbase");
 
-  // establecer visibilidad inicial
-  if (showtestValue && showtestValue !== "undefined") {
-    testingSection.style.display = "";
-    container.classList.remove("no-testing"); // Quitar la clase si se muestra
-  } else {
-    testingSection.style.display = "none";
-    container.classList.add("no-testing"); // Añadir la clase si se oculta
-  }
+      // Establecer visibilidad inicial de la seccion de testing
+      if (showtestValue === true) {
+        testingSection.style.display = "block";
+        container.classList.remove("no-testing");
+      } else {
+        testingSection.style.display = "none";
+        container.classList.add("no-testing");
+      }
 
-  // crear párrafo clickable que muestra el valor
-  var info = document.createElement("p");
-  info.textContent = "showtest";
-  info.style.cursor = "pointer";
-  info.title = "Click para mostrar/ocultar la sección de testing";
-  info.className = "muted";
-  // click -> alterna visibilidad de testingSection
-  info.addEventListener("click", function () {
-    var cs = window.getComputedStyle(testingSection);
-    if (cs.display === "none") {
-      testingSection.style.display = "";
-      container.classList.remove("no-testing"); // Quitar la clase si se muestra
-    } else {
-      testingSection.style.display = "none";
-      container.classList.add("no-testing"); // Añadir la clase si se oculta
+      // Crear párrafo clickable
+      const info = document.createElement("p");
+      info.textContent = "showtest";
+      info.style.cursor = "pointer";
+      info.title = "Click para mostrar/ocultar la sección de testing";
+      info.className = "muted";
+
+      info.addEventListener("click", function () {
+        const isHidden = testingSection.style.display === "none";
+        testingSection.style.display = isHidden ? "block" : "none";
+        if (isHidden) {
+          container.classList.remove("no-testing");
+        } else {
+          container.classList.add("no-testing");
+        }
+      });
+
+      document.body.appendChild(info);
+
+    } catch (e) {
+      console.error("Error al cargar la configuración:", e);
     }
   });
-
-  document.body.appendChild(info);
   </script>
-  </body>
+</body>
 </html>
-

@@ -1,280 +1,226 @@
-/*
- * ============================================================
- * FUNCIONES AUXILIARES PARA INTERFAZ WEB ESP32
- * ============================================================
- * 
- * Este archivo contiene funciones reutilizables para:
- * 1. Gestión de tablas dinámicas (populateTable, createTableRow, createButton)
- * 2. Descarga/eliminación/copia de archivos (downloadFile, handleFileAction, handleFileDelete)
- * 3. Obtención de datos JSON (apiGetJson) - FUNCIÓN PRINCIPAL PARA TODA DATA
- * 4. Formateo de datos (formatDateLocal, formatMinutes, returnFileSize)
- * 5. Validación de tipos de archivo (validFileType)
- * 
- * INCLUIR EN HTML:
- *   <script src="/funciones.js"></script>
- *   (Preferiblemente antes del </body> para no bloquear rendering)
- */
+/* ============================================================
+ * FUNCIONES AUXILIARES PARA INTERFAZ WEB ESP32 (Versión Completa)
+ * ============================================================ */
 
-        // Población de tablas
-        function populateTable(data, tableId) {
-            const tableBody = document.getElementById(tableId);
-            tableBody.innerHTML = ""; // Clear existing rows
-            data.forEach(file => tableBody.appendChild(createTableRow(file, tableId)));
-        }
+/** Configuración del servidor con caché */
+async function getServerConfig(forceRefresh = false) {
+    const cached = sessionStorage.getItem('serverConfig');
+    if (!forceRefresh && cached) return JSON.parse(cached);
+    try {
+        const config = await apiGetJson("/api/serverVars");
+        sessionStorage.setItem('serverConfig', JSON.stringify(config));
+        return config;
+    } catch (e) { return {}; }
+}
+
+/** Población de tablas dinámicas */
+async function populateTable(data, tableId) {
+    const tableBody = document.getElementById(tableId);
+    if (!tableBody) return;
+    const config = await getServerConfig();
+    tableBody.innerHTML = "";
+    data.forEach(file => tableBody.appendChild(createTableRow(file, tableId, config)));
+}
+
+/** Crear filas de tabla con toda la lógica original */
+function createTableRow(file, tableId, config) {
+    const row = document.createElement("tr");
+    const isDir = file.type === "dir";
+    const nameOnly = getFileName(file.name);
     
-        // Crear filas de tabla dinámicamente
-        function createTableRow(file, tableId) {
-            const row = document.createElement("tr");
-            // Filename (en el JSON viene la ruta completa filepath)
-            const filenameCell = document.createElement("td");
-            filenameCell.className = file.type == "dir" ? "dirclass" : "filename"; // Add a class for styling (wrap long names if needed)
-            filenameCell.setAttribute('data-label','Filename');
-            const prefix = file.type == "dir" ? "📁 " : "📄 "; // Definimos el prefijo (Emoji de carpeta o fichero)
-            const filenameLink = document.createElement("a");
-            if (tableId === "filesTableBody")
-                 filenameLink.href = file.type == "dir" ? '/files.htm?dir='+file.name : file.name; 
-            else filenameLink.href = file.name; 
-            filenameLink.target = "_blank"; // Open in a new tab
-            if (tableId === "parmTableBody" || tableId === "backupTableBody")
-                 filenameLink.textContent = getFileName(file.name); // show only the file name, not the full path
-            else filenameLink.textContent = prefix + file.name; // muestra emoji de tipo
-            if (tableId !== "logsTableBody")  // no activa el link directo para los logs
-                 filenameCell.appendChild(filenameLink);
-            else filenameCell.textContent = "📜 " + getFileName(file.name); // show only the file name, not the full path     
-            row.appendChild(filenameCell);
+    // 1. Celda Nombre y Enlace
+    const nameCell = document.createElement("td");
+    nameCell.className = isDir ? "dirclass" : "filename";
+    nameCell.dataset.label = 'Filename';
 
-            // Size
-            const sizeCell = document.createElement("td");
-            sizeCell.textContent = file.type == "dir" ? "directory" : file.size;
-            sizeCell.className = file.type == "dir" ? "dirclass" : "fileclass"; // Add a class for styling
-            sizeCell.setAttribute('data-label','Size');
-            row.appendChild(sizeCell);
+    if (tableId === "logsTableBody") {
+        nameCell.textContent = "📜 " + nameOnly;
+    } else {
+        const link = document.createElement("a");
+        link.target = "_blank";
+        // Lógica de enlaces original
+        if (tableId === "filesTableBody") link.href = isDir ? '/files.htm?dir=' + file.name : file.name;
+        else link.href = file.name;
+        
+        // Lógica de etiquetas original
+        if (tableId === "parmTableBody" || tableId === "backupTableBody") link.textContent = nameOnly;
+        else link.textContent = (isDir ? "📁 " : "📄 ") + file.name;
+        
+        nameCell.appendChild(link);
+    }
+    row.appendChild(nameCell);
 
-            // Timestamp
-            const timestampCell = document.createElement("td");
-            timestampCell.textContent = new Date(file.time * 1000).toLocaleString();
-            timestampCell.setAttribute('data-label','Timestamp');      
-            row.appendChild(timestampCell);
+    // 2 y 3. Tamaño y Fecha (Uso de template para ahorrar líneas)
+    row.innerHTML += `
+        <td class="${isDir ? 'dirclass' : 'fileclass'}" data-label="Size">${isDir ? 'directory' : file.size}</td>
+        <td data-label="Timestamp">${new Date(file.time * 1000).toLocaleString()}</td>
+    `;
 
-            // Actions
-            const actionCell = document.createElement("td");
-            actionCell.className = "buttoncolumn";
-            actionCell.setAttribute('data-label', 'Acciones');
-            const buttonContainer = document.createElement("div");
-            buttonContainer.className = "button-group";
-            if (tableId === "parmTableBody") {
-                buttonContainer.appendChild(createButton("Export", () => downloadFile(file.name)));
-                buttonContainer.appendChild(createButton("Backup", () => handleFileAction("BACKUP", file.name)));
-                buttonContainer.appendChild(createButton("Edit", () => {
-                    window.open(`/parmfile_edit.htm?file=${file.name}`, '_self');
-                }));
-                actionCell.appendChild(buttonContainer);
-            } 
-            else if (tableId === "backupTableBody") {
-                const restoreButton = createButton("Restore", () => {
-                    if (confirm("Copiar " + file.name + " a %PARMFILE% ?")) handleFileAction("RESTORE", file.name);
-                });
-                restoreButton.className = "button-restore";
-                actionCell.appendChild(restoreButton); // Aquí lo añades directo a la celda
-            } 
-            else if (tableId === "filesTableBody" && file.type == "file") {
-                buttonContainer.appendChild(createButton("Download", () => downloadFile(file.name)));
-                const deleteButton = createButton("Delete", () => {
-                    if (confirm("Delete " + file.name + " ?")) handleFileDelete(file.name);
-                });
-                deleteButton.className = "button-delete";
-                buttonContainer.appendChild(deleteButton);
-                actionCell.appendChild(buttonContainer);
-            } 
-            else if (tableId === "logsTableBody" && file.type == "file") {
-                buttonContainer.appendChild(createButton("👁️ Ver", () => viewLogFile(file.name)));
-                if (file.name === "%ERRORFILE%") {
-                    const clearButton = createButton("🧹 Limpiar", () => {
-                        if (confirm("¿Vaciar el historial de errores actual?")) handleFileDelete(file.name);
-                    });
-                    buttonContainer.appendChild(clearButton);
-                } else {
-                    const deleteButton = createButton("🗑️ Eliminar", () => {
-                        if (confirm("¿Eliminar este archivo antiguo?")) handleFileDelete(file.name);
-                    });
-                    deleteButton.className = "button-delete";
-                    buttonContainer.appendChild(deleteButton);
-                }
-                actionCell.appendChild(buttonContainer);
-            }
-            row.appendChild(actionCell);
-            return row;
+    // 4. Celda de Acciones
+    const actionCell = document.createElement("td");
+    actionCell.className = "buttoncolumn";
+    actionCell.dataset.label = 'Acciones';
+    const btnGrp = document.createElement("div");
+    btnGrp.className = "button-group";
+
+    if (tableId === "parmTableBody") {
+        btnGrp.append(
+            createButton("Export", () => downloadFile(file.name)),
+            createButton("Backup", () => handleFileAction("BACKUP", file.name)),
+            createButton("Edit", () => window.open(`/parmfile_edit.htm?file=${file.name}`, '_self'))
+        );
+    } else if (tableId === "backupTableBody") {
+        btnGrp.appendChild(createButton("Restore", () => {
+            if (confirm(`¿Restaurar ${nameOnly} sobre ${getFileName(config.parmFile)}?`)) handleFileAction("RESTORE", file.name);
+        }, "button-restore"));
+    } else if (tableId === "filesTableBody" && !isDir) {
+        btnGrp.append(
+            createButton("Download", () => downloadFile(file.name)),
+            createButton("Delete", () => confirm(`Delete ${file.name}?`) && handleFileDelete(file.name), "button-delete")
+        );
+    } else if (tableId === "logsTableBody" && !isDir) {
+        btnGrp.appendChild(createButton("👁️ Ver", () => viewLogFile(file.name)));
+        const isErr = file.name === config.errorFile;
+        btnGrp.appendChild(createButton(isErr ? "🧹 Limpiar" : "🗑️ Eliminar", () => {
+            if (confirm(isErr ? "¿Vaciar historial?" : "¿Eliminar archivo?")) handleFileDelete(file.name);
+        }, isErr ? "" : "button-delete"));
+    }
+
+    actionCell.appendChild(btnGrp);
+    row.appendChild(actionCell);
+    return row;
+}
+
+/** Helpers de UI */
+function createButton(label, onClick, cls = "") {
+    const b = document.createElement("button");
+    b.textContent = label;
+    if (cls) b.className = cls;
+    b.onclick = onClick;
+    return b;
+}
+
+function loadSimpleTable(data, tableId, isEditable = true) {
+    const body = document.getElementById(tableId);
+    if (!body) return;
+    body.innerHTML = Object.entries(data).map(([k, v]) => `
+        <tr><td>${k}</td><td>${isEditable ? `<input type="text" value="${v || ''}" data-field="${k}">` : (v || '')}</td></tr>
+    `).join('');
+}
+
+/** Operaciones de Archivo */
+const getFileName = p => p.includes('/') ? p.substring(p.lastIndexOf('/') + 1) : p;
+
+function downloadFile(f) {
+    const a = document.createElement("a");
+    a.href = `/api/download?file=${encodeURIComponent(f)}`;
+    a.download = f;
+    a.click();
+}
+
+function viewLogFile(f) {
+    const path = f.startsWith('/') ? f : '/' + f;
+    window.open(`${path}?v=${Date.now()}`, '_blank');
+}
+
+async function handleFileAction(action, f) {
+    try {
+        const r = await fetch('/' + action, { method: 'COPY' });
+        if (!r.ok) throw new Error(await r.text());
+        if (action === "RESTORE") {
+            await fetch('/api/setrestart');
+            if (confirm("¡Restauración completada! ¿Desea reiniciar el sistema ahora?")) {
+                sessionStorage.removeItem('serverConfig');
+                sessionStorage.removeItem('needsRestart');
+                window.location.href = '/api/restart';
+            } else {
+                sessionStorage.setItem('needsRestart', 'true');
+                location.reload(); }
+            return;
         }
+        alert(`${action} OK!`);
+        location.reload();
+    } catch (e) { alert(`Error: ${e.message}`); }
+}
 
-        // Crear botones dinámicamente
-        function createButton(label, onClick) {
-            const button = document.createElement("button");
-            button.textContent = label;
-            button.addEventListener("click", onClick);
-            return button;
-        }    
+function handleFileDelete(f) {
+    fetch(f, { method: 'DELETE' }).then(r => r.ok ? location.reload() : alert("Error al eliminar"));
+}
 
-        // Function to handle file download (Export)
-        function downloadFile(filename) {
-            const url = `/download?file=${encodeURIComponent(filename)}`;
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-        }
+/** Formateo y Utilidades de Datos */
+const apiGetJson = p => fetch(p).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
 
-        // Function to view logs files (force reload using Cache Buster)
-        function viewLogFile(filename) {
-            const cacheBuster = Date.now();
-            const path = filename.startsWith('/') ? filename : '/' + filename;
-            const url = `${path}?v=${cacheBuster}`;
-            window.open(url, '_blank');
-        }   
+function formatDateLocal(ts) {
+    if (!ts) return "-";
+    const d = new Date(ts * 1000);
+    const f = n => n.toString().padStart(2, '0');
+    return `${f(d.getUTCDate())}/${f(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} - ${f(d.getUTCHours())}:${f(d.getUTCMinutes())}`;
+}
 
-        // Function to handle file copy (Backup, Restore)
-        function handleFileAction(action, filename) {
-            // call the server copy endpoints as absolute paths (e.g. /BACKUP or /RESTORE)
-            fetch('/' + action, { method: 'COPY' })
-                .then(response => {
-                    if (response.ok) {
-                        if (action === "RESTORE") { 
-                            if (confirm("Restore OK! ¿Desea reiniciar el sistema para aplicar los cambios?")) {
-                                window.location.href = '/api/restart';
-                                return; // Importante: detener la ejecución aquí
-                            }
-                        } else alert(`${action} OK!`);
-                        // Si no se reinicia (se pulsa Cancelar o la acción no es RESTORE), recargar la tabla.
-                        location.reload(); 
-                    } else {
-                        response.text().then(text => alert(`Failed to ${action.toLowerCase()} the file. Server error: ${text}`));
-                    }
-                })
-                .catch(error => {
-                    console.error(`Error during ${action}:`, error);
-                    alert(`Error de red al intentar ${action.toLowerCase()}.`);
-                });
-        }   
+const formatMinutes = s => s > 0 && s < 60 ? (s / 60).toFixed(1) : Math.round(s / 60);
 
-        // Function to handle file deletion
-        function handleFileDelete(filename) {
-            fetch(filename, { method: 'DELETE' })
-            .then(response => {
-                if (response.ok) location.reload(); // Reload the page to update the table
-                else alert(`Failed to delete the file.`);
-            })
-            .catch(error => console.error(`Error during delete:`, error));
-        }
+function returnFileSize(n) {
+    if (n < 1024) return n + " bytes";
+    return (n / (n < 1048576 ? 1024 : 1048576)).toFixed(1) + (n < 1048576 ? " KB" : " MB");
+}
 
-        // Extrae el nombre de archivo de una ruta completa
-        function getFileName(filePath) {
-            const lastSlash = filePath.lastIndexOf('/');
-            if (lastSlash === -1) return filePath;
-            return filePath.substring(lastSlash + 1);
-        }
+function validFileType(file, extArray) {
+    if (!file?.name) return false;
+    const name = file.name.toLowerCase();
+    return extArray.some(ext => name.endsWith(ext.toLowerCase()));
+}
 
-        /**
-         * Obtiene JSON desde una ruta o un token.
-         * Si el path comienza con '%' (token como %LASTRIEGOS%), solicita al servidor
-         * que lo resuelva via /token_file?file=...
-         */
-        function apiGetJson(path) {
-            let fetchUrl = path;
-            if (path && path.startsWith('%')) {
-                fetchUrl = `/token_file?file=${encodeURIComponent(path)}`;
-            }
-            return fetch(fetchUrl).then(r => {
-                if (!r.ok) throw new Error(`HTTP error! status: ${r.status}`);
-                return r.json();
-            });
-        }
-
-        /**
-         * Formatea un timestamp Unix (segundos) a formato local DD/MM/YYYY - HH:MM
-         * Usa métodos getUTC* para evitar aplicar la zona horaria, ya que el timestamp ya esta en hora local.
-         */
-        function formatDateLocal(ts) {
-            if (!ts || ts === 0) return "-";
-            const d = new Date(ts * 1000);
-            const y = d.getUTCFullYear();
-            const m = ('0' + (d.getUTCMonth() + 1)).slice(-2);
-            const day = ('0' + d.getUTCDate()).slice(-2);
-            const h = ('0' + d.getUTCHours()).slice(-2);
-            const min = ('0' + d.getUTCMinutes()).slice(-2);
-            return `${day}/${m}/${y} - ${h}:${min}`;
-        }
-
-        /**
-         * Convierte segundos a minutos con formato legible
-         * Si < 1 minuto: devuelve con 1 decimal (ej: "0.5 min")
-         * Si >= 1 minuto: devuelve redondeado (ej: "5 min")
-         */
-        function formatMinutes(segundos) {
-            const minutos = segundos / 60;
-            if (minutos < 1 && segundos > 0) {
-                return minutos.toFixed(1);
-            }
-            return Math.round(minutos);
-        }
+/** Validaciones de Guardado */
+function validarSintaxisJson(str) {
+    try { return JSON.parse(str); } catch (e) { throw new Error("Error de sintaxis JSON: " + e.message); }
+}
 
 /**
- * Valida si un fichero tiene una extensión permitida.
- * @param {File} file - El objeto File a validar.
- * @param {string[]} acceptedExtensions - Array de cadenas de extensión permitidas (ej: ['.bin', '.json']).
- * @returns {boolean} True si el archivo tiene una extensión permitida, False en caso contrario.
+ * Unifica la validación de sintaxis y estructura en un solo paso.
+ * @param {string} str - El contenido JSON en formato texto.
  */
-function validFileType(file, acceptedExtensions) {
-    if (!file || !file.name) return false;
-    const fileName = file.name.toLowerCase();
-    const lastDotIndex = fileName.lastIndexOf('.');
-    if (lastDotIndex === -1) return false; 
-    const fileExtension = fileName.substring(lastDotIndex);
-    return acceptedExtensions.map(ext => ext.toLowerCase()).includes(fileExtension);
+function validarJsonCompleto(str) {
+    const data = validarSintaxisJson(str);
+    if (!data.botones || !Array.isArray(data.botones)) throw new Error("Falta clave 'botones'.");
+    if (!data.botones.some(item => item && 'zona' in item)) throw new Error("Debe haber al menos una 'zona' en botones.");
+    return data; // Devuelve el objeto validado
 }
 
-
-/** Formatea un tamaño de fichero en bytes a un formato legible (KB, MB). */
-function returnFileSize(number) {
-    if (number < 1024) {
-        return `${number} bytes`;
-    } else if (number >= 1024 && number < 1048576) {
-        return `${(number / 1024).toFixed(1)} KB`;
-    }
-    return `${(number / 1048576).toFixed(1)} MB`;
-}
-
-/* Intenta parsear la cadena de texto para validar la sintaxis JSON.
- * @returns {object|null} El objeto JSON si la sintaxis es correcta, o null si falla. */
-function validarSintaxisJson(jsonString) {
+/**
+ * Envía la configuración al servidor y gestiona la respuesta.
+ * @param {Object|string} data - Datos a guardar.
+ * @param {boolean} askRestart - Si se debe preguntar por reiniciar.
+ * @param {boolean} isRaw - Si es true, aplica validaciones de estructura JSON.
+ */
+async function apiSaveConfig(data, askRestart = false, isRaw = false) {
     try {
-        return JSON.parse(jsonString);
-    } catch (e) {
-        console.error("Error de sintaxis JSON:", e);
-        throw new Error(`Error de sintaxis JSON: ${e.message}. Por favor, corrige el contenido.`);
-    }
-}
-/* Valida que el objeto JSON tenga la estructura mínima requerida.
- * @param {object} data - El objeto JSON ya parseado. */
-function validarEstructura(data) {
-    let errores = [];
-    // --- Validación de claves principales ---
-    if (!data.botones || !Array.isArray(data.botones)) {
-        errores.push("Falta la clave 'botones' o no es un array.");
-    }
-    // --- Validación de contenido mínimo (solo si las claves principales existen) ---
-    if (errores.length === 0) {
-        // Verificar que 'botones' tenga al menos un elemento con la clave 'zona'
-        const tieneBotonValido = data.botones.some(item => 
-            typeof item === 'object' && item !== null && 'zona' in item
-        );
-        if (!tieneBotonValido) {
-            errores.push("El array 'botones' debe contener al menos un objeto con la clave 'zona'.");
+        let contentToSend = typeof data === 'string' ? data : JSON.stringify(data);
+        if (isRaw) {
+            validarJsonCompleto(contentToSend);
+            console.log("JSON validado correctamente.");
         }
-    }
-    if (errores.length > 0) {
-        // Usamos throw para que el código llamador se detenga y muestre los errores.
-        throw new Error("Errores de Estructura JSON:\n" + errores.join('\n'));
-    }
-    return true; // La estructura es correcta
+        const response = await fetch('/api/save_config', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: contentToSend
+        });
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || `Error del servidor: ${response.status}`);
+        }
+        sessionStorage.removeItem('tempRawData');
+        hasChanges = false
+        if (askRestart) {
+            if (confirm("Cambios guardados. ¿Desea reiniciar para aplicarlos?")) {
+                sessionStorage.removeItem('serverConfig');
+                sessionStorage.removeItem('needsRestart');
+                window.location.href = '/api/restart';
+                return;
+            }
+            sessionStorage.setItem('needsRestart', 'true');
+            window.location.href = '/parmfile.htm';
+        } else {
+            alert("Archivo guardado correctamente.");
+            window.location.href = '/parmfile.htm';
+        }
+
+    } catch (error) { alert(error.message); throw error; }
 }

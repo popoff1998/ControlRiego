@@ -43,43 +43,12 @@ static void sendNoCacheJSON(const String &payload) {
   wserver.send(200, "application/json; charset=utf-8", payload);
 }
 
-void replaceTokens(String &content) {
-    // Lista de tokens y sus valores de sustitución
-    // Definimos la lista DENTRO de la función, esto fuerza a que config.logWarnToFile y otras similares
-    // se evalúe CADA VEZ que se llame a la función.
-    struct TokenData {
-        const char* token;
-        String value;
-    } tokenList[] = {
-            {"%PARMFILE%",    String(parmFile)},
-            {"%BACKUPFILE%",  String(backupParmFile)},
-            {"%ERRORFILE%",   String(logErrorFile)},
-            {"%LASTRIEGOS%",  String(lastRiegosFile)},
-            {"%LASTGRUPOS%",  String(lastGruposFile)},
-            {"%VERSION%",     String(FW_VERSION)},
-            {"%DIAS%",        String(logDays)},
-            {"%LOGENABLED%",  (LOG_FILE_GET_LEVEL() != DebugLogLevel::LVL_NONE) ? "true" : "false"}, 
-            {"%LOGWARNFILE%", config.logWarnToFile ? "true" : "false"}, 
-            {"%SHOWTEST%",    showtest_section ? "true" : "false"} 
-        };
-    const size_t numTokens = sizeof(tokenList) / sizeof(tokenList[0]);
-    for (size_t i = 0; i < numTokens; i++) {
-        const char* currentToken = tokenList[i].token;
-        const String& currentValue = tokenList[i].value;
-        if (content.indexOf(currentToken) != -1) {
-            content.replace(currentToken, currentValue);
-            LOG_DEBUG("Replaced token:", currentToken, "with value:", currentValue);
-        }
-    }
-}
-
 /**
  * Procesa la ruta del archivo solicitada por el cliente (argumento 'file'), 
- * resuelve cualquier token dinámico y valida la ruta final en el sistema de archivos.
+ * y valida que exista en el sistema de archivos.
  *
  * Esta función realiza los siguientes pasos:
  * 1. Verifica la existencia del parámetro 'file' en la solicitud HTTP.
- * 2. Reemplaza los tokens (marcadores de posición) en la ruta obtenida.
  * 3. Asegura que la ruta comience con un '/'.
  * 4. Verifica que el archivo final exista en el sistema de archivos (LittleFS).
  * 5. Envía una respuesta de error 400 al cliente si alguna validación falla.
@@ -96,7 +65,6 @@ static bool resolveFilePath(String &outPath) {
     } 
     outPath = wserver.arg("file");
     LOG_DEBUG("arg 'file' recibido:", outPath);
-    replaceTokens(outPath);
     if (!outPath.startsWith("/")) { outPath = "/" + outPath; }
     if (!LittleFS.exists(outPath)) {
       wserver.send(400, "text/plain", "Bad Request: file not found");
@@ -109,13 +77,12 @@ static bool resolveFilePath(String &outPath) {
 /* 
   Divide una ruta de archivo completa en su directorio y nombre de archivo.
   Parámetros:
-   - fullPath: Ruta completa del archivo (por ejemplo, "/dir/subdir/file.txt").
+   - fullPath: Ruta completa del archivo (por ejemplo, "/dir/subdir/file.txt")
    - dirPath: Referencia a String donde se almacenará la ruta del directorio (por ejemplo, "/dir/subdir").
    - fileName: Referencia a String donde se almacenará el nombre del archivo (por ejemplo, "file.txt").
 */
 void splitFilePath(String &fullPath, String &dirPath, String &fileName) {
   LOG_DEBUG("fullPath recibido:", fullPath);
-  replaceTokens(fullPath);
   int lastSlash = fullPath.lastIndexOf('/');
   if (lastSlash == -1) {
     dirPath = "/";
@@ -173,14 +140,11 @@ static void buildFileListJSON(File &dir, const String &filter, String &outResult
 static void sendFileAttachment(const String &path) {
     LOG_DEBUG("path:", path);
     File download = LittleFS.open(path);
-    if (!download) {
-      wserver.send(404, "text/plain", "File not found");
-      LOG_ERROR("Not found:", path);
-      return;
-    }  
     String filename = path.substring(path.lastIndexOf('/') + 1);
-    LOG_DEBUG("filename:", filename);
+    size_t fileSize = download.size();
+    LOG_DEBUG("filename:", filename, " size:", fileSize);
     wserver.sendHeader("Content-Disposition", "attachment; filename=\""+filename+"\"; filename*=UTF-8''"+filename);
+    wserver.sendHeader("Content-Length", String(fileSize)); // Indica el tamaño al navegador para mostrar la barra de progreso
     wserver.sendHeader("Connection", "close");
     wserver.streamFile(download, "application/octet-stream");
     download.close();
@@ -189,45 +153,43 @@ static void sendFileAttachment(const String &path) {
 // ---------------------------
 // Helper para control del Cache
 // ---------------------------
-/**
+/*
  * Configura las cabeceras de caché (Cache-Control, ETag) y comprueba 
- * si el recurso se puede servir desde la caché (304 Not Modified).
+ * si el recurso se puede reusar desde la caché del navegador (304 Not Modified).
  * @param path La ruta del archivo (ej. "/index.htm" o "/datos/log.json").
  * @param file El objeto File abierto, usado para obtener el LastWrite Time.
- * @return true si la respuesta 304 fue enviada y se debe cortar el procesamiento, 
+ * @param notInmutable Indica si se debe usar un ETag basado en timestamp+tamaño
+ * @return true  si la respuesta 304 fue enviada y se debe cortar el procesamiento, 
  *         false si se debe servir el contenido (200 OK).
+ * - Estáticos: immutable (1 año) + ETag basado en LastWrite y tamaño
+ * - /Datos o si notInmutable=true: no-cache + ETag (Firmware o LastWrite+tamaño).
  */
-// Usamos el flag isTokenized para forzar el ETag basado en el FW
-static bool checkAndSendCacheHeaders(const String &path, File &file, bool isTokenized) {
-    String etagValue;
-    bool needs304Validation = path.startsWith("/datos/") || isTokenized; // Tokenizados ahora necesitan revalidación 304/ETag
+static bool checkAndSendCacheHeaders(const String &path, File &file, bool notInmutable) {
+    // ETag por defecto: combinamos el LastWrite y el tamaño del archivo para detectar cambios.
+    String etagValue = String(file.getLastWrite()) + "-" + String(file.size());
     #ifdef RELEASE
-        if (needs304Validation) {
-            // **Tokenizados y /datos/: Revalidación ETag/304**
-            wserver.sendHeader("Cache-Control", "no-cache"); 
-            if (isTokenized) {
-                etagValue = String(FW_VERSION) + "-FW"; // ETag fuerte: solo cambia con el FW
-            } else { // /datos/
-                etagValue = String(file.getLastWrite()); // ETag débil: cambia con el timestamp del archivo
-            }
+        // if (notInmutable) etagValue = String(FW_VERSION) + "-FW";
+        if (path.startsWith("/datos/") || notInmutable) {
+            // Documentos que queremos que el navegador REVALIDE siempre
+            wserver.sendHeader("Cache-Control", "no-cache");
         } else {
-            // **Estáticos puros (CSS, PNG): Caché Fuerte**
+            // Activos estáticos puros: se debe enviar el fichero, pero el navegador no volverá a preguntar durante un año
             wserver.sendHeader("Cache-Control", "public, max-age=31536000, immutable"); 
-            return false; // El navegador no contactará al ESP32
         }
-    #else // en modo DEVELOP (todos): Revalidación ETag/304 (usando timestamp del archivo)
-        etagValue = String(file.getLastWrite()); 
-        wserver.sendHeader("Cache-Control", "no-cache"); 
+    #else
+        // En modo desarrollo, siempre forzamos revalidación de todos los recursos para facilitar pruebas
+        wserver.sendHeader("Cache-Control", "no-cache");
     #endif
-    // --- Lógica de Comprobación y Envío 304 ---
+    // Enviamos siempre el ETag, incluso para los inmutables
     wserver.sendHeader("ETag", etagValue);
+    // Lógica de comprobación 304 (Si el navegador ya lo tiene)
     String receivedEtag = wserver.header("If-None-Match");
     if (receivedEtag.length() > 0 && receivedEtag == etagValue) { 
         wserver.send(304);
         LOG_DEBUG("Sent 304 Not Modified for path:", path, "ETag:", etagValue); 
-        return true; 
+        return true; // se ha enviado el 304, se debe cortar el procesamiento (no enviar el fichero)
     }
-    return false;
+    return false; // Hay que enviar el archivo + (200 OK)
 }
 
 // ---------------------------
@@ -276,11 +238,10 @@ void printArgs() {
 
 /**
  * @brief Sirve un archivo estático desde el sistema de archivos LittleFS al cliente, 
- * gestionando la compresión Gzip, el caching del navegador y la sustitución de tokens.
+ * gestionando el caching del navegador.
  * * Esta función busca el archivo solicitado por 'path', priorizando la versión sin comprimir 
  * y cayendo a la versión .gz si no encuentra la primera. Establece encabezados de caché 
- * ETag/Cache-Control y maneja el envío de contenido, incluyendo la sustitución de 
- * marcadores de posición (tokens) en archivos HTML/JS si es necesario.
+ * ETag/Cache-Control y maneja el envío de contenido.
  * @param path          Ruta al archivo solicitado dentro de LittleFS (ej: "/index.html").
  * @param contentType   Tipo MIME del contenido (ej: "text/html", "application/javascript").
  */
@@ -300,25 +261,17 @@ void serveFile(String path, String contentType) {
         }
         filePath = gzPath; isGzipped = true; LOG_DEBUG("Serving gzip version:", filePath);
     }
-    if (isGzipped) {
-        wserver.sendHeader("Content-Encoding", "gzip");
-        LOG_DEBUG("Added Content-Encoding: gzip header");
-    }
     // 2. Lógica de Caching y Contenido
-    bool isTokenized = (contentType.startsWith("text/html") || contentType.startsWith("application/javascript"));
-    if (checkAndSendCacheHeaders(path, file, isTokenized)) {
+    // (paginas html no inmutables para que navegador consulte  
+    //  y servidor verifique auth en aquellas que lo requieran)
+    bool notInmutable = (contentType.startsWith("text/html"));
+    if (checkAndSendCacheHeaders(path, file, notInmutable)) {
         file.close();
-        return; 
-    }    
-    if (isTokenized) {
-        // Bloque de archivos con tokens: Leer, reemplazar y enviar 200
-        String content = file.readString();
-        replaceTokens(content);
-        wserver.send(200, contentType, content); 
-    } else { 
-        // Bloque de archivos estáticos: Streamear (ya con cabeceras de caché puestas)
-        size_t sent = wserver.streamFile(file, contentType); 
+        return; // se ha enviado un 304, no es necesario enviar el contenido
     }
+    // enviar fichero y cabeceras
+    size_t sent = wserver.streamFile(file, contentType);
+    if (sent == 0 && file.size() > 0) LOG_ERROR("Error crítico: El stream falló para el archivo", path); 
     file.close();
 }
 
@@ -333,9 +286,9 @@ void serveFile(String path) {
 
 // redirect to index or upload
 void handleRedirect() {
-  LOG_DEBUG("Redirecting to /index.htm or /$upload.htm");
+  LOG_DEBUG("Redirecting to /index.htm or /$upload");
   String url = "/index.htm";
-  if (!LittleFS.exists(url)) { url = "/$upload.htm"; }
+  if (!LittleFS.exists(url)) { url = "/$upload"; }
   wserver.sendHeader("Location", url, true);
   wserver.send(302);
 }
@@ -369,7 +322,7 @@ void handleListFiles() {
 void handleRestart() {
   LOG_DEBUG("Restarting ESP32... / restartRequired flag is", restartRequired);
   wserver.send(200, "text/plain", "Restarting ESP32...");
-  delay(500);
+  displayRestar();
   ESP.restart();
 }
 
@@ -392,6 +345,7 @@ void handleSysInfo() {
 void handleSaveConfig() {
   LOG_TRACE("handleSaveConfig called");
   if (!wserver.hasArg("plain")) {
+      LOG_DEBUG("No JSON body received in request");
       wserver.send(400, "text/plain", "Bad Request: Missing JSON body");
       return;
   }
@@ -401,17 +355,20 @@ void handleSaveConfig() {
   if (error) {
       String errorMsg = "JSON Deserialization failed: ";
       errorMsg += error.c_str();
+      LOG_DEBUG(errorMsg);
       wserver.send(400, "text/plain", errorMsg);
       return;
   }
   File configFile = LittleFS.open(parmFile, "w");
   if (!configFile) {
+      LOG_DEBUG("Failed to open config file for writing:", parmFile);
       wserver.send(500, "text/plain", "Internal Server Error: Could not open file for writing");
       return;
   }
   configFile.print(jsonBody);
   configFile.close();
   restartRequired = true; //indica que es necesario reiniciar el sistema para aplicar cambios
+  LOG_DEBUG("Configuration saved, restartRequired set to true");
   wserver.send(200, "text/plain", "Configuration saved successfully");
 }
 
@@ -461,39 +418,49 @@ void handleDownload() {
   }
 }
 
-// NOTE on Token Resolution Architecture:
-// Token replacement (%PARMFILE%, %BACKUPFILE%, etc.) is handled centrally in serveFile()
-// for all static file requests via the FileServerHandler.
-// Client-side can use apiGetJson() which auto-detects tokens (%) and routes to /token_file.
-// The /token_file endpoint below serves the same purpose as serveFile() for explicit token requests.
-// Handler para resolver tokens de ruta y servir el archivo.
-void handleTokenFile() {
-    String path;
-    if (resolveFilePath(path)) {
-        serveFile(path); 
-    }
+// Devuelve un JSON con variables de interés para el cliente (ej. logDays, showtest_section, etc.)
+void handleServerVars() {
+    // Calculamos los valores dinámicos antes de llenar el JSON
+    uint32_t maxFirmwareSize = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000; //0x1000 (margen de seguridad) y alineado a 4KB
+    uint32_t maxFSSize = LittleFS.totalBytes();
+
+    JsonDocument doc;
+    doc["parmFile"]      = parmFile;
+    doc["backupFile"]    = backupParmFile;
+    doc["errorFile"]     = logErrorFile;
+    doc["lastRiegos"]    = lastRiegosFile;
+    doc["lastGrupos"]    = lastGruposFile;
+    doc["version"]       = FW_VERSION;
+    doc["logDays"]       = logDays;
+    doc["logEnabled"]    = (LOG_FILE_GET_LEVEL() != DebugLogLevel::LVL_NONE);
+    doc["logWarnFile"]   = config.logWarnToFile;
+    doc["showTest"]      = showtest_section;
+    doc["maxFW"]         = maxFirmwareSize;
+    doc["maxFS"]         = maxFSSize;
+    String response;
+    serializeJson(doc, response);
+    wserver.send(200, "application/json", response);    
 }
+
 
 // ------------------------------------------------------------------------
 // FileServerHandler 
 // Custom RequestHandler que maneja aquellas peticiones no especificamente 
 // gestionadas por otros handlers definidos en defWebpagesHandles().
-// Esta clase es el corazón de la arquitectura de reemplazo de tokens:
+// Esta clase es el corazón de la arquitectura:
 // Intercepta peticiones GET de archivos estáticos y las enruta a través de
-// serveFile(), que reemplaza tokens dinámicos (%PARMFILE%, etc.) en archivos
-// HTML/JS/CSS antes de enviarlos al cliente.
-// Los clientes que necesitan enviar tokens; pueden usar apiGetJson() en JS
-// que detecta automáticamente tokens (%) y enruta a /token_file.
+// serveFile(), que selecciona la politica de cache y además intenta enviar el archivo
+// comprimido .gz si no existe el original.
 // ------------------------------------------------------------------------
 class FileServerHandler : public RequestHandler {
     public:
       FileServerHandler() { }
       bool canHandle(HTTPMethod requestMethod, String uri) override {
         LOG_TRACE("uri:", uri, "Method:", requestMethod);
-        // Intercept GET requests for existing files so we can perform token replacement
+        // Intercept GET requests for existing files so we can perform cache control and gzip handling in serveFile().
         if (requestMethod == HTTP_GET) {
           // Exclude API and special endpoints explicitly so we don't intercept them
-          if (uri.startsWith("/api/") || uri.startsWith("/download") || uri.startsWith("/token_file") || uri.startsWith("/$")) {
+          if (uri.startsWith("/api/") || uri.startsWith("/$")) {
             LOG_DEBUG("Excluding URI from file handler:", uri);
             return false;
           }
@@ -520,7 +487,7 @@ class FileServerHandler : public RequestHandler {
         if (!fName.startsWith("/")) { fName = "/" + fName; }
         bool handleOK = false;
         if (requestMethod == HTTP_GET) {
-          // Serve file through our serveFile() so token replacement happens
+          // Serve file through our serveFile() so cache headers and gzip handling are applied
           LOG_TRACE("GET request for:", fName);
           String pathToServe = fName;
           if (pathToServe.endsWith("/")) pathToServe += "index.html";
@@ -576,7 +543,6 @@ class FileServerHandler : public RequestHandler {
           uploadTooLarge = false;
           uploadSize = 0;
           String fName = upload.filename; // puede venir como "/subdir/FILE.bin" (por el cliente)
-          if (fName == "%PARMFILE%") { fName = parmFile; }
           // asegurar que empieza por '/'
           if (!fName.startsWith("/")) { fName = "/" + fName; }
           // colapsar "//" repetidos
@@ -672,17 +638,17 @@ class FileServerHandler : public RequestHandler {
 void defWebpagesHandles() {
     wserver.on("/", HTTP_GET, handleRedirect);
     // paginas html (las builting comienzan por $)
-    wserver.on("/$upload.htm",     HTTP_GET, []() { wserver.send(200, "text/html", FPSTR(uploadContent)); }); // serve a built-in htm page
+    wserver.on("/$upload",     HTTP_GET, []() { wserver.send(200, "text/html", FPSTR(uploadContent)); }); // serve a built-in htm page
     wserver.on("/advanced.htm",    HTTP_GET,  handleAdvancedPage); // requiere auth
     wserver.on("/errores.htm",     HTTP_GET,  handleListLogs); // fuerza cierre ficheros para actualizar timestamps
     wserver.on("/parmfile_editRaw.htm",    HTTP_GET,  handleEditRawPage); // requiere auth
-    // apis que devuelven/esperan un JSON
+    // apis que devuelven un JSON
     wserver.on("/api/list",        HTTP_GET,  handleListFiles);
     wserver.on("/api/sysinfo",     HTTP_GET,  handleSysInfo);
     wserver.on("/api/showZONElog", HTTP_GET,  handleShowZONElog);
+    wserver.on("/api/serverVars",  HTTP_GET,  handleServerVars); // devuelve JSON con variables de interés para el cliente (ej. logDays)
     // otras apis
-    wserver.on("/download",        HTTP_GET,  handleDownload);
-    wserver.on("/token_file",      HTTP_GET,  handleTokenFile);  // resolves tokens from client requests
+    wserver.on("/api/download",    HTTP_GET,  handleDownload);
     wserver.on("/api/save_config", HTTP_POST, handleSaveConfig);
     wserver.on("/api/endWS",       HTTP_GET,  handleEndWS);
     wserver.on("/api/setrestart",  HTTP_GET,  handleSetRestartRequired);
@@ -700,11 +666,22 @@ void defWebpagesHandles() {
 // ---------------------------
 
 void displayWSinfo() {
+  #ifndef NODISPLAY
   lcd.infoclear("Webserver activo", 1, BIPOK);
   snprintf(buff, MAXBUFF, "\"%s.local:%d\"", WiFi.getHostname(), WSPORT);
   lcd.info(buff, 3);
   int msgl = snprintf(buff, MAXBUFF, "%s:%d" , WiFi.localIP().toString().c_str(), WSPORT);
   lcd.info(buff, 4, msgl);
+  #endif
+}
+
+void displayRestar() {
+  #ifndef NODISPLAY
+  lcd.infoclear("RESTARTING...", 3);
+  if (restartRequired) lcd.info("Parm updated:", 1);
+  sonido.longbip(1);
+  delay(config.msgdisplaymillis);
+  #endif
 }
 
 void setupWS() {
@@ -725,7 +702,8 @@ void setupWS() {
   restartRequired = false;
   Serial.printf("[WS] HTTPUpdateServer ready!\n   --> Open http://%s.local:%d%s in your browser and login with username '%s' and password '%s'\n\n", WiFi.getHostname(), WSPORT, update_path, update_username, update_password);
   PRINTLN("[WS] Activado webserverIP address: ", WiFi.localIP(), ":", WSPORT);
-  String response = getDomoticzSettingsInfo("LightHistoryDays"); //lee los dias de log a mostrar por defecto desde Domoticz
+  //lee los dias de log que Domoticz guarda
+  String response = getDomoticzSettingsInfo("LightHistoryDays");
   if (!response.startsWith("Err")) logDays = response.toInt();
   displayWSinfo();
 }

@@ -1,66 +1,31 @@
-/* CSS Document */
-
+/* style_tableFiles.css - Optimizado para ESP32 */
 table {
-    font-family:arial,sans-serif;
-    font-size:1.0em;
-    border-collapse:collapse;
+    font-family: arial, sans-serif;
+    border-collapse: collapse;
     width: var(--table-base-width);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-} 
-th,td {
-    border:0.06em solid #898787;
-    text-align:left;
-    padding:0.3em;
-} 
-th {background-color:#ebebeb; padding:0.6em; border-bottom:0.1em solid #8a8a8a;}
-tr:nth-child(even) {background-color:#f3f3f3;}
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+th, td {
+    border: 0.06em solid #898787;
+    text-align: left;
+    padding: 0.3em;
+}
+th { background-color: #ebebeb; padding: 0.6em; border-bottom: 0.1em solid #8a8a8a; }
+tr:nth-child(even) { background-color: #f3f3f3; }
+th:nth-child(n+2) { text-align: center; }
 
-th:nth-child(n+2) { 
-    text-align: center;
-}
+/* Selectores de columnas por etiqueta */
+td[data-label='Size'], td[data-label='Timestamp'], .fileclass, .dirclass { text-align: center; }
+td[data-label='Size'] { width: 15%; }
+td[data-label='Timestamp'] { width: 20%; }
+td[data-label='Acciones'] { width: 40%; text-align: center; white-space: nowrap; padding: 8px 3px; }
+#filesTableBody td[data-label='Acciones'] { width: 30%; }
 
-/* 2. Estilos para Celdas de Datos (td) */
-td[data-label='Size'] {
-    width: 15%; 
-    text-align: center;
-}
-td[data-label='Timestamp'] {
-    width: 20%; 
-    text-align: center;
-}
-td[data-label='Acciones'] {
-    width: 40%; 
-    text-align: center;
-    white-space: nowrap;
-    padding: 8px 3px;
-}
-#filesTableBody td[data-label='Acciones'] {
-    width: 30%;
-}
+/* Inputs y utilidades de texto */
+input[type="text"] { width: 100%; padding: 10px; margin: 5px 0 20px 0; border: 1px solid #ccc; border-radius: 3px; }
+.dirclass { color: red; font-weight: bold; }
+.force-wrap, td.filename, td.filename a { white-space: normal; word-break: break-all; overflow-wrap: anywhere; }
 
-input[type="text"] {
-    width: 100%;
-    padding: 10px;
-    margin: 5px 0 20px 0;
-    border: 1px solid #ccc;
-    border-radius: 3px;
-}
-
-/* permitir wrapping de palabras solo en la columna de filename */
-td.filename, td.filename a {
-    white-space: normal;
-    word-break: break-all;
-    overflow-wrap: anywhere;
-}
-
-/* ajustar ancho tabla según tamaño pantalla */
-@media (max-width: 960px) {table {width: 100% !important;}}  /*OJO max-width = (table-base-width% * max-body-width) + XXpx */
-/* ajustar margen vertical columna botones según tamaño pantalla */
-@media (max-width: 610px) {.button-group { margin:0 ;} }
-
-/* Clase para usar en la celda en la que si es necesario se partiran palabras largas */
-.force-wrap {overflow-wrap: break-word; word-break: break-word;}
-/* Clase para datos de fichero */
-.fileclass {text-align: center;}
-/* Clase para datos de directorio */
-.dirclass {text-align: center; color: red; font-weight: bold;}
+/* Adaptación móvil */
+@media (max-width: 960px) { table { width: 100% !important; } }
+@media (max-width: 610px) { .button-group { margin: 0; } }

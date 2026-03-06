@@ -36,13 +36,14 @@
     <h1 style="margin-top: 20px;">Log de riegos en Domoticz</h1>
     <div class="header-and-info-container">
       <h2 id="titulo">Log de Zona</h2>
-      <div class="table-info">(*últimos %DIAS% días)</div>
+      <div class="table-info" id="infoDias">(*últimos - días)</div>
     </div>
     <table class="files-table" id="tablaLog" style="margin: 0 auto;">
       <thead><tr><th>Fecha</th><th>Estado</th><th>Usuario</th></tr></thead>
       <tbody><!-- Rows will be dynamically added here --></tbody>
     </table>
   </div>
+<script src="/funciones.js"></script>
 <script>
     function getParam(name) {
         const url = new URL(window.location.href);
@@ -50,17 +51,16 @@
     }
     // Obtener la zona y actualizar el título
     const zona = getParam('zona');
-    document.getElementById('titulo').textContent = `ZONA${zona}`;
+    document.getElementById('titulo').textContent = `ZONA ${zona}`;
 
-    // Usamos un IIFE asíncrono para ejecutar el código inmediatamente y permitir el uso de 'await'.
-    (async () => {
+    window.addEventListener("load", async () => {
         const tbody = document.querySelector('#tablaLog tbody');
         try {
-            // 1. Esperar la respuesta de la solicitud fetch
-            const response = await fetch(`/api/showZONElog?zona=${zona}`);
-            // 2. Esperar la conversión de la respuesta a JSON
-            const data = await response.json();
-            // 3. Lógica de procesamiento de datos (equivalente a los .then())
+            // 1. Obtener configuración (para mostrar numero de dias en el log)
+            const config = await getServerConfig();
+            document.getElementById('infoDias').textContent = `(*últimos ${config.logDays || 15} días)`;
+            // 2. Cargar datos del log usando la ruta de la API
+            const data = await apiGetJson(`/api/showZONElog?zona=${zona}`);
             if (!data.result || !Array.isArray(data.result)) {
                 tbody.innerHTML = '<tr><td colspan="3">No hay datos de log</td></tr>';
                 return;
@@ -80,7 +80,7 @@
             console.error("Error al cargar el log de zona:", error);
             tbody.innerHTML = '<tr><td colspan="3">No se pudo cargar el log.</td></tr>';
         }
-    })();
+    });
 </script>
 </body>
 </html>

@@ -14,59 +14,56 @@
 #include <Update.h>
 #include <WebServer.h>
 
+extern void handleRestart();
+
+// Página HTML mínima integrada para la actualización OTA (servida si no existe /OTAupdate.htm en el dispositivo)
 static const char serverOTA[] PROGMEM =
- R"(<!DOCTYPE html>
-    <html lang='en'>
-    <head>
-        <meta charset='utf-8'>
-        <meta name='viewport' content='width=device-width,initial-scale=1'/>
-        <title>OTA update</title>
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-            }
-            .section-title {
-                font-size: 1.5em;
-                margin-top: 30px;
-                margin-bottom: 10px;
-            }
-            input[type="submit"] {
-                font-size: 1.2em; /* Aumentar el tamaño del texto */
-                padding: 10px 20px; /* Aumentar el relleno interno */
-                border: none;
-                border-radius: 5px;
-                background-color: #007BFF; /* Color de fondo */
-                color: white; /* Color del texto */
-                cursor: pointer;
-                margin-left: 50px; /* Desplazar un poco a la derecha */
-            }
-            input[type="submit"]:hover {
-                background-color: #c0116b; /* Color al pasar el cursor */
-            }
-            input[type="file"] {
-                font-size: 1em; /* Aumentar el tamaño del texto */
-                padding: 10px 5px; /* Aumentar el relleno interno */
-            }
-        </style>
-    </head>
-    <body>
-        <form method='POST' action='' enctype='multipart/form-data'>
-            <div class='section-title'>Firmware:</div>
-            <input type='file' accept='.bin,.bin.gz' name='firmware'>
-            <br><br>
-            <input type='submit' value='Update Firmware'>
-        </form>
-        <hr>
-        <form method='POST' action='' enctype='multipart/form-data'>
-            <div class='section-title'>FileSystem:</div>
-            <input type='file' accept='.bin,.bin.gz,.image' name='filesystem'>
-            <br><br>
-            <input type='submit' value='Update FileSystem'>
-        </form>
-    </body>
-    </html>)";
+R"rawota(<!DOCTYPE html>
+<html lang='es'>
+<head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width,initial-scale=1'/>
+    <title>OTA Fallback</title>
+    <style>
+        body{font-family:Arial,sans-serif;padding:30px;color:#222;line-height:1.6;max-width:500px;margin:0 auto}
+        h2{color:#135a8a;border-bottom:2px solid #eee;padding-bottom:10px}
+        .t{font-size:1.1em;font-weight:700;margin:25px 0 10px;display:block}
+        input[type='file']{display:block;margin:15px 0;padding:10px;border:1px solid #ddd;border-radius:4px;width:100%;box-sizing:border-box}
+        input[type='submit']{font-size:1.1em;padding:12px 25px;border:none;border-radius:5px;background:#007BFF;color:#fff;cursor:pointer;width:100%;transition:0.3s}
+        input[type='submit']:hover{background:#c0116b}
+        hr{margin:40px 0;border:0;border-top:1px solid #eee}
+    </style>
+</head>
+<body>
+    <h2>OTA Update</h2>
+    <form method='POST' enctype='multipart/form-data' onsubmit='return v(this)'>
+        <span class='t'>Firmware (.bin)</span>
+        <input type='file' name='firmware' accept='.bin' required>
+        <input type='submit' value='Update Firmware'>
+    </form>
+    <hr>
+    <form method='POST' enctype='multipart/form-data' onsubmit='return v(this)'>
+        <span class='t'>FileSystem (.bin/.image)</span>
+        <input type='file' name='filesystem' accept='.bin,.image' required>
+        <input type='submit' value='Update FileSystem'>
+    </form>
+    <script>
+        function v(f){
+            var i=f.querySelector('input[type=file]');
+            if(!i.files.length){alert('Selecciona archivo');return false;}
+            var b=f.querySelector('input[type=submit]');
+            b.disabled=true;
+            b.value='Enviando... (espera)';
+            b.style.background='#A9A9A9';
+            return true;
+        }
+    </script>
+</body>
+</html>)rawota";
+
 static const char successResponse[] PROGMEM =
-"<META http-equiv=\"refresh\" content=\"15;URL=/\">Update Success! Rebooting...";
+"<!DOCTYPE html><html><head><meta charset='utf-8'><meta http-equiv='refresh' content='15;URL=/'></head>"
+"<body>Update Success! Rebooting...</body></html>";
 
 class HTTPUpdateServer
 {
@@ -105,24 +102,8 @@ public:
         _server->on(path.c_str(), HTTP_GET, [&]() {
             if (_username != emptyString && _password != emptyString && !_server->authenticate(_username.c_str(), _password.c_str()))
                 return _server->requestAuthentication();
-
-            // obtener versión compilada (si está definida) para inyectar en la página
-                String version;
-            #ifdef FW_VERSION
-                version = String(FW_VERSION);
-            #else
-                version = String();
-            #endif
-            // Calcular el espacio máximo disponible:
-            // - para firmware: ESP.getFreeSketchSpace() - 0x1000 (margen de seguridad) y alineado a 4KB
-            uint32_t maxFirmwareSize = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
-            uint32_t maxFSSize = LittleFS.totalBytes();
             // leer parámetro opcional ?page=
             String page; if (_server->hasArg("page")) page = _server->arg("page");
-            // Construir prefijo con VERSION, MAX_FIRMWARE_SIZE, MAX_FS_SIZE y marca SERVED (se usará también en JS del custom)
-            String prefixCustom = String("<script>var VERSION = \"") + version + 
-                                  String("\"; var SERVED = \"custom\"; var MAX_FIRMWARE = ") + String(maxFirmwareSize) + 
-                                  String("; var MAX_FILESYSTEM = ") + String(maxFSSize) + String(";</script>");
             // lógica de selección:
             // - si page == "builtin" -> servir siempre la página integrada
             // - si page == "custom"  -> intentar servir OTAupdate.htm (si no existe, fallback a builtin)
@@ -135,10 +116,8 @@ public:
             if (LittleFS.exists("/OTAupdate.htm") && !page.equalsIgnoreCase("builtin")) {
                 File f = LittleFS.open("/OTAupdate.htm", "r");
                 if (f) {
-                    String content = f.readString();
+                    _server->streamFile(f, "text/html");
                     f.close();
-                    content = prefixCustom + content; // inyectar script prefixCustom delante del contenido
-                    _server->send(200, "text/html", content);
                     return;
                 }
             }
@@ -151,7 +130,7 @@ public:
             if (!_authenticated)
                 return _server->requestAuthentication();
             if (Update.hasError()) {
-                _server->send(418, F("text/html"), String(F("Update error: ")) + _updaterError);
+                _server->send(418, F("text/plain"), String(F("Update error: ")) + _updaterError);
             }
             else {
                 // decidir respuesta según parámetro 'served' presente en la URL ( ?served=custom or builtin )
@@ -167,7 +146,8 @@ public:
                 }
                 delay(100);
                 _server->client().stop();
-                ESP.restart();
+                // restart con mensajes en display o directo según si se ha servido página custom o builtin
+                servedCustom ? handleRestart() : ESP.restart();
             }
             }, [&]() {
                 // handler for the file upload, get's the sketch bytes, and writes
@@ -175,6 +155,7 @@ public:
                 HTTPUpload& upload = _server->upload();
 
                 if (upload.status == UPLOAD_FILE_START) {
+                    if (upload.filename.length() == 0) return; // Ignorar si no hay nombre de archivo
                     _updaterError.clear();
                     if (_serial_output)
                         Serial.setDebugOutput(true);

@@ -3,129 +3,63 @@
  * @brief Basado en the WebServer example for the ESP8266WebServer.
  */
 
-// used for $upload.htm
+// used for $upload
 static const char uploadContent[] PROGMEM =
 R"==(
 <!doctype html>
-<html lang='en' style="font-family: Arial, Helvetica, sans-serif;">
-
+<html lang='es'>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Upload</title>
     <style>
-        .resaltado-rojo {
-            color: rgba(255, 0, 0, 0.759) !important;
-            font-size: 1.2em; font-weight: bold;
-        }
+        body{font-family:sans-serif;max-width:320px;margin:10px auto;padding:0 12px;color:#333}
+        h1{color:#135a8a;margin:0 0 10px}
+        a{text-decoration:none;font-size:14px;color:#135a8a}
+        select, #z{width:100%;box-sizing:border-box;border-radius:5px;transition:.2s}
+        select{padding:8px;margin:5px 0 15px;border:1px solid #ccc}
+        .r{border-color:#d9534f;color:#d9534f;font-weight:700}
+        #z{height:200px;border:2px dashed #3da3aa;background:#f9f9f9;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;text-align:center}
+        #z.v{background:#3da3aa;color:#fff}
+        .f{margin-top:15px;padding-top:10px;border-top:1px solid #eee}
+        .l{color:#d9534f;font-weight:700;margin-left:5px}
     </style>
 </head>
-
-<body style="width:300px">
-    <h1 style="color:#135a8a; margin-left:8px;">Upload files</h1>
-    <div style="margin-bottom:30px;"><a href="/">Home</a></div>
-
-    <div style="margin-top:10px;">
-        <label for="subdir-select" style="font-size:0.9em;">Subdirectorio destino (opcional):</label>
-        
-        <select id="subdir-select" style="width:100%;box-sizing:border-box;margin:6px 0; padding: 6px;">
-            <option value="">(vacío)</option>
-            <option value="datos">datos</option>
-        </select>
-        </div>
-
-    <hr>
-    <div id='zone' style='width:16em;height:12em;padding:10px;background-color:#3da3aa;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;'>
-        <div style='color:white;font-size:1.2em;'>Drop files here...</div>
-        <div style='color:white;font-size:1.2em;margin-top:6px;'>... or click to select files</div>
+<body>
+    <h1>Upload</h1>
+    <a href="/">← Home</a>
+    <div style="margin-top:15px">
+        <label style="font-size:13px">Destino (opcional):</label>
+        <select id="s"><option value="">(raíz)</option><option value="datos">datos</option></select>
     </div>
-    <hr>
-    
-    <div style="margin-top:10px;">
-        <input type="file" multiple id="fileInput" style="display:none" />
+    <div id="z"><p>Arrastra archivos aquí<br>o haz clic</p></div>
+    <input type="file" multiple id="i" style="display:none">
+    <div class="f">
+        <a href="/$update">OTA</a> | <a href="/datos/logError.txt" class="l">LOG</a>
     </div>
-    
-    <div style="margin-top: 15px;">
-        <a style="color:#828282; font-size:0.9em; text-decoration:none;" title="Go to OTA page" href="/$update">OTA</a>
-        <span style="color:#828282; font-size:0.9em;"> | </span>
-        <a style="color:#d9534f; font-size:0.9em; text-decoration:none; font-weight:bold;" title="Ver Log de Errores" href="/datos/logError.txt">VER LOG</a>
-    </div>    
-    
     <script>
-        function dragHelper(e) {
-            e.stopPropagation();
-            e.preventDefault();
+        const z=document.getElementById('z'), i=document.getElementById('i'), s=document.getElementById('s');
+        s.onchange=()=>{s.className=s.value?"r":""};
+        ['dragenter','dragover'].forEach(e=>z.addEventListener(e,x=>{x.preventDefault();z.className='v'}));
+        ['dragleave','drop'].forEach(e=>z.addEventListener(e,x=>{x.preventDefault();z.className=''}));
+        z.onclick=()=>i.click();
+        i.onchange=()=>up(i.files);
+        z.ondrop=(e)=>up(e.dataTransfer.files);
+        function up(f){
+            if(!f.length)return;
+            let d=new FormData(), p=s.value.replace(/^\/+|\/+$/g,'');
+            for(let x of f) d.append('file',x,'/'+(p?p+'/':'')+x.name);
+            z.innerHTML="<p>Subiendo...</p>";
+            fetch('/',{method:'POST',body:d})
+                .then(async r=>{alert(r.ok?'OK':await r.text());location.reload()})
+                .catch(()=>alert('Error Red'));
         }
-        function dropped(e) {
-            dragHelper(e);
-            var fls = e.dataTransfer.files;
-            uploadFiles(fls);
-        }
-        function uploadFiles(fileList) {
-            if (!fileList || fileList.length === 0) {
-                alert('No file selected.');
-                return;
-            }
-            var formData = new FormData();
-            var rawDir = (document.getElementById('subdir-select') || {value:''}).value || '';
-            var safeDir = rawDir.replace(/^\/*/, '').replace(/\/*$/, ''); // quita slashes al inicio/fin
-            for (var i = 0; i < fileList.length; i++) {
-                var f = fileList[i];
-                // construir nombre objetivo: "/{safeDir/}filename"
-                var targetName = '/' + (safeDir ? (safeDir + '/') : '') + f.name;
-                formData.append('file', f, targetName);
-            }
-            fetch('/', { method: 'POST', body: formData })
-                .then(function (resp) {
-                    if (!resp.ok) {
-                        // obtener texto devuelto por el servidor (ej. "File too large") y mostrarlo
-                        resp.text().then(function(body){
-                            window.alert('Upload failed: ' + resp.status + ' - ' + body);
-                        });
-                        return;
-                    }
-                    // éxito
-                    window.alert('done.');
-                })
-                .catch(function (err) { window.alert('Upload failed (network)'); console.error(err); });
-        }
-        // cuando cambie el input (selección por diálogo), subir ficheros
-        document.getElementById('fileInput').addEventListener('change', function(e) {
-            uploadFiles(e.target.files);
-        });
-        // drag & drop + click handlers
-        var z = document.getElementById('zone');
-        z.style.cursor = 'pointer';
-        z.addEventListener('click', function (e) {
-            // abrir diálogo de selección de ficheros
-            document.getElementById('fileInput').click();
-        }, false);
-        z.addEventListener('dragenter', dragHelper, false);
-        z.addEventListener('dragover', dragHelper, false);
-        z.addEventListener('drop', dropped, false);
-        // Lógica para el resaltado del select
-        document.addEventListener('DOMContentLoaded', (event) => {
-            const selectElement = document.getElementById('subdir-select');
-            const manejarCambio = () => {
-                        // Aplica la clase siempre que el valor NO esté vacío
-                        if (selectElement.value !== "") {
-                            selectElement.classList.add('resaltado-rojo');
-                        } else {
-                            // Remueve la clase solo cuando se selecciona el valor vacío ("")
-                            selectElement.classList.remove('resaltado-rojo');
-                        }
-                    };
-            // Ejecuta una vez para establecer el estado inicial (si es necesario)
-            manejarCambio();
-            // Añadir el escuchador de eventos
-            selectElement.addEventListener('change', manejarCambio);
-        });
     </script>
 </body>
 </html>
 )==";
 
-// used for $upload.htm
+// used for $upload
 static const char notFoundContent[] PROGMEM = R"==(
 <html>
 <head>
@@ -134,7 +68,7 @@ static const char notFoundContent[] PROGMEM = R"==(
 <body>
   <p>The resource was not found.</p>
   <p><a title="Go to INDEX page" href="/">Start again</a></p>
-  <a style="color:#828282; font-size:0.9em; text-decoration:none;" title="Go to UPLOAD/OTA page" href="/$upload.htm">or go to UPLOAD page</a>
+  <a style="color:#828282; font-size:0.9em; text-decoration:none;" title="Go to UPLOAD/OTA page" href="/$upload">or go to UPLOAD page</a>
 </body>
 </html>
 )==";

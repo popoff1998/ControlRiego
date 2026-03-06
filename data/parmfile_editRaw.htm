@@ -34,8 +34,8 @@
             <textarea name="edit_textarea"></textarea>
         </form>
         <div class="button-group">
-            <button type="submit" form="edit_form_id" id="submit" class="save-button">Save</button>
-            <button type="button" id="cancel" class="secondary-button">Cancel</button>
+            <button type="submit" form="edit_form_id" id="submit" class="save-button">Salvar y salir</button>
+            <button type="button" id="cancel" class="secondary-button">Descartar y volver</button>
         </div>
         <div id="spacer_50"></div>
     </fieldset>
@@ -46,98 +46,100 @@
         para modificar los parámetros.<br><br>
         <button id="cerrarBtn">Entendido</button>
     </dialog>
-    <script src="/funciones.js"></script>
-    <script>
-    // Variables globales para ser accesibles por los event listeners
-    const form = document.querySelector('form[name="edit_file"]');
-    const textarea = document.querySelector('textarea[name="edit_textarea"]');
+<script src="/funciones.js"></script>
+<script>
+const form = document.querySelector('form[name="edit_file"]');
+const textarea = document.querySelector('textarea[name="edit_textarea"]');
+const urlParams = new URLSearchParams(window.location.search);
+let fileName = urlParams.get('file');
+let hasChanges = false;
+let originalContent = "";
+
+window.addEventListener("load", async () => {
     const urlParams = new URLSearchParams(window.location.search);
-    const fileName = urlParams.get('file');
-
-    /** Función auxiliar para cargar datos del servidor */
-    function loadFromServer(fileName, textarea) {
-        apiGetJson(fileName)
-            .then(data => {
-                textarea.value = JSON.stringify(data, null, 2); // Asigna la cadena formateada
-            })
-            .catch(error => {
-                console.error("Error al cargar el archivo:", error);
-                textarea.value = `Error al cargar el archivo: ${error.message || error}`; 
-            });
-    }
-
-    // 1. Lógica de Inicialización (IIFE)
-    (function() {
-        const source = urlParams.get('source');
-        if (!fileName) {
-            alert("No se especificó ningún archivo en la URL."); 
-            window.location.href = `/parmfile_edit.htm?file=%PARMFILE%`;
-            return; // Detiene la ejecución del script si no hay archivo
+    // 1. Obtener el nombre del archivo (Prioridad: URL > Config Servidor)
+    fileName = urlParams.get('file');
+    if (!fileName) {
+        try {
+            const config = await getServerConfig();
+            fileName = config.parmFile;
+        } catch (e) {
+            alert("Error crítico: No se pudo determinar el archivo.");
+            return;
         }
-        // Lógica de carga de datos
-        if (source === 'tempRawData' && sessionStorage.getItem('tempRawData')) {
-            const tempRawData = sessionStorage.getItem('tempRawData');
-            try {
-                const data = JSON.parse(tempRawData);
-                textarea.value = JSON.stringify(data, null, 2); 
-                console.log("Datos cargados desde sessionStorage.");
-                sessionStorage.removeItem('tempRawData'); 
-            } catch (error) {
-                console.error("Error al parsear datos de sessionStorage:", error);
-                loadFromServer(fileName, textarea); 
+    }
+    // 2. Cargar contenido (Prioridad: Sesión/Borrador > Servidor)
+    const source = urlParams.get('source');
+    const sessionData = sessionStorage.getItem('tempRawData');
+    if (source === 'tempRawData' && sessionData) {
+        try {
+            console.log("Recuperando borrador de la sesión...");
+            const data = JSON.parse(sessionData);
+            textarea.value = JSON.stringify(data, null, 2);
+            hasChanges = true; 
+        } catch (error) {
+            console.error("Error al parsear sesión, cargando del servidor...");
+            await loadFromServer(fileName, textarea);
+        }
+    } else {
+        await loadFromServer(fileName, textarea);
+        hasChanges = false;
+    }
+    originalContent = textarea.value;
+    // 3. Configuración de la interfaz (Warning y Listeners)
+    const dialogo = document.getElementById('Warning');
+    const cerrarBtn = document.getElementById('cerrarBtn');
+    if (dialogo) {
+        dialogo.showModal();
+        cerrarBtn.addEventListener('click', () => dialogo.close());
+    }
+    textarea.addEventListener('input', () => {
+        hasChanges = (textarea.value !== originalContent);
+    });
+});
+
+
+/** Función auxiliar para cargar datos del servidor */
+async function loadFromServer(file, targetTextarea) {
+    try {
+        const data = await apiGetJson(file);
+        targetTextarea.value = JSON.stringify(data, null, 2);
+    } catch (error) {
+        console.error("Error al cargar el archivo:", error);
+        targetTextarea.value = `Error al cargar el archivo: ${error.message || error}`;
+    }
+}
+
+// --- MANEJO DE SALIDA Y CANCEL ---
+
+window.onbeforeunload = function() {
+    if (hasChanges) { return "¿Tiene cambios sin guardar?"; }
+};
+
+const cancelButton = document.getElementById('cancel');
+cancelButton.addEventListener('click', () => {
+        if (textarea.value !== originalContent) {
+            if (confirm("¿Descartar cambios de edición libre y volver?")) {
+                // Volvemos a la básica. IMPORTANTE: No borramos sessionStorage aquí
+                // para que la básica recupere sus propios cambios.
+                hasChanges = false;
+                window.location.href = `/parmfile_edit.htm?file=${fileName}&source=tempRawData`;
             }
         } else {
-            loadFromServer(fileName, textarea);
+            hasChanges = false;
+            window.location.href = `/parmfile_edit.htm?file=${fileName}&source=tempRawData`;
         }
-        // Mostrar el diálogo de advertencia
-        const dialogo = document.getElementById('Warning');
-        const cerrarBtn = document.getElementById('cerrarBtn');
-        dialogo.showModal(); 
-        cerrarBtn.addEventListener('click', () => dialogo.close());
-    })();
-
-    // 2. Manejo de Eventos (Listeners)
-
-    // A. Evento para el botón Save (vía submit del formulario)
-    form.addEventListener('submit', (event) => {
-        event.preventDefault(); // Detiene el envío HTTP por defecto del navegador
-        const content = textarea.value;
-        let jsonObject;
-        try {
-            jsonObject = validarSintaxisJson(content); 
-            validarEstructura(jsonObject); 
-            console.log("JSON válido en sintaxis y estructura.");
-
-        } catch (validationError) {
-            alert(validationError.message);
-            return; // Detiene el proceso de guardado si falla la validación
-        }        
-        // Si la validación es exitosa, procede a guardar con fetch
-        fetch('/api/save_config', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: content
-        })
-        .then(response => {
-            if (response.ok) {
-                alert("Archivo guardado correctamente.");
-                window.location.href = `/parmfile_edit.htm?file=${fileName}`; 
-            } else {
-                response.text().then(text => alert(`Error al guardar el archivo: ${text}`));
-            }
-        })
-        .catch(error => {
-            console.error("Error al guardar el archivo:", error);
-            alert("No se pudo guardar el archivo.");
-        });
     });
 
-    // B. Evento para el botón Cancel
-    const cancelButton = document.getElementById('cancel');
-    cancelButton.addEventListener('click', () => {
-        // Redirecciona al pulsar Cancel (NO activa el submit)
-        window.location.href='/parmfile_edit.htm';
-    });
-    </script>
+// --- GUARDAR ---
+form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+        // Pasamos el tercer parámetro como 'true' para validar sintaxis y estructura
+        await apiSaveConfig(textarea.value, hasChanges, true);
+    } catch (e) { /* Error gestionado en funciones.js */ }
+});
+
+</script>
 </body>
 </html>

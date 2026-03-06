@@ -46,7 +46,7 @@
 <body>
   <h1 style="margin-top: 20px;">Logs de errores</h1>
   <div style="text-align: center; margin-bottom: 20px;">
-    <button onclick="window.location.href='/errores.htm'" class="button-update">
+    <button id="btn-update" onclick="window.location.href='/errores.htm'" class="button-update">
       🔄 Actualizar y Sincronizar
     </button>
   </div>
@@ -65,43 +65,43 @@
     </table>
 
 <script src="/funciones.js"></script>
-  <script>
-    function updateBanners(logEnabled, warnActive) {
+<script>
+    // lógica para mostrar o no los banners de aviso y boton de refresh:
+    function updateUI(config) {
       const bannerWarn = document.getElementById('banner-warn');
       const bannerOff = document.getElementById('banner-off');
-      const updateBtn = document.querySelector('.button-update');
-      if (warnActive === true || warnActive === "true") {
-        bannerWarn.style.display = 'block';
-      }
-      if (logEnabled === false || logEnabled === "false") {
+      const updateBtn = document.getElementById('btn-update');
+      // ArduinoJson envía true/false (booleanos reales), no strings
+      bannerWarn.style.display = config.logWarnFile ? 'block' : 'none';
+      if (!config.logEnabled) {
         bannerOff.style.display = 'block';
-        if (updateBtn) updateBtn.style.display = 'none'; 
+        if (updateBtn) updateBtn.style.display = 'none';
       } else {
         bannerOff.style.display = 'none';
         if (updateBtn) updateBtn.style.display = 'inline-block';
       }
     }
 
-    window.addEventListener("load", () => {
-      // 2. Ejecutamos la lógica de banners con los datos del servidor
-      const isLogEnabled = %LOGENABLED%;
-      const isWarnActive = %LOGWARNFILE%;
-      updateBanners(isLogEnabled, isWarnActive);
-      const fullPath = "%ERRORFILE%"; 
-      const lastSlash = fullPath.lastIndexOf('/');
-      const dir = fullPath.substring(0, lastSlash) || "/";
-      const fileNameWithExt = fullPath.substring(lastSlash + 1);
-      const filter = fileNameWithExt.split('.').slice(0, -1).join('.') || fileNameWithExt;
-      window.requestAnimationFrame(() => {
-          apiGetJson(`/api/list?dir=${encodeURIComponent(dir)}&file=${encodeURIComponent(filter)}`)
-            .then(data => {
-              populateTable(data, "logsTableBody");
-            })
-            .catch(error => console.error("Error fetching file data:", error));
-      });
+    // 2. lógica de carga de la página
+    window.addEventListener("load", async () => {
+      try {
+        // A. Pedimos la configuración general
+        const config = await getServerConfig();
+        // B. Actualizamos la interfaz
+        updateUI(config);
+        // C. Procesamos el path del fichero de errores para la tabla
+        const fullPath = config.errorFile;
+        const lastSlash = fullPath.lastIndexOf('/');
+        const dir = fullPath.substring(0, lastSlash) || "/";
+        const fileNameWithExt = fullPath.substring(lastSlash + 1);
+        const filter = fileNameWithExt.split('.').slice(0, -1).join('.') || fileNameWithExt;
+        // D. Pedimos la lista de archivos usando el filtro obtenido
+        const fileData = await apiGetJson(`/api/list?dir=${encodeURIComponent(dir)}&file=${encodeURIComponent(filter)}`);
+        populateTable(fileData, "logsTableBody");
+      } catch (error) {
+        console.error("Error cargando la página de logs:", error);
+      }
     });
   </script>
-
-
 </body>
 </html>

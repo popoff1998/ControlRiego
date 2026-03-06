@@ -65,20 +65,23 @@ String parseResponse(const String &response, const char *campo, JsonLevel level)
     JsonVariant field;
     if (level == TOP_LEVEL) {
         field = jsondoc[campo];
-    } else if (level == RESULT_ARRAY_0) {
-        // Validar que la ruta 'result[0]' exista y sea segura
-        if (!jsondoc.containsKey("result") || !jsondoc["result"].is<JsonArray>()) {
-          return returnErr3(respTrim, "parseResponse: 'result' no encontrado o no es array"); }
-        field = jsondoc["result"][0][campo];
-    } else {
-          return returnErr3(respTrim, "parseResponse: nivel desconocido");    }
-    // Verifica si el campo existe y no es null
-    if (field.isNull()) {
-          return returnErr3(respTrim, "parseResponse: campo '", campo, "' no encontrado o NULL");}
-    // Extrae el valor como String.
+    } 
+    else if (level == RESULT_ARRAY_0) {
+            JsonVariant resultVar = jsondoc["result"];
+            if (!resultVar.is<JsonArray>()) {
+                return returnErr3(respTrim, "parseResponse: 'result' no encontrado o no es array");
+            }
+            if (resultVar.size() == 0) {
+                return returnErr3(respTrim, "parseResponse: 'result' array está vacío");
+            }
+            field = resultVar[0][campo];
+            } 
+          else {
+                return returnErr3(respTrim, "parseResponse: nivel desconocido");
+          }
+    if (field.isNull()) return returnErr3(respTrim, "parseResponse: campo '", campo, "' no encontrado o NULL");
     String contenido = field.as<String>();
     contenido.trim();
-    // Informa si la String resultante esta vacía
     if (contenido.isEmpty()) LOG_DEBUG(" ** [WARNING] parseResponse: campo '", campo, "' vacío");
     else LOG_DEBUG("Campo '", campo, "': ", contenido);
     return contenido;

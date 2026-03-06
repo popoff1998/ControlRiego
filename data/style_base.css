@@ -1,3 +1,4 @@
+/* variables de estilo globales */
 :root {
     --theme-color: #0a9aaf;
     --hover-color: #07778b;
@@ -5,56 +6,32 @@
     --table-base-width: 85%;
 }
 
-html {
-    font-family: Arial, Helvetica, sans-serif;
-}
-
-body {
-    margin:0 auto;
-    font-size:100%;
-    background-color:#fdfdfd;
-    padding:0.5em 0.5em;
-    max-width: var(--max-body-width);
-    min-height: 100vh;
-}
+html { font-family: Arial, Helvetica, sans-serif; }
+body { margin:0 auto; font-size:100%; background-color:#fdfdfd; padding:0.5em 0.5em;
+       max-width: var(--max-body-width); min-height: 100vh; }
 
 *{box-sizing:border-box;}
 
 .containerbase {width: 90%; max-width: 1050px; margin: 0 auto;}
-.containerbase.no-testing ul li {
-    margin-bottom: 20px; /* Espacio extra de separación vertical */
-}
+/* Control de espaciado animado */
+.containerbase ul li { margin-bottom: 8px; transition: margin-bottom 0.3s ease; }
+.containerbase.no-testing ul li { margin-bottom: 22px; /* Espacio extra de separación vertical */ }
 @media (max-width: 1050px) {.containerbase {width: 100% !important;}}
 
-h1 {
-    color:white;
-    border-radius:0.5em;
-    font-size:1.5em;
-    padding: 0.3em;
-    padding-left: 1em;
+h1 { color:white; border-radius:0.5em; font-size:1.5em; padding: 0.3em; padding-left: 1em;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 1px rgba(0, 0, 0, 0.05);
-    /* background-color: var(--theme-color); */
-    /* background-image: linear-gradient(to right, var(--theme-color), var(--theme-color) 70%, #1fabb2 100%); */
-    background-image: linear-gradient(to right, #3dc0c5, var(--theme-color) 30%, var(--theme-color) 100%);
-}
-
+    background-image: linear-gradient(to right, #3dc0c5, var(--theme-color) 30%, var(--theme-color) 100%); }
 h2 { font-size:1.2em; }
-
 h3 { color:#555; font-size:0.9em; }
 
-a {
-text-decoration: none; /* Elimina el subrayado */
-font-size: 1.2em;
-color: #0174ee; /* Color del enlace */
-}
+a { text-decoration: none; /* Elimina el subrayado */
+    font-size: 1.2em; color: #0174ee; /* Color del enlace */ }
 a:hover { color: rgb(26, 7, 240); }
-
 .muted { color:#828282; font-size:0.9em }
 .menu-big { padding-left: 4em; padding-top: 2em; font-size: 1.2em; }
 .menu { padding-left: 2em; font-size: 1.2em; }
 .logo { float: right; margin-left: 10px; margin-right: 40px;
         filter: drop-shadow(8px 8px 10px rgba(0, 0, 0, 0.3));} /* sombra debajo */
-
 .lista-alineada { padding-left: 0; list-style: none; }
 .lista-alineada li {
     /* 1. Habilita CSS Grid en cada fila (<li>) */
@@ -69,16 +46,22 @@ a:hover { color: rgb(26, 7, 240); }
 .lista-alineada a { /* Asegura que el texto se corte si es más largo que 180px */
     overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .lista-alineada .descripcion { color: #666; padding-left: 5px; /* Espacio extra de separación del enlace */ }
-
-    @media (max-width: 768px) {.menu-big {padding-left: 1em;}}
-    @media (max-width: 768px) {.menu {padding-left: 0.5em; font-size: 1em;}}
-    @media (max-width: 510px) {
-        .logo {scale: 0.7; margin-right: 2px;}
-        .lista-alineada .descripcion { font-size: 0.9em; padding-left: 1px;}
-        .lista-alineada li, .lista-alineada a {display:block;}
-    }
-
-.orla-azul {background: radial-gradient(circle, 
-                white 0%,white 60%,#3498db 90%,#3498db 100%);}
-.orla-verde {background: radial-gradient(circle, 
-                white 0%,white 60%,#2ecc71 90%,#2ecc71 100%);}
+@media (max-width: 768px) {.menu-big {padding-left: 1em;}}
+@media (max-width: 768px) {.menu {padding-left: 0.5em; font-size: 1em;}}
+@media (max-width: 510px) {
+    .logo {scale: 0.7; margin-right: 2px;}
+    .lista-alineada .descripcion { font-size: 0.9em; padding-left: 1px;}
+    .lista-alineada li, .lista-alineada a {display:block;}}
+/* Orlas Universales Ardomo */
+.orla-v, .orla-a { 
+    display: inline-flex; align-items: center; justify-content: center; 
+    border-radius: 50%; width: 32px; height: 32px; font-weight: 700; font-size: 0.9em; color: #333; 
+    user-select: none; box-shadow: inset 0 0 3px rgba(0,0,0,0.2);
+}
+.orla-v { background: radial-gradient(circle, #fff 40%, #2ecc71 85%, #27ae60 100%); border: 1px solid #2ecc71; }
+.orla-a { background: radial-gradient(circle, #fff 40%, #3498db 85%, #2980b9 100%); border: 1px solid #3498db; }
+/* Comportamiento solo cuando son interactivas */
+.clicable { cursor: pointer; transition: transform 0.1s; }
+.clicable:active { transform: scale(0.9); }
+/* Ajuste para pantallas grandes (Escritorio) */
+@media (min-width: 601px) { .orla-v, .orla-a { width: 42px; height: 42px; font-size: 1em; } }    

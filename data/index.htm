@@ -5,6 +5,7 @@
   <title>HomePage</title>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>.warn-icon{display:none;color:#ff9800;cursor:help;position:absolute;margin-left:-35px;font-weight:bold;}</style>
   <link type="text/css" href="/style_base.css" rel="stylesheet" />
 </head>
 
@@ -22,10 +23,9 @@
         <li><a href="/errores.htm">ERRORES</a> <span class="descripcion">- Logs de errores</span></li>
         <br>
         <li>
-          <a href="#" 
-             onclick="return confirm('¿Está seguro de que desea reiniciar el dispositivo?') 
-             ? window.location.href='/api/restart' : false;">
-             RESTART </a> <span class="descripcion">- Reiniciar dispositivo para aplicar cambios</span>
+          <a href="#" onclick="return handleRestart();">RESTART</a> 
+          <span id="warnRestart" class="warn-icon" title="Reinicio requerido.Se forzará al cerrar el webserver">⚠️</span>
+          <span class="descripcion">- Reiniciar dispositivo para aplicar cambios</span>
         </li>
       </ul>
     
@@ -35,6 +35,26 @@
       </ul>
   </div>
 
+ <script src="/funciones.js"></script>
+  <script>
+    window.addEventListener("load", () => {
+      // Mostrar advertencia si hay cambios pendientes
+      if (sessionStorage.getItem('needsRestart') === 'true') {document.getElementById('warnRestart').style.display = 'inline';}
+      // Precargamos la configuración para que las siguientes páginas sean instantáneas
+      getServerConfig()
+        .then(() => console.log("Configuración precargada y lista."))
+        .catch(err => console.error("Error en precarga:", err));
+    });
+    // Función específica para limpiar la caché al reiniciar desde el menú
+    function handleRestart() {
+        if (confirm('¿Está seguro de que desea reiniciar el dispositivo?')) {
+            sessionStorage.removeItem('serverConfig'); // Limpiamos para que al volver cargue lo nuevo
+            sessionStorage.removeItem('needsRestart');
+            window.location.href = '/api/restart';
+        }
+        return false;
+    }
+  </script>
 </body>
 </html>
 

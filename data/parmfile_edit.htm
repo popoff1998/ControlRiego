@@ -53,311 +53,217 @@
 
     <div class="button-group">
         <button type="button" onclick="editRaw()" class="secondary-button">Edit Full</button>
-        <button type="button" onclick="window.location.href='parmfile.htm'" class="secondary-button">Cancel</button>
+        <button type="button" onclick="processCancel()" class="secondary-button">Cancel</button>
     </div>
 
-    <script>
-        // Variables globales
-        let fileName = '%PARMFILE%'; // Valor por defecto, se sobrescribirá al cargar la página
-        let originalJsonData = {};
+<script src="/funciones.js"></script>
+<script>
+let fileName = "", originalJsonData = {}, hasChanges = false;
 
-        // Inicialización al cargar la página usando async/await
-        window.addEventListener("load", async () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            fileName = urlParams.get('file') || '%PARMFILE%'; 
-            console.log("Edit:", fileName);
-            try {
-                // Cargar la plantilla base desde templateParm.json
-                const templateResponse = await fetch('/templateParm.json');
-                const template = await templateResponse.json();
-                console.log("Template loaded:", template);
-                // Cargar el archivo de configuración
-                const response = await fetch(`/token_file?file=${encodeURIComponent(fileName)}`);
-                const editedData = await response.json();
-                console.log("Edited data loaded:", editedData);
-                // Fusionar: template base + datos
-                originalJsonData = mergeWithTemplate(editedData, template);
-                console.log("Merged data:", originalJsonData);
-                loadTables(originalJsonData);
-            } catch (error) {
-                console.error("Error fetching or merging file data:", error);
+window.addEventListener("load", async () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    try {
+        const config = await getServerConfig().catch(() => ({}));
+        fileName = urlParams.get('file') || config.parmFile;
+        const source = urlParams.get('source');
+        const sessionData = sessionStorage.getItem('tempRawData');
+        // 1. Prioridad: ¿Venimos de EditRaw con cambios pendientes?
+        if (source === 'tempRawData' && sessionData) {
+            console.log("Recuperando borrador de la sesión...");
+            const editedData = JSON.parse(sessionData);
+            // Cargamos solo el template para asegurar la estructura
+            const template = await apiGetJson('/templateParm.json').catch(() => ({}));
+            originalJsonData = mergeWithTemplate(editedData, template);
+            hasChanges = true; // Marcamos que hay cambios respecto al archivo real
+        } 
+        // 2. Carga normal desde el servidor
+        else {
+            console.log("Cargando archivo desde el servidor:", fileName);
+            const [template, editedData] = await Promise.all([
+                apiGetJson('/templateParm.json').catch(() => ({})),
+                apiGetJson(fileName).catch(() => ({}))
+            ]);
+            originalJsonData = mergeWithTemplate(editedData, template);
+            hasChanges = false;
+        }
+        loadTables(originalJsonData);
+        // Listeners para detectar cambios
+        document.body.addEventListener("input", (e) => {
+            if (e.target.tagName === "INPUT") {
+                hasChanges = true;
+                if (e.target.dataset.field === "idx") validateIdx(e.target);
+                if (e.target.dataset.field === "zonas") validateZonas(e);
             }
         });
+    } catch (e) {
+        console.error("Error:", e); 
+        alert("Error de carga: " + e.message);
+    }
+    window.onbeforeunload = () => hasChanges ? "¿Perder cambios?" : null;
+});
 
-        // --- Funciones de Carga de Datos ---
+// --- Utilidades de Interfaz ---
+function validateIdx(el) {
+    el.value = el.value.replace(/[^0-9]/g, "").slice(0, 3);
+    el.closest("td").classList.toggle("highlight-zero", parseInt(el.value) === 0);
+}
 
-        /** Carga una tabla simple (Domoticz, Time) donde todos los campos son texto/valor. */
-        function loadSimpleTable(data, tableId) {
-            const tableBody = document.getElementById(tableId);
-            tableBody.innerHTML = "";
-            
-            Object.keys(data).forEach(key => {
-                const row = tableBody.insertRow();
-                row.insertCell().textContent = key; // Campo (no editable)
-                const valueCell = row.insertCell(); // Valor (editable)
-                const input = document.createElement("input");
-                input.type = "text";
-                input.value = data[key] || "";
-                input.dataset.field = key;
-                valueCell.appendChild(input);
-            });
-        }
+function validateZonas(e) {
+    let v = e.target.value.replace(/[^1-9,]/g, "").replace(/,{2,}/g, ",");
+    e.target.value = v.replace(/(\d)(?=\d)/g, "$1,");
+}
 
-        /** Carga la tabla de Botones con validación de 'idx'. */
-        function loadBotonesTable(botones) {
-            const tableBody = document.getElementById("botonesTableBody");
-            tableBody.innerHTML = "";
-            
-            botones.forEach((boton, index) => {
-                const row = tableBody.insertRow();
-                const zonaCell = row.insertCell();
-                zonaCell.textContent = boton.zona || ""; // Zona (no editable)
-                zonaCell.classList.add("orla-verde");
-
-                // Campo idx (editable)
-                const idxCell = row.insertCell();
-                const idxInput = document.createElement("input");
-                idxInput.type = "number";
-                idxInput.min = "0";
-                idxInput.max = "999";
-                idxInput.value = boton.idx || 0;
-                idxInput.dataset.index = index;
-                idxInput.dataset.field = "idx";
-                
-                // Lógica de validación y sombreado de idx
-                const validateIdx = (event) => {
-                    let value = event.target.value;
-                    // Limitar a 3 dígitos
-                    value = value.replace(/[^0-9]/g, "").slice(0, 3); 
-                    event.target.value = value;
-                    // Aplicar/Quitar sombreado para idx = 0
-                    event.target.closest("td").classList.toggle("highlight-zero", parseInt(value) === 0);
-                };
-
-                idxInput.addEventListener("input", validateIdx);
-                
-                // Inicializar el sombreado si el valor es 0
-                if (!boton.idx || boton.idx === 0) idxCell.classList.add("highlight-zero");
-
-                idxCell.appendChild(idxInput);
-
-                // Campo nombre (editable)
-                const nombreCell = row.insertCell();
-                const nombreInput = document.createElement("input");
-                nombreInput.type = "text";
-                nombreInput.value = boton.nombre || "";
-                nombreInput.dataset.index = index;
-                nombreInput.dataset.field = "nombre";
-                nombreInput.maxLength = 9;
-                nombreCell.appendChild(nombreInput);
-            });
-        }
-
-        /** Carga la tabla de Grupos con validación de 'zonas'. */
-        function loadGruposTable(grupos) {
-            const tableBody = document.getElementById("gruposTableBody");
-            tableBody.innerHTML = "";
-
-            grupos.forEach((grupo, index) => {
-                const row = tableBody.insertRow();
-                const grupoCell = row.insertCell();
-                grupoCell.textContent = grupo.grupo || ""; // Grupo (no editable)
-                grupoCell.classList.add("orla-azul");
-
-                // Campo descripción (editable)
-                const descCell = row.insertCell();
-                const descInput = document.createElement("input");
-                descInput.type = "text";
-                descInput.value = grupo.desc || "";
-                descInput.dataset.index = index;
-                descInput.dataset.field = "desc";
-                descInput.maxLength = 9;
-                descCell.appendChild(descInput);
-
-                // Campo zonas (editable)
-                const zonasCell = row.insertCell();
-                const zonasInput = document.createElement("input");
-                zonasInput.type = "text";
-                zonasInput.maxLength = 17;
-                // Convertir array a string separado por comas, o string vacío si no existe
-                zonasInput.value = grupo.zonas ? (Array.isArray(grupo.zonas) ? grupo.zonas.join(",") : grupo.zonas) : "";
-                zonasInput.dataset.index = index;
-                zonasInput.dataset.field = "zonas";
-                
-                // Lógica de validación de 'zonas'
-                zonasInput.addEventListener("input", (event) => {  // mientras se escribe
-                    let value = event.target.value;
-                    value = value.replace(/[^1-9,]/g, ""); // Permitir solo dígitos del 1-9 y comas
-                    value = value.replace(/,{2,}/g, ",");  // Eliminar comas consecutivas
-                    event.target.value = value.replace(/(\d)(?=\d)/g, "$1,"); // Asegurar coma entre números consecutivos (ej. 12 -> 1,2)
-                });
-                zonasInput.addEventListener("blur", (event) => {   // cuando se pierde el foco
-                    event.target.value = event.target.value
-                        .replace(/\s+/g, "")    // Eliminar espacios
-                        .replace(/^,|,$/g, ""); // Eliminar comas al inicio/final
-                });
-                
-                zonasCell.appendChild(zonasInput);
-            });
-        }
-
-        /** Función principal para cargar todas las tablas. */
-        function loadTables(data) {
-            loadBotonesTable(data.botones || []);
-            loadGruposTable(data.grupos || []);
-            loadSimpleTable(data.domoticz || {}, "domoticzTableBody");
-            loadSimpleTable(data.time || {}, "timeTableBody");
-        }
+function loadBotonesTable(botones) {
+    const body = document.getElementById("botonesTableBody");
+    body.innerHTML = "";
+    botones.forEach((b, i) => {
+        const row = body.insertRow();
+        row.insertCell().innerHTML = `<span class="orla-v">${b.zona || i + 1}</span>`;
         
-        // --- Funciones de Recolección de Datos ---
+        const cIdx = row.insertCell();
+        const iIdx = document.createElement("input");
+        Object.assign(iIdx, { type: "number", value: b.idx || 0 });
+        Object.assign(iIdx.dataset, { index: i, field: "idx" });
+        cIdx.appendChild(iIdx);
+        if (!b.idx) cIdx.className = "highlight-zero";
 
-        /** Recolecta datos de tablas basadas en un array (botones, grupos). */
-        function collectArrayData(selector, arrayName, originalData) {
-            const inputs = document.querySelectorAll(selector);
-            
-            inputs.forEach(input => {
-                const index = input.dataset.index;
-                const field = input.dataset.field;
-                
-                // Asegurar que el objeto exista en los datos
-                if (!originalData[arrayName][index]) {
-                    const row = input.closest("tr");
-                    originalData[arrayName][index] = {
-                        // Intentar recuperar el campo 'clave' (zona o grupo) del primer <td>
-                        [arrayName === 'botones' ? 'zona' : 'grupo']: parseInt(row.children[0].textContent) 
-                    };
-                }
-                
-                let value = input.value;
-                
-                if (arrayName === 'botones' && field === 'idx') {
-                    // Convertir idx a número
-                    value = parseInt(value) || 0; 
-                } else if (arrayName === 'grupos' && field === 'zonas') {
-                    // Convertir string de zonas a array de números
-                    // Filtramos n > 0 para evitar números vacíos si el input termina en coma
-                    value = value.trim() === "" ? [] : value.split(",").map(Number).filter(n => n > 0);
-                }
-                
-                originalData[arrayName][index][field] = value;
-            });
-        }
+        const cNom = row.insertCell();
+        const iNom = document.createElement("input");
+        Object.assign(iNom, { type: "text", value: b.nombre || "", maxLength: 9 });
+        Object.assign(iNom.dataset, { index: i, field: "nombre" });
+        cNom.appendChild(iNom);
+    });
+}
 
-        /** Recolecta datos de tablas basadas en un objeto (domoticz, time). */
-        function collectObjectData(selector, objectName, originalData) {
-            const inputs = document.querySelectorAll(selector);
-            
-            inputs.forEach(input => {
-                const field = input.dataset.field;
-                originalData[objectName][field] = input.value;
-            });
-        }
-
-        /** Función principal para recopilar todos los cambios. */
-        function collectChanges() {
-            // Clonar los datos originales para trabajar sobre ellos
-            const updatedData = JSON.parse(JSON.stringify(originalJsonData));
-            collectArrayData("#botonesTableBody input", 'botones', updatedData);
-            collectArrayData("#gruposTableBody input", 'grupos', updatedData);
-            collectObjectData("#domoticzTableBody input", 'domoticz', updatedData);
-            collectObjectData("#timeTableBody input", 'time', updatedData);
-            return updatedData;
-        }
-
-        /** Guarda los cambios en el servidor usando async/await. */
-        async function saveChanges() {
-            const updatedData = collectChanges();
-            try {
-                const response = await fetch('/api/save_config', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatedData, null, 2)
-                });
-
-                if (response.ok) {
-                    if (confirm("Cambios guardados correctamente. ¿Desea reiniciar el sistema para aplicar los cambios?")) {
-                        window.location.href = '/api/restart';
-                    } else {
-                        window.location.href = 'parmfile.htm';
-                    }
-                } else {
-                    alert("Error al guardar los cambios.");
-                }
-            } catch (error) {
-                console.error("Error al guardar el archivo JSON:", error);
-                alert("Ocurrió un error al intentar guardar los cambios.");
-            }
-        }
+function loadGruposTable(grupos) {
+    const body = document.getElementById("gruposTableBody");
+    body.innerHTML = "";
+    grupos.forEach((g, i) => {
+        const row = body.insertRow();
+        row.insertCell().innerHTML = `<span class="orla-a">${g.grupo || i + 1}</span>`;
         
-        /** Abre la vista de edición en crudo, pasando los cambios a través de sessionStorage. */
-        function editRaw() {
-            // 1. Recoger los cambios de la pantalla de edición
-            const currentData = collectChanges();
-            // 2. Almacenar el JSON actualizado en sessionStorage (clave temporal)
-            try {
-                sessionStorage.setItem('tempRawData', JSON.stringify(currentData));
-            } catch (e) {
-                console.error("Error saving data to sessionStorage:", e);
-                alert("No se pudo transferir los cambios a la edición RAW. Intente Guardar primero.");
-                return; // Detiene la redirección si falla
-            }
-            // 3. Redirigir a la página RAW, incluyendo un parámetro para que sepa dónde buscar.
-            window.open(`parmfile_editRaw.htm?file=${fileName}&source=tempRawData`, '_self'); 
-        }        
+        const iDesc = document.createElement("input");
+        Object.assign(iDesc, { type: "text", value: g.desc || "", maxLength: 9 });
+        Object.assign(iDesc.dataset, { index: i, field: "desc" });
+        row.insertCell().appendChild(iDesc);
 
-        /**
-        * Fusiona 'data' sobre 'template' (el template define la estructura y el orden).
-        * Prioriza los valores de 'data' y preserva claves extra de 'data' no presentes en 'template'.
-        */
-        function mergeWithTemplate(data, template) {
-            if (!data || typeof data !== 'object' || Array.isArray(data) !== Array.isArray(template)) {
-                // 1. Devuelve el template clonado si no hay datos válidos.
-                return JSON.parse(JSON.stringify(template));
-            }
-            // 2. Inicializar el resultado con data, ya que data puede tener campos extra.
-            const merged = Array.isArray(data) ? [...data] : { ...data };
-            // 3. Manejo de Arrays
-            if (Array.isArray(template)) {
-                if (template.length > 0 && typeof template[0] === 'object') {
-                    const idKey = Object.keys(template[0])[0];
-                    const dataMap = new Map();
-                    data.forEach(item => {
-                        if (item && item[idKey] !== undefined) {
-                            dataMap.set(item[idKey], item);
-                        }
-                    });
-                    for (let i = 0; i < template.length; i++) {
-                        const templateItem = template[i];
-                        const templateId = templateItem[idKey];
-                        if (templateId !== undefined && dataMap.has(templateId)) {
-                            const dataItem = dataMap.get(templateId);
-                            merged[i] = mergeWithTemplate(dataItem, templateItem);
-                        } else {
-                            merged[i] = JSON.parse(JSON.stringify(templateItem));
-                        }
-                    }
-                    merged.length = template.length; // Devolver solo el rango definido por el template (ej: 9 botones, 4 grupos)
-                    return merged;
-                } else {
-                    return merged;
+        const iZon = document.createElement("input");
+        Object.assign(iZon, { type: "text", maxLength: 17 });
+        iZon.value = Array.isArray(g.zonas) ? g.zonas.join(",") : (g.zonas || "");
+        Object.assign(iZon.dataset, { index: i, field: "zonas" });
+        row.insertCell().appendChild(iZon);
+    });
+}
+
+function loadTables(d) {
+    loadBotonesTable(d.botones || []);
+    loadGruposTable(d.grupos || []);
+    loadSimpleTable(d.domoticz || {}, "domoticzTableBody");
+    loadSimpleTable(d.time || {}, "timeTableBody");
+}
+
+// --- Persistencia ---
+
+function collectChanges() {
+    const d = JSON.parse(JSON.stringify(originalJsonData));
+    
+    document.querySelectorAll("#botonesTableBody input").forEach(i => {
+        const v = i.dataset.field === 'idx' ? (parseInt(i.value) || 0) : i.value;
+        d.botones[i.dataset.index][i.dataset.field] = v;
+    });
+
+    document.querySelectorAll("#gruposTableBody input").forEach(i => {
+        const v = i.dataset.field === 'zonas' ? (i.value.split(",").map(Number).filter(n => n > 0)) : i.value;
+        d.grupos[i.dataset.index][i.dataset.field] = v;
+    });
+
+    ["domoticz", "time"].forEach(key => {
+        document.querySelectorAll(`#${key}TableBody input`).forEach(i => {
+            d[key][i.dataset.field] = i.value;
+        });
+    });
+    return d;
+}
+
+async function saveChanges() {
+    try {
+        // Pasamos el segundo parámetro como 'hasChanges' para que apiSaveConfig decida si es necesario reiniciar o no
+        console.log("Guardando cambios...hasChanges=", hasChanges);
+        await apiSaveConfig(collectChanges(), hasChanges, false);
+    } catch (e) { /* Error gestionado en funciones.js */ }
+}
+
+function processCancel() {
+    if (hasChanges && !confirm("Perder cambios?")) return;
+    hasChanges = false;
+    sessionStorage.removeItem('tempRawData');
+    window.location.href = 'parmfile.htm';
+}
+
+function editRaw() {
+    if (hasChanges) {
+        // Solo si hay cambios, guardamos en sesión y pasamos el parámetro source
+        sessionStorage.setItem('tempRawData', JSON.stringify(collectChanges()));
+        hasChanges = false;
+        window.open(`parmfile_editRaw.htm?file=${fileName}&source=tempRawData`, '_self');
+    } else {
+        // Si NO hay cambios, vamos directos. parmfile_editRaw cargará el archivo del servidor
+        window.open(`parmfile_editRaw.htm?file=${fileName}`, '_self');
+    }
+}
+
+/**
+* Fusiona 'data' sobre 'template' (el template define la estructura y el orden).
+* Prioriza los valores de 'data' y preserva claves extra de 'data' no presentes en 'template'.
+*/
+function mergeWithTemplate(data, template) {
+    if (!data || typeof data !== 'object' || Array.isArray(data) !== Array.isArray(template)) {
+        // 1. Devuelve el template clonado si no hay datos válidos.
+        return JSON.parse(JSON.stringify(template));
+    }
+    // 2. Inicializar el resultado con data, ya que data puede tener campos extra.
+    const merged = Array.isArray(data) ? [...data] : { ...data };
+    // 3. Manejo de Arrays
+    if (Array.isArray(template)) {
+        if (template.length > 0 && typeof template[0] === 'object') {
+            const idKey = Object.keys(template[0])[0];
+            const dataMap = new Map();
+            data.forEach(item => {
+                if (item && item[idKey] !== undefined) {
+                    dataMap.set(item[idKey], item);
                 }
-            } else {
-                // 4. Manejo de Objetos
-                Object.keys(template).forEach(key => {
-                    const templateValue = template[key];
-                    const dataValue = data[key];
-                    if (!(key in data)) {
-                        merged[key] = JSON.parse(JSON.stringify(templateValue));
-                        return;
-                    }
-                    if (typeof templateValue === 'object' && templateValue !== null) {
-                        merged[key] = mergeWithTemplate(dataValue, templateValue);
-                    }
-                });
-                return merged;
+            });
+            for (let i = 0; i < template.length; i++) {
+                const templateItem = template[i];
+                const templateId = templateItem[idKey];
+                if (templateId !== undefined && dataMap.has(templateId)) {
+                    const dataItem = dataMap.get(templateId);
+                    merged[i] = mergeWithTemplate(dataItem, templateItem);
+                } else {
+                    merged[i] = JSON.parse(JSON.stringify(templateItem));
+                }
             }
+            merged.length = template.length; // Devolver solo el rango definido por el template (ej: 9 botones, 4 grupos)
+            return merged;
+        } else {
+            return merged;
         }
-
-    </script>
+    } else {
+        // 4. Manejo de Objetos
+        Object.keys(template).forEach(key => {
+            const templateValue = template[key];
+            const dataValue = data[key];
+            if (!(key in data)) {
+                merged[key] = JSON.parse(JSON.stringify(templateValue));
+                return;
+            }
+            if (typeof templateValue === 'object' && templateValue !== null) {
+                merged[key] = mergeWithTemplate(dataValue, templateValue);
+            }
+        });
+        return merged;
+    }
+}
+</script>
 </body>
 </html>

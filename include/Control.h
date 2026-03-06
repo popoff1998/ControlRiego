@@ -543,6 +543,7 @@ void displayLCDGrupo(bool, int line=4, int znumber=0);
 int  displayLCDGrupo(uint16_t *, int, int , int );
 void displayMultiTemporal(void);
 void displayNoFactorizado(void);
+void displayRestar();
 void displayTimer(uint8_t, uint8_t, uint8_t, uint8_t);
 void displayEstadoRemoto(estado_tipos tipo);
 void enciendeLeds(void);
