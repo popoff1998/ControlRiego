@@ -1610,7 +1610,7 @@ bool stopAllRiegos()
             allRiegoOK = false; // Marcamos que el lote falló
             // Salimos inmediatamente tras el primer error general
             if (Estado.error == E1 || Estado.error == E2) return false;
-            retries = 1; // Reducimos el número de reintentos para las siguientes zonas
+            retries = (retries > 1) ? retries - 1 : 1; // Decrementamos el número de reintentos para las siguientes zonas
         }
     }
     return allRiegoOK; // Retornamos el resultado del lote

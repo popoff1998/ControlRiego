@@ -4,6 +4,7 @@ table {
     border-collapse: collapse;
     width: var(--table-base-width);
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    margin: 0 auto;
 }
 th, td {
     border: 0.06em solid #898787;

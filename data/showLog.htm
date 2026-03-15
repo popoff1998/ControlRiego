@@ -9,24 +9,14 @@
   <link rel="stylesheet" href="/style_tableFiles.css">
   <style>
     .table-container { max-width: 900px; margin: auto; }
-    h2 { margin-top: 2em; margin-bottom: 0; } 
+    h2 { margin-top: 1em; margin-bottom: 0; } 
     .header-and-info-container {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      margin: 2em auto 0.5em auto;
-      max-width: 900px;
-    }
+      display: flex;justify-content: space-between;align-items: baseline;
+      margin: 2em auto 0.5em auto;max-width: 900px;}
     .table-info {color: gray; }
-    table.files-table th, table.files-table td {
-      text-align: center;
-      vertical-align: middle;
-    }
+    table.files-table th, table.files-table td {text-align: center;vertical-align: middle;}
     @media (max-width: 600px) {
-      .table-container { max-width: 100%; }
-      table { font-size: 0.95em; }
-      th, td { padding: 4px; }
-    }
+      .table-container { max-width: 100%; } table { font-size: 0.95em; } th, td { padding: 4px; }}
     .status-on { background: #b6fcb6 !important; }
     .status-off { background: #ffb6b6 !important; }
   </style>
@@ -34,53 +24,54 @@
 <body>
   <div class="table-container">
     <h1 style="margin-top: 20px;">Log de riegos en Domoticz</h1>
+    <a href="/index.htm" class="back">← Home</a>
     <div class="header-and-info-container">
       <h2 id="titulo">Log de Zona</h2>
       <div class="table-info" id="infoDias">(*últimos - días)</div>
     </div>
-    <table class="files-table" id="tablaLog" style="margin: 0 auto;">
+    <table class="files-table" id="tablaLog">
       <thead><tr><th>Fecha</th><th>Estado</th><th>Usuario</th></tr></thead>
       <tbody><!-- Rows will be dynamically added here --></tbody>
     </table>
   </div>
 <script src="/funciones.js"></script>
 <script>
-    function getParam(name) {
-        const url = new URL(window.location.href);
-        return url.searchParams.get(name);
-    }
-    // Obtener la zona y actualizar el título
-    const zona = getParam('zona');
-    document.getElementById('titulo').textContent = `ZONA ${zona}`;
+function getParam(name) {
+    const url = new URL(window.location.href);
+    return url.searchParams.get(name);
+}
+// Obtener la zona y actualizar el título
+const zona = getParam('zona');
+document.getElementById('titulo').textContent = `ZONA ${zona}`;
 
-    window.addEventListener("load", async () => {
-        const tbody = document.querySelector('#tablaLog tbody');
-        try {
-            // 1. Obtener configuración (para mostrar numero de dias en el log)
-            const config = await getServerConfig();
-            document.getElementById('infoDias').textContent = `(*últimos ${config.logDays || 15} días)`;
-            // 2. Cargar datos del log usando la ruta de la API
-            const data = await apiGetJson(`/api/showZONElog?zona=${zona}`);
-            if (!data.result || !Array.isArray(data.result)) {
-                tbody.innerHTML = '<tr><td colspan="3">No hay datos de log</td></tr>';
-                return;
-            }
-            data.result.forEach(entry => {
-                const tr = document.createElement('tr');
-                // Estado con color
-                let estadoClass = entry.Status === "On" ? "status-on" : "status-off";
-                tr.innerHTML = `
-                    <td data-label="Fecha">${entry.Date || "-"}</td>
-                    <td data-label="Estado" class="${estadoClass}">${entry.Status || "-"}</td>
-                    <td data-label="Usuario" class="force-wrap">${entry.User || "-"}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        } catch (error) {
-            console.error("Error al cargar el log de zona:", error);
-            tbody.innerHTML = '<tr><td colspan="3">No se pudo cargar el log.</td></tr>';
-        }
-    });
+window.addEventListener("load", async () => {
+  const tbody = document.querySelector('#tablaLog tbody');
+  try {
+      // 1. Obtener configuración (para mostrar numero de dias en el log)
+      const config = await getServerConfig();
+      document.getElementById('infoDias').textContent = `(*últimos ${config.logDays || 15} días)`;
+      // 2. Cargar datos del log usando la ruta de la API
+      const data = await apiGetJson(`/api/showZONElog?zona=${zona}`);
+      if (!data.result || !Array.isArray(data.result)) {
+          tbody.innerHTML = '<tr><td colspan="3">No hay datos de log</td></tr>';
+          return;
+      }
+      data.result.forEach(entry => {
+          const tr = document.createElement('tr');
+          // Estado con color
+          let estadoClass = entry.Status === "On" ? "status-on" : "status-off";
+          tr.innerHTML = `
+              <td data-label="Fecha">${entry.Date || "-"}</td>
+              <td data-label="Estado" class="${estadoClass}">${entry.Status || "-"}</td>
+              <td data-label="Usuario" class="force-wrap">${entry.User || "-"}</td>
+          `;
+          tbody.appendChild(tr);
+      });
+  } catch (error) {
+      console.error("Error al cargar el log de zona:", error);
+      tbody.innerHTML = '<tr><td colspan="3">No se pudo cargar el log.</td></tr>';
+  }
+});
 </script>
 </body>
 </html>

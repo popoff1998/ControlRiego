@@ -34,8 +34,7 @@
   
 <body>
     <h1 style="margin-top: 20px;">Gestión fichero de parámetros</h1>
-
-    <button class="back-button" onclick="window.location.href='/index.htm'">← Volver</button>
+    <a href="/index.htm" class="back">← Home</a>
     <div id="restartBanner" class="restart-banner">⚠️ Hay cambios guardados pendientes de aplicar. 
         <button onclick="sessionStorage.removeItem('needsRestart'); window.location.href='/api/restart'">Reiniciar ahora</button>
     </div>
@@ -48,13 +47,13 @@
         </form>
     </div>
     <h3>Fichero de Parámetros en la CCR: </h3>
-    <table style="margin: 0 auto;">
+    <table>
         <thead><tr><th>Nombre</th><th>Tamaño</th><th>Timestamp</th><th>Acción</th></tr></thead>
         <tbody id="parmTableBody"></tbody>
     </table>
     
     <h3>Fichero de Backup en la CCR:</h3>
-    <table style="margin: 0 auto;">
+    <table>
         <thead><tr><th>Nombre</th><th>Tamaño</th><th>Timestamp</th><th>Acción</th></tr></thead>
         <tbody id="backupTableBody"></tbody>
     </table>

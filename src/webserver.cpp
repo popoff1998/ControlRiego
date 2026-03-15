@@ -418,11 +418,26 @@ void handleDownload() {
   }
 }
 
+void handleUploadPage() {
+  // 1. Verificar si se pide custom y si existe el archivo
+  if (wserver.hasArg("page") && wserver.arg("page") == "custom") {
+      if (LittleFS.exists("/upload.htm")) {
+          serveFile("/upload.htm");
+       return;
+      }
+      LOG_WARN("Custom Upload page requested but /upload.htm not found."); 
+  }
+  // 2. Si no, servir la de PROGMEM
+  LOG_INFO("Serving builtin page");
+  wserver.send(200, "text/html", FPSTR(uploadContent));
+}
+
 // Devuelve un JSON con variables de interés para el cliente (ej. logDays, showtest_section, etc.)
 void handleServerVars() {
     // Calculamos los valores dinámicos antes de llenar el JSON
     uint32_t maxFirmwareSize = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000; //0x1000 (margen de seguridad) y alineado a 4KB
     uint32_t maxFSSize = LittleFS.totalBytes();
+    uint32_t freeFSSize = maxFSSize - LittleFS.usedBytes();
 
     JsonDocument doc;
     doc["parmFile"]      = parmFile;
@@ -437,6 +452,7 @@ void handleServerVars() {
     doc["showTest"]      = showtest_section;
     doc["maxFW"]         = maxFirmwareSize;
     doc["maxFS"]         = maxFSSize;
+    doc["freeFS"]        = freeFSSize;
     String response;
     serializeJson(doc, response);
     wserver.send(200, "application/json", response);    
@@ -454,7 +470,7 @@ void handleServerVars() {
 // ------------------------------------------------------------------------
 class FileServerHandler : public RequestHandler {
     public:
-      FileServerHandler() { }
+      FileServerHandler() : _uploadErrorSent(false) { }
       bool canHandle(HTTPMethod requestMethod, String uri) override {
         LOG_TRACE("uri:", uri, "Method:", requestMethod);
         // Intercept GET requests for existing files so we can perform cache control and gzip handling in serveFile().
@@ -496,10 +512,17 @@ class FileServerHandler : public RequestHandler {
             return true;
           } else return false; // Not found here; let others handle
         }
+
         if (requestMethod == HTTP_POST) {
-          LOG_DEBUG("POST request for:", fName);
-          handleOK = true;
+          LOG_DEBUG("POST request finished for:", fName);
+          // SI HUBO ERROR EN UPLOAD:
+          if (_uploadErrorSent) {
+            _uploadErrorSent = false; // Reset para la próxima petición
+            return true; // Salimos sin enviar nada más, upload() ya respondió
+          }
+          handleOK = true; // Todo fue bien
         }
+
         if (requestMethod == HTTP_COPY) {
           String fileFrom , fileTo;
           if (fName == "/BACKUP") {fileFrom = parmFile; fileTo = backupParmFile;}
@@ -507,6 +530,7 @@ class FileServerHandler : public RequestHandler {
           LOG_DEBUG("Copying file from ", fileFrom, " to ", fileTo);
           handleOK = copyFile(fileFrom.c_str(), fileTo.c_str());
         }  
+
         if (requestMethod == HTTP_DELETE) {
           if (LittleFS.exists(fName)) {
             // Si el archivo es el log, forzamos el cierre total
@@ -529,18 +553,20 @@ class FileServerHandler : public RequestHandler {
           wserver.send(200, "text/plain", "OK");
           return (true);
         } else {
-          wserver.send(500, "text/plain", "ERROR");
+          // Solo enviamos error si no se ha enviado ya en upload()
+          if (!_uploadErrorSent) wserver.send(500, "text/plain", "ERROR");
+          _uploadErrorSent = false; 
           LOG_ERROR("Handle request error for:", fName);
-          return (false);
+          return false;
         }
       }
+
       void upload(WebServer UNUSED &server, String UNUSED _requestUri, HTTPUpload &upload) override {
         const size_t MAX_UPLOAD_BYTES = MAX_UPLOAD_KBYTES*1024UL;
         static size_t uploadSize;
-        static bool uploadTooLarge = false;
 
         if (upload.status == UPLOAD_FILE_START) {
-          uploadTooLarge = false;
+          _uploadErrorSent = false;
           uploadSize = 0;
           String fName = upload.filename; // puede venir como "/subdir/FILE.bin" (por el cliente)
           // asegurar que empieza por '/'
@@ -551,7 +577,7 @@ class FileServerHandler : public RequestHandler {
           if (fName.indexOf("..") != -1) {
             LOG_WARN("Upload rejected: filename contains '..' ->", fName);
             wserver.send(400, "text/plain", "Invalid filename");
-            uploadTooLarge = true;
+            _uploadErrorSent = true;
             return;
           }
           // OPCIONAL: limitar uploads a un directorio raíz (por seguridad). Cambia a "/" para permitir todo.
@@ -581,7 +607,7 @@ class FileServerHandler : public RequestHandler {
           if (upload.totalSize > 0 && (size_t)upload.totalSize > MAX_UPLOAD_BYTES) {
             LOG_WARN("Upload rejected: declared size exceeds limit:", upload.totalSize);
             wserver.send(413, "text/plain", "File too large");
-            uploadTooLarge = true;
+            _uploadErrorSent = true;
             return;
           }
           if (LittleFS.exists(fName)) LittleFS.remove(fName);
@@ -589,11 +615,11 @@ class FileServerHandler : public RequestHandler {
           if (!_fsUploadFile) {
             LOG_ERROR("Cannot open file for upload:", fName);
             wserver.send(500, "text/plain", "Internal Server Error. Cannot open file for writing");
-            uploadTooLarge = true;
+            _uploadErrorSent = true;
             return;
           }
         } else if (upload.status == UPLOAD_FILE_WRITE) {
-          if (uploadTooLarge) return; // ya rechazado
+          if (_uploadErrorSent) return; // ya rechazado
           if (_fsUploadFile) {
             size_t written = _fsUploadFile.write(upload.buf, upload.currentSize);
             if (written < upload.currentSize) {
@@ -603,19 +629,19 @@ class FileServerHandler : public RequestHandler {
               if (!fName.startsWith("/")) { fName = "/" + fName; }
               LittleFS.remove(fName);
               wserver.send(500, "text/plain", "Write error");
-              uploadTooLarge = true;
+              _uploadErrorSent = true;
               return;
             }
             uploadSize += upload.currentSize;
             // Si el tamaño real supera el límite, cortar y notificar
             if (uploadSize > MAX_UPLOAD_BYTES) {
-              LOG_WARN("Upload exceeded size limit, aborting. bytes:", uploadSize);
+              LOG_WARN("File", upload.filename ,"exceeded size limit, aborting. Limit bytes:", MAX_UPLOAD_BYTES);
               _fsUploadFile.close();
               String fName = upload.filename;
               if (!fName.startsWith("/")) { fName = "/" + fName; }
               LittleFS.remove(fName);
-              uploadTooLarge = true;
               wserver.send(413, "text/plain", "File too large");
+              _uploadErrorSent = true;
               return;
             }
           }
@@ -630,6 +656,7 @@ class FileServerHandler : public RequestHandler {
       }
     protected:
       File _fsUploadFile;
+      bool _uploadErrorSent;
 };
 
 // ---------------------------
@@ -638,7 +665,7 @@ class FileServerHandler : public RequestHandler {
 void defWebpagesHandles() {
     wserver.on("/", HTTP_GET, handleRedirect);
     // paginas html (las builting comienzan por $)
-    wserver.on("/$upload",     HTTP_GET, []() { wserver.send(200, "text/html", FPSTR(uploadContent)); }); // serve a built-in htm page
+    wserver.on("/$upload",         HTTP_GET,  handleUploadPage); // sirve la pagina de upload (custom o builtin)
     wserver.on("/advanced.htm",    HTTP_GET,  handleAdvancedPage); // requiere auth
     wserver.on("/errores.htm",     HTTP_GET,  handleListLogs); // fuerza cierre ficheros para actualizar timestamps
     wserver.on("/parmfile_editRaw.htm",    HTTP_GET,  handleEditRawPage); // requiere auth

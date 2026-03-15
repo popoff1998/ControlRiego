@@ -18,7 +18,7 @@
 </head>
 <body>
     <h1>Editar parámetros de configuración BÁSICOS</h1>
-    
+    <a href="/index.htm" class="back">← Home</a>
     <h2>Botones</h2>
     <p>Nombre: max. 9 caracteres.</p>
     <p>Idx = 0 para zonas no asignadas.</p>
@@ -67,32 +67,31 @@ window.addEventListener("load", async () => {
         fileName = urlParams.get('file') || config.parmFile;
         const source = urlParams.get('source');
         const sessionData = sessionStorage.getItem('tempRawData');
+        let template, dataServidor;
         // 1. Prioridad: ¿Venimos de EditRaw con cambios pendientes?
         if (source === 'tempRawData' && sessionData) {
             console.log("Recuperando borrador de la sesión...");
-            const editedData = JSON.parse(sessionData);
-            // Cargamos solo el template para asegurar la estructura
-            const template = await apiGetJson('/templateParm.json').catch(() => ({}));
-            originalJsonData = mergeWithTemplate(editedData, template);
-            hasChanges = true; // Marcamos que hay cambios respecto al archivo real
+            template = await apiGetJson('/templateParm.json').catch(() => ({}));
+            dataServidor = JSON.parse(sessionData);
+            hasChanges = true; 
         } 
         // 2. Carga normal desde el servidor
         else {
-            console.log("Cargando archivo desde el servidor:", fileName);
-            const [template, editedData] = await Promise.all([
+            console.log("Cargando archivo:", fileName);
+            [template, dataServidor] = await Promise.all([
                 apiGetJson('/templateParm.json').catch(() => ({})),
                 apiGetJson(fileName).catch(() => ({}))
             ]);
-            originalJsonData = mergeWithTemplate(editedData, template);
             hasChanges = false;
         }
+        originalJsonData = mergeWithTemplate(dataServidor, template);
         loadTables(originalJsonData);
-        // Listeners para detectar cambios
         document.body.addEventListener("input", (e) => {
             if (e.target.tagName === "INPUT") {
                 hasChanges = true;
-                if (e.target.dataset.field === "idx") validateIdx(e.target);
-                if (e.target.dataset.field === "zonas") validateZonas(e);
+                const field = e.target.dataset.field;
+                if (field === "idx") validateIdx(e.target);
+                if (field === "zonas") validateZonas(e.target);
             }
         });
     } catch (e) {
@@ -108,89 +107,80 @@ function validateIdx(el) {
     el.closest("td").classList.toggle("highlight-zero", parseInt(el.value) === 0);
 }
 
-function validateZonas(e) {
-    let v = e.target.value.replace(/[^1-9,]/g, "").replace(/,{2,}/g, ",");
-    e.target.value = v.replace(/(\d)(?=\d)/g, "$1,");
+function validateZonas(el) {
+    let v = el.value.replace(/[^1-9,]/g, "").replace(/,{2,}/g, ",");
+    el.value = v.replace(/(\d)(?=\d)/g, "$1,");
 }
 
-function loadBotonesTable(botones) {
-    const body = document.getElementById("botonesTableBody");
-    body.innerHTML = "";
-    botones.forEach((b, i) => {
-        const row = body.insertRow();
-        row.insertCell().innerHTML = `<span class="orla-v">${b.zona || i + 1}</span>`;
-        
-        const cIdx = row.insertCell();
-        const iIdx = document.createElement("input");
-        Object.assign(iIdx, { type: "number", value: b.idx || 0 });
-        Object.assign(iIdx.dataset, { index: i, field: "idx" });
-        cIdx.appendChild(iIdx);
-        if (!b.idx) cIdx.className = "highlight-zero";
-
-        const cNom = row.insertCell();
-        const iNom = document.createElement("input");
-        Object.assign(iNom, { type: "text", value: b.nombre || "", maxLength: 9 });
-        Object.assign(iNom.dataset, { index: i, field: "nombre" });
-        cNom.appendChild(iNom);
-    });
+// --- Lógica de Datos ---
+function mergeWithTemplate(data, template) {
+    if (!data || typeof data !== 'object') return JSON.parse(JSON.stringify(template));
+    if (Array.isArray(template)) {
+        const k = 'zona' in template[0] ? 'zona' : 'grupo';
+        return template.map(tItem => {
+            const dItem = data.find(d => d[k] === tItem[k]);
+            return dItem ? { ...tItem, ...dItem } : { ...tItem };
+        });
+    }
+    const merged = { ...data };
+    for (const key in template) {
+        if (typeof template[key] === 'object' && template[key] !== null) {
+            merged[key] = mergeWithTemplate(data[key], template[key]);
+        } else if (merged[key] === undefined) {
+            merged[key] = template[key];
+        }
+    }
+    return merged;
 }
 
-function loadGruposTable(grupos) {
-    const body = document.getElementById("gruposTableBody");
-    body.innerHTML = "";
-    grupos.forEach((g, i) => {
-        const row = body.insertRow();
-        row.insertCell().innerHTML = `<span class="orla-a">${g.grupo || i + 1}</span>`;
-        
-        const iDesc = document.createElement("input");
-        Object.assign(iDesc, { type: "text", value: g.desc || "", maxLength: 9 });
-        Object.assign(iDesc.dataset, { index: i, field: "desc" });
-        row.insertCell().appendChild(iDesc);
+const loadArrayTable = (list, idBody) => {
+    const isZonas = idBody.includes("botones");
+    document.getElementById(idBody).innerHTML = list.map((item, i) => `
+        <tr>
+            <td><span class="${isZonas ? 'orla-v' : 'orla-a'}">${isZonas ? item.zona : item.grupo}</span></td>
+            ${isZonas ? `
+                <td class="${!item.idx ? 'highlight-zero' : ''}"><input type="number" value="${item.idx || 0}" data-field="idx"></td>
+                <td><input type="text" value="${item.nombre || ''}" maxlength="9" data-field="nombre"></td>
+            ` : `
+                <td><input type="text" value="${item.desc || ''}" maxlength="9" data-field="desc"></td>
+                <td><input type="text" value="${Array.isArray(item.zonas) ? item.zonas.join(",") : ''}" data-field="zonas" maxlength="17"></td>
+            `}
+        </tr>`).join('');
+};
 
-        const iZon = document.createElement("input");
-        Object.assign(iZon, { type: "text", maxLength: 17 });
-        iZon.value = Array.isArray(g.zonas) ? g.zonas.join(",") : (g.zonas || "");
-        Object.assign(iZon.dataset, { index: i, field: "zonas" });
-        row.insertCell().appendChild(iZon);
-    });
+function loadSimpleTable(obj, id) {
+    document.getElementById(id).innerHTML = Object.entries(obj).map(([k, v]) => `
+        <tr><td>${k}</td><td><input type="text" value="${v}" data-field="${k}"></td></tr>`).join('');
 }
 
 function loadTables(d) {
-    loadBotonesTable(d.botones || []);
-    loadGruposTable(d.grupos || []);
+    loadArrayTable(d.botones || [], "botonesTableBody");
+    loadArrayTable(d.grupos || [], "gruposTableBody");
     loadSimpleTable(d.domoticz || {}, "domoticzTableBody");
     loadSimpleTable(d.time || {}, "timeTableBody");
 }
 
-// --- Persistencia ---
-
 function collectChanges() {
     const d = JSON.parse(JSON.stringify(originalJsonData));
-    
-    document.querySelectorAll("#botonesTableBody input").forEach(i => {
-        const v = i.dataset.field === 'idx' ? (parseInt(i.value) || 0) : i.value;
-        d.botones[i.dataset.index][i.dataset.field] = v;
+    document.querySelectorAll("#botonesTableBody tr").forEach((tr, i) => {
+        const ins = tr.querySelectorAll("input");
+        d.botones[i].idx = parseInt(ins[0].value) || 0;
+        d.botones[i].nombre = ins[1].value;
     });
-
-    document.querySelectorAll("#gruposTableBody input").forEach(i => {
-        const v = i.dataset.field === 'zonas' ? (i.value.split(",").map(Number).filter(n => n > 0)) : i.value;
-        d.grupos[i.dataset.index][i.dataset.field] = v;
+    document.querySelectorAll("#gruposTableBody tr").forEach((tr, i) => {
+        const ins = tr.querySelectorAll("input");
+        d.grupos[i].desc = ins[0].value;
+        d.grupos[i].zonas = ins[1].value.split(",").map(Number).filter(n => n > 0);
     });
-
     ["domoticz", "time"].forEach(key => {
-        document.querySelectorAll(`#${key}TableBody input`).forEach(i => {
-            d[key][i.dataset.field] = i.value;
-        });
+        document.querySelectorAll(`#${key}TableBody input`).forEach(i => d[key][i.dataset.field] = i.value);
     });
     return d;
 }
 
 async function saveChanges() {
-    try {
-        // Pasamos el segundo parámetro como 'hasChanges' para que apiSaveConfig decida si es necesario reiniciar o no
-        console.log("Guardando cambios...hasChanges=", hasChanges);
-        await apiSaveConfig(collectChanges(), hasChanges, false);
-    } catch (e) { /* Error gestionado en funciones.js */ }
+    console.log("Guardando cambios...hasChanges=", hasChanges);
+    try { await apiSaveConfig(collectChanges(), hasChanges, false); } catch (e) {}
 }
 
 function processCancel() {
@@ -202,66 +192,13 @@ function processCancel() {
 
 function editRaw() {
     if (hasChanges) {
-        // Solo si hay cambios, guardamos en sesión y pasamos el parámetro source
+        // Guardamos el borrador y desactivamos la bandera para que onbeforeunload no moleste
         sessionStorage.setItem('tempRawData', JSON.stringify(collectChanges()));
-        hasChanges = false;
-        window.open(`parmfile_editRaw.htm?file=${fileName}&source=tempRawData`, '_self');
+        hasChanges = false; 
+        window.location.href =`parmfile_editRaw.htm?file=${fileName}&source=tempRawData`, '_self';
     } else {
-        // Si NO hay cambios, vamos directos. parmfile_editRaw cargará el archivo del servidor
-        window.open(`parmfile_editRaw.htm?file=${fileName}`, '_self');
-    }
-}
-
-/**
-* Fusiona 'data' sobre 'template' (el template define la estructura y el orden).
-* Prioriza los valores de 'data' y preserva claves extra de 'data' no presentes en 'template'.
-*/
-function mergeWithTemplate(data, template) {
-    if (!data || typeof data !== 'object' || Array.isArray(data) !== Array.isArray(template)) {
-        // 1. Devuelve el template clonado si no hay datos válidos.
-        return JSON.parse(JSON.stringify(template));
-    }
-    // 2. Inicializar el resultado con data, ya que data puede tener campos extra.
-    const merged = Array.isArray(data) ? [...data] : { ...data };
-    // 3. Manejo de Arrays
-    if (Array.isArray(template)) {
-        if (template.length > 0 && typeof template[0] === 'object') {
-            const idKey = Object.keys(template[0])[0];
-            const dataMap = new Map();
-            data.forEach(item => {
-                if (item && item[idKey] !== undefined) {
-                    dataMap.set(item[idKey], item);
-                }
-            });
-            for (let i = 0; i < template.length; i++) {
-                const templateItem = template[i];
-                const templateId = templateItem[idKey];
-                if (templateId !== undefined && dataMap.has(templateId)) {
-                    const dataItem = dataMap.get(templateId);
-                    merged[i] = mergeWithTemplate(dataItem, templateItem);
-                } else {
-                    merged[i] = JSON.parse(JSON.stringify(templateItem));
-                }
-            }
-            merged.length = template.length; // Devolver solo el rango definido por el template (ej: 9 botones, 4 grupos)
-            return merged;
-        } else {
-            return merged;
-        }
-    } else {
-        // 4. Manejo de Objetos
-        Object.keys(template).forEach(key => {
-            const templateValue = template[key];
-            const dataValue = data[key];
-            if (!(key in data)) {
-                merged[key] = JSON.parse(JSON.stringify(templateValue));
-                return;
-            }
-            if (typeof templateValue === 'object' && templateValue !== null) {
-                merged[key] = mergeWithTemplate(dataValue, templateValue);
-            }
-        });
-        return merged;
+        // Sin cambios, vamos directos sin el parámetro source
+        window.location.href =`parmfile_editRaw.htm?file=${fileName}`, '_self';
     }
 }
 </script>

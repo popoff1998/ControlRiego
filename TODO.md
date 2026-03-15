@@ -85,4 +85,5 @@
 - Centralizacion de la mayoria de la UI (display, leds, sonidos) en setEstado y statusError V3.3
 - Log de errores a fichero consultable desde el webserver V3.3
 - Lectura sensor temperatura remoto cambia a local tras 15 min sin lecturas V3.3
+- Si error en parámetros (E0) Stop activa webserver V3.3
 

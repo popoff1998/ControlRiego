@@ -27,6 +27,7 @@ h3 { color:#555; font-size:0.9em; }
 a { text-decoration: none; /* Elimina el subrayado */
     font-size: 1.2em; color: #0174ee; /* Color del enlace */ }
 a:hover { color: rgb(26, 7, 240); }
+.back { text-decoration:none;font-size:14px;color:var(--theme-color) }
 .muted { color:#828282; font-size:0.9em }
 .menu-big { padding-left: 4em; padding-top: 2em; font-size: 1.2em; }
 .menu { padding-left: 2em; font-size: 1.2em; }
@@ -64,4 +65,4 @@ a:hover { color: rgb(26, 7, 240); }
 .clicable { cursor: pointer; transition: transform 0.1s; }
 .clicable:active { transform: scale(0.9); }
 /* Ajuste para pantallas grandes (Escritorio) */
-@media (min-width: 601px) { .orla-v, .orla-a { width: 42px; height: 42px; font-size: 1em; } }    
+@media (min-width: 601px) { .orla-v, .orla-a { width: 42px; height: 42px; font-size: 1em; } }

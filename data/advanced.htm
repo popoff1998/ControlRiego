@@ -6,6 +6,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
+    .warn-icon {display: none;color: #ff9800;cursor: help;font-weight: bold;margin: 0 4px;vertical-align: text-bottom;}    
     /* Ocultamos la sección por defecto para evitar el parpadeo */
     #testingSection { display: none; }
     .muted { color: #888; font-size: 0.8em; margin-top: 20px; text-align: center; }
@@ -24,15 +25,20 @@
       <p style="font-weight:bold;">OTA & File management:</p>
       <ul>
         <p style="color: red;font-weight:bold;">(ATENCION: Las siguientes opciones pueden alterar el funcionamiento del sistema)</p>
-        <li><a href="/files.htm?style=cards">FILES</a> - Manage files on the server</li>
-        <li><a href="/$upload">UPLOAD</a> - Upload individual files</li>
-        <li><a href="/$update">OTA update</a> - Update Firmware or Filesystem</li>
+        <li>
+          <a href="/files.htm">FILES</a> -
+          <span id="warnFreeSp" class="warn-icon" title="Poco espacio libre">⚠️</span>
+          Manage files on the server
+        </li>
+        <li><a href="/$upload?page=custom">UPLOAD</a> - Upload individual files</li>
+        <li><a href="/$update?page=custom">OTA update</a> - Update Firmware or Filesystem</li>
       </ul>
       
       <div id="testingSection">
         <p style="font-weight:bold;">Testing:</p>
         <ul>
-          <li><a href="/$update?page=builtin">OTA update (builtin)</a></li>
+          <li><a href="/$update">OTA update (builtin)</a></li>
+          <li><a href="/$upload">UPLOAD (builtin)</a></li>
           <li><a href="/api/endWS">End webserver</a></li>
           <p>The following REST services return a JSON:</p>
           <li><a href="/api/sysinfo">/api/sysinfo</a></li>
@@ -45,49 +51,44 @@
       </div>
   </div>
 
-  <script src="/funciones.js"></script>
-
-  <script>
-  // Envolvemos todo en una función asíncrona que se ejecuta al cargar
-  window.addEventListener("load", async () => {
-    try {
-      const config = await getServerConfig();  
-      const showtestValue = config.showTest;
-      const testingSection = document.getElementById("testingSection");
-      const container = document.querySelector(".containerbase");
-
-      // Establecer visibilidad inicial de la seccion de testing
-      if (showtestValue === true) {
-        testingSection.style.display = "block";
+<script src="/funciones.js"></script>
+<script>
+// Envolvemos todo en una función asíncrona que se ejecuta al cargar
+window.addEventListener("load", async () => {
+  try {
+    const config = await getServerConfig(true); // fuerza refresh 
+    const showtestValue = config.showTest;
+    const testingSection = document.getElementById("testingSection");
+    const container = document.querySelector(".containerbase");
+    UI_actualizarEspacioLibre(config, "warnFreeSp", true);
+    // Establecer visibilidad inicial de la seccion de testing
+    if (showtestValue === true) {
+      testingSection.style.display = "block";
+      container.classList.remove("no-testing");
+    } else {
+      testingSection.style.display = "none";
+      container.classList.add("no-testing");
+    }
+    // Crear párrafo clickable
+    const info = document.createElement("p");
+    info.textContent = "showtest";
+    info.style.cursor = "pointer";
+    info.title = "Click para mostrar/ocultar la sección de testing";
+    info.className = "muted";
+    info.addEventListener("click", function () {
+      const isHidden = testingSection.style.display === "none";
+      testingSection.style.display = isHidden ? "block" : "none";
+      if (isHidden) {
         container.classList.remove("no-testing");
       } else {
-        testingSection.style.display = "none";
         container.classList.add("no-testing");
       }
-
-      // Crear párrafo clickable
-      const info = document.createElement("p");
-      info.textContent = "showtest";
-      info.style.cursor = "pointer";
-      info.title = "Click para mostrar/ocultar la sección de testing";
-      info.className = "muted";
-
-      info.addEventListener("click", function () {
-        const isHidden = testingSection.style.display === "none";
-        testingSection.style.display = isHidden ? "block" : "none";
-        if (isHidden) {
-          container.classList.remove("no-testing");
-        } else {
-          container.classList.add("no-testing");
-        }
-      });
-
-      document.body.appendChild(info);
-
-    } catch (e) {
-      console.error("Error al cargar la configuración:", e);
-    }
-  });
-  </script>
+    });
+    document.body.appendChild(info);
+  } catch (e) {
+    console.error("Error al cargar la configuración:", e);
+  }
+});
+</script>
 </body>
 </html>

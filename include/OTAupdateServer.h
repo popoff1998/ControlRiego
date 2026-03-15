@@ -102,26 +102,23 @@ public:
         _server->on(path.c_str(), HTTP_GET, [&]() {
             if (_username != emptyString && _password != emptyString && !_server->authenticate(_username.c_str(), _password.c_str()))
                 return _server->requestAuthentication();
-            // leer parámetro opcional ?page=
-            String page; if (_server->hasArg("page")) page = _server->arg("page");
             // lógica de selección:
-            // - si page == "builtin" -> servir siempre la página integrada
             // - si page == "custom"  -> intentar servir OTAupdate.htm (si no existe, fallback a builtin)
-            // - si page vacío -> comportamiento por defecto: si existe OTAupdate.htm servirla, si no fallback builtin
-            if (page.equalsIgnoreCase("builtin")) {
-                _server->send(200, "text/html", FPSTR(serverOTA));
-                return;
-            }
-            // intentar servir custom si existe (page == "custom" o page is empty)
-            if (LittleFS.exists("/OTAupdate.htm") && !page.equalsIgnoreCase("builtin")) {
-                File f = LittleFS.open("/OTAupdate.htm", "r");
-                if (f) {
-                    _server->streamFile(f, "text/html");
-                    f.close();
-                    return;
+            // - si page == "builtin" -> servir siempre la página integrada
+            // - si page vacío -> comportamiento por defecto: se sirve la builtin
+            if (_server->arg("page").equalsIgnoreCase("custom")) {
+                    if (LittleFS.exists("/OTAupdate.htm")) {
+                        File f = LittleFS.open("/OTAupdate.htm", "r");
+                        if (f) {
+                            _server->streamFile(f, "text/html");
+                            f.close();
+                            return;
+                        }
+                    }
+                    LOG_WARN("Custom OTA page requested but /OTAupdate.htm not found.");
                 }
-            }
-            // fallback: serve built-in page
+                // Comportamiento por defecto (page vacío, "builtin" o error en custom): servir integrada
+                LOG_INFO("Serving builtin page");
                 _server->send(200, "text/html", FPSTR(serverOTA));
             });
 
@@ -134,8 +131,7 @@ public:
             }
             else {
                 // decidir respuesta según parámetro 'served' presente en la URL ( ?served=custom or builtin )
-                bool servedCustom = _server->hasArg("served") && _server->arg("served").equalsIgnoreCase("custom");
-
+                bool servedCustom = _server->arg("page").equalsIgnoreCase("custom");
                 _server->client().setNoDelay(true);
                 if (servedCustom) {
                     // responder con texto simple "responseOK" para custom

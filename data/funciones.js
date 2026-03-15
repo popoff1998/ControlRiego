@@ -176,7 +176,7 @@ function validarSintaxisJson(str) {
 }
 
 /**
- * Unifica la validación de sintaxis y estructura en un solo paso.
+ * Validación de sintaxis y estructura del JSON.
  * @param {string} str - El contenido JSON en formato texto.
  */
 function validarJsonCompleto(str) {
@@ -221,6 +221,23 @@ async function apiSaveConfig(data, askRestart = false, isRaw = false) {
             alert("Archivo guardado correctamente.");
             window.location.href = '/parmfile.htm';
         }
-
     } catch (error) { alert(error.message); throw error; }
+}
+
+/**
+ * Gestiona la visualización del espacio libre del FS en la UI.
+ * @param {Object} config - Objeto de configuración del servidor.
+ * @param {string} id - ID del elemento HTML (el icono o el span de texto).
+ * @param {boolean} isIcon - true si es el ⚠️, false si es el texto del tamaño.
+ */
+function UI_actualizarEspacioLibre(config, id, isIcon = false) {
+    const el = document.getElementById(id);
+    if (!el || config.freeFS === undefined) return;
+    const esBajo = config.freeFS < (config.maxFS * 0.1);
+    if (isIcon) {el.style.display = esBajo ? "inline" : "none";} 
+    else {
+        el.textContent = returnFileSize(config.freeFS) 
+        // Cambiar texto a rojo si es bajo, o volver al original si no
+        el.style.color = esBajo ? "#d9534f" : "#135a8a";
+    }
 }

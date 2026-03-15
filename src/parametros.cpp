@@ -403,7 +403,7 @@ String sysInfo() {
     doc["Chip Revision"] = ESP.getChipRevision();
     doc["FlashSize"] = convertFileSize(ESP.getFlashChipSize());
     doc["SketchSpace "] = sketchTotalPartitionSize; 
-    doc["SketchSize  (percent used)"] = String(sketchUsed) + "   (" + String(sketchPercentUsed) + "%)"; 
+    doc["SketchSize (percent used)"] = String(sketchUsed) + "   (" + String(sketchPercentUsed) + "%)"; 
     doc["HeapSize"] = ESP.getHeapSize();
     doc["FreeHeap"] = ESP.getFreeHeap();
     doc["MaxAllocHeap (largest free block)"] = ESP.getMaxAllocHeap();

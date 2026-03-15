@@ -11,7 +11,7 @@ R"==(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Upload</title>
+    <title>Upload Fallback</title>
     <style>
         body{font-family:sans-serif;max-width:320px;margin:10px auto;padding:0 12px;color:#333}
         h1{color:#135a8a;margin:0 0 10px}
@@ -19,14 +19,14 @@ R"==(
         select, #z{width:100%;box-sizing:border-box;border-radius:5px;transition:.2s}
         select{padding:8px;margin:5px 0 15px;border:1px solid #ccc}
         .r{border-color:#d9534f;color:#d9534f;font-weight:700}
-        #z{height:200px;border:2px dashed #3da3aa;background:#f9f9f9;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;text-align:center}
+        #z{height:300px;border:2px dashed #3da3aa;background:#f9f9f9;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;text-align:center}
         #z.v{background:#3da3aa;color:#fff}
         .f{margin-top:15px;padding-top:10px;border-top:1px solid #eee}
         .l{color:#d9534f;font-weight:700;margin-left:5px}
     </style>
 </head>
 <body>
-    <h1>Upload</h1>
+    <h1>Upload Files</h1>
     <a href="/">← Home</a>
     <div style="margin-top:15px">
         <label style="font-size:13px">Destino (opcional):</label>
