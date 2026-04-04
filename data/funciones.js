@@ -194,7 +194,7 @@ function validarJsonCompleto(str) {
  */
 async function apiSaveConfig(data, askRestart = false, isRaw = false) {
     try {
-        let contentToSend = typeof data === 'string' ? data : JSON.stringify(data);
+        let contentToSend = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
         if (isRaw) {
             validarJsonCompleto(contentToSend);
             console.log("JSON validado correctamente.");

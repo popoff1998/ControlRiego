@@ -499,6 +499,7 @@ void procesaBotonStop(void)
   }
 } //fin de procesaBotonStop
 
+// Paramos el riego en curso primero y todas las zonas de riego, y pasamos a estado STOP
 void handleStopInRegandoPauseTerm() {
     if (!Estado.modoDEMO) lcd.infoclear("Parando riegos", 1, BIP, 6);
     timer.StopTimer();
@@ -514,6 +515,7 @@ void handleStopInRegandoPauseTerm() {
     setEstado(STOP,1);
 }
 
+// Paramos todas las zonas de riego y pasamos a estado STOP
 void handleStopInStandby() {
     reposoOFF();
     if (!Estado.modoDEMO) lcd.infoclear("Parando riegos", NOBLINK, BIP, 6);
@@ -525,12 +527,14 @@ void handleStopInStandby() {
     setEstado(STOP,1);
 }
 
+// Iniciamos la configuracion de un multirriego temporal
 void handleEncStopInStandby() {
     setMultibyId(0);  // apunta estructura multi a grupo temporal en config (n+1) con id = 0
     setEstado(CONFIGURANDO,1);
     configure->MultiTemp_process_start();
 }
 
+// Reseteamos el ESP32 para intentar recuperar de un error
 void handleStopInError() {
   // si el error es no cargar parametros, lanzamos webserver para que el usuario pueda cargar unos nuevos  
   if (Estado.error == E0) scWebserver();
@@ -1611,6 +1615,7 @@ bool stopAllRiegos()
             // Salimos inmediatamente tras el primer error general
             if (Estado.error == E1 || Estado.error == E2) return false;
             retries = (retries > 1) ? retries - 1 : 1; // Decrementamos el número de reintentos para las siguientes zonas
+            lcd.info(config.zona[i].desc,2); // Mostramos en pantalla la zona que ha fallado
         }
     }
     return allRiegoOK; // Retornamos el resultado del lote

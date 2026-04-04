@@ -67,20 +67,20 @@ window.addEventListener("load", async () => {
     ]);
     const renderTable = (idBody, list, type) => {
       const isZona = type === 'zona';
-      document.getElementById(idBody).innerHTML = list.map((item, idx) => `
+      document.getElementById(idBody).innerHTML = list.map((item, pos) => `
         <tr>
-          <td><span class="${isZona ? 'orla-v' : 'orla-a'} clicable" data-idx="${idx}">${idx + 1}</span></td>
+          <td><span class="${isZona ? 'orla-v' : 'orla-a'} clicable" data-pos="${pos}">${pos + 1}</span></td>
           <td>${formatDateLocal(item.inicio)}</td>
           <td>${formatDateLocal(item.final)}</td>
           <td>${formatMinutes(item.total)}</td>
-          ${isZona ? `<td><button class="btn-log" onclick="showZONElog(${idx + 1})">LOG</button></td>` : ''}
+          ${isZona ? `<td><button class="btn-log" onclick="showZONElog(${pos + 1})">LOG</button></td>` : ''}
         </tr>`).join('');
       document.querySelectorAll(`#${idBody} .clicable`).forEach(el => {
         el.onclick = (e) => {
-          const idx = el.dataset.idx;
+          const pos = el.dataset.pos;
           const html = isZona 
-            ? `<b>${params.botones[idx].nombre}</b>`
-            : `<b>${params.grupos[idx].desc}</b><br>Zonas: ${params.grupos[idx].zonas.join(", ")}`;
+            ? `<b>${params.botones[pos].nombre}</b>`
+            : `<b>${params.grupos[pos].desc}</b><br>Zonas: ${params.grupos[pos].zonas.join(", ")}`;
           showInfo(e, html);
         };
       });
