@@ -163,7 +163,7 @@ void procesaEstados()
 void initHardware(bool bootloopdetected) {
     LOG_DEBUG("-> Inicializando Hardware", bootloopdetected ? "(modo BOOTLOOP)" : "");
     initGPIOs();
-    if (bootloopdetected) stopHW(); // paramos el sistema
+    if (bootloopdetected) stopHW("!!!BOOTLOOP DETECTADO !!!"); // paramos el sistema
     initWire();
     // Expansores de I/O
     mcpOinit();
@@ -180,11 +180,12 @@ void initHardware(bool bootloopdetected) {
  */
 void setupEstadoFinal() 
 {
-  LOG_DEBUG("setupEstadoFinal entrada, Estado.error=", Estado.error, "Estado.recoverableError=", Estado.recoverableError, "modoDEMO=", Estado.modoDEMO);
+  LOG_DEBUG("setupEstadoFinal entrada, Estado.error=", Estado.error, "Estado.recoverableError=",
+     Estado.recoverableError, "modoDEMO=", Estado.modoDEMO, "connected=", Estado.connected);
   
   if (inSetup) {
     //Deshabilitamos el hold de Pause
-    Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true;
+    Boton[getBotonIndex(bPAUSE)].flags.holddisabled = true;
     //Llamo a parseInputs CLEAR para eliminar prepulsaciones antes del bucle loop
     parseInputs(CLEAR);
     //lanzamos supervision periodica estado cada VERIFY_INTERVAL seg.
@@ -239,7 +240,7 @@ void setupEstadoFinal()
    *    - boton Grupo3 --> borramos red wifi almacenada en el ESP32
    *    - liberando boton de STOP  --> salimos sin hacer nada y continua la inicializacion
    */
-  void setupInit(void) {
+  void setupInit() {
     #ifdef TEMPLOCAL
       dht.begin();
     #endif
@@ -291,7 +292,7 @@ void setupEstadoFinal()
    *    - Grupo1 (arriba) --> en ese caso cargamos los parametros del fichero de configuracion por defecto
    *    - Grupo3 (abajo) --> en ese caso borramos red wifi almacenada en el ESP32
    */
-  void setupInit(void) {
+  void setupInit() {
     LOG_TRACE("");
     if (!digitalRead(ENCBOTON)) {
       if (testButton(bGRUPO1,ON)) {
@@ -316,7 +317,7 @@ void setupEstadoFinal()
         ----------------------------------------------------------------*/
 
 
-  void procesaBotonPause(void)
+  void procesaBotonPause()
   {
     if(!boton->estado && Estado.estado != STOP) //No procesamos los release del boton salvo en STOP
        return;
@@ -350,7 +351,7 @@ void handleEncPauseInRegando() {
   // si estamos en un multirriego y no es la ultima zona y no hemos salvado ya un riego en curso
   // --> salvamos el riego en curso en riegoSaved para poder continuarlo despues del multirriego
   if (multi.riegoON && (multi.actual < *multi.size) && !riegoSaved.znumber) {
-    saveRiego(ultimoBotonZona->znumber, ultimoBotonZona->bID, timer.ShowMinutes(), timer.ShowSeconds());
+    saveRiego(zonaEnCurso.znumber, zonaEnCurso.pBoton->bID, timer.ShowMinutes(), timer.ShowSeconds());
     LOG_INFO("salvando riego de zona en curso en riegoSaved");
   }
 }
@@ -358,9 +359,9 @@ void handleEncPauseInRegando() {
 // Pausa el riego en curso
 void handlePauseInRegando() {
   setEstado(PAUSE,1);
-  if (stopRiego(ultimoBotonZona->bID)) timer.PauseTimer();
+  if (stopRiego(zonaEnCurso.pBoton->bID)) timer.PauseTimer();
   else { //error al parar riego
-    LOG_WARN("error al pausar riego ERROR(E",Estado.error, ") (", errorToString(Estado.error), ") zona :",ultimoBotonZona->desc );
+    LOG_WARN("error al pausar riego ERROR(E",Estado.error, ") (", errorToString(Estado.error), ") zona :",zonaEnCurso.pBoton->desc );
   }  
 }  
 
@@ -375,7 +376,7 @@ void handlePauseInPause() {
   if(simular.ErrorPause) statusError(E2); //simulamos error al salir del PAUSE
   else initRiego(RESUME);         
   if(Estado.estado == ERROR) { // caso de error al reanudar el riego seguimos en PAUSE y señalamos con blink rapido zona
-    LOG_WARN("error al salir de PAUSE ERROR(E",Estado.error, ") (", errorToString(Estado.error), ") zona :",ultimoBotonZona->desc );
+    LOG_WARN("error al salir de PAUSE ERROR(E",Estado.error, ") (", errorToString(Estado.error), ") zona :",zonaEnCurso.pBoton->desc );
     lcd.displayON();
     delay(config.msgdisplaymillis);
     setEstado(PAUSE,1,LOCAL,RAPIDO);
@@ -449,7 +450,7 @@ void handlePauseInError() {
     sonido.bip(2);
     resetFlags();   //reset flags de status
     saveRiego(0,0,0,0); //reset riego salvado    
-    if (Boton[bID2bIndex(bSTOP)].estado) setEstado(STOP,1);
+    if (Boton[getBotonIndex(bSTOP)].estado) setEstado(STOP,1);
     else setEstado(STANDBY);
 }
 
@@ -474,7 +475,7 @@ bool handleHoldPause() {
     return RC;
 }
 
-void procesaBotonStop(void)
+void procesaBotonStop()
 {
   if (boton->estado) {  //si hemos PULSADO STOP
     if (Estado.estado == REGANDO || Estado.estado == PAUSE || Estado.estado == TERMINANDO) {
@@ -487,7 +488,7 @@ void procesaBotonStop(void)
       return;
     }
     if (Estado.estado == ERROR) {
-      handleStopInError();                      // resetea el ESP32
+      handleStopInError();                      // resetea el ESP32 (o activa webserver si E0)
       return;
     }
   }
@@ -506,7 +507,7 @@ void handleStopInRegandoPauseTerm() {
     tic_CountDownTimer.detach(); //detiene actualizacion periodica del temporizador
     bool updateTimeFin = (Estado.estado == PAUSE? false : true); // si estamos en PAUSE no actualizamos tiempo fin
     // paramos riego en curso primero y todas las zonas despues
-    if (!stopRiego(ultimoBotonZona->bID, updateTimeFin) || !stopAllRiegos()) {
+    if (!stopRiego(zonaEnCurso.pBoton->bID, updateTimeFin) || !stopAllRiegos()) {
       return;    //error al parar riegos
     }
     saveTablaToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
@@ -529,7 +530,7 @@ void handleStopInStandby() {
 
 // Iniciamos la configuracion de un multirriego temporal
 void handleEncStopInStandby() {
-    setMultibyId(0);  // apunta estructura multi a grupo temporal en config (n+1) con id = 0
+    setMultiTemp();  // apunta estructura multi a grupo temporal en config (n+1)
     setEstado(CONFIGURANDO,1);
     configure->MultiTemp_process_start();
 }
@@ -545,7 +546,7 @@ void handleStopInError() {
 }
 
 
-void procesaBotonMultirriego(void)
+void procesaBotonMultirriego()
 {
   if (multi.riegoON)  //ya hay un multirriego en curso,, ignoramos boton
       return;
@@ -582,7 +583,7 @@ void handleGrupoInStandby(int n_grupo) {
        Tambien grabamos el tiempo de inicio del riego de grupo  */
     char grupoText[7];
     snprintf(grupoText, sizeof(grupoText), "GRUPO%d", n_grupo);
-    if(setMultirriego()) inicioTimeLastRiego(lastGrupos[n_grupo-1], grupoText, INICIO);
+    if(startMultirriego()) inicioTimeLastRiego(lastGrupos[n_grupo-1], grupoText, INICIO);
 }
 
 // Atajos combinacion STOP+ENC+GRUPOn
@@ -597,10 +598,10 @@ void handleEncGrupoInStop(int n_grupo) {
   }    
 }
 
-void procesaBotonZona(void)
+void procesaBotonZona()
 {
-  int zIndex = boton->znumber-1;
-  if (zIndex < 0) return; //el boton no es de ZONA o error en la matriz Boton[]
+  int zIndex = getZonaIndex(boton->bID);
+  LOG_DEBUG("zIndex:", zIndex, "encoderSW:", encoderSW, "multi.riegoON:", multi.riegoON);
   if (Estado.estado == STANDBY) {
     if (!encoderSW || multi.riegoON) {  // (1)
         startZoneWatering();    //iniciamos el riego correspondiente al boton seleccionado
@@ -613,20 +614,21 @@ void procesaBotonZona(void)
   /* Si config.dynamic=true se permite añadir/eliminar zonas durante un riego individual o multirriego 
      temporal (no durante un multirriego de grupo normal). Para ello el riego debe estar en PAUSE  */
   if ((Estado.estado==PAUSE) && config.dynamic && (multi.riegoON == multi.temporal)) {
-    handleDynamicZoneChange();
+    handleDynamicZoneChange(zIndex+1);
   }
   /* (1) la comprobacion de multi.riegoON es necesaria para evitar que al cancelar el riego de una zona en multirriego
   salte a mostrar info de la siguiente al detectar el enc pulsado  */
 } //fin de procesaBotonZona
 
+
 // Procesar cambio dinamico y reflejarlo en el display
-void handleDynamicZoneChange() {
+void handleDynamicZoneChange(int znumber) {
     // NOTA: la zona pulsada no puede coincidir con la actualmente en riego, se ignora en ese caso
-    if (ultimoBotonZona->bID != boton->bID) {
-      if (procesaDynamic()) displayLCDGrupo(RESTO, 2);
-      LOG_DEBUG("MULTI dynamic:",multi.dynamic,"actual:",multi.actual,"size:",*multi.size,"zona:",boton->znumber);
+    if (zonaEnCurso.pBoton->bID != boton->bID) {
+      if (procesaDynamic(znumber)) displayLCDGrupo(RESTO, 2);
+      LOG_DEBUG("MULTI dynamic:",multi.dynamic,"actual:",multi.actual,"size:",*multi.size,"zona:",znumber);
     }
-    else {sonido.bipKO(); LOG_DEBUG("[DYNAMIC] zona pulsada:",boton->znumber," es = a zona actual:",ultimoBotonZona->znumber);}
+    else {sonido.bipKO(); LOG_DEBUG("[DYNAMIC] zona pulsada:",znumber," es = a zona actual:",zonaEnCurso.znumber);}
 }
 
 /**---------------------------------------------------------------
@@ -638,7 +640,7 @@ void handleDynamicZoneChange() {
  * Si lo que se modifica dinamicamente es un multirriego temporal lanzado al principio 
  * si se factorizan todas las zonas iniciales y añadidas.
  */
-bool procesaDynamic(void)
+bool procesaDynamic(int znumber)
 {
   // NOTA: si llegamos aquí, la zona pulsada NO coincide con la actualmente en riego (zona actual)
   if (!multi.riegoON) { //si estamos en riego de zona individual -> la pasamos a multirriego temporal
@@ -648,24 +650,24 @@ bool procesaDynamic(void)
     multi.dynamic  = true;  // marcamos como dinamico para no factorizarlo
     multi.semaforo = false;
     multi.actual=0;
-    multi.serie[0] = ultimoBotonZona->bID;  // bId de la zona actual como primera de la lista
-    multi.zserie[0] = ultimoBotonZona->znumber;  // numero de la zona actual como primera de la lista
+    multi.serie[0] = zonaEnCurso.pBoton->bID;  // bId de la zona actual como primera de la lista
+    multi.zserie[0] = zonaEnCurso.znumber;  // numero de la zona actual como primera de la lista
     *multi.size = 1;  
   }
   if(!multi.temporal) return false;  //estamos en multirriego de grupo --> zona ignorada
-  LOG_DEBUG("[RECIBE] MULTI dynamic:",multi.dynamic,"actual:",multi.actual,"size:",*multi.size,"zona:",boton->znumber);
+  LOG_DEBUG("[RECIBE] MULTI dynamic:",multi.dynamic,"actual:",multi.actual,"size:",*multi.size,"zona:",zonaEnCurso.znumber);
   // ya estamos en multirriego temporal (generado dinamico o lanzado directo)
   int n;
   for(n=multi.actual; n<*multi.size; n++) { // recorremos la lista de zonas a ver si existe ya
-    if(multi.zserie[n] == boton->znumber) { // zona pulsada ya existe en la lista 
-      LOG_DEBUG("[vamos a ELIMINAR] n=",n,"actual:",multi.actual,"zona:",boton->znumber,"size:",*multi.size);
+    if(multi.zserie[n] == znumber) { // zona pulsada ya existe en la lista 
+      LOG_DEBUG("[vamos a ELIMINAR] n=",n,"actual:",multi.actual,"zona:",znumber,"size:",*multi.size);
       for(n; n<*multi.size; n++) {          //  --> la eliminamos de esta
         multi.zserie[n] = multi.zserie[n+1];
         multi.serie[n] = multi.serie[n+1];
       }
       *multi.size = n-1;
-      LOG_DEBUG("[ELIMINA] n=",n,"actual:",multi.actual,"size:",*multi.size,"zona:",boton->znumber);
-      LOG_INFO("DYNAMIC [ELIMINA] Zona:",boton->znumber);
+      LOG_DEBUG("[ELIMINA] n=",n,"actual:",multi.actual,"size:",*multi.size,"zona:",znumber);
+      LOG_INFO("DYNAMIC [ELIMINA] Zona:",znumber);
       sonido.bip(2); return true; //zona eliminada
     }
   } 
@@ -673,10 +675,10 @@ bool procesaDynamic(void)
   multi.w_size = n; //indice zona de la lista donde añadir la nueva zona (1 a ZONASXGRUPO-1)
   if (multi.w_size < ZONASXGRUPO) {  //añadimos zona al final de la lista si hay sitio
     multi.serie[multi.w_size] = boton->bID;  // bId de la zona pulsada
-    multi.zserie[multi.w_size] = boton->znumber;  // numero de la zona pulsada
+    multi.zserie[multi.w_size] = znumber;  // numero de la zona pulsada
     *multi.size = multi.w_size + 1;
-    LOG_DEBUG("[AÑADE] n=",n,"actual:",multi.actual,"size:",*multi.size,"zona:",boton->znumber);
-    LOG_INFO("DYNAMIC [AÑADE] Zona:",boton->znumber);
+    LOG_DEBUG("[AÑADE] n=",n,"actual:",multi.actual,"size:",*multi.size,"zona:",znumber);
+    LOG_INFO("DYNAMIC [AÑADE] Zona:",znumber);
     sonido.bip(1); return true; //zona añadida
   }
   else return false; //no hay sitio --> zona ignorada   
@@ -716,7 +718,7 @@ void procesaEstadoConfigurando()
         case bPAUSE:
             if(!boton->estado) break; //no se procesa el release del PAUSE
             //si estamos en el menu: PAUSE procesa la seleccion
-            if(configure->statusMenu()) {
+            if(configure->inMenu()) {
               LOG_DEBUG("[MENU] PAUSE pulsado recibido");
               configure->procesaSelectMenu();
               break;
@@ -732,13 +734,13 @@ void procesaEstadoConfigurando()
             }
             break;
         case MULTIRRIEGO:
-            if (configure->statusMenu() && configure->get_currentItem()==0) { //si no estamos configurando nada:
+            if (configure->inMenu() && configure->get_currentItem()==0) { //si no estamos configurando nada:
               handleGroupConfig();                                            // configuramos el grupo seleccionado
             }  
             break;
         default:  //procesamos boton de ZONAx
-            if (configure->statusMenu() && configure->get_currentItem()==0) {   //si no estamos configurando nada :
-              configure->Idx_process_start(bID2bIndex(boton->bID));             // configuramos el idx del boton
+            if (configure->inMenu() && configure->get_currentItem()==0) {   //si no estamos configurando nada :
+              configure->Idx_process_start(getZonaIndex(boton->bID));             // configuramos el idx del boton
             }
             if (configure->configuringMulti() || configure->configuringMultiTemp()) { //si estamos configurando grupo multirriego:
               configure->Multi_process_update();                             //añadimos zona al multirriego que estamos definiendo
@@ -785,12 +787,12 @@ void handleStartMultiTemp()
   if (multi.w_size && saveConfig) {  //solo si se ha guardado alguna zona iniciamos riego grupo temporal
       saveConfig = false;  
       multi.temporal = true;
-      setMultirriego(); 
+      startMultirriego(); 
   }    
 }
 
 
-void procesaEstadoError(void)
+void procesaEstadoError()
 {
   // gestion del tamano del fichero de log de errores cada LONGINTERVAL minutos
   if (checkLogSize) {
@@ -806,7 +808,7 @@ void procesaEstadoError(void)
 }; //fin de procesaEstadoError
 
 
-void procesaEstadoRegando(void) 
+void procesaEstadoRegando() 
 {
     // Actualiza el temporizador de cuenta atrás (devuelve false si llega a 0)
     bool timerActivo = timer.Timer();
@@ -821,15 +823,15 @@ void procesaEstadoRegando(void)
         return;
     }
     // Verificación del estado del riego en Domoticz esta activo
-    if (queryStatus(ultimoBotonZona->znumber, "On")) {
-        if (Estado.tipo != REMOTO) setLed(tic_LedZona, ENCIENDE, ultimoBotonZona->led); //si local: led zona encendido fijo
-        else setParpadeo(tic_LedZona, LENTO, parpadeoLedZona, ultimoBotonZona->led); //si remoto: parpadeo lento led zona
+    if (queryStatus(zonaEnCurso.znumber, "On")) {
+        if (Estado.tipo != REMOTO) setLed(tic_LedZona, ENCIENDE, zonaEnCurso.pBoton->led); //si local: led zona encendido fijo
+        else setParpadeo(tic_LedZona, LENTO, parpadeoLedZona, zonaEnCurso.pBoton->led); //si remoto: parpadeo lento led zona
         return;
     }
     // Escenario 1: queryStatus falló
     if (Estado.error) {
         // Si no hemos podido verificar estado, señalamos zona con parpadeo rapido e ignoramos el error
-        setParpadeo(tic_LedZona, RAPIDO, parpadeoLedZona, ultimoBotonZona->led);
+        setParpadeo(tic_LedZona, RAPIDO, parpadeoLedZona, zonaEnCurso.pBoton->led);
         sonido.bip(2);
         Estado.error = NOERROR; 
         LOG_WARN("** SE HA DEVUELTO ERROR al verificar estado riego");
@@ -837,13 +839,13 @@ void procesaEstadoRegando(void)
     }
     // Escenario 2: El riego se ha parado remotamente
     timer.PauseTimer();
-    finalTimeLastRiego(lastRiegos[ultimoBotonZona->znumber - 1]);
-    LOG_WARN(">>>>>>>>>> procesaEstadoRegando zona:", config.zona[ultimoBotonZona->znumber - 1].desc, "en PAUSA remota <<<<<<<<");
+    finalTimeLastRiego(lastRiegos[zonaEnCurso.zindex]);
+    LOG_WARN(">>>>>>>>>> procesaEstadoRegando zona:", config.zona[zonaEnCurso.zindex].desc, "en PAUSA remota <<<<<<<<");
     setEstado(PAUSE, 1, REMOTO, LENTO);
 }   //fin de procesaEstadoRegando
 
 
-void procesaEstadoTerminando(void)
+void procesaEstadoTerminando()
 {
   sonido.bip(5);
   tic_CountDownTimer.detach(); //detiene actualizacion periodica del temporizador
@@ -851,36 +853,36 @@ void procesaEstadoTerminando(void)
   bool updateTimeFin = (riegoFromPause? false : true);
   riegoFromPause = false;
   // paramos riego en curso
-  stopRiego(ultimoBotonZona->bID, updateTimeFin);
+  stopRiego(zonaEnCurso.pBoton->bID, updateTimeFin);
   // no continuamos si se ha producido error al parar el riego 
   if (Estado.estado == ERROR)
       return;
   lcd.blinkLCD(BLINKDISPLAY);
   // aseguramos led zona apagado si hemos podido parar riego 
   // (ya que si estamos en multirriego pasaremos por STANDBY sin cambiar la UI)
-  setLed(tic_LedZona, APAGA, ultimoBotonZona->led);
+  setLed(tic_LedZona, APAGA, zonaEnCurso.pBoton->led);
   //Comprobamos si estamos en un multirriego
   if (multi.riegoON) {
     //sumamos tiempo riego zona terminada al tiempo de riego del grupo
-    if(!multi.temporal) finalTimeGrupo(lastGrupos[multi.ngrupo-1], lastRiegos[ultimoBotonZona->znumber-1].total); 
+    if(!multi.temporal) finalTimeGrupo(lastGrupos[multi.ngrupo-1], lastRiegos[zonaEnCurso.zindex].total); 
     multi.actual++;
     if (multi.actual < *multi.size) {  // pasamos a regar la siguiente zona del grupo
       //Simular la pulsacion del siguiente boton de la serie de multirriego
-      boton = &Boton[bID2bIndex(multi.serie[multi.actual])];
+      boton = &Boton[getBotonIndex(multi.serie[multi.actual])];
       multi.semaforo = true;
     }
     else {         // señalamos fin del multirriego y actualizamos timestamp de finalizacion
       if(!multi.temporal) finalTimeGrupo(lastGrupos[multi.ngrupo-1]);
-      resetFlags();  // reset flags de multirriego entre otros
+      saveTablaToFile(lastGruposFile, "lastGrupos", lastGrupos, NUMGRUPOS);  //guardamos en fichero tabla de ultimos riegos de grupos
+      saveTablaToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
       lcd.info("multirriego",1);
       int msgl = snprintf(buff, MAXBUFF, "%s fin", multi.desc);
       lcd.info(buff, 2, msgl);
       LOG_INFO("MULTIRRIEGO", multi.desc, "terminado");
       sonido.bipFIN();
       delay(config.msgdisplaymillis*3);
-      led(Boton[bID2bIndex(*multi.id)].led,OFF);  // apaga led grupo
-      saveTablaToFile(lastGruposFile, "lastGrupos", lastGrupos, NUMGRUPOS);  //guardamos en fichero tabla de ultimos riegos de grupos
-      saveTablaToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
+      if(!multi.temporal) led(Boton[getBotonIndex(*multi.id)].led,OFF);  // apaga led grupo
+      resetFlags();  // reset flags de multirriego entre otros
     }
   }
   else saveTablaToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
@@ -895,7 +897,7 @@ void procesaEstadoTerminando(void)
 }; //fin de procesaEstadoTerminando
 
 
-void procesaEstadoStandby(void)
+void procesaEstadoStandby()
 {
   if (multi.riegoON)  //no se hacen verificaciones/acciones con multirriego en curso
       return;
@@ -920,29 +922,29 @@ void procesaEstadoStandby(void)
 }; //fin de procesaEstadoStandby
 
 
-void procesaEstadoStop(void)
+void procesaEstadoStop()
 {
   // En stop activamos el comportamiento hold de pausa
-  Boton[bID2bIndex(bPAUSE)].flags.holddisabled = false;
+  Boton[getBotonIndex(bPAUSE)].flags.holddisabled = false;
   // Apagamos el display y atenuamos led status pasado 4 x STANDBYSECS
   if (!Estado.reposo && (millis() - standbyTime >= (4 * 1000UL * STANDBYSECS))) reposoON();
 };
 
 // verificamos zona sigue OFF en Domoticz periodicamente
-void procesaEstadoPause(void) {
+void procesaEstadoPause() {
   // Solo verificamos si toca, VERIFY ON y no estamos en modoDEMO (o estamos en modo simulacion)
   if(flagV && config.verify && (!Estado.modoDEMO || simular.all_simFlags)) {  
     // Verificamos que el riego sigue parado en Domoticz, si es así salimos sin hacer nada.
-    if(queryStatus(ultimoBotonZona->znumber, "Off")) 
+    if(queryStatus(zonaEnCurso.znumber, "Off")) 
       return;
     // Hemos detectado riego zona activo: salimos del PAUSE y blink lento zona activada remotamente  
     if(!Estado.error) {  
       sonido.bip(2);
-      LOG_WARN(">>>>>>>>>> procesaEstadoPause zona:", config.zona[ultimoBotonZona->znumber-1].desc,"activada REMOTAMENTE <<<<<<<");
+      LOG_WARN(">>>>>>>>>> procesaEstadoPause zona:", config.zona[zonaEnCurso.zindex].desc,"activada REMOTAMENTE <<<<<<<");
       timer.ResumeTimer();
       char zonaText[7];
-      snprintf(zonaText, sizeof(zonaText), "ZONA%d", ultimoBotonZona->znumber);
-      inicioTimeLastRiego(lastRiegos[ultimoBotonZona->znumber-1], zonaText, RESUME); //actualizamos tiempo de riego de la zona
+      snprintf(zonaText, sizeof(zonaText), "ZONA%d", zonaEnCurso.znumber);
+      inicioTimeLastRiego(lastRiegos[zonaEnCurso.zindex], zonaText, RESUME); //actualizamos tiempo de riego de la zona
       setEstado(REGANDO,2,REMOTO,LENTO); //pasamos a REGANDO remoto
     }
     // Si no hemos podido verificar estado, ignoramos el error (posible pause  por mantenimiento de la wifi o del domoticz)
@@ -971,7 +973,7 @@ void setStateMachine(m_estados estado, estado_tipos tipo)
   Estado.recoverableError = false;
   Estado.errorInformado = false;
   if (estado != PAUSE) riegoFromPause = false; //reiniciamos flag. TODO: ¿es necesario?
-  Boton[bID2bIndex(bPAUSE)].flags.holddisabled = true; //Deshabilitamos el hold de Pause
+  Boton[getBotonIndex(bPAUSE)].flags.holddisabled = true; //Deshabilitamos el hold de Pause
   if(Estado.reposo) reposoOFF();     //por si salimos de stop antinenes
   rotaryEncoder.disable();  // para que no cuente pasos salvo que lo habilitemos
   if (estado == STOP) {resetFlags(); saveRiego(0,0,0,0);} //reset flags riegos en curso
@@ -1010,7 +1012,7 @@ void setEstado(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parp
         
         case REGANDO:
             lcd.clear();
-            lcd.infoEstado(textoEstado, config.zona[ultimoBotonZona->znumber-1].desc, bipcount);
+            lcd.infoEstado(textoEstado, config.zona[zonaEnCurso.zindex].desc, bipcount);
             if (tipo == REMOTO) displayEstadoRemoto(textoEstado); // muestra en display tipo de estado (LOCAL/REMOTO)
             if (multi.riegoON) {
                 //muestra en pantalla las zonas que restan por regar del grupo (excluida la zona en curso):
@@ -1019,24 +1021,24 @@ void setEstado(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parp
                 else if(multi.temporal) displayMultiTemporal(); 
             }
             refreshTime(); //actualizamos tiempo de cuenta atras en pantalla 
-            if (ledblink) {setParpadeo(tic_LedZona, ledblink, parpadeoLedZona, ultimoBotonZona->led);} 
-             else {setLed(tic_LedZona, ENCIENDE, ultimoBotonZona->led);}  
+            if (ledblink) {setParpadeo(tic_LedZona, ledblink, parpadeoLedZona, zonaEnCurso.pBoton->led);} 
+             else {setLed(tic_LedZona, ENCIENDE, zonaEnCurso.pBoton->led);}  
             break;
             
         case TERMINANDO:
-            lcd.infoEstado(textoEstado, config.zona[ultimoBotonZona->znumber-1].desc, bipcount);
-            setLed(tic_LedZona, ENCIENDE, ultimoBotonZona->led); //aseguramos led zona detenido parpadeo y encendido
+            lcd.infoEstado(textoEstado, config.zona[zonaEnCurso.zindex].desc, bipcount);
+            setLed(tic_LedZona, ENCIENDE, zonaEnCurso.pBoton->led); //aseguramos led zona detenido parpadeo y encendido
             break;
             
         case PAUSE:
-            lcd.infoEstado(textoEstado, config.zona[ultimoBotonZona->znumber-1].desc, bipcount);
+            lcd.infoEstado(textoEstado, config.zona[zonaEnCurso.zindex].desc, bipcount);
             if (tipo == REMOTO) displayEstadoRemoto(textoEstado); // muestra en display tipo de estado (LOCAL/REMOTO)
             lcd.clear(BORRA2H); //borra posible msgs de error
             if(multi.dynamic) displayNoFactorizado();
             else if(multi.temporal) displayMultiTemporal(); 
             refreshTime(); //actualizamos tiempo de cuenta atras en pantalla
-            if (ledblink) {setParpadeo(tic_LedZona, ledblink, parpadeoLedZona, ultimoBotonZona->led);}
-              else {setLed(tic_LedZona, ENCIENDE, ultimoBotonZona->led);} 
+            if (ledblink) {setParpadeo(tic_LedZona, ledblink, parpadeoLedZona, zonaEnCurso.pBoton->led);}
+              else {setLed(tic_LedZona, ENCIENDE, zonaEnCurso.pBoton->led);} 
             break;
             
         case STANDBY:
@@ -1088,7 +1090,7 @@ void statusError(error_tipos errorID, bool recoverable, velocidad_parpadeo zonab
       setLedStatus(); // led RGB rojo
       sonido.bipKO();
       if (zonablinkvel) {  // señalamos parpadeando zona que ha fallado (por stop o getfactor)
-        setParpadeo(tic_LedZona, zonablinkvel, parpadeoLedZona, ultimoBotonZona->led);
+        setParpadeo(tic_LedZona, zonablinkvel, parpadeoLedZona, zonaEnCurso.pBoton->led);
       }
       if (errorblinkvel) {  // parpadeo del led RGB de error
         setParpadeo(tic_LedError, errorblinkvel, parpadeoLedPWM, LEDR);
@@ -1107,7 +1109,7 @@ void statusError(error_tipos errorID, bool recoverable, velocidad_parpadeo zonab
 /**---------------------------------------------------------------
  * Chequeo de perifericos
  */
-void check(void)
+void check()
 {
   apagaLeds();
   #ifndef noCHECK
@@ -1264,7 +1266,7 @@ void ultimosRiegos(int modo)
             for(uint i=0;i<NUMZONAS;i++) { // enciende leds zonas regadas desde medianoche
               if(lastRiegos[i].inicio > previousMidnight(t)) {
                   LOG_DEBUG("[ULTIMOSRIEGOS] zona:", i+1, "time:",lastRiegos[i].inicio);
-                  led(Boton[bID2bIndex(ZONAS[i])].led,ON);
+                  led(Boton[getBotonIndex(Zonas[i])].led,ON);
               }
             }
             if (config.lastr24) //activa parpadeo leds zonas regadas entre 24h y medianoche
@@ -1274,7 +1276,7 @@ void ultimosRiegos(int modo)
     case HIDE:
         setParpadeo(tic_LedZonas24h, PARAR);
         for(unsigned int i=0;i<NUMZONAS;i++) {
-          led(Boton[bID2bIndex(ZONAS[i])].led,OFF);
+          led(Boton[getBotonIndex(Zonas[i])].led,OFF);
         }
         break;
   }
@@ -1285,7 +1287,7 @@ void parpadeoLedZonas24h(time_t t)
   for(uint i=0;i<NUMZONAS;i++) { // enciende leds zonas regadas ultimas 24h hasta medianoche
     if(lastRiegos[i].inicio > (t-SECS_PER_DAY) && lastRiegos[i].inicio <= previousMidnight(t)) {
         LOG_TRACE("[ULTIMOSRIEGOS 24H] zona:", i+1, "time:",lastRiegos[i].inicio);
-        int ledid = Boton[bID2bIndex(ZONAS[i])].led;
+        int ledid = Boton[getBotonIndex(Zonas[i])].led;
         byte estado = estadoLedId(ledid);
         led(ledid,!estado);
     }
@@ -1316,7 +1318,7 @@ void finalTimeLastRiego(S_timeRiego &timeRiego)
 {
   time_t t = tLoc();
   char zonaText[7];
-  snprintf(zonaText, sizeof(zonaText), "ZONA%d", ultimoBotonZona->znumber);
+  snprintf(zonaText, sizeof(zonaText), "ZONA%d", zonaEnCurso.znumber);
   LOG_DEBUG("actualizo lastriegos fin ", zonaText, "timestamp:", t);
   timeRiego.final = t;
   timeRiego.total = timeRiego.total + (timeRiego.final - timeRiego.reinicio); //acumulado = acumulado + (intervalo regado)
@@ -1361,21 +1363,21 @@ void showTimeLastRiego(S_timeRiego &timeRiego, int index, int tipo)
  * Prepara temporizadores y comienza riego de la zona pulsada
  */
 void startZoneWatering() {
+    setZonaEnCurso(boton->bID);
     sonido.bip(2);
     //cambia minutes y seconds en funcion del factor de cada sector de riego
     uint8_t fminutes=0,fseconds=0;
     if(multi.riegoON && !multi.dynamic) {
-      timeByFactor(factorRiegos[boton->znumber-1],&fminutes,&fseconds);
+      timeByFactor(factorRiegos[zonaEnCurso.zindex],&fminutes,&fseconds);
     }
     else {
       fminutes = tm.minutes;
       fseconds = tm.seconds;
     }
     LOG_DEBUG("Minutos:",tm.minutes,"Segundos:",tm.seconds,"FMinutos:",fminutes,"FSegundos:",fseconds);
-    ultimoBotonZona = boton;
     // si tiempo factorizado de riego es 0 o IDX=0, nos saltamos este riego
     // TODO: dependiente idx?
-    if ((fminutes == 0 && fseconds == 0) || config.zona[(boton->znumber)-1].idx == 0) {
+    if ((fminutes == 0 && fseconds == 0) || config.zona[zonaEnCurso.zindex].idx == 0) {
       setEstado(TERMINANDO);
       lcd.clear(BORRA2H);
       lcd.info("IDX/factor:     -00-",4);
@@ -1398,9 +1400,9 @@ void showInfoZona(int zIndex) {
       Serial.printf("          boton.led: %d \n",boton->led);
     #endif
     lcd.clear();
-    lcd.infoCut(config.zona[boton->znumber-1].desc, 11);
+    lcd.infoCut(config.zona[zIndex].desc, 11);
     lcd.setCursor(12, 0);
-    snprintf(buff, MAXBUFF, "idx(%d)", config.zona[boton->znumber-1].idx);
+    snprintf(buff, MAXBUFF, "idx(%d)", config.zona[zIndex].idx);
     lcd.print(buff);
     snprintf(buff, MAXBUFF, "-factor riego:  %d", factorRiegos[zIndex]);
     lcd.info(buff,2);
@@ -1444,7 +1446,7 @@ void reposoON()
 void procesaEncoderConfig()
 {
 
-  if(configure->statusMenu()) {  //encoder selecciona item menu
+  if(configure->inMenu()) {  //encoder selecciona item menu
       int menuOption = rotaryEncoder.readEncoder();  //devuelve valor actual del encoder (se haya movido o no)
       if(menuOption == configure->get_currentItem()) return;  //no ha cambiado
       LOG_DEBUG("rotaryEncoder.readEncoder() devuelve menuOption =", menuOption, "currentItem =", configure->get_currentItem());
@@ -1545,9 +1547,9 @@ void initLastGrupos()
 // Inicia/reanuda el riego correspondiente al boton de zona pulsado ultimo
 bool initRiego(bool resume)
 {
-    int zIndex = ultimoBotonZona->znumber-1;
+    int zIndex = zonaEnCurso.zindex;
     if (zIndex < 0) return false;
-    led(ultimoBotonZona->led,ON);
+    led(zonaEnCurso.pBoton->led,ON);
     if (resume) LOG_INFO( "Continuando riego: ", config.zona[zIndex].desc);
     else LOG_INFO( "Iniciando riego: ", config.zona[zIndex].desc);
     if (deviceSwitch(zIndex+1, "On", SWITCH_RETRIES)) { 
@@ -1562,18 +1564,15 @@ bool initRiego(bool resume)
         // Error al iniciar: generamos la alerta con el código recibido
         statusError(Estado.error);
         LOG_ERROR( "Error al iniciar riego de: ", config.zona[zIndex].desc );
-        // statusError(Estado.error, (Estado.error == E1 || Estado.error == E2));  caso de querer marcar E1/E2 como recuperables
         return false; // error al iniciar el riego   
     }
 }
 
 // Termina/interrumpe el riego correspondiente al boton de zona (id) pasado
-// alertIfFails: TRUE por defecto (para llamadas individuales). Si TRUE y falla, dispara la alerta.
+// alertIfFails: Si TRUE y falla, dispara la alerta (por defecto para llamadas individuales).
 bool stopRiego(uint16_t id, bool update, bool alertIfFails, int retries)
 {
-    int bIndex = bID2bIndex(id);
-    int zIndex = Boton[bIndex].znumber-1;
-    // ledID = Boton[bIndex].led;
+    int zIndex = getZonaIndex(id);
     LOG_DEBUG( "Terminando riego: ", config.zona[zIndex].desc);
     if (deviceSwitch(zIndex+1, "Off", retries)) {
         LOG_INFO( "Terminado OK riego: " , config.zona[zIndex].desc );
@@ -1590,7 +1589,7 @@ bool stopRiego(uint16_t id, bool update, bool alertIfFails, int retries)
         if (alertIfFails) {  // Si este es el primer error del lote o la única parada.
           LOG_ERROR( "Error al detener riego de: ", config.zona[zIndex].desc );
           statusError(Estado.error,NORECUPERABLE,RAPIDO,RAPIDO); //disparamos alerta con el error ya establecido
-            Estado.failedStopRiego = true; // El riego NO se detuvo, activar el recordatorio de error 
+          Estado.failedStopRiego = true; // El riego NO se detuvo, activar el recordatorio de error 
         } else {
             LOG_WARN( "Error al detener riego de: ", config.zona[zIndex].desc);
             statusError(Estado.error);
@@ -1610,7 +1609,7 @@ bool stopAllRiegos()
     // Paramos todas las zonas de riego
     for(unsigned int i=0;i<NUMZONAS;i++) { 
         // Si falla no se activa la alerta de pendiente de parar riego de zona
-        if(!stopRiego(ZONAS[i], false, false, retries)) { 
+        if(!stopRiego(Zonas[i], false, false, retries)) { 
             allRiegoOK = false; // Marcamos que el lote falló
             // Salimos inmediatamente tras el primer error general
             if (Estado.error == E1 || Estado.error == E2) return false;
@@ -1632,13 +1631,13 @@ void saveRiego(int znumber, int bID, int minutes, int seconds)
 }
 
 //Recupera el estado del riego salvado dejandolo en PAUSE para que el usuario confirme el reinicio
-void restoreRiego(void)
+void restoreRiego()
 {
     if (riegoSaved.znumber == 0)  //no hay riego salvado
         return;
     LOG_INFO("recuperando riego salvado de zona:", riegoSaved.znumber);
-    ultimoBotonZona = &Boton[bID2bIndex(riegoSaved.bID)];
-    led(ultimoBotonZona->led,ON); //encendemos led de la zona
+    setZonaEnCurso(riegoSaved.bID); //actualizamos zona en curso con el boton de la zona salvada
+    led(zonaEnCurso.pBoton->led,ON); //encendemos led de la zona
     timer.SetTimer(0,riegoSaved.minutes,riegoSaved.seconds);  //inicializamos el timer de cuenta atras
     lcd.displayTime(timer.ShowMinutes(), timer.ShowSeconds());
     saveRiego(0,0,0,0); //ya no es valida    
@@ -1651,13 +1650,13 @@ void resetLeds()
 {
   //Apago los leds de multirriego
   for(unsigned int j=0;j<NUMGRUPOS;j++) {
-    led(Boton[bID2bIndex(GRUPOS[j])].led,OFF);
+    led(Boton[getBotonIndex(Grupos[j])].led,OFF);
   }
   //Apago los leds de riego y posible parpadeo
   setParpadeo(tic_LedZona, PARAR);
   setParpadeo(tic_LedZonas24h, PARAR);
   for(unsigned int i=0;i<NUMZONAS;i++) {
-    led(Boton[bID2bIndex(ZONAS[i])].led,OFF);
+    led(Boton[getBotonIndex(Zonas[i])].led,OFF);
   }
   //restablece led RGB
   setLedStatus();                   //restablece led RGB a estado actual  
@@ -1976,34 +1975,21 @@ void setupParm()
 void setupConfig() 
 {
   //init grupo temporal n+1  
-  config.group[NUMGRUPOS].bID = 0;     // id del boton de grupo ficticio
   config.group[NUMGRUPOS].size = 0;
   sprintf(config.group[NUMGRUPOS].desc, "TEMPORAL"); 
   LOG_TRACE("Init grupo temporal (GRUPO", NUMGRUPOS+1,")");
-  //init campo zNumber de Boton[]
-  setzNumber();
-  //init campo bID de grupos en config
-  setbIDgrupos();
   //si en config campo desc de la zona esta vacio se copia el de por defecto de la estructura Boton:
   for(int i=0;i<NUMZONAS;i++) {
     if(strlen(config.zona[i].desc) == 0) {
-      int bIndex = zNumber2bIndex(i+1);
-      if (bIndex < NUM_S_BOTON) {
-        strlcpy(config.zona[i].desc, Boton[bIndex].desc, sizeof(config.zona[i].desc));
-      } else {
-        sprintf(config.zona[i].desc, "err-ZONA%d", i+1); // Fallback seguro
-      }  
+      int bIndex = getBotonIndex(Zonas[i]);
+      strlcpy(config.zona[i].desc, Boton[bIndex].desc, sizeof(config.zona[i].desc));
     }
   }
   //si en config campo desc del grupo esta vacio se copia el de por defecto de la estructura Boton:
   for(int i=0;i<NUMGRUPOS;i++) {
     if(strlen(config.group[i].desc) == 0) {
-      int bIndex = bID2bIndex(GRUPOS[i]);
-      if (bIndex < NUM_S_BOTON) {
-        strlcpy(config.group[i].desc, Boton[bIndex].desc, sizeof(config.group[i].desc));
-      } else {
-        sprintf(config.group[i].desc, "er-GRUPO%d", i+1); // Fallback seguro
-      }  
+      int bIndex = getBotonIndex(Grupos[i]);
+      strlcpy(config.group[i].desc, Boton[bIndex].desc, sizeof(config.group[i].desc));
     }  
   }
   #ifdef MUTE
@@ -2233,12 +2219,12 @@ void initFS() {
   #endif
 }
 
-// Detiene el sistema en caso de bootloop detectado
-void stopHW() {
-      initFS();
-      logStatus("!!!BOOTLOOP DETECTADO !!! Sistema bloqueado para evitar daños");
-      esp_sleep_enable_ext0_wakeup(ENCBOTON, 0); // Configura wakeup por boton ENC a LOW
-      esp_deep_sleep_start();  // entra en deep sleep indefinidamente
+// Detiene el sistema en modo deep sleep, despierta al pulsar el boton del ENC.
+void stopHW(const char* mensaje) {
+    initFS();
+    if (mensaje != nullptr) LOG_ERROR(mensaje);
+    esp_sleep_enable_ext0_wakeup(ENCBOTON, 0); // Configura wakeup por boton ENC a LOW
+    esp_deep_sleep_start();  // entra en deep sleep indefinidamente
       // while(true) {  //bucle infinito
       //   analogWrite(LEDR, 255);
       //   delay(1000);

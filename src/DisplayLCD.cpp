@@ -113,7 +113,7 @@ void DisplayLCD::displayOFF()
   _displayOff = true;
 }
 
-bool DisplayLCD::get__displayOff(void)
+bool DisplayLCD::get__displayOff()
 {
   return _displayOff;
 }

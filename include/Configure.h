@@ -39,7 +39,7 @@ class Configure
       #endif
       __ENDLINE__         //  ultimo item fijo (= numero de lineas del menu - 1)
     };
-    int _actualIdxIndex;
+    int _actualZonaIndex;
     int _actualGrupo;
     int _maxItems;
     int _currentItem;
@@ -89,14 +89,10 @@ class Configure
     bool configuringMultiTemp(void);
     bool configuringRange(void);
     bool configuringMelody(void);
-    bool statusMenu(void);
+    bool inMenu(void);
     int  showMenu(int);
     void procesaSelectMenu(void);
-    int  get_ActualIdxIndex(void);
-    int  get_ActualGrupo(void);
-    int  get_maxItems(void);
     int  get_currentItem(void);
-    int  get_datapos(void);
 };
 
 #endif

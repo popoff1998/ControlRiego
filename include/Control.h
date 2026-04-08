@@ -231,10 +231,10 @@
   //----------------  fin dependientes del HW   ----------------------------------------
  
   // constexpr calculado por el preprocesador y no modificable en tiempo de ejecucion
-  constexpr uint16_t ZONAS[] = {_ZONAS};
-  constexpr uint16_t GRUPOS[]  = {_GRUPOS};
-  constexpr int NUMZONAS = ELEMENTCOUNT(ZONAS); // numero de zonas (botones riego individual)
-  constexpr int NUMGRUPOS = ELEMENTCOUNT(GRUPOS); // numero de grupos multirriego
+  constexpr uint16_t Zonas[] = {_ZONAS};
+  constexpr uint16_t Grupos[]  = {_GRUPOS};
+  constexpr int NUMZONAS = ELEMENTCOUNT(Zonas); // numero de zonas (botones riego individual)
+  constexpr int NUMGRUPOS = ELEMENTCOUNT(Grupos); // numero de grupos multirriego
 
   union S_bFLAGS
   {
@@ -252,6 +252,7 @@
     };
   };
 
+  // flags de inicializacion (borrado de parametros o wifi)
   struct S_initFlags     {
     uint8_t preinitParm   : 1,
             initParm      : 1,
@@ -259,8 +260,7 @@
             spare1        : 1;
   };
 
-  union S_simFlags
-  {
+  union S_simFlags  {
     uint8_t all_simFlags;
     struct
     {
@@ -270,7 +270,7 @@
             ErrorVerifyOFF : 1,
             ErrorPause     : 1;
     };
-  };
+  } ;
 
   struct S_BOTON {
     uint16_t   bID;       // ID del boton (bitmask)
@@ -279,10 +279,9 @@
     int   led;            // pin del led asociado al boton (0 si no tiene)
     S_bFLAGS  flags;      // flags varios
     char  desc[20];       // descripcion por defecto del boton
-    uint16_t   znumber;   // numero de zona (1 a n) o 0 si no es zona
   } ;
 
-  // estructura para el estado general del sistema (State Machine)
+  // estructura con el estado general del sistema (State Machine)
   struct S_Estado {
     m_estados estado = STANDBY; 
     estado_tipos tipo   = LOCAL;
@@ -304,6 +303,7 @@
     time_t total; 
   } ;
 
+  // variables contador de tiempo
   struct S_tm {
     uint8_t minutes = 0;
     uint8_t seconds = 0;
@@ -313,7 +313,6 @@
 
   //estructura para salvar un grupo
   struct Grupo_parm {
-    uint16_t bID;          // boton del grupo
     int size = 0;          // cantidad de zonas asociadas al grupo 
     uint16_t zNumber[ZONASXGRUPO];  // ojo! numero de las zonas, no es el boton asociado a ellas
     char desc[20] = "";    // descripcion del grupo
@@ -366,7 +365,7 @@
     bool dynamic  = false;  // grupo multirriego es dinámico (a partir de un riego de zona individual, no factorizado)
     bool semaforo = false;  // procesar siguiente zona del multirriego
     int ngrupo;             // numero del grupo al que apunta
-    uint16_t *id;           //apuntador al id del boton/selector grupo en estructura config (bGrupo_x)
+    const uint16_t *id;     //apuntador al id del boton/selector grupo en Grupos[]. No se modificara.
     uint16_t serie[16];     //contiene los id de los botones del grupo (bZona_x)
     uint16_t zserie[16];    //contiene las zonas del grupo (Zona_x)
     //uint16_t (*znumber)[16];    //apuntador a las zonas del grupo en estructura config (Zona_x)
@@ -374,6 +373,13 @@
     int w_size;             //variable auxiliar durante ConF
     int actual;             //variable auxiliar durante un multirriego 
     char *desc;             //apuntador a config con la descripcion del grupo
+  } ;
+
+// estructura para la zona activa (regando, terminando, parando, a parar...etc)  
+  struct S_zonaEnCurso{
+    S_BOTON* pBoton;   // Puntero al hardware (Leds, flags, ID) de Boton[]
+    int zindex;        // Índice de la zona (0 a 8) para config 
+    int znumber;       // Número de zona (1 a 9) para mostrar en el display
   } ;
 
   // estructura para salvar el estado de un riego en curso
@@ -398,43 +404,43 @@
   #ifdef __MAIN__
     #ifdef GRP4     // matriz Boton para caso de 9 zonas y 4 botones de grupos multirriego
       S_BOTON Boton [] =  { 
-        //bID         S   uS  LED          FLAGS                             DESC     NUMBER  
-        {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "ZONA1",   0    },
-        {bZONA2   ,   0,  0,  lZONA2   ,   ENABLED | ACTION,                 "ZONA2",   0    },
-        {bZONA3   ,   0,  0,  lZONA3   ,   ENABLED | ACTION,                 "ZONA3",   0    },
-        {bZONA4   ,   0,  0,  lZONA4   ,   ENABLED | ACTION,                 "ZONA4",   0    },
-        {bZONA5   ,   0,  0,  lZONA5   ,   ENABLED | ACTION,                 "ZONA5",   0    },
-        {bZONA6   ,   0,  0,  lZONA6   ,   ENABLED | ACTION,                 "ZONA6",   0    },
-        {bZONA7   ,   0,  0,  lZONA7   ,   ENABLED | ACTION,                 "ZONA7",   0    },
-        {bZONA8   ,   0,  0,  lZONA8   ,   ENABLED | ACTION,                 "ZONA8",   0    },
-        {bZONA9   ,   0,  0,  lZONA9   ,   ENABLED | ACTION,                 "ZONA9",   0    },
-        {bGRUPO1  ,   0,  0,  lGRUPO1  ,   ENABLED | ACTION,                 "GRUPO1",  0    },
-        {bGRUPO2  ,   0,  0,  lGRUPO2  ,   ENABLED | ACTION,                 "GRUPO2",  0    },
-        {bGRUPO3  ,   0,  0,  lGRUPO3  ,   ENABLED | ACTION,                 "GRUPO3",  0    },
-        {bGRUPO4  ,   0,  0,  lGRUPO4  ,   ENABLED | ACTION,                 "GRUPO4",  0    },
-        {bPAUSE   ,   0,  0,  0        ,   ENABLED | ACTION | DUAL | HOLD,   "PAUSE",   0    },
-        {bSTOP    ,   0,  0,  0        ,   ENABLED | ACTION | DUAL,          "STOP",    0    }
+      // bID          S   uS  LED          FLAGS                             DESC  
+        {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "ZONA1"},
+        {bZONA2   ,   0,  0,  lZONA2   ,   ENABLED | ACTION,                 "ZONA2"},
+        {bZONA3   ,   0,  0,  lZONA3   ,   ENABLED | ACTION,                 "ZONA3"},
+        {bZONA4   ,   0,  0,  lZONA4   ,   ENABLED | ACTION,                 "ZONA4"},
+        {bZONA5   ,   0,  0,  lZONA5   ,   ENABLED | ACTION,                 "ZONA5"},
+        {bZONA6   ,   0,  0,  lZONA6   ,   ENABLED | ACTION,                 "ZONA6"},
+        {bZONA7   ,   0,  0,  lZONA7   ,   ENABLED | ACTION,                 "ZONA7"},
+        {bZONA8   ,   0,  0,  lZONA8   ,   ENABLED | ACTION,                 "ZONA8"},
+        {bZONA9   ,   0,  0,  lZONA9   ,   ENABLED | ACTION,                 "ZONA9"},
+        {bGRUPO1  ,   0,  0,  lGRUPO1  ,   ENABLED | ACTION,                 "GRUPO1"},
+        {bGRUPO2  ,   0,  0,  lGRUPO2  ,   ENABLED | ACTION,                 "GRUPO2"},
+        {bGRUPO3  ,   0,  0,  lGRUPO3  ,   ENABLED | ACTION,                 "GRUPO3"},
+        {bGRUPO4  ,   0,  0,  lGRUPO4  ,   ENABLED | ACTION,                 "GRUPO4"},
+        {bPAUSE   ,   0,  0,  0        ,   ENABLED | ACTION | DUAL | HOLD,   "PAUSE"},
+        {bSTOP    ,   0,  0,  0        ,   ENABLED | ACTION | DUAL,          "STOP"}
       };
     #endif
     
     #ifdef M3GRP     // matriz Boton para caso de 9 zonas, boton multirriego y selector de 3 grupos multirriego
       S_BOTON Boton [] =  { 
-        //bID         S   uS  LED          FLAGS                             DESC     NUMBER
-        {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "ZONA1",        },
-        {bZONA2 ,     0,  0,  lZONA2 ,     ENABLED | ACTION,                 "ZONA2",        },
-        {bZONA3    ,  0,  0,  lZONA3    ,  ENABLED | ACTION,                 "ZONA3",        },
-        {bZONA4    ,  0,  0,  lZONA4    ,  ENABLED | ACTION,                 "ZONA4",        },
-        {bZONA5    ,  0,  0,  lZONA5    ,  ENABLED | ACTION,                 "ZONA5",        },
-        {bZONA6 ,     0,  0,  lZONA6 ,     ENABLED | ACTION,                 "ZONA6",        },
-        {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ZONA7",        },
-        {bZONA8  ,    0,  0,  lZONA8  ,    ENABLED | ACTION,                 "ZONA8",        },
-        {bZONA9,      0,  0,  lZONA9  ,    ENABLED | ACTION,                 "ZONA9",        },
-        {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO1",       },
-        {bGRUPO2  ,   0,  0,  lGRUPO2  ,   ENABLED | ONLYSTATUS | DUAL,      "GRUPO2",       },
-        {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO3",       },
-        {bMULTIRRIEGO,0,  0,  0,           ENABLED | ACTION,                 "MULTIRRIEGO",  },
-        {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE",        },
-        {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",         }
+      // bID          S   uS  LED          FLAGS                             DESC
+        {bZONA1   ,   0,  0,  lZONA1   ,   ENABLED | ACTION,                 "ZONA1"},
+        {bZONA2 ,     0,  0,  lZONA2 ,     ENABLED | ACTION,                 "ZONA2"},
+        {bZONA3    ,  0,  0,  lZONA3    ,  ENABLED | ACTION,                 "ZONA3"},
+        {bZONA4    ,  0,  0,  lZONA4    ,  ENABLED | ACTION,                 "ZONA4"},
+        {bZONA5    ,  0,  0,  lZONA5    ,  ENABLED | ACTION,                 "ZONA5"},
+        {bZONA6 ,     0,  0,  lZONA6 ,     ENABLED | ACTION,                 "ZONA6"},
+        {bZONA7  ,    0,  0,  lZONA7  ,    ENABLED | ACTION,                 "ZONA7"},
+        {bZONA8  ,    0,  0,  lZONA8  ,    ENABLED | ACTION,                 "ZONA8"},
+        {bZONA9,      0,  0,  lZONA9  ,    ENABLED | ACTION,                 "ZONA9"},
+        {bGRUPO1,     0,  0,  lGRUPO1,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO1"},
+        {bGRUPO2  ,   0,  0,  lGRUPO2  ,   ENABLED | ONLYSTATUS | DUAL,      "GRUPO2"},
+        {bGRUPO3,     0,  0,  lGRUPO3,     ENABLED | ONLYSTATUS | DUAL,      "GRUPO3"},
+        {bMULTIRRIEGO,0,  0,  0,           ENABLED | ACTION,                 "MULTIRRIEGO",},
+        {bPAUSE,      0,  0,  0,           ENABLED | ACTION | DUAL | HOLD,   "PAUSE"},
+        {bSTOP,       0,  0,  0,           ENABLED | ACTION | DUAL,          "STOP",}
       };
     #endif
 
@@ -452,10 +458,9 @@
     S_tm tm;           // variables contador de tiempo
     DisplayLCD lcd(LCD2004_address, 20, 4);  // 20 caracteres x 4 lineas
     Config_parm config; //estructura parametros configurables y runtime
-    Sonidos sonido;     // se pasa por referencia la estructura config al constructor de la clase
+    Sonidos sonido;     // clase para gestionar sonidos con buzzer
     S_initFlags initFlags ; // flags de inicializacion (borrado de parametros o wifi)
     CountUpDownTimer timer(DOWN); // temporizador cuenta atras
-    S_BOTON  *ultimoBotonZona;    // apuntador al ultimo boton de zona pulsado/tratado en la matriz Boton[]
     S_simFlags simular;           // estructura flags para simular errores
     Configure    *configure;
     AiEsp32RotaryEncoder rotaryEncoder(ENCDT,ENCCLK,-1, -1, ROTARY_ENCODER_STEPS);
@@ -467,7 +472,8 @@
     Ticker tic_verificaciones;       //para verificaciones periodicas
     S_timeRiego lastRiegos[NUMZONAS];
     S_timeRiego lastGrupos[NUMGRUPOS];
-    S_Riego_estado riegoSaved; // estructura con el estado del riego en curso
+    S_Riego_estado riegoSaved; // estructura con el estado del riego que se ha cancelado
+    S_zonaEnCurso zonaEnCurso; // estructura con el estado de la zona en curso (regando, terminando, parando, a parar...etc)
     uint factorRiegos[NUMZONAS];
     bool flagV = OFF;
     bool flagVtimer = OFF;
@@ -496,9 +502,9 @@
     extern int NUM_S_BOTON;
     extern S_BOTON Boton [];
     extern S_BOTON  *boton;
-    extern S_BOTON  *ultimoBotonZona;
     extern S_MULTI multi;
     extern S_Estado Estado;
+    extern S_zonaEnCurso zonaEnCurso;
     extern S_tm tm;
     extern DisplayLCD lcd;
     extern Sonidos sonido;
@@ -523,7 +529,7 @@
 //  Funciones (prototipos)
 // *****************************************************************************************
 void apagaLeds(void);
-int  bID2bIndex(uint16_t);
+int  getBotonIndex(uint16_t);
 void blinkDisplay(void);
 void check(void);
 bool checkSCD(void);
@@ -556,11 +562,12 @@ void flagVerificaciones(void);
 void gestionarTamanoLog();
 bool getDiaNoche(char*, char*);
 String getDomoticzSettingsInfo(const char*);
-int getFactor(uint8_t zona, bool &factorRiegosLeido);
+int  getFactor(uint8_t zona, bool &factorRiegosLeido);
 uint16_t getMultiStatus(void);
 float getRemoteTemperature();
 const char* getTimestamp();
-void handleDynamicZoneChange();
+int  getZonaIndex(uint16_t id);
+void handleDynamicZoneChange(int znumber);
 void handleEncGrupoInStandby(int n_grupo);
 void handleEncGrupoInStop(int n_grupo);
 void handleEncPauseInPause();
@@ -626,7 +633,7 @@ void procesaBotonMultirriego(void);
 void procesaBotonPause(void);
 void procesaBotonStop(void);
 void procesaBotonZona(void);
-bool procesaDynamic(void);
+bool procesaDynamic(int znumber);
 void procesaEncoderTime(void);
 void procesaEncoderConfig(void);
 void procesaEstadoConfigurando(void);
@@ -656,7 +663,6 @@ void saveRiego(int znumber, int bID, int minutes, int seconds);
 void scSorpresa();
 void scWebserver();
 bool serialDetect(void);
-void setbIDgrupos();
 void setClock(void);
 void setConnected(bool);
 void setEncoderMenu(int menuitems, int currentitem = 0);
@@ -667,29 +673,30 @@ int  setGrupo();
 void setLed(Ticker &t, estado_led estado, int ledid);
 void setLedStatus(void);
 void setLogToFile();
-int setMultibyId(uint16_t);
-bool setMultirriego();
+int  setMultibyId(uint16_t);
+int  setMultiTemp();
 void setParpadeo(Ticker &t, velocidad_parpadeo vel, void (*f_callback)(int), int ledid);
 void setParpadeo(Ticker &t, velocidad_parpadeo vel);
 void setStateMachine(m_estados estado, estado_tipos tipo = LOCAL);
-void setzNumber(void);
 void setupConfig(void);
 void setupEstadoFinal(void);
 void setupInit(void);
 void setupParm(void);
 void setupRedWM(S_initFlags&);
 void setupWS();
+void setZonaEnCurso(uint16_t bID);
 void showInfoZona(int zIndex);
 void showTemp(void);
 void showTimeLastRiego(S_timeRiego&, int, int);
 void simulaPauseIfEncoderSW();
 void simulaPauseIfEncoderSW2();
 void startConfigPortal();
+bool startMultirriego();
 void startZoneWatering();
 void StaticTimeUpdate(bool);
 void statusError(error_tipos, bool recoverable=false, velocidad_parpadeo zonablink = NULO, velocidad_parpadeo errorblink = NULO);
 bool stopAllRiegos(void);
-void stopHW();
+void stopHW(const char* msg);
 bool stopRiego(uint16_t id, bool update = true, bool alertIfFails = true, int retries = SWITCH_RETRIES);
 String sysInfo(void);
 bool testButton(uint16_t, bool);
@@ -708,7 +715,7 @@ void VerifyRecoverySCD(void);
 void wifiClearSignal(uint);
 bool wifiReconnect(void);
 void zeroConfig();
-int  zNumber2bIndex(uint16_t);
+
 
 // *****************************************************************************************
 // Funciones (templates) para gestion de las tablas de registro de riegos de zonas y grupos

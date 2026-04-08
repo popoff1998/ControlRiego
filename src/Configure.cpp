@@ -21,11 +21,11 @@ void Configure::menu(int item)
 void Configure::reset()
 {
       all_configureflags = 0;
-      _actualIdxIndex = 0;
+      _actualZonaIndex = 0;
       _actualGrupo = 0;
 }
 
-bool Configure::configuringTime(void)
+bool Configure::configuringTime()
 {
   return _configuringTime;
 }
@@ -55,34 +55,34 @@ bool Configure::configuringMelody()
   return _configuringMelody;
 }
 
-bool Configure::statusMenu()
+bool Configure::inMenu()
 {
   return _configuringMenu;
 }
 
-//  configuramos IDX asociado al boton de zona
-void Configure::Idx_process_start(int index)
+//  configuramos IDX asociado a la zona
+void Configure::Idx_process_start(int zindex)
 {
       this->reset();
       _configuringIdx = true;
-      _actualIdxIndex = index;
-      tm.value = config.zona[boton->znumber-1].idx;
+      _actualZonaIndex = zindex;
+      tm.value = config.zona[zindex].idx;
       setEncoderRange(0, 999, tm.value, 100);
 
-      LOG_INFO("[ConF] configurando IDX boton:",config.zona[boton->znumber-1].desc);
+      LOG_INFO("[ConF] configurando IDX boton:",config.zona[zindex].desc);
       lcd.infoclear("Configurando");
-      snprintf(buff, MAXBUFF, "IDX de:  %s", config.zona[boton->znumber-1].desc);
+      snprintf(buff, MAXBUFF, "IDX de:  %s", config.zona[zindex].desc);
       lcd.info(buff, 2);
       snprintf(buff, MAXBUFF, " actual %d", tm.value);
       lcd.info(buff, 3);
       
-      led(Boton[_actualIdxIndex].led,ON);
+      led(Boton[getBotonIndex(Zonas[zindex])].led,ON);
 }
 
 //  actualizamos en pantalla el nuevo IDX de la zona
 void Configure::Idx_process_update()
 {     
-      int currentZona = Boton[_actualIdxIndex].znumber;
+      int currentZona = _actualZonaIndex+1;
       snprintf(buff, MAXBUFF, " nuevo IDX ZONA%d %d", currentZona, tm.value);
       lcd.info(buff, 4);
 }  
@@ -90,18 +90,16 @@ void Configure::Idx_process_update()
 //  salvamos en config el nuevo IDX de la zona
 void Configure::Idx_process_end()
 {
-      int zIndex = Boton[_actualIdxIndex].znumber-1;
-      config.zona[zIndex].idx = (uint16_t)tm.value;
+      config.zona[_actualZonaIndex].idx = (uint16_t)tm.value;
       saveConfig = true;
+      int bIndex = getBotonIndex(Zonas[_actualZonaIndex]);
       
-      LOG_INFO("Save Zona",zIndex+1,"(",Boton[_actualIdxIndex].desc,") IDX :",tm.value);
+      LOG_INFO("Save Zona",_actualZonaIndex+1,"(",Boton[bIndex].desc,") IDX :",tm.value);
       lcd.info(" << GUARDADO >>",3);
-      // lcd.clear(BORRA2H);
       sonido.bipOK();
       delay(config.msgdisplaymillis);  // para que se vea el msg
-      led(Boton[_actualIdxIndex].led,OFF);
+      led(Boton[bIndex].led,OFF);
 
-      // tmvalue();  // restaura tiempo (en lugar del IDX)
       this->menu(0);  // vuelve a mostrar menu de configuracion, primera linea
 }
 
@@ -190,7 +188,7 @@ void Configure::Multi_process_start(int grupo)
 }
 
 //  configuramos grupo multirriego temporal
-void Configure::MultiTemp_process_start(void)
+void Configure::MultiTemp_process_start()
 {
       this->reset();
       _configuringMultiTemp = true;
@@ -200,7 +198,7 @@ void Configure::MultiTemp_process_start(void)
 }
 
 //  se añade zona pulsada a grupo
-void Configure::configureMulti_display(void)    
+void Configure::configureMulti_display()    
 {
 
       LOG_INFO("Configurando: GRUPO",_actualGrupo,"(",multi.desc,")");
@@ -213,20 +211,19 @@ void Configure::configureMulti_display(void)
 
       if(!_configuringMultiTemp) {    // no encendemos leds si grupo TEMPORAL
         displayLedsGrupo(multi.serie, *multi.size);
-        led(Boton[bID2bIndex(*multi.id)].led,ON);
+        led(Boton[getBotonIndex(*multi.id)].led,ON);
       }  
 }              
 
 void Configure::Multi_process_update()
 {
-      int zNumber = boton->znumber;
-
+      int zIndex = getZonaIndex(boton->bID);
       if (multi.w_size < ZONASXGRUPO) {  //max. zonas por grupo
         multi.serie[multi.w_size] = boton->bID;  // bId de la zona
-        multi.zserie[multi.w_size] = zNumber ;  // numero de la zona
+        multi.zserie[multi.w_size] = zIndex+1 ;  // numero de la zona
         multi.w_size = multi.w_size + 1;
 
-        LOG_INFO("[ConF] añadiendo ZONA",zNumber,"(",config.zona[zNumber-1].desc,") multi.w_size=",multi.w_size);
+        LOG_INFO("[ConF] añadiendo ZONA",zIndex+1,"(",config.zona[zIndex].desc,") multi.w_size=",multi.w_size);
         led(boton->led,ON);
         displayLCDGrupo(multi.zserie, multi.w_size,4,0);
       }
@@ -240,6 +237,7 @@ void Configure::Multi_process_end()
       if (multi.w_size) {  //solo si se ha pulsado alguna zona
         *multi.size = multi.w_size;
         int g = _actualGrupo;
+        // actualizamos config con las zonas introducidas para el grupo
         for (int i=0; i<multi.w_size; ++i) {
           config.group[g-1].zNumber[i] = multi.zserie[i];
         }
@@ -265,7 +263,7 @@ void Configure::Multi_process_end()
       }
       saveConfig = true;
       ultimosRiegos(HIDE);
-      led(Boton[bID2bIndex(*multi.id)].led,OFF);
+      led(Boton[getBotonIndex(*multi.id)].led,OFF);
       this->menu(0);  // vuelve a mostrar menu de configuracion, primera linea
 }
 
@@ -277,7 +275,6 @@ void Configure::MultiTemp_process_end()
         saveConfig = true;  //  solo para indicar que hemos salvado grupo temporal y tenemos que iniciarlo
 
         LOG_INFO("process_end grupo TEMPORAL : GRUPO",_actualGrupo,"tamaño:",*multi.size,"(",multi.desc,")");
-        //printMultiGroup( _actualGrupo-1);
         sonido.bipOK();
         lcd.info("  >> libere STOP <<",1);
         lcd.info("para comenzar riego",2);
@@ -285,29 +282,9 @@ void Configure::MultiTemp_process_end()
       }
 }
 
-int Configure::get_ActualIdxIndex(void)
-{
-  return _actualIdxIndex;
-}
-
-int Configure::get_ActualGrupo(void)
-{
-  return _actualGrupo;
-}
-
-int Configure::get_currentItem(void)
+int Configure::get_currentItem()
 {
   return _currentItem;
-}
-
-int Configure::get_datapos(void)
-{
-  return _data_pos[_currentItem];
-}
-
-int Configure::get_maxItems(void)
-{
-  return _maxItems;
 }
 
 

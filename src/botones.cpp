@@ -325,7 +325,7 @@ S_BOTON *parseInputs(bool read)
  */
 void simulaPauseIfEncoderSW() {
     static bool simulaPausePrev = false; 
-    int i = bID2bIndex(bPAUSE);         
+    int i = getBotonIndex(bPAUSE);         
     // 1. TRANSICIÓN: PULSO (De false a true)
     if (encoderSW && !simulaPausePrev) {
         simulaPausePrev = true;
@@ -337,46 +337,42 @@ void simulaPauseIfEncoderSW() {
     // 2. TRANSICIÓN: LIBERACIÓN (De true a false)
     if (!encoderSW && simulaPausePrev) {
         simulaPausePrev = false;
-        // Limpiamos el estado simulado inmediatamente después de la liberación.
         Boton[i].estado = false; // seguramente no es necesario, pero por claridad
         LOG_DEBUG("bPAUSE LIBERACIÓN simulada.");
     } 
 }
 
 // devuelve la posicion en array Boton[] (bIndex) del boton que se le ha pasado (bID)
-int bID2bIndex(uint16_t id)
+int getBotonIndex(uint16_t id)
 {
   for (int i=0;i<NUM_S_BOTON;i++) {
     if (Boton[i].bID == id) return i;
   }
-  LOG_ERROR("!!! BUG DE CODIGO: bID no encontrado en Boton[]:", id);
-  return 999;
+  char msg[64];
+  snprintf(msg, sizeof(msg), "!!! BUG: bID %04X no encontrado en Boton[]", id);
+  stopHW(msg); // El sistema se detiene aquí
+  return -1;   // Nunca se alcanzará
 }
 
-// devuelve posicion en array Boton[] (bIndex) de la zona pasada (numero de la zona)
-int zNumber2bIndex(uint16_t z)
+// devuelve la posicion en array Zonas[] (zona-1) del boton que se le ha pasado (bID)
+int getZonaIndex(uint16_t id)
 {
-  for (int i=0;i<NUM_S_BOTON;i++) {
-    if (Boton[i].znumber == z) return i;
+  for (int i=0;i<NUMZONAS;i++) {
+    if (Zonas[i] == id) return i;
   }
-  LOG_ERROR("!!! BUG DE CODIGO: zona no encontrada en Boton[]:", z);
-  return 999;
+  char msg[64];
+  snprintf(msg, sizeof(msg), "!!! BUG: bID %04X no encontrado en Zonas[]", id);
+  stopHW(msg); // El sistema se detiene aquí
+  return -1;   // Nunca se alcanzará
 }
 
-//rellena campo zNumber (numero de zona) en Boton[] segun el orden de estos en ZONAS[]
-void setzNumber()
-{
-  for (uint i=0;i<NUMZONAS;i++) {
-    Boton[bID2bIndex(ZONAS[i])].znumber = i+1 ;
-  }
+// salva apuntadores a la zona en curso (a partir de su boton bID)
+void setZonaEnCurso(uint16_t bID) {
+    zonaEnCurso.pBoton  = &Boton[getBotonIndex(bID)];
+    zonaEnCurso.zindex  = getZonaIndex(bID);
+    zonaEnCurso.znumber = zonaEnCurso.zindex + 1;
+    LOG_DEBUG("Zona apuntada:", zonaEnCurso.znumber, "(" ,config.zona[zonaEnCurso.zindex].desc, ")");
 }
 
-//rellena campo bID (boton asociado) en config segun el orden de estos en GRUPOS[]
-void setbIDgrupos()
-{
-  for (uint i=0;i<NUMGRUPOS;i++) {
-      config.group[i].bID = GRUPOS[i];  //obtiene el bID del boton de ese grupo (ojo: no viene en el json)
-  }
-}
 
 // fin de src/botones.cpp
