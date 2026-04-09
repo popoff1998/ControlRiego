@@ -114,7 +114,7 @@
   #define ZONASXGRUPO         9       // maximo de zonas en un grupo multirriego (9 para coja en pantalla, max. 16)
                                       // [*] = configurables
 
- //----------------  dependientes del HW   ----------------------------------------
+ //----------------  dependientes del HW   (no modificar) ---------------------------
   #ifdef ESP32
     // GPIOs  I/O usables: 2 4 5 16 17 18 19 21 22 23 25 26 27 32 33  (15/15)
     // GPIOs  I/O los reservo para JTAG: 12 13 14 15
@@ -146,32 +146,7 @@
     #define lGRUPO4               16            // mcpO GPB7
     #define mcpOUT                0x20  //direccion del MCP23017 para salidas (leds)
     #define mcpIN                 0x21  //direccion del MCP23017 para entradas (botones)
-
   #endif
- //----------------  fin dependientes del HW   ----------------------------------------
-
-
-  //Para legibilidad del codigo
-  #define ON  1
-  #define OFF 0
-  #define SHOW 1
-  #define HIDE 0
-  #define READ 1
-  #define CLEAR 0
-  #define FULL 1
-  #define RESTO 0
-  #define REFRESH 1
-  #define UPDATE 0
-  #define NOBLINK 0
-  #define BORRA1H 1
-  #define BORRA2H 2
-  #define LCDON 0
-  #define RECUPERABLE 1
-  #define NORECUPERABLE 0
-  #define INICIO 0
-  #define RESUME 1
-  #define SHORT 1
-
 
   //----------------  dependientes del HW   (caso de 4 botones de grupos multirriego)  ---------------
   // ojo esta es la posición del bit de cada boton en el stream serie - no modificar -
@@ -200,7 +175,6 @@
     // lista de todos los botones de grupos disponibles (el orden define el grupo):
     #define _GRUPOS bGRUPO1 , bGRUPO2 , bGRUPO3 , bGRUPO4
   #endif
-  //----------------  fin dependientes del HW   ----------------------------------------
 
   //----------------  dependientes del HW   (caso de boton multirriego + selector 3 grupos)   ---------------
   #ifdef M3GRP
@@ -229,12 +203,37 @@
     #define _GRUPOS bGRUPO1 , bGRUPO2 , bGRUPO3 
   #endif
   //----------------  fin dependientes del HW   ----------------------------------------
- 
+
+  //Para legibilidad del codigo
+  #define ON  1
+  #define OFF 0
+  #define SHOW 1
+  #define HIDE 0
+  #define READ 1
+  #define CLEAR 0
+  #define FULL 1
+  #define RESTO 0
+  #define REFRESH 1
+  #define UPDATE 0
+  #define NOBLINK 0
+  #define BORRA1H 1
+  #define BORRA2H 2
+  #define LCDON 0
+  #define RECUPERABLE 1
+  #define NORECUPERABLE 0
+  #define INICIO 0
+  #define RESUME 1
+  #define SHORT 1
+
   // constexpr calculado por el preprocesador y no modificable en tiempo de ejecucion
   constexpr uint16_t Zonas[] = {_ZONAS};
   constexpr uint16_t Grupos[]  = {_GRUPOS};
   constexpr int NUMZONAS = ELEMENTCOUNT(Zonas); // numero de zonas (botones riego individual)
   constexpr int NUMGRUPOS = ELEMENTCOUNT(Grupos); // numero de grupos multirriego
+
+/* --------------------------------------------------------------------------------------
+ *                                Estructuras
+ * -------------------------------------------------------------------------------------- */
 
   union S_bFLAGS
   {
@@ -330,9 +329,9 @@
   struct Config_parm {
     bool initialized = false;
     static const int  n_Zonas = NUMZONAS;       //no modificable por fichero de parámetros (depende HW) 
-    Zona_parm zona[n_Zonas];
+    Zona_parm zona[n_Zonas];                    // parametros de cada zona (descripcion y idx en Domoticz)
     static const int  n_Grupos = NUMGRUPOS;     //no modificable por fichero de parámetros (depende HW)
-    Grupo_parm group[n_Grupos+1];               // +1 para sitio para grupo temporal n+1
+    Grupo_parm group[n_Grupos];                 // parametros de cada grupo (zonas asociadas y descripcion)
     char domoticz_ip[40] = "";                  // IP o nombre del servidor Domoticz
     char domoticz_port[6] = "";                 // puerto del servidor Domoticz
     char ntpServer[40] = NTPSERVER_SPAIN;       // servidor NTP por defecto
@@ -365,14 +364,13 @@
     bool dynamic  = false;  // grupo multirriego es dinámico (a partir de un riego de zona individual, no factorizado)
     bool semaforo = false;  // procesar siguiente zona del multirriego
     int ngrupo;             // numero del grupo al que apunta
-    const uint16_t *id;     //apuntador al id del boton/selector grupo en Grupos[]. No se modificara.
+    const uint16_t *id;     //apuntador al id del boton/selector grupo en Grupos[]. Solo lectura.
     uint16_t serie[16];     //contiene los id de los botones del grupo (bZona_x)
     uint16_t zserie[16];    //contiene las zonas del grupo (Zona_x)
-    //uint16_t (*znumber)[16];    //apuntador a las zonas del grupo en estructura config (Zona_x)
     int *size;              //apuntador a config con el tamaño del grupo
     int w_size;             //variable auxiliar durante ConF
     int actual;             //variable auxiliar durante un multirriego 
-    char *desc;             //apuntador a config con la descripcion del grupo
+    const char *desc;       //apuntador a config con la descripcion del grupo. Solo lectura.
   } ;
 
 // estructura para la zona activa (regando, terminando, parando, a parar...etc)  
@@ -399,8 +397,10 @@
       const char* descripcion;
   };
 
+/* --------------------------------------------------------------------------------------
+ *                     Variables Globales a _MAIN_ (Control.cpp)
+ * -------------------------------------------------------------------------------------- */
 
-   //Globales a _MAIN_ (Control.cpp)
   #ifdef __MAIN__
     #ifdef GRP4     // matriz Boton para caso de 9 zonas y 4 botones de grupos multirriego
       S_BOTON Boton [] =  { 
@@ -497,8 +497,11 @@
     DHT dht(DHTPIN, TEMPLOCAL);
     #endif
 
+/* --------------------------------------------------------------------------------------
+ *                   ademas de en main, son globales a todos los modulos:
+ * -------------------------------------------------------------------------------------- */
+
     #else
-    // ademas de en main, son globales a todos los modulos:
     extern int NUM_S_BOTON;
     extern S_BOTON Boton [];
     extern S_BOTON  *boton;
@@ -521,13 +524,13 @@
     extern const char *logErrorFile;
     extern const char *logErrorFilePrev;
     extern char buff[];
-
-    
   #endif
 
-// *****************************************************************************************
-//  Funciones (prototipos)
-// *****************************************************************************************
+
+/* --------------------------------------------------------------------------------------
+ *                     Declaracion de Funciones (prototipos)
+ * -------------------------------------------------------------------------------------- */
+
 void apagaLeds(void);
 int  getBotonIndex(uint16_t);
 void blinkDisplay(void);
@@ -547,8 +550,7 @@ void displayEstadoRemoto(const char *estado_texto);
 void displayLedsGrupo(uint16_t *, int);
 void displayLCDGrupo(bool, int line=4, int znumber=0);
 int  displayLCDGrupo(uint16_t *, int, int , int );
-void displayMultiTemporal(void);
-void displayNoFactorizado(void);
+void displayTipoGrupo();
 void displayRestar();
 void displayTimer(uint8_t, uint8_t, uint8_t, uint8_t);
 void displayEstadoRemoto(estado_tipos tipo);
@@ -674,7 +676,7 @@ void setLed(Ticker &t, estado_led estado, int ledid);
 void setLedStatus(void);
 void setLogToFile();
 int  setMultibyId(uint16_t);
-int  setMultiTemp();
+void setMultiTemp();
 void setParpadeo(Ticker &t, velocidad_parpadeo vel, void (*f_callback)(int), int ledid);
 void setParpadeo(Ticker &t, velocidad_parpadeo vel);
 void setStateMachine(m_estados estado, estado_tipos tipo = LOCAL);
@@ -687,9 +689,8 @@ void setupWS();
 void setZonaEnCurso(uint16_t bID);
 void showInfoZona(int zIndex);
 void showTemp(void);
-void showTimeLastRiego(S_timeRiego&, int, int);
+void showTimeLastRiego(S_timeRiego&, int);
 void simulaPauseIfEncoderSW();
-void simulaPauseIfEncoderSW2();
 void startConfigPortal();
 bool startMultirriego();
 void startZoneWatering();

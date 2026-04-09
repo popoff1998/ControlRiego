@@ -569,7 +569,7 @@ void handleEncGrupoInStandby(int n_grupo) {
     snprintf(buff, MAXBUFF, "grupo: %s", multi.desc);
     lcd.infoclear(buff, 1);
     displayLCDGrupo(FULL, 2);
-    showTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1, GRUPO);
+    showTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1);
     displayLedsGrupo(multi.serie, *multi.size);
     delay(config.msgdisplaymillis*3);
     setEstado(STANDBY);   //para que restaure pantalla
@@ -644,7 +644,7 @@ bool procesaDynamic(int znumber)
 {
   // NOTA: si llegamos aquí, la zona pulsada NO coincide con la actualmente en riego (zona actual)
   if (!multi.riegoON) { //si estamos en riego de zona individual -> la pasamos a multirriego temporal
-    setMultibyId(0);  // apunta estructura multi a grupo temporal en config (n+1) con id = 0
+    setMultiTemp();  // apunta estructura multi a grupo temporal en config (n+1) con id = 0
     multi.riegoON = true;
     multi.temporal = true;
     multi.dynamic  = true;  // marcamos como dinamico para no factorizarlo
@@ -872,8 +872,10 @@ void procesaEstadoTerminando()
       multi.semaforo = true;
     }
     else {         // señalamos fin del multirriego y actualizamos timestamp de finalizacion
-      if(!multi.temporal) finalTimeGrupo(lastGrupos[multi.ngrupo-1]);
-      saveTablaToFile(lastGruposFile, "lastGrupos", lastGrupos, NUMGRUPOS);  //guardamos en fichero tabla de ultimos riegos de grupos
+      if(!multi.temporal) {
+        finalTimeGrupo(lastGrupos[multi.ngrupo-1]);
+        saveTablaToFile(lastGruposFile, "lastGrupos", lastGrupos, NUMGRUPOS);  //guardamos en fichero tabla de ultimos riegos de grupos
+      }  
       saveTablaToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
       lcd.info("multirriego",1);
       int msgl = snprintf(buff, MAXBUFF, "%s fin", multi.desc);
@@ -1014,11 +1016,10 @@ void setEstado(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parp
             lcd.clear();
             lcd.infoEstado(textoEstado, config.zona[zonaEnCurso.zindex].desc, bipcount);
             if (tipo == REMOTO) displayEstadoRemoto(textoEstado); // muestra en display tipo de estado (LOCAL/REMOTO)
+            //muestra en pantalla las zonas que restan por regar del grupo (excluida la zona en curso) y tipo del grupo
             if (multi.riegoON) {
-                //muestra en pantalla las zonas que restan por regar del grupo (excluida la zona en curso):
                 displayLCDGrupo(RESTO, 2, riegoSaved.znumber);
-                if(multi.dynamic) displayNoFactorizado();
-                else if(multi.temporal) displayMultiTemporal(); 
+                displayTipoGrupo();
             }
             refreshTime(); //actualizamos tiempo de cuenta atras en pantalla 
             if (ledblink) {setParpadeo(tic_LedZona, ledblink, parpadeoLedZona, zonaEnCurso.pBoton->led);} 
@@ -1034,8 +1035,7 @@ void setEstado(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parp
             lcd.infoEstado(textoEstado, config.zona[zonaEnCurso.zindex].desc, bipcount);
             if (tipo == REMOTO) displayEstadoRemoto(textoEstado); // muestra en display tipo de estado (LOCAL/REMOTO)
             lcd.clear(BORRA2H); //borra posible msgs de error
-            if(multi.dynamic) displayNoFactorizado();
-            else if(multi.temporal) displayMultiTemporal(); 
+            if(multi.riegoON) displayTipoGrupo();
             refreshTime(); //actualizamos tiempo de cuenta atras en pantalla
             if (ledblink) {setParpadeo(tic_LedZona, ledblink, parpadeoLedZona, zonaEnCurso.pBoton->led);}
               else {setLed(tic_LedZona, ENCIENDE, zonaEnCurso.pBoton->led);} 
@@ -1343,7 +1343,7 @@ void finalTimeGrupo(S_timeRiego &timeRiego, time_t tZona)
   }
 }  
 
-void showTimeLastRiego(S_timeRiego &timeRiego, int index, int tipo) 
+void showTimeLastRiego(S_timeRiego &timeRiego, int index) 
 {
   time_t t1=timeRiego.inicio;
   time_t t2=timeRiego.final;
@@ -1406,7 +1406,7 @@ void showInfoZona(int zIndex) {
     lcd.print(buff);
     snprintf(buff, MAXBUFF, "-factor riego:  %d", factorRiegos[zIndex]);
     lcd.info(buff,2);
-    showTimeLastRiego(lastRiegos[zIndex], zIndex, ZONA);
+    showTimeLastRiego(lastRiegos[zIndex], zIndex);
     delay(config.msgdisplaymillis*4);
     led(boton->led,OFF);
     setEstado(STANDBY);
@@ -1606,9 +1606,9 @@ bool stopAllRiegos()
     int retries = SWITCH_RETRIES;
     // Apago los leds de multirriego y zonas y sus tickers de parpadeos
     resetLeds();
-    // Paramos todas las zonas de riego
+    // Paramos todas las zonas de riego (sin actualizar hora fin de riego)
+    // Si falla no se activa la alerta de pendiente de parar riego de zona
     for(unsigned int i=0;i<NUMZONAS;i++) { 
-        // Si falla no se activa la alerta de pendiente de parar riego de zona
         if(!stopRiego(Zonas[i], false, false, retries)) { 
             allRiegoOK = false; // Marcamos que el lote falló
             // Salimos inmediatamente tras el primer error general
@@ -1904,6 +1904,19 @@ void displayMultiTemporal() {
     lcd.print("*Mtemp"); 
 }
 
+void displayGx(int grupo) {
+    lcd.setCursor(0,3);
+    lcd.print("G");
+    lcd.print(grupo);
+}
+
+// muestra en esquina inferior izquierda del LCD el tipo de multirriego (sin factorizar, temporal o por grupos)
+void displayTipoGrupo () {
+    if(multi.dynamic) displayNoFactorizado();
+      else if(multi.temporal) displayMultiTemporal();
+        else displayGx(multi.ngrupo); 
+}
+
 void displayEstadoRemoto(const char* estado_texto) {
     lcd.setCursor(strlen(estado_texto)-1, 0); // escribe sobre los ":"" finales
     lcd.print("(R)");
@@ -1974,10 +1987,6 @@ void setupParm()
 //Completa campos de config y boton
 void setupConfig() 
 {
-  //init grupo temporal n+1  
-  config.group[NUMGRUPOS].size = 0;
-  sprintf(config.group[NUMGRUPOS].desc, "TEMPORAL"); 
-  LOG_TRACE("Init grupo temporal (GRUPO", NUMGRUPOS+1,")");
   //si en config campo desc de la zona esta vacio se copia el de por defecto de la estructura Boton:
   for(int i=0;i<NUMZONAS;i++) {
     if(strlen(config.zona[i].desc) == 0) {
@@ -2064,6 +2073,7 @@ const char* getTimestamp() {
 
 // Gestion del fichero de log de errores: rotación y limpieza
 void gestionarTamanoLog() {
+  #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
   static const size_t totalFS = LittleFS.totalBytes();
   static const size_t MAXLOGFILESIZE = (totalFS * 4) / 100; // maximo tamaño del log en bytes antes de rotar (4% del total FS)
   static const size_t MINFSSPACE = (totalFS * 8) / 100; // espacio libre minimo en LittleFS en bytes (8% del total FS)
@@ -2099,6 +2109,7 @@ void gestionarTamanoLog() {
             }    
         }    
     }
+    #endif
 }
 
 // Configura el nivel de grabacion en fichero segun parametro config.logWarnToFile

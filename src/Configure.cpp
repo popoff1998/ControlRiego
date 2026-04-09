@@ -183,7 +183,6 @@ void Configure::Multi_process_start(int grupo)
       this->reset();
       _configuringMulti = true;
       _actualGrupo = grupo;
-      multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
       this->configureMulti_display();
 }
 
@@ -192,8 +191,7 @@ void Configure::MultiTemp_process_start()
 {
       this->reset();
       _configuringMultiTemp = true;
-      _actualGrupo = NUMGRUPOS+1;   // grupo temporal: n+1
-      multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
+      _actualGrupo = 0;
       this->configureMulti_display();
 }
 
@@ -201,8 +199,7 @@ void Configure::MultiTemp_process_start()
 void Configure::configureMulti_display()    
 {
 
-      LOG_INFO("Configurando: GRUPO",_actualGrupo,"(",multi.desc,")");
-      LOG_DEBUG("en configuracion de MULTIRRIEGO, setMultibyId devuelve: Grupo",_actualGrupo,"(",multi.desc,") multi.size=", *multi.size);
+      LOG_INFO("Configurando: GRUPO",_actualGrupo,"(",multi.desc,") multi.size=", *multi.size);
       lcd.infoclear("Configurando");
       snprintf(buff, MAXBUFF, "grupo%d: %s",_actualGrupo, multi.desc);
       lcd.info(buff, 2);
@@ -210,8 +207,8 @@ void Configure::configureMulti_display()
       lcd.info(buff, 3);
 
       if(!_configuringMultiTemp) {    // no encendemos leds si grupo TEMPORAL
-        displayLedsGrupo(multi.serie, *multi.size);
-        led(Boton[getBotonIndex(*multi.id)].led,ON);
+        displayLedsGrupo(multi.serie, *multi.size); // mostramos leds de las zonas ya configuradas para el grupo
+        led(Boton[getBotonIndex(*multi.id)].led,ON); // encendemos led del boton del grupo
       }  
 }              
 
@@ -235,9 +232,9 @@ void Configure::Multi_process_end()
 {
       char grupoText[21];
       if (multi.w_size) {  //solo si se ha pulsado alguna zona
+        // actualizamos config con tamaño y zonas introducidas para el grupo
         *multi.size = multi.w_size;
         int g = _actualGrupo;
-        // actualizamos config con las zonas introducidas para el grupo
         for (int i=0; i<multi.w_size; ++i) {
           config.group[g-1].zNumber[i] = multi.zserie[i];
         }
@@ -271,7 +268,7 @@ void Configure::Multi_process_end()
 void Configure::MultiTemp_process_end()
 {
       if (multi.w_size) {  //solo si se ha pulsado alguna
-        *multi.size = multi.w_size;
+        // *multi.size = multi.w_size; // no hace falta actualizar multi.size porque el grupo temporal no se guarda en config, solo en multi.
         saveConfig = true;  //  solo para indicar que hemos salvado grupo temporal y tenemos que iniciarlo
 
         LOG_INFO("process_end grupo TEMPORAL : GRUPO",_actualGrupo,"tamaño:",*multi.size,"(",multi.desc,")");

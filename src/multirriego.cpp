@@ -37,6 +37,7 @@ int setMultibyId(uint16_t id)
   {
     if(Grupos[i] == id) {
       multi.id = &Grupos[i];
+      multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
       multi.size = &config.group[i].size;
       multi.desc = config.group[i].desc;
       multi.ngrupo = i+1;
@@ -58,15 +59,14 @@ int setMultibyId(uint16_t id)
 }
 
 // Asigna en multi valores o apuntadores para multirriego temporal
-int setMultiTemp()
+void setMultiTemp()
 {
-    int grupo_temp = NUMGRUPOS+1;
     multi.id = nullptr;
-    multi.size = &config.group[grupo_temp-1].size;
-    multi.desc = config.group[grupo_temp-1].desc;
-    multi.ngrupo = grupo_temp;
+    multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
+    multi.size = &multi.w_size; // el tamaño del grupo temporal es el de multi.w_size
+    multi.desc = "TEMPORAL";
+    multi.ngrupo = 0; // el numero de grupo temporal es 0 (no existe en config)
     LOG_DEBUG(" devuelve GRUPO", multi.ngrupo,"(",multi.desc,") con",*multi.size,"zonas");
-    return grupo_temp;
 }
 
 
@@ -94,12 +94,12 @@ bool startMultirriego()
   }      
 }
 
-
+// muestra en leds y LCD las zonas del grupo
 void displayLedsGrupo(uint16_t *serie, int serieSize)
 {
-  led(Boton[getBotonIndex(*multi.id)].led,ON);
+  led(Boton[getBotonIndex(*multi.id)].led,ON); // enciende led del grupo
   int i;
-  if(serieSize > 0) {
+  if(serieSize > 0) {  // si el grupo tiene zonas definidas muestra leds de las zonas del grupo
       for(i=0;i<serieSize;i++) {
         led(Boton[getBotonIndex(serie[i])].led,ON);
         delay(300);
@@ -109,7 +109,7 @@ void displayLedsGrupo(uint16_t *serie, int serieSize)
         delay(100);
       }
   }    
-  led(Boton[getBotonIndex(*multi.id)].led,OFF);
+  led(Boton[getBotonIndex(*multi.id)].led,OFF); // apaga led del grupo
 }
 
 void displayLCDGrupo(bool full, int line, int znumber)

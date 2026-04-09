@@ -244,7 +244,7 @@ void zeroConfig() {
   LOG_TRACE("");
   config = Config_parm(); //reset estructura config a valores por defecto
   for (int j=0; j<config.n_Grupos; j++) {
-    config.group[j].size = 0;
+    config.group[j].size = 0;  // TODO Es necesario?
   }  
 }
 

@@ -30,11 +30,6 @@
     NUM_ESTADOS // numero de estados definidos en el enum
   };
   
-  enum _opciones_varias {
-    ZONA = 1,
-    GRUPO,
-  };
-
   enum error_tipos {
     NOERROR       = 0,
     E1            = 1,
