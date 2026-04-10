@@ -347,12 +347,12 @@ void setupEstadoFinal()
 // Si pulsamos junto con encoderSW terminamos el riego (pasaria al siguiente en caso de multirriego)
 void handleEncPauseInRegando() {
   setEstado(TERMINANDO);
-  LOG_INFO("encoderSW+PAUSE terminamos riego de zona en curso");
+  LOG_DEBUG("encoderSW+PAUSE terminamos riego de zona en curso");
   // si estamos en un multirriego y no es la ultima zona y no hemos salvado ya un riego en curso
   // --> salvamos el riego en curso en riegoSaved para poder continuarlo despues del multirriego
   if (multi.riegoON && (multi.actual < *multi.size) && !riegoSaved.znumber) {
     saveRiego(zonaEnCurso.znumber, zonaEnCurso.pBoton->bID, timer.ShowMinutes(), timer.ShowSeconds());
-    LOG_INFO("salvando riego de zona en curso en riegoSaved");
+    LOG_DEBUG("salvando riego de zona en curso en riegoSaved");
   }
 }
 
@@ -530,7 +530,7 @@ void handleStopInStandby() {
 
 // Iniciamos la configuracion de un multirriego temporal
 void handleEncStopInStandby() {
-    setMultiTemp();  // apunta estructura multi a grupo temporal en config (n+1)
+    setMultiTemp(NEWTEMP);  // apunta estructura multi a grupo temporal
     setEstado(CONFIGURANDO,1);
     configure->MultiTemp_process_start();
 }
@@ -611,55 +611,61 @@ void procesaBotonZona()
     }
     return;
   }
-  /* Si config.dynamic=true se permite añadir/eliminar zonas durante un riego individual o multirriego 
-     temporal (no durante un multirriego de grupo normal). Para ello el riego debe estar en PAUSE  */
-  if ((Estado.estado==PAUSE) && config.dynamic && (multi.riegoON == multi.temporal)) {
-    handleDynamicZoneChange(zIndex+1);
+  /* Si config.dynamic=true se permite añadir/eliminar zonas durante un riego individual o multirriego. 
+     Para ello el riego debe estar en PAUSE  */
+  if ((Estado.estado==PAUSE) && config.dynamic) {
+        handleDynamicZoneChange(zIndex+1);
   }
   /* (1) la comprobacion de multi.riegoON es necesaria para evitar que al cancelar el riego de una zona en multirriego
   salte a mostrar info de la siguiente al detectar el enc pulsado  */
 } //fin de procesaBotonZona
 
 
-// Procesar cambio dinamico y reflejarlo en el display
+/**---------------------------------------------------------------
+ * Si config.dynamic = true , se puede una vez iniciado un riego (de zona individual,
+ * multirriego temporal o de grupo) el poder añadir/eliminar más zonas para regar. 
+ * Para ello se pasa este riego a multirriego temporal si no lo fuera ya.
+ * En el caso de riego en curso de zona individual, este no se ha factorizado y no se factorizan los añadidos.
+ * Si lo que se modifica dinamicamente es un multirriego temporal o de grupo lanzado al principio 
+ * si se factorizan todas las zonas iniciales y añadidas.
+ */
 void handleDynamicZoneChange(int znumber) {
-    // NOTA: la zona pulsada no puede coincidir con la actualmente en riego, se ignora en ese caso
-    if (zonaEnCurso.pBoton->bID != boton->bID) {
-      if (procesaDynamic(znumber)) displayLCDGrupo(RESTO, 2);
-      LOG_DEBUG("MULTI dynamic:",multi.dynamic,"actual:",multi.actual,"size:",*multi.size,"zona:",znumber);
+  // if (multi.riegoON != multi.temporal) return; // si no queremos permitir cambios dinamicos en un multirriego de grupo (no temporal)
+  // La zona pulsada no puede coincidir con la actualmente en riego, se ignora en ese caso
+  if (zonaEnCurso.pBoton->bID != boton->bID) {
+    // CASO1 : estamos en riego de zona individual -> pasamos a multirriego temporal con la zona en curso como unica zona del grupo
+    if (!multi.riegoON) { //si estamos en riego de zona individual -> la pasamos a multirriego temporal
+      multi.riegoON = true;
+      multi.noFactorizado  = true;  // marcamos como no factorizado
+      multi.semaforo = false;
+      multi.actual=0;
+      setMultiTemp(NEWTEMP);  // completa resto campos estructura multi como grupo temporal nuevo
+      multi.serie[0] = zonaEnCurso.pBoton->bID;  // bId de la zona actual como primera de la lista
+      multi.zserie[0] = zonaEnCurso.znumber;  // numero de la zona actual como primera de la lista
+      multi.w_size = 1; // indicamos que hay una zona en la lista 
     }
+    // CASO2 : estamos en multirriego de grupo -> pasamos a multirriego temporal con las zonas del grupo como zonas del grupo temporal
+    if (!multi.temporal) setMultiTemp();  // pasa estructura multi del grupo activo a grupo temporal 
+    // llegados aqui ya estamos en multiriego temporal (veniamos de el o lo hemos generado en el caso 1 o 2)  
+    // Procesar cambio dinamico y reflejarlo en el display
+    if (procesaDynamic(znumber)) displayLCDGrupo(RESTO, 2);
+    LOG_DEBUG("MULTI noFactorizado:",multi.noFactorizado,"actual:",multi.actual,"size:",*multi.size,"zona:",znumber);
+  }
     else {sonido.bipKO(); LOG_DEBUG("[DYNAMIC] zona pulsada:",znumber," es = a zona actual:",zonaEnCurso.znumber);}
 }
 
-/**---------------------------------------------------------------
- * Si config.dynamic = true , se admite una vez iniciado un riego de zona individual 
- * o multirriego temporal el poder añadir/eliminar más zonas para regar. 
- * Para ello se pasa este riego a multirriego temporal si no lo fuera ya.
- * Si la zona no está en el grupo se añade al final, si existe se elimina de este.
- * En el caso de riego en curso de zona individual, este no se ha factorizado y no se factorizan los añadidos.
- * Si lo que se modifica dinamicamente es un multirriego temporal lanzado al principio 
- * si se factorizan todas las zonas iniciales y añadidas.
+/**-----------------------------------------------------------------------------------------
+ * Procesa el cambio dinamico de zonas en un riego de zona individual o multirriego temporal o de grupo.
+ * Si la zona no está en el grupo se añade al final, si existe en la cola se elimina de este.
  */
 bool procesaDynamic(int znumber)
 {
-  // NOTA: si llegamos aquí, la zona pulsada NO coincide con la actualmente en riego (zona actual)
-  if (!multi.riegoON) { //si estamos en riego de zona individual -> la pasamos a multirriego temporal
-    setMultiTemp();  // apunta estructura multi a grupo temporal en config (n+1) con id = 0
-    multi.riegoON = true;
-    multi.temporal = true;
-    multi.dynamic  = true;  // marcamos como dinamico para no factorizarlo
-    multi.semaforo = false;
-    multi.actual=0;
-    multi.serie[0] = zonaEnCurso.pBoton->bID;  // bId de la zona actual como primera de la lista
-    multi.zserie[0] = zonaEnCurso.znumber;  // numero de la zona actual como primera de la lista
-    *multi.size = 1;  
-  }
-  if(!multi.temporal) return false;  //estamos en multirriego de grupo --> zona ignorada
-  LOG_DEBUG("[RECIBE] MULTI dynamic:",multi.dynamic,"actual:",multi.actual,"size:",*multi.size,"zona:",zonaEnCurso.znumber);
+  LOG_DEBUG("[RECIBE] MULTI noFactorizado:",multi.noFactorizado,"actual:",multi.actual,"size:",*multi.size,"zona:",zonaEnCurso.znumber);
   // ya estamos en multirriego temporal (generado dinamico o lanzado directo)
   int n;
   for(n=multi.actual; n<*multi.size; n++) { // recorremos la lista de zonas a ver si existe ya
-    if(multi.zserie[n] == znumber) { // zona pulsada ya existe en la lista 
+    // zona pulsada ya existe en la lista --> se elimina de la cola
+    if(multi.zserie[n] == znumber) { 
       LOG_DEBUG("[vamos a ELIMINAR] n=",n,"actual:",multi.actual,"zona:",znumber,"size:",*multi.size);
       for(n; n<*multi.size; n++) {          //  --> la eliminamos de esta
         multi.zserie[n] = multi.zserie[n+1];
@@ -668,10 +674,11 @@ bool procesaDynamic(int znumber)
       *multi.size = n-1;
       LOG_DEBUG("[ELIMINA] n=",n,"actual:",multi.actual,"size:",*multi.size,"zona:",znumber);
       LOG_INFO("DYNAMIC [ELIMINA] Zona:",znumber);
-      sonido.bip(2); return true; //zona eliminada
+      sonido.bip(2); 
+      return true; //zona eliminada
     }
   } 
-  // la zona pulsada no existe en la lista --> añadirla al final
+  // la zona pulsada no existe en la lista --> se añade al final
   multi.w_size = n; //indice zona de la lista donde añadir la nueva zona (1 a ZONASXGRUPO-1)
   if (multi.w_size < ZONASXGRUPO) {  //añadimos zona al final de la lista si hay sitio
     multi.serie[multi.w_size] = boton->bID;  // bId de la zona pulsada
@@ -679,9 +686,11 @@ bool procesaDynamic(int znumber)
     *multi.size = multi.w_size + 1;
     LOG_DEBUG("[AÑADE] n=",n,"actual:",multi.actual,"size:",*multi.size,"zona:",znumber);
     LOG_INFO("DYNAMIC [AÑADE] Zona:",znumber);
-    sonido.bip(1); return true; //zona añadida
+    sonido.bip(1); 
+    return true; //zona añadida
   }
-  else return false; //no hay sitio --> zona ignorada   
+  sonido.bipKO(); 
+  return false; //no hay sitio --> zona ignorada   
 }   //fin de procesaDynamic
 
 
@@ -875,7 +884,10 @@ void procesaEstadoTerminando()
       if(!multi.temporal) {
         finalTimeGrupo(lastGrupos[multi.ngrupo-1]);
         saveTablaToFile(lastGruposFile, "lastGrupos", lastGrupos, NUMGRUPOS);  //guardamos en fichero tabla de ultimos riegos de grupos
-      }  
+      }
+      // descomentar la siguiente linea si queremos mostrar ultimo riego previo del grupo
+      // que se ha cambiado dinamicamente a temporal. En caso contrario se mostrara "SIN DATOS"
+      // else loadTablaFromFile(lastGruposFile, "lastGrupos", lastGrupos, NUMGRUPOS);  
       saveTablaToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
       lcd.info("multirriego",1);
       int msgl = snprintf(buff, MAXBUFF, "%s fin", multi.desc);
@@ -1365,9 +1377,9 @@ void showTimeLastRiego(S_timeRiego &timeRiego, int index)
 void startZoneWatering() {
     setZonaEnCurso(boton->bID);
     sonido.bip(2);
-    //cambia minutes y seconds en funcion del factor de cada sector de riego
+    // Si multirriego factorizado, cambia minutes y seconds en funcion del factor de cada zona
     uint8_t fminutes=0,fseconds=0;
-    if(multi.riegoON && !multi.dynamic) {
+    if(multi.riegoON && !multi.noFactorizado) {
       timeByFactor(factorRiegos[zonaEnCurso.zindex],&fminutes,&fseconds);
     }
     else {
@@ -1575,7 +1587,8 @@ bool stopRiego(uint16_t id, bool update, bool alertIfFails, int retries)
     int zIndex = getZonaIndex(id);
     LOG_DEBUG( "Terminando riego: ", config.zona[zIndex].desc);
     if (deviceSwitch(zIndex+1, "Off", retries)) {
-        LOG_INFO( "Terminado OK riego: " , config.zona[zIndex].desc );
+        if (Estado.estado == PAUSE) LOG_INFO( "Terminado OK (PAUSA) riego: " , config.zona[zIndex].desc );
+        else LOG_INFO( "Terminado OK riego: " , config.zona[zIndex].desc );
         // solo actualizamos hora de fin si no hemos sido llamado desde stopAllRiegos
         if(update) finalTimeLastRiego(lastRiegos[zIndex]);
         #ifdef EXTRADEBUG
@@ -1623,7 +1636,8 @@ bool stopAllRiegos()
 //Guarda el estado del riego en curso para una posible reanudacion
 void saveRiego(int znumber, int bID, int minutes, int seconds)
 {
-  LOG_INFO("salvando estado riego zona :",znumber," tiempo restante: ", minutes, ":", seconds);
+  if (znumber) LOG_INFO("salvando estado riego zona :",znumber," tiempo restante: ", minutes, ":", seconds);
+  else LOG_DEBUG("reset estado riego salvado");
   riegoSaved.znumber = znumber;
   riegoSaved.bID = bID;
   riegoSaved.minutes = minutes;
@@ -1668,7 +1682,7 @@ void resetFlags()
   LOG_TRACE("");
   multi.riegoON  = false;
   multi.temporal = false;
-  multi.dynamic  = false;
+  multi.noFactorizado  = false;
   multi.semaforo = false;
   webServerAct = false;
   simular.all_simFlags = false;
@@ -1894,27 +1908,12 @@ void displayDemo() {
     lcd.print("(DEMO)"); 
 }
 
-void displayNoFactorizado() {
+// muestra en esquina inferior izquierda del LCD el tipo de multirriego (sin factorizar, temporal o de grupos)
+void displayTipoGrupo() {
     lcd.setCursor(0,3);
-    lcd.print(" -NF-"); 
-}
-
-void displayMultiTemporal() {
-    lcd.setCursor(0,3);
-    lcd.print("*Mtemp"); 
-}
-
-void displayGx(int grupo) {
-    lcd.setCursor(0,3);
-    lcd.print("G");
-    lcd.print(grupo);
-}
-
-// muestra en esquina inferior izquierda del LCD el tipo de multirriego (sin factorizar, temporal o por grupos)
-void displayTipoGrupo () {
-    if(multi.dynamic) displayNoFactorizado();
-      else if(multi.temporal) displayMultiTemporal();
-        else displayGx(multi.ngrupo); 
+    if(multi.noFactorizado) lcd.print(" -NF-");
+      else if(multi.temporal) lcd.print("*Mtemp");
+        else {lcd.print("G");lcd.print(multi.ngrupo);} 
 }
 
 void displayEstadoRemoto(const char* estado_texto) {

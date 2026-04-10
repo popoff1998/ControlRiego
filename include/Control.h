@@ -224,6 +224,7 @@
   #define INICIO 0
   #define RESUME 1
   #define SHORT 1
+  #define NEWTEMP 1
 
   // constexpr calculado por el preprocesador y no modificable en tiempo de ejecucion
   constexpr uint16_t Zonas[] = {_ZONAS};
@@ -361,7 +362,7 @@
   struct S_MULTI {
     bool riegoON  = false;  // multirriego activo
     bool temporal = false;  // grupo multirriego es temporal
-    bool dynamic  = false;  // grupo multirriego es dinámico (a partir de un riego de zona individual, no factorizado)
+    bool noFactorizado  = false;  // grupo multirriego es dinámico (a partir de un riego de zona individual, no factorizado)
     bool semaforo = false;  // procesar siguiente zona del multirriego
     int ngrupo;             // numero del grupo al que apunta
     const uint16_t *id;     //apuntador al id del boton/selector grupo en Grupos[]. Solo lectura.
@@ -676,7 +677,7 @@ void setLed(Ticker &t, estado_led estado, int ledid);
 void setLedStatus(void);
 void setLogToFile();
 int  setMultibyId(uint16_t);
-void setMultiTemp();
+void setMultiTemp(bool newTemp = false);
 void setParpadeo(Ticker &t, velocidad_parpadeo vel, void (*f_callback)(int), int ledid);
 void setParpadeo(Ticker &t, velocidad_parpadeo vel);
 void setStateMachine(m_estados estado, estado_tipos tipo = LOCAL);
@@ -740,7 +741,7 @@ void saveTablaToFile(const char* filename, const char* arrayName, T* tabla, size
     }
     serializeJson(doc, file);
     file.close();
-    LOG_INFO(arrayName, "guardado correctamente.");
+    LOG_DEBUG(arrayName, "guardado OK.");
 }
 
 template<typename T>
@@ -768,7 +769,7 @@ bool loadTablaFromFile(const char* filename, const char* arrayName, T* tabla, si
         tabla[i].final  = obj["final"]  | 0;
         tabla[i].total  = obj["total"]  | 0;
     }
-    LOG_INFO(arrayName, "cargado correctamente.");
+    LOG_DEBUG(arrayName, "cargado OK.");
     return true;
 }
 

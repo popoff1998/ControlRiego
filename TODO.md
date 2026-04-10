@@ -59,10 +59,10 @@
 - Refactoring  de procesaEstadoConfigurando y clase Configure  V3.1
 - Mejoras información en pantalla (DEMO, zonas pendientes riego, temperatura ambiente, timestamp riegos) V3.1
 - Simplificacion fichero de configuracion V3.1
-- Configurando grupo, enc+pause vacia grupo V3.1
+- Configurando grupo, enc+pause vacia grupo (anulado en V3.3) V3.1
 - Nuevo formato mandato comunicacion con Domoticz v3.1
 - Mejoras información en pantalla (*Mtemp, -NF-) V3.2
-- Si parametro dynamic=true se permite añadido/baja zonas durante el riego en pausa V3.2
+- Si parametro dynamic=true se permite añadido/baja zonas durante el riego en pausa (riego de zona o mtemp) V3.2
 - Menu configuracion: rangos ajustables sobre linea del menu V3.2
 - Opciones de inicio por pantalla: reset parametros (borrado ficheros parm y backup) V3.2
 - Volumen sonidos y melodia fin riego de grupo configurables por parametros en menu V3.2
@@ -86,4 +86,5 @@
 - Log de errores a fichero consultable desde el webserver V3.3
 - Lectura sensor temperatura remoto cambia a local tras 15 min sin lecturas V3.3
 - Si error en parámetros (E0) Stop activa webserver V3.3
+- Si parametro dynamic=true tambien se permite modificar multiriego de grupo pasandolo a temporal V3.3
 

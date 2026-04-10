@@ -59,14 +59,18 @@ int setMultibyId(uint16_t id)
 }
 
 // Asigna en multi valores o apuntadores para multirriego temporal
-void setMultiTemp()
+void setMultiTemp(bool newTemp)
 {
+    if (!newTemp) led(Boton[getBotonIndex(*multi.id)].led,OFF); // apagamos led del grupo si venimos de un grupo normal
     multi.id = nullptr;
-    multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
+    int sizeInicial = (newTemp) ? 0 : *multi.size;
+    multi.w_size = sizeInicial ; // inicializamos contador temporal elementos del grupo
     multi.size = &multi.w_size; // el tamaño del grupo temporal es el de multi.w_size
+    multi.temporal = true;
     multi.desc = "TEMPORAL";
     multi.ngrupo = 0; // el numero de grupo temporal es 0 (no existe en config)
     LOG_DEBUG(" devuelve GRUPO", multi.ngrupo,"(",multi.desc,") con",*multi.size,"zonas");
+    displayTipoGrupo(); // actualiza LCD con tipo de grupo
 }
 
 
@@ -75,7 +79,7 @@ bool startMultirriego()
 {
   if(*multi.size > 0) {    // si grupo tiene zonas definidas
       multi.riegoON = true;
-      multi.dynamic  = false;
+      multi.noFactorizado  = false;
       multi.actual = 0;
       multi.semaforo = true;
       LOG_INFO("MULTIRRIEGO iniciado: ", multi.desc);
