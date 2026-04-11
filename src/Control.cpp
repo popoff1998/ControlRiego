@@ -440,7 +440,7 @@ void handlePauseInStop() {
     if(handleHoldPause()) {
       LOG_INFO("Stop + hold PAUSA --> modo ConF()");
       setEstado(CONFIGURANDO,1);
-      configure->menu();
+      configure->menu(0);  // mostramos menu de configuracion, primera linea
     }
 }
 
@@ -532,6 +532,7 @@ void handleStopInStandby() {
 void handleEncStopInStandby() {
     setMultiTemp(NEWTEMP);  // apunta estructura multi a grupo temporal
     setEstado(CONFIGURANDO,1);
+    simulaPausePrev = true; // para evitar que al entrar en configuracion se simule un pause por el encoderSW pulsado
     configure->MultiTemp_process_start();
 }
 
@@ -551,12 +552,10 @@ void procesaBotonMultirriego()
   if (multi.riegoON)  //ya hay un multirriego en curso,, ignoramos boton
       return;
   int n_grupo = setGrupo(); //apunta estructura multi al grupo seleccionado
-  if (n_grupo == 0)  //error en setup de apuntadores
-      return;
-  LOG_DEBUG("en MULTIRRIEGO, encoderSW status  :", encoderSW );
   if (Estado.estado == STANDBY) {
+    LOG_DEBUG("en MULTIRRIEGO, encoderSW status  :", encoderSW, "grupo seleccionado:", n_grupo, "multi.desc:", multi.desc, "multi.size:", *multi.size);
     if (encoderSW) handleEncGrupoInStandby(n_grupo);  //muestra info del grupo
-    else handleGrupoInStandby(n_grupo);               //inicia el multirriego
+              else handleGrupoInStandby(n_grupo);     //inicia el multirriego
   }
   // En STOP si pulsamos junto con encoderSW tenemos atajos de teclas (si habilitados con SHORTCUTSENABLED)
   else if (encoderSW && Estado.estado == STOP && SHORTCUTSENABLED) handleEncGrupoInStop(n_grupo);  
@@ -611,7 +610,7 @@ void procesaBotonZona()
     }
     return;
   }
-  /* Si config.dynamic=true se permite añadir/eliminar zonas durante un riego individual o multirriego. 
+  /* Si config.dynamic=true se permite añadir/eliminar zonas durante un riego individual o de grupo. 
      Para ello el riego debe estar en PAUSE  */
   if ((Estado.estado==PAUSE) && config.dynamic) {
         handleDynamicZoneChange(zIndex+1);
@@ -626,7 +625,7 @@ void procesaBotonZona()
  * multirriego temporal o de grupo) el poder añadir/eliminar más zonas para regar. 
  * Para ello se pasa este riego a multirriego temporal si no lo fuera ya.
  * En el caso de riego en curso de zona individual, este no se ha factorizado y no se factorizan los añadidos.
- * Si lo que se modifica dinamicamente es un multirriego temporal o de grupo lanzado al principio 
+ * Si lo que se modifica dinamicamente es un multirriego temporal o de grupo lanzados al principio 
  * si se factorizan todas las zonas iniciales y añadidas.
  */
 void handleDynamicZoneChange(int znumber) {
@@ -634,7 +633,7 @@ void handleDynamicZoneChange(int znumber) {
   // La zona pulsada no puede coincidir con la actualmente en riego, se ignora en ese caso
   if (zonaEnCurso.pBoton->bID != boton->bID) {
     // CASO1 : estamos en riego de zona individual -> pasamos a multirriego temporal con la zona en curso como unica zona del grupo
-    if (!multi.riegoON) { //si estamos en riego de zona individual -> la pasamos a multirriego temporal
+    if (!multi.riegoON) {
       multi.riegoON = true;
       multi.noFactorizado  = true;  // marcamos como no factorizado
       multi.semaforo = false;
@@ -651,17 +650,16 @@ void handleDynamicZoneChange(int znumber) {
     if (procesaDynamic(znumber)) displayLCDGrupo(RESTO, 2);
     LOG_DEBUG("MULTI noFactorizado:",multi.noFactorizado,"actual:",multi.actual,"size:",*multi.size,"zona:",znumber);
   }
-    else {sonido.bipKO(); LOG_DEBUG("[DYNAMIC] zona pulsada:",znumber," es = a zona actual:",zonaEnCurso.znumber);}
+  else {sonido.bipKO(); LOG_DEBUG("[DYNAMIC] zona pulsada:",znumber," es = a zona actual:",zonaEnCurso.znumber);}
 }
 
 /**-----------------------------------------------------------------------------------------
  * Procesa el cambio dinamico de zonas en un riego de zona individual o multirriego temporal o de grupo.
- * Si la zona no está en el grupo se añade al final, si existe en la cola se elimina de este.
+ * Si la zona no está en el grupo se añade al final, si existe en la cola se elimina de esta.
  */
 bool procesaDynamic(int znumber)
 {
   LOG_DEBUG("[RECIBE] MULTI noFactorizado:",multi.noFactorizado,"actual:",multi.actual,"size:",*multi.size,"zona:",zonaEnCurso.znumber);
-  // ya estamos en multirriego temporal (generado dinamico o lanzado directo)
   int n;
   for(n=multi.actual; n<*multi.size; n++) { // recorremos la lista de zonas a ver si existe ya
     // zona pulsada ya existe en la lista --> se elimina de la cola
@@ -793,10 +791,8 @@ void handleParameterConsolidation()
 
 void handleStartMultiTemp()
 {
-  if (multi.w_size && saveConfig) {  //solo si se ha guardado alguna zona iniciamos riego grupo temporal
-      saveConfig = false;  
-      multi.temporal = true;
-      startMultirriego(); 
+  if (configure->get_startMultiTemp()) {  //solo si se ha guardado alguna zona iniciamos riego grupo temporal
+      startMultirriego(); // prepara comienzo multirriego temporal en el siguiente paso del loop
   }    
 }
 
@@ -2233,14 +2229,15 @@ void initFS() {
 void stopHW(const char* mensaje) {
     initFS();
     if (mensaje != nullptr) LOG_ERROR(mensaje);
+    if (!inSetup) {
+      lcd.infoclear("PARANDO SISTEMA", 1, BIPKO);
+      lcd.info(" - BUG de SW o HW -", 2);
+      lcd.info("Pulsa ENC para", 3);
+      lcd.info("despertar", 4);
+      delay(config.msgdisplaymillis);
+    }
     esp_sleep_enable_ext0_wakeup(ENCBOTON, 0); // Configura wakeup por boton ENC a LOW
     esp_deep_sleep_start();  // entra en deep sleep indefinidamente
-      // while(true) {  //bucle infinito
-      //   analogWrite(LEDR, 255);
-      //   delay(1000);
-      //   analogWrite(LEDR, 75);
-      //   delay(1000);
-      // } 
 }
 
 // **************************************************************************
@@ -2269,7 +2266,7 @@ void scSorpresa() {
     enciendeLeds();
     bool premio =false;
     int probabilidad = esp_random() % 100; 
-    // Serial.printf("Probabilidad premio (<15): %d\n", probabilidad); 
+    LOG_DEBUG("Probabilidad premio (<15): ", probabilidad); 
     if (probabilidad < 15) {  // 15% probabilidad PREMIO
       lcd.infoclear("    !!!PREMIO!!!", 2);
       lcd.info("  SUPER MARIO BROS", 3);
@@ -2278,7 +2275,7 @@ void scSorpresa() {
     }    
     // 85% de probabilidad tema individual o bien segundo tema con luces
     int temaAleatorio = esp_random() % 4;
-    // Serial.printf("Eleccion tema (0 a 3): %d\n", temaAleatorio); 
+    LOG_DEBUG("Tema aleatorio elegido (0 a 3): ", temaAleatorio); 
     switch(temaAleatorio) {
         case 0: sonido.temaPiratas(premio); break;
         case 1: sonido.temaStarWars(premio); break;

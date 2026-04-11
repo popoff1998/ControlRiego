@@ -481,6 +481,7 @@
     bool timeOK = false;
     bool factorRiegosLeido = false;
     bool encoderSW = false;
+    bool simulaPausePrev = false;
     bool checkRecon = false; // verificaciones de conexion cada RECONNECTINTERVAL minutos
     bool checkLogSize = false; // verificaciones de tamano log errores cada LONGINTERVAL minutos
     bool webServerAct = false;
@@ -518,6 +519,7 @@
     extern bool saveConfig;
     extern bool checkRecon;
     extern bool encoderSW;
+    extern bool simulaPausePrev;
     extern const char *parmFile; 
     extern const char *backupParmFile;
     extern const char *lastRiegosFile;

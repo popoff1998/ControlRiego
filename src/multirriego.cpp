@@ -21,7 +21,6 @@ int setGrupo() {
     #ifdef M3GRP
       n_grupo = setMultibyId(getMultiStatus());
     #endif
-    if (n_grupo == 0) return 0; //error en setup de apuntadores 
     LOG_DEBUG("en MULTIRRIEGO, setMultibyId devuelve: Grupo", n_grupo,"(",multi.desc,") multi.size=" , *multi.size);
     for (int k=0; k < *multi.size; k++) LOG_DEBUG( "       multi.zserie: x" , multi.zserie[k]);
     return n_grupo;
@@ -53,9 +52,10 @@ int setMultibyId(uint16_t id)
       return multi.ngrupo;
     }
   }
-  statusError(E0); 
-  LOG_ERROR(" ** [ERROR] setMultibyID devuelve -not found-");
-  return 0;
+  char msg[64];
+  snprintf(msg, sizeof(msg), "!!! BUG: bID %04X no encontrado en Grupos[]", id);
+  stopHW(msg); // El sistema se detiene aquí
+  return -1;   // Nunca se alcanzará
 }
 
 // Asigna en multi valores o apuntadores para multirriego temporal
@@ -63,7 +63,7 @@ void setMultiTemp(bool newTemp)
 {
     if (!newTemp) led(Boton[getBotonIndex(*multi.id)].led,OFF); // apagamos led del grupo si venimos de un grupo normal
     multi.id = nullptr;
-    int sizeInicial = (newTemp) ? 0 : *multi.size;
+    int sizeInicial = (newTemp) ? 0 : *multi.size; // 0 o el tamaño del grupo en curso
     multi.w_size = sizeInicial ; // inicializamos contador temporal elementos del grupo
     multi.size = &multi.w_size; // el tamaño del grupo temporal es el de multi.w_size
     multi.temporal = true;

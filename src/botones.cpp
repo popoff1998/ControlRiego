@@ -324,7 +324,7 @@ S_BOTON *parseInputs(bool read)
  * (selecciona item menu, valida cambios, etc)
  */
 void simulaPauseIfEncoderSW() {
-    static bool simulaPausePrev = false; 
+    // static bool simulaPausePrev = false; 
     int i = getBotonIndex(bPAUSE);         
     // 1. TRANSICIÓN: PULSO (De false a true)
     if (encoderSW && !simulaPausePrev) {

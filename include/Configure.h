@@ -37,7 +37,7 @@ class Configure
       #ifdef LOGTOFILE 
       WARNTOLOG , 
       #endif
-      __ENDLINE__         //  ultimo item fijo (= numero de lineas del menu - 1)
+      __ENDLINE__         //  ultimo item fijo (= numero de lineas del menu excluyendo esta linea)
     };
     int _actualZonaIndex;
     int _actualGrupo;
@@ -58,7 +58,7 @@ class Configure
           _configuringRange       : 1,
           _configuringMenu        : 1,
           _configuringMelody      : 1,
-          spare1                  : 1;
+          _startMultiTemp         : 1;
       };
     };
     void configureMulti_display(void);
@@ -93,6 +93,7 @@ class Configure
     int  showMenu(int);
     void procesaSelectMenu(void);
     int  get_currentItem(void);
+    bool get_startMultiTemp(void);
 };
 
 #endif

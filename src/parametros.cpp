@@ -121,11 +121,10 @@ bool loadConfigFile(const char *p_filename)
 bool saveConfigFile(const char *p_filename)
 {
   LOG_TRACE("TRACE: in saveConfigFile");
-  // Delete existing file, otherwise the configuration is appended to the file
-  LittleFS.remove(p_filename);
+  // "w" trunca el archivo automáticamente, no hace falta remove() previo
   File file = LittleFS.open(p_filename, "w");
   if(!file){
-    LOG_ERROR("Failed to open file for writing");
+    LOG_ERROR("Failed to open file for writing", p_filename);
     return false;
   }
   JsonDocument doc;
@@ -292,43 +291,6 @@ void printParms() {
   Serial.printf("\tdebugmode= %s \n", config.logWarnToFile ? "TRUE" : "FALSE");
   Serial.println("----------------------------------------------------------------\n");
 }
-
-// void printParms2() {
-//   Serial.println(F("\n--- CONTENIDO ESTRUCTURA CONFIGURACIÓN ---"));
-//   // Zonas
-//   Serial.printf("Zonas definidas (MAX %d):\n", config.n_Zonas);
-//   for(int i = 0; i < config.n_Zonas; i++) {
-//     // Si la zona no tiene IDX, quizás no esté configurada
-//     if (config.zona[i].idx != 0) {
-//       Serial.printf("  [%d] IDX:%d | Desc: %s\n", i + 1, config.zona[i].idx, config.zona[i].desc);
-//     }
-//   }
-//   // Grupos
-//   Serial.printf("Grupos definidos (MAX %d):\n", config.n_Grupos);
-//   for(int i = 0; i < config.n_Grupos; i++) {
-//     if (config.group[i].size > 0) {
-//       Serial.printf("  G%d: %s (Zonas: %d)\n", i + 1, config.group[i].desc, config.group[i].size);
-//       Serial.print(F("      Lista IDs: "));
-//       for(int j = 0; j < config.group[i].size; j++) {
-//         Serial.printf("%d%s", config.group[i].zNumber[j], (j == config.group[i].size - 1) ? "" : ", ");
-//       }
-//       Serial.println();
-//     }
-//   }
-//   // Red y Tiempo
-//   Serial.println(F("Conexión y Sincronización:"));
-//   Serial.printf("  Domoticz: %s:%s\n", config.domoticz_ip, config.domoticz_port);
-//   Serial.printf("  NTP: %s | TZ: %s\n", config.ntpServer, config.TZ);
-//   // Parámetros de Sistema (Booleanos convertidos a texto para lectura rápida)
-//   Serial.println(F("Parámetros de Sistema:"));
-//   Serial.printf("  Riego defecto: %02d:%02d\n", config.minutes, config.seconds);
-//   Serial.printf("  Alertas: TempESP32 > %d°C | Mute: %s | Vol: %d\n", 
-//                 config.warnESP32temp, config.mute ? "SI" : "NO", config.volume);
-//   Serial.printf("  Flags: Dinámico:%s | Verify:%s | LastR24:%s | XName:%s\n",
-//                 config.dynamic ? "SI" : "NO", config.verify ? "SI" : "NO", 
-//                 config.lastr24 ? "SI" : "NO", config.xname ? "SI" : "NO");
-//   Serial.println(F("------------------------------------------\n"));
-// }
 
 
 void filesInfo() 

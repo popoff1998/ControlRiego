@@ -12,7 +12,7 @@ void Configure::menu(int item)
 {
       this->reset();
       _configuringMenu = true;
-      if(item >= 0) _currentItem = item;
+      if(item >= 0 && item <= __ENDLINE__ + 1) _currentItem = item;
       _maxItems = this->showMenu(_currentItem);
       setEncoderMenu(_maxItems, _currentItem);
       LOG_TRACE("_currentitem=",_currentItem);
@@ -264,12 +264,11 @@ void Configure::Multi_process_end()
       this->menu(0);  // vuelve a mostrar menu de configuracion, primera linea
 }
 
-// actualizamos config con las zonas introducidas para grupo temporal
+// Mostramos en pantalla mensaje para iniciarlo
 void Configure::MultiTemp_process_end()
 {
-      if (multi.w_size) {  //solo si se ha pulsado alguna
-        // *multi.size = multi.w_size; // no hace falta actualizar multi.size porque el grupo temporal no se guarda en config, solo en multi.
-        saveConfig = true;  //  solo para indicar que hemos salvado grupo temporal y tenemos que iniciarlo
+      if (multi.w_size) {  //solo si se ha pulsado alguna zona
+        _startMultiTemp = true;  // flag para indicar que al salir de ConF se lanzará el multirriego temporal con las zonas configuradas
 
         LOG_INFO("process_end grupo TEMPORAL : GRUPO",_actualGrupo,"tamaño:",*multi.size,"(",multi.desc,")");
         sonido.bipOK();
@@ -284,32 +283,41 @@ int Configure::get_currentItem()
   return _currentItem;
 }
 
+bool Configure::get_startMultiTemp()
+{
+  return _startMultiTemp;
+}
 
 //  escritura de parametros a fichero si procede y salimos de ConF
 void Configure::exit()
 {
-      this->reset();
-      _currentItem = 0;
-      setEncoderTime();
       if (saveConfig) {
         LOG_INFO("saveConfig=true  --> salvando parametros a fichero");
         if (saveConfigFile(parmFile)) {
           lcd.infoclear("SAVED parameters", BLINKDISPLAY, BIPOK);
           delay(config.msgdisplaymillis);
-        }  
-        saveConfig = false;
-      }
-      // LittleFS.end();
+          saveConfig = false;
+        }
+        else {
+          lcd.infoclear("ERROR saving", BLINKDISPLAY, BIPKO);
+          delay(config.msgdisplaymillis);
+          statusError(E0); // error no recuperable al guardar parametros
+        }
+      }  
       #ifdef WEBSERVER
         if (webServerAct) {
           endWS();           //al salir de modo ConF no procesaremos peticiones al webserver
           LOG_INFO("[ConF][WS] desactivado webserver");
         }
       #endif
+      if (Estado.estado == ERROR) return;
       LOG_TRACE("[poniendo estado STANDBY]");
       // Si salimos de modo ConF para comenzar multirriego temporal, ponemos STANDBY silencioso
       // (sin cambios en la UI) , si no ponemos STANDBY normal.
-      multi.temporal ? setStateMachine(STANDBY) : setEstado(STANDBY);
+      _startMultiTemp ? setStateMachine(STANDBY) : setEstado(STANDBY);
+      this->reset();
+      _currentItem = 0;
+      setEncoderTime();
 }
 
 
@@ -320,7 +328,7 @@ int Configure::showMenu(int opcion)
       
       //  OJO el orden en que se muestran en el menu no depende de su posicion aqui
       //  sino del orden en que se definen en el enum _menuItems.
-      //  Texto fijo:
+      //  Texto parte fija del menu:
                                     /*   <------17------->     maxima longitud */ 
       opcionesMenuConf[IDX_MULT]      = "Botones IDX/MULT.";
       opcionesMenuConf[DFLT_TIME]     = "Dflt TIME: ";
