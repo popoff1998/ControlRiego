@@ -7,7 +7,7 @@
   #define LCDBIGROW 2           // linea por defecto para timer en numeros grandes
   #define LCDBIGCOL 7           // columna por defecto para timer en numeros grandes
   #define LCDMAXLEN 20          // numero maximo de caracteres por linea pantalla lcd
-  #define MAXBUFF LCDMAXLEN+1   // tamaño maximo del buffer (mas 0 terminacion)
+  #define MAXBUFF (LCDMAXLEN+1) // tamaño maximo del buffer (mas 0 terminacion)
 
   class DisplayLCD : public  LiquidCrystal_I2C
   {

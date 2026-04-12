@@ -69,4 +69,10 @@
     ENCIENDE = 1,  // Detiene y deja encendido fijo
   };
 
+  enum display_modo {
+    FULL = 1,  // muestra todas las zonas del grupo (multi.w_zserie)
+    RESTO,     // muestra las zonas restantes por regar (a partir de multi.actual+1)
+    WORKING,   // muestra las zonas añadidas mientras se configura un grupo (a partir de multi.w_size)
+  };
+
 #endif

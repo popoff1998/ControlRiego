@@ -22,7 +22,7 @@ int setGrupo() {
       n_grupo = setMultibyId(getMultiStatus());
     #endif
     LOG_DEBUG("en MULTIRRIEGO, setMultibyId devuelve: Grupo", n_grupo,"(",multi.desc,") multi.size=" , *multi.size);
-    for (int k=0; k < *multi.size; k++) LOG_DEBUG( "       multi.zserie: x" , multi.zserie[k]);
+    for (int k=0; k < *multi.size; k++) LOG_DEBUG( "       multi.w_zserie: x" , multi.w_zserie[k]);
     return n_grupo;
 }
 
@@ -41,11 +41,11 @@ int setMultibyId(uint16_t id)
       multi.desc = config.group[i].desc;
       multi.ngrupo = i+1;
       for (int j=0; j < *multi.size; j++) {
-        multi.serie[j] = Zonas[config.group[i].zNumber[j]-1];  //obtiene el id del boton de cada zona (ojo: no viene en el json)
-        multi.zserie[j] = config.group[i].zNumber[j];  //copia el numero de cada zona desde config
+        multi.zserie_boton[j] = Zonas[config.group[i].zNumber[j]-1];  //obtiene el id del boton de cada zona (ojo: no viene en el json)
+        multi.w_zserie[j] = config.group[i].zNumber[j];  //copia el numero de cada zona desde config
         #ifdef EXTRADEBUG2 
           Serial.printf("  Zona%d   ", config.group[i].zNumber[j]);
-          Serial.printf("bId: x%04x \n",multi.serie[j]); // bId(boton) asociado a la zona
+          Serial.printf("bId: x%04x \n",multi.zserie_boton[j]); // bId(boton) asociado a la zona
         #endif  
       }
       LOG_DEBUG(" devuelve GRUPO", multi.ngrupo,"(",multi.desc,") con",*multi.size,"zonas");
@@ -62,7 +62,7 @@ int setMultibyId(uint16_t id)
 void setMultiTemp(bool newTemp)
 {
     if (!newTemp) led(Boton[getBotonIndex(*multi.id)].led,OFF); // apagamos led del grupo si venimos de un grupo normal
-    multi.id = nullptr;
+    multi.id = nullptr; // no hay botón asociado al grupo temporal
     int sizeInicial = (newTemp) ? 0 : *multi.size; // 0 o el tamaño del grupo en curso
     multi.w_size = sizeInicial ; // inicializamos contador temporal elementos del grupo
     multi.size = &multi.w_size; // el tamaño del grupo temporal es el de multi.w_size
@@ -83,7 +83,7 @@ bool startMultirriego()
       multi.actual = 0;
       multi.semaforo = true;
       LOG_INFO("MULTIRRIEGO iniciado: ", multi.desc);
-      boton = &Boton[getBotonIndex(multi.serie[multi.actual])]; // simula pulsacion boton primera zona del grupo
+      boton = &Boton[getBotonIndex(multi.zserie_boton[multi.actual])]; // simula pulsacion boton primera zona del grupo
       if (multi.temporal) ultimosRiegos(HIDE); // apaga leds zonas seleccionadas en el multirriego temporal
       else led(Boton[getBotonIndex(*multi.id)].led,ON); // enciende led del grupo pulsado si es normal
       sonido.bip(4);
@@ -116,35 +116,39 @@ void displayLedsGrupo(uint16_t *serie, int serieSize)
   led(Boton[getBotonIndex(*multi.id)].led,OFF); // apaga led del grupo
 }
 
-void displayLCDGrupo(bool full, int line, int znumber)
-{
-  LOG_DEBUG("recibido full=",full,"line=",line);
-  int posicion = 0;
-  if(full) posicion = displayLCDGrupo(multi.zserie, *multi.size, line, 0);
-  else {
-      if( multi.actual+1 == *multi.size) lcd.info("", line);   // ultima zona por regar
-       else posicion = displayLCDGrupo(multi.zserie, *multi.size, line, multi.actual+1);  //  display zonas quedan por regar
-      if (znumber) {  // si hay zona salvada la mostramos con "+" a continuacion
-        lcd.setCursor(posicion, 1);
-        lcd.printf("+%d", znumber);
-      }
-  }    
-  return;     
-}
 
-int displayLCDGrupo(uint16_t *serieZonas, int serieSize, int line, int start)
-{
-  LOG_DEBUG("recibido serieSize=",serieSize,"line=",line,"start=",start);
-  int i,posicion = 0;
-  if(serieSize > 0) {
-      for(i=start; i<serieSize; i++) {
-        if(i == serieSize-1) posicion += snprintf (&buff[posicion], MAXBUFF, "%d", serieZonas[i]);
-        else posicion += snprintf (&buff[posicion], MAXBUFF, "%d-", serieZonas[i]);
-        if (posicion >= LCDMAXLEN) break; // max 20 char alcanzados
-      } 
-      lcd.info(buff,line);
+/**
+ * Muestra las zonas del grupo apuntado por la estructura multi en el LCD con formato "1-2-3+9"
+ * @param modo    FULL    - muestra todas las zonas del grupo (multi.w_zserie)
+ *                RESTO   - muestra las zonas restantes por regar (a partir de multi.actual+1)
+ *                WORKING - muestra las zonas añadidas mientras se configura un grupo (a partir de multi.w_size)
+ * @param line    fila del LCD (1-4).
+ * @param znumber zona extra opcional (se muestra con +).
+ */
+int displayLCDGrupo(display_modo modo, int line, int znumber) {
+    LOG_DEBUG("recibido modo=",modo,"line=",line,"znumber=",znumber);
+    int pos = 0;
+    buff[0] = '\0'; // vaciar buffer antes de usarlo (caso de RESTO con todo regado o WORKING sin zonas añadidas)
+    int size, inicio;
+    if (modo == WORKING) {
+        size = multi.w_size; // Usamos el contador de configuración
+        inicio = 0;          // Siempre desde el principio
+    } else {
+        size = *multi.size;   // Usamos el tamaño del grupo de riego
+        inicio = (modo == RESTO) ? (multi.actual + 1) : 0;
     }
-    return posicion;
+    size = min(size, ZONASXGRUPO); // Aseguramos no exceder el máximo definido (por si acaso)
+    // Construye la cadena con las zonas a mostrar
+    for (int i = inicio; i < size; i++) {
+        if (pos > (LCDMAXLEN - 2)) break; // no hay espacio para mostrar más zonas
+        if (pos > 0) pos += snprintf(&buff[pos], MAXBUFF - pos, "-");
+        pos += snprintf(&buff[pos], MAXBUFF - pos, "%u", multi.w_zserie[i]);
+    }
+    // Añade zona extra si se ha pasado (+znumber)
+    if (znumber > 0 && pos <= (LCDMAXLEN - 2)) pos += snprintf(&buff[pos], MAXBUFF - pos, "+%d", znumber);
+    if (pos == 0 && modo == FULL) pos = snprintf(buff, MAXBUFF, " >> GRUPO VACIO <<");
+    lcd.info(buff, line); // Muestra en LCD
+    return pos;
 }
 
 //imprime contenido actual de la estructura multiGroup
@@ -152,7 +156,6 @@ void printMultiGroup(int pgrupo)
 {
   for(int j = 0; j < config.group[pgrupo].size; j++) {
     Serial.printf("  Zona%d   ", config.group[pgrupo].zNumber[j]);
-    //Serial.println(Boton[getIndexDeZona(config.group[pgrupo].zNumber[j])].bID,HEX); // bId(boton) asociado a la zona
     Serial.printf("bId: x%04x \n",Zonas[(config.group[pgrupo].zNumber[j])-1]); // bId(boton) asociado a la zona
   }
   Serial.println();

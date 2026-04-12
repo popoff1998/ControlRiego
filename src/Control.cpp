@@ -567,9 +567,10 @@ void handleEncGrupoInStandby(int n_grupo) {
     LOG_DEBUG("en MULTIRRIEGO + encoderSW, display de grupo:", multi.desc,"tamaño:", *multi.size );
     snprintf(buff, MAXBUFF, "grupo: %s", multi.desc);
     lcd.infoclear(buff, 1);
+    // displayLCDGrupo(FULL, 2);
     displayLCDGrupo(FULL, 2);
     showTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1);
-    displayLedsGrupo(multi.serie, *multi.size);
+    displayLedsGrupo(multi.zserie_boton, *multi.size);
     delay(config.msgdisplaymillis*3);
     setEstado(STANDBY);   //para que restaure pantalla
 }
@@ -639,8 +640,8 @@ void handleDynamicZoneChange(int znumber) {
       multi.semaforo = false;
       multi.actual=0;
       setMultiTemp(NEWTEMP);  // completa resto campos estructura multi como grupo temporal nuevo
-      multi.serie[0] = zonaEnCurso.pBoton->bID;  // bId de la zona actual como primera de la lista
-      multi.zserie[0] = zonaEnCurso.znumber;  // numero de la zona actual como primera de la lista
+      multi.zserie_boton[0] = zonaEnCurso.pBoton->bID;  // bId de la zona actual como primera de la lista
+      multi.w_zserie[0] = zonaEnCurso.znumber;  // numero de la zona actual como primera de la lista
       multi.w_size = 1; // indicamos que hay una zona en la lista 
     }
     // CASO2 : estamos en multirriego de grupo -> pasamos a multirriego temporal con las zonas del grupo como zonas del grupo temporal
@@ -663,11 +664,11 @@ bool procesaDynamic(int znumber)
   int n;
   for(n=multi.actual; n<*multi.size; n++) { // recorremos la lista de zonas a ver si existe ya
     // zona pulsada ya existe en la lista --> se elimina de la cola
-    if(multi.zserie[n] == znumber) { 
+    if(multi.w_zserie[n] == znumber) { 
       LOG_DEBUG("[vamos a ELIMINAR] n=",n,"actual:",multi.actual,"zona:",znumber,"size:",*multi.size);
       for(n; n<*multi.size; n++) {          //  --> la eliminamos de esta
-        multi.zserie[n] = multi.zserie[n+1];
-        multi.serie[n] = multi.serie[n+1];
+        multi.w_zserie[n] = multi.w_zserie[n+1];
+        multi.zserie_boton[n] = multi.zserie_boton[n+1];
       }
       *multi.size = n-1;
       LOG_DEBUG("[ELIMINA] n=",n,"actual:",multi.actual,"size:",*multi.size,"zona:",znumber);
@@ -679,8 +680,8 @@ bool procesaDynamic(int znumber)
   // la zona pulsada no existe en la lista --> se añade al final
   multi.w_size = n; //indice zona de la lista donde añadir la nueva zona (1 a ZONASXGRUPO-1)
   if (multi.w_size < ZONASXGRUPO) {  //añadimos zona al final de la lista si hay sitio
-    multi.serie[multi.w_size] = boton->bID;  // bId de la zona pulsada
-    multi.zserie[multi.w_size] = znumber;  // numero de la zona pulsada
+    multi.zserie_boton[multi.w_size] = boton->bID;  // bId de la zona pulsada
+    multi.w_zserie[multi.w_size] = znumber;  // numero de la zona pulsada
     *multi.size = multi.w_size + 1;
     LOG_DEBUG("[AÑADE] n=",n,"actual:",multi.actual,"size:",*multi.size,"zona:",znumber);
     LOG_INFO("DYNAMIC [AÑADE] Zona:",znumber);
@@ -764,7 +765,6 @@ void procesaEstadoConfigurando()
 void handleGroupConfig()
 {
       int n_grupo = setGrupo(); //apunta estructura multi al grupo seleccionado
-      if (n_grupo == 0) return; //error en setup de apuntadores 
       //Configuramos el grupo de multirriego apuntado en multi
       rotaryEncoder.disable();
       configure->Multi_process_start(n_grupo);
@@ -882,7 +882,7 @@ void procesaEstadoTerminando()
     multi.actual++;
     if (multi.actual < *multi.size) {  // pasamos a regar la siguiente zona del grupo
       //Simular la pulsacion del siguiente boton de la serie de multirriego
-      boton = &Boton[getBotonIndex(multi.serie[multi.actual])];
+      boton = &Boton[getBotonIndex(multi.zserie_boton[multi.actual])];
       multi.semaforo = true;
     }
     else {         // señalamos fin del multirriego y actualizamos timestamp de finalizacion
@@ -1690,6 +1690,7 @@ void resetFlags()
   multi.temporal = false;
   multi.noFactorizado  = false;
   multi.semaforo = false;
+  multi.size = nullptr; // para detectar error en caso de intentar usar multi sin haberla inicializado
   webServerAct = false;
   simular.all_simFlags = false;
 }
@@ -2006,7 +2007,7 @@ void setupConfig()
       strlcpy(config.group[i].desc, Boton[bIndex].desc, sizeof(config.group[i].desc));
     }  
   }
-  #ifdef MUTE
+  #ifdef MUTESOUND
     config.mute = true;   // arranque con sonidos silenciados
   #endif
   tm.minutes = config.minutes;
@@ -2312,7 +2313,7 @@ void scSorpresa() {
       if(multi.id == nullptr) return;  // evita guru meditation si no se ha apuntado a ningun grupo
       Serial.printf("MULTI Boton_id x%04x: size=%d (%s)\n", *multi.id, *multi.size, multi.desc);
       for(int j = 0; j < *multi.size; j++) {
-        Serial.printf("  Zona  id: x%04x \n", multi.serie[j]);
+        Serial.printf("  Zona  id: x%04x \n", multi.zserie_boton[j]);
       }
     Serial.println();
   }

@@ -211,8 +211,6 @@
   #define HIDE 0
   #define READ 1
   #define CLEAR 0
-  #define FULL 1
-  #define RESTO 0
   #define REFRESH 1
   #define UPDATE 0
   #define NOBLINK 0
@@ -357,20 +355,22 @@
     bool logWarnToFile = DFLT_LOGWARNTOFILE;    // si true los LOG_WARN tambien se graban en el fichero de log de errores
   };
 
-  // estructura del multirriego activo 
-  // (algunos son pointer al multirriego correspondiente en config *)
+  // estructura del multirriego activo (se esta regando o configurando)
+  // (algunos son pointer al grupo correspondiente en config *)
   struct S_MULTI {
+    // campos de estado del multirriego en curso
     bool riegoON  = false;  // multirriego activo
     bool temporal = false;  // grupo multirriego es temporal
     bool noFactorizado  = false;  // grupo multirriego es dinámico (a partir de un riego de zona individual, no factorizado)
     bool semaforo = false;  // procesar siguiente zona del multirriego
-    int ngrupo;             // numero del grupo al que apunta
+    int  actual;            //variable auxiliar durante un multirriego
+    // campos de configuración del grupo multirriego en curso 
+    int  ngrupo;            // numero del grupo al que apunta
+    uint16_t zserie_boton[16];     //contiene los id de las zonas del grupo (bZona_x)
+    uint16_t w_zserie[16];  //contiene las zonas del grupo (Zona_x)
+    int  w_size;            //variable auxiliar durante ConF
     const uint16_t *id;     //apuntador al id del boton/selector grupo en Grupos[]. Solo lectura.
-    uint16_t serie[16];     //contiene los id de los botones del grupo (bZona_x)
-    uint16_t zserie[16];    //contiene las zonas del grupo (Zona_x)
     int *size;              //apuntador a config con el tamaño del grupo
-    int w_size;             //variable auxiliar durante ConF
-    int actual;             //variable auxiliar durante un multirriego 
     const char *desc;       //apuntador a config con la descripcion del grupo. Solo lectura.
   } ;
 
@@ -551,8 +551,7 @@ void dimmerLeds(bool);
 void displayDemo(void);
 void displayEstadoRemoto(const char *estado_texto);
 void displayLedsGrupo(uint16_t *, int);
-void displayLCDGrupo(bool, int line=4, int znumber=0);
-int  displayLCDGrupo(uint16_t *, int, int , int );
+int  displayLCDGrupo(display_modo modo = FULL, int line = 4, int znumber = 0);
 void displayTipoGrupo();
 void displayRestar();
 void displayTimer(uint8_t, uint8_t, uint8_t, uint8_t);

@@ -207,7 +207,7 @@ void Configure::configureMulti_display()
       lcd.info(buff, 3);
 
       if(!_configuringMultiTemp) {    // no encendemos leds si grupo TEMPORAL
-        displayLedsGrupo(multi.serie, *multi.size); // mostramos leds de las zonas ya configuradas para el grupo
+        displayLedsGrupo(multi.zserie_boton, *multi.size); // mostramos leds de las zonas ya configuradas para el grupo
         led(Boton[getBotonIndex(*multi.id)].led,ON); // encendemos led del boton del grupo
       }  
 }              
@@ -216,13 +216,13 @@ void Configure::Multi_process_update()
 {
       int zIndex = getZonaIndex(boton->bID);
       if (multi.w_size < ZONASXGRUPO) {  //max. zonas por grupo
-        multi.serie[multi.w_size] = boton->bID;  // bId de la zona
-        multi.zserie[multi.w_size] = zIndex+1 ;  // numero de la zona
+        multi.zserie_boton[multi.w_size] = boton->bID;  // bId de la zona
+        multi.w_zserie[multi.w_size] = zIndex+1 ;  // numero de la zona
         multi.w_size = multi.w_size + 1;
 
         LOG_INFO("[ConF] añadiendo ZONA",zIndex+1,"(",config.zona[zIndex].desc,") multi.w_size=",multi.w_size);
         led(boton->led,ON);
-        displayLCDGrupo(multi.zserie, multi.w_size,4,0);
+        displayLCDGrupo(WORKING, 4);
       }
       else sonido.bipKO();  
 }
@@ -236,7 +236,7 @@ void Configure::Multi_process_end()
         *multi.size = multi.w_size;
         int g = _actualGrupo;
         for (int i=0; i<multi.w_size; ++i) {
-          config.group[g-1].zNumber[i] = multi.zserie[i];
+          config.group[g-1].zNumber[i] = multi.w_zserie[i];
         }
 
         LOG_INFO("Config updated : GRUPO",g,"tamaño:",*multi.size,"(",multi.desc,")");
