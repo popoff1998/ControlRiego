@@ -239,9 +239,9 @@ void Configure::Multi_process_end()
           config.group[g-1].zNumber[i] = multi.zserie[i];
         }
 
-        LOG_INFO("SAVE PARM Multi : GRUPO",g,"tamaño:",*multi.size,"(",multi.desc,")");
+        LOG_INFO("Config updated : GRUPO",g,"tamaño:",*multi.size,"(",multi.desc,")");
         printMultiGroup( g-1);
-        snprintf(grupoText, sizeof(grupoText), "Guardado GRUPO%d", _actualGrupo);
+        snprintf(grupoText, sizeof(grupoText), "Actualizado GRUPO%d", _actualGrupo);
         lcd.info(grupoText,2);
         lcd.clear(BORRA2H);
         sonido.bipOK();
@@ -250,7 +250,7 @@ void Configure::Multi_process_end()
       else {   //se borra contenido del grupo
         *multi.size = 0;
         
-        LOG_INFO("borrado GRUPO",_actualGrupo,"tamaño:",*multi.size,"(",multi.desc,")");
+        LOG_INFO("vacido GRUPO",_actualGrupo,"tamaño:",*multi.size,"(",multi.desc,")");
         snprintf(grupoText, sizeof(grupoText), ">> Vaciado GRUPO%d <<", _actualGrupo);
         lcd.info(grupoText,2);
         lcd.clear(BORRA2H);
@@ -268,7 +268,7 @@ void Configure::Multi_process_end()
 void Configure::MultiTemp_process_end()
 {
       if (multi.w_size) {  //solo si se ha pulsado alguna zona
-        _startMultiTemp = true;  // flag para indicar que al salir de ConF se lanzará el multirriego temporal con las zonas configuradas
+        _MultiTempReady = true;  // flag para indicar que al salir de ConF se lanzará el multirriego temporal con las zonas configuradas
 
         LOG_INFO("process_end grupo TEMPORAL : GRUPO",_actualGrupo,"tamaño:",*multi.size,"(",multi.desc,")");
         sonido.bipOK();
@@ -283,9 +283,9 @@ int Configure::get_currentItem()
   return _currentItem;
 }
 
-bool Configure::get_startMultiTemp()
+bool Configure::get_MultiTempReady()
 {
-  return _startMultiTemp;
+  return _MultiTempReady;
 }
 
 //  escritura de parametros a fichero si procede y salimos de ConF
@@ -314,7 +314,7 @@ void Configure::exit()
       LOG_TRACE("[poniendo estado STANDBY]");
       // Si salimos de modo ConF para comenzar multirriego temporal, ponemos STANDBY silencioso
       // (sin cambios en la UI) , si no ponemos STANDBY normal.
-      _startMultiTemp ? setStateMachine(STANDBY) : setEstado(STANDBY);
+      _MultiTempReady ? setStateMachine(STANDBY) : setEstado(STANDBY);
       this->reset();
       _currentItem = 0;
       setEncoderTime();

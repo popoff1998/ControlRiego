@@ -58,7 +58,7 @@ class Configure
           _configuringRange       : 1,
           _configuringMenu        : 1,
           _configuringMelody      : 1,
-          _startMultiTemp         : 1;
+          _MultiTempReady         : 1;
       };
     };
     void configureMulti_display(void);
@@ -93,7 +93,7 @@ class Configure
     int  showMenu(int);
     void procesaSelectMenu(void);
     int  get_currentItem(void);
-    bool get_startMultiTemp(void);
+    bool get_MultiTempReady(void);
 };
 
 #endif

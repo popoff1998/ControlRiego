@@ -770,6 +770,11 @@ void handleGroupConfig()
       configure->Multi_process_start(n_grupo);
 }
 
+// Al pulsar PAUSE estando configurando algo se consolidan los cambios realizados 
+// en la configuracion de tiempo, idx, rango o multirriego.
+// (*) En el caso de configurar un multirriego temporal, el primer PAUSE consolida 
+// pero un segundo PAUSE reiniciaria el proceso de definir el multirriego temporal, 
+// para que el usuario pueda corregir lo que ha introducido antes de lanzarlo.
 void handleParameterConsolidation()
 {
       if(configure->configuringTime()) {
@@ -785,13 +790,17 @@ void handleParameterConsolidation()
         configure->Multi_process_end();  // actualizamos config con las zonas introducidas
       }
       if(configure->configuringMultiTemp()) {
-        configure->MultiTemp_process_end();  // preparamos lanzamiento multirriego temporal
+        if (configure->get_MultiTempReady()) { // si ya se habia consolidado el multirriego temporal, 
+           handleEncStopInStandby();           // un nuevo PAUSE reinicia este proceso para que el usuario pueda corregir errores
+           LOG_DEBUG("reiniciando definicion de multirriego temporal por nuevo PAUSE");
+        }
+        else configure->MultiTemp_process_end();  // preparamos lanzamiento multirriego temporal
       }
 }
 
 void handleStartMultiTemp()
 {
-  if (configure->get_startMultiTemp()) {  //solo si se ha guardado alguna zona iniciamos riego grupo temporal
+  if (configure->get_MultiTempReady()) {  //solo si se ha guardado alguna zona iniciamos riego grupo temporal
       startMultirriego(); // prepara comienzo multirriego temporal en el siguiente paso del loop
   }    
 }
@@ -1064,7 +1073,8 @@ void setEstado(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parp
             
         case CONFIGURANDO:
             resetLeds();
-            lcd.infoclear("CONFIGURANDO", NOBLINK, LOWBIP, bipcount);
+            // lcd.infoclear("CONFIGURANDO", NOBLINK, LOWBIP, bipcount);
+            sonido.lowbip(bipcount);
             break;
     }
     // (POST) setup elementos de interfaz (UI) comunes a la mayoria de los estados:
