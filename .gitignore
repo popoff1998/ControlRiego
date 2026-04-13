@@ -2,11 +2,11 @@
 .piolibdeps
 .clang_complete
 .gcc-flags.json
-.pio
-.VSCodeCounter
-\.vscode/
+.pio/
+.VSCodeCounter/
+.vscode/
 data/config_parm.json
 test/
-.github
-.specstory
-subdir_datos
+.github/
+.specstory/
+
