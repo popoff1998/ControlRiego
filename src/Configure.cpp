@@ -195,7 +195,7 @@ void Configure::MultiTemp_process_start()
       this->configureMulti_display();
 }
 
-//  se añade zona pulsada a grupo
+// Muestra en pantalla mensaje para configurar grupo multirriego y enciende leds de las zonas actuales del grupo)
 void Configure::configureMulti_display()    
 {
 
@@ -207,7 +207,7 @@ void Configure::configureMulti_display()
       lcd.info(buff, 3);
 
       if(!_configuringMultiTemp) {    // no encendemos leds si grupo TEMPORAL
-        displayLedsGrupo(multi.zserie_boton, *multi.size); // mostramos leds de las zonas ya configuradas para el grupo
+        displayLedsGrupo(); // mostramos leds de las zonas ya configuradas para el grupo
         led(Boton[getBotonIndex(*multi.id)].led,ON); // encendemos led del boton del grupo
       }  
 }              
@@ -240,7 +240,9 @@ void Configure::Multi_process_end()
         }
 
         LOG_INFO("Config updated : GRUPO",g,"tamaño:",*multi.size,"(",multi.desc,")");
+        #ifdef DEVELOP
         printMultiGroup( g-1);
+        #endif
         snprintf(grupoText, sizeof(grupoText), "Actualizado GRUPO%d", _actualGrupo);
         lcd.info(grupoText,2);
         lcd.clear(BORRA2H);
@@ -250,7 +252,7 @@ void Configure::Multi_process_end()
       else {   //se borra contenido del grupo
         *multi.size = 0;
         
-        LOG_INFO("vacido GRUPO",_actualGrupo,"tamaño:",*multi.size,"(",multi.desc,")");
+        LOG_INFO("vaciado GRUPO",_actualGrupo,"tamaño:",*multi.size,"(",multi.desc,")");
         snprintf(grupoText, sizeof(grupoText), ">> Vaciado GRUPO%d <<", _actualGrupo);
         lcd.info(grupoText,2);
         lcd.clear(BORRA2H);
@@ -364,7 +366,6 @@ int Configure::showMenu(int opcion)
       if(!_data_pos_valid) {
           for(int r=0; r<MAXOPCIONES; r++) {
             _data_pos[r] = opcionesMenuConf[r].length() + 3;
-            //_data_pos[r] = strlen(opcionesMenuConf[r].c_str()) + 3; // otra opcion
             LOG_DEBUG("menuitem",r,"longitud",_data_pos[r]-3,"data_pos",_data_pos[r]);
           }
           _data_pos_valid = true;

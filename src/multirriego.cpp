@@ -70,14 +70,15 @@ void setMultiTemp(bool newTemp)
     multi.desc = "TEMPORAL";
     multi.ngrupo = 0; // el numero de grupo temporal es 0 (no existe en config)
     LOG_DEBUG(" devuelve GRUPO", multi.ngrupo,"(",multi.desc,") con",*multi.size,"zonas");
-    displayTipoGrupo(); // actualiza LCD con tipo de grupo
+    if (Estado.estado == PAUSE) displayTipoGrupo(); // en cambio dinamico actualiza LCD con nuevo tipo de grupo
 }
 
 
 // prepara el comienzo de un multirriego (normal o temporal)
 bool startMultirriego()
 {
-  if(*multi.size > 0) {    // si grupo tiene zonas definidas
+  if (multi.size == nullptr) return false; // multi no ha sido inicializado
+  if (*multi.size > 0) {    // si grupo tiene zonas definidas
       multi.riegoON = true;
       multi.noFactorizado  = false;
       multi.actual = 0;
@@ -98,18 +99,19 @@ bool startMultirriego()
   }      
 }
 
-// muestra en leds y LCD las zonas del grupo
-void displayLedsGrupo(uint16_t *serie, int serieSize)
+// muestra en los leds el boton del grupo y las zonas del grupo apuntado por la estructura multi
+void displayLedsGrupo()
 {
+  if (multi.size == nullptr) return; // multi no ha sido inicializado
   led(Boton[getBotonIndex(*multi.id)].led,ON); // enciende led del grupo
   int i;
-  if(serieSize > 0) {  // si el grupo tiene zonas definidas muestra leds de las zonas del grupo
-      for(i=0;i<serieSize;i++) {
-        led(Boton[getBotonIndex(serie[i])].led,ON);
+  if(*multi.size > 0) {  // si el grupo tiene zonas definidas muestra leds de las zonas del grupo
+      for(i=0;i<*multi.size;i++) {
+        led(Boton[getBotonIndex(multi.zserie_boton[i])].led,ON);
         delay(300);
         sonido.bip(i+1);
         delay(100*(i+1));
-        led(Boton[getBotonIndex(serie[i])].led,OFF);
+        led(Boton[getBotonIndex(multi.zserie_boton[i])].led,OFF);
         delay(100);
       }
   }    
@@ -119,7 +121,7 @@ void displayLedsGrupo(uint16_t *serie, int serieSize)
 
 /**
  * Muestra las zonas del grupo apuntado por la estructura multi en el LCD con formato "1-2-3+9"
- * @param modo    FULL    - muestra todas las zonas del grupo (multi.w_zserie)
+ * @param modo    FULL    - muestra todas las zonas del grupo (multi.w_zserie) o GRUPO VACIO si no tiene zonas
  *                RESTO   - muestra las zonas restantes por regar (a partir de multi.actual+1)
  *                WORKING - muestra las zonas añadidas mientras se configura un grupo (a partir de multi.w_size)
  * @param line    fila del LCD (1-4).
@@ -127,17 +129,11 @@ void displayLedsGrupo(uint16_t *serie, int serieSize)
  */
 int displayLCDGrupo(display_modo modo, int line, int znumber) {
     LOG_DEBUG("recibido modo=",modo,"line=",line,"znumber=",znumber);
+    if (multi.size == nullptr) return 0; // multi no ha sido inicializado
     int pos = 0;
     buff[0] = '\0'; // vaciar buffer antes de usarlo (caso de RESTO con todo regado o WORKING sin zonas añadidas)
-    int size, inicio;
-    if (modo == WORKING) {
-        size = multi.w_size; // Usamos el contador de configuración
-        inicio = 0;          // Siempre desde el principio
-    } else {
-        size = *multi.size;   // Usamos el tamaño del grupo de riego
-        inicio = (modo == RESTO) ? (multi.actual + 1) : 0;
-    }
-    size = min(size, ZONASXGRUPO); // Aseguramos no exceder el máximo definido (por si acaso)
+    const int size = (modo == WORKING) ? multi.w_size : *multi.size; // usamos el contador de configuración o el tamaño del grupo según el modo
+    const int inicio = (modo == RESTO) ? (multi.actual + 1) : 0; // inicio a partir de multi.actual+1 para RESTO, o desde el principio para FULL y WORKING
     // Construye la cadena con las zonas a mostrar
     for (int i = inicio; i < size; i++) {
         if (pos > (LCDMAXLEN - 2)) break; // no hay espacio para mostrar más zonas

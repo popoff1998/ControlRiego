@@ -116,9 +116,9 @@
 
  //----------------  dependientes del HW   (no modificar) ---------------------------
   #ifdef ESP32
-    // GPIOs  I/O usables: 2 4 5 16 17 18 19 21 22 23 25 26 27 32 33  (15/15)
+    // GPIOs  I/O usables: 2 4 5 16 17 18 19 21 22 23 25 26 27 32 33  (usados 11 de 15)
     // GPIOs  I/O los reservo para JTAG: 12 13 14 15
-    // GPIOs  I usables: 34 35 36 39 (4/4)  (ojo no tienen pullup/pulldown interno, requieren resistencia externa)
+    // GPIOs  I usables: 34 35 36 39 (usado 1 de 4)  (ojo no tienen pullup/pulldown interno, requieren resistencia externa)
     #define ENCCLK                GPIO_NUM_16
     #define ENCDT                 GPIO_NUM_17
     #define ENCBOTON              GPIO_NUM_34   // conectado a GPIO solo INPUT (no se trata por Encoder, se hace por programa)
@@ -216,17 +216,16 @@
   #define NOBLINK 0
   #define BORRA1H 1
   #define BORRA2H 2
-  #define LCDON 0
   #define RECUPERABLE 1
   #define NORECUPERABLE 0
   #define INICIO 0
   #define RESUME 1
   #define SHORT 1
-  #define NEWTEMP 1
+  #define NEWMTEMP 1
 
   // constexpr calculado por el preprocesador y no modificable en tiempo de ejecucion
-  constexpr uint16_t Zonas[] = {_ZONAS};
-  constexpr uint16_t Grupos[]  = {_GRUPOS};
+  constexpr uint16_t Zonas[] = {_ZONAS};  // array de todos los botones de zonas de riego disponibles
+  constexpr uint16_t Grupos[]  = {_GRUPOS}; // array de todos los botones de grupos disponibles
   constexpr int NUMZONAS = ELEMENTCOUNT(Zonas); // numero de zonas (botones riego individual)
   constexpr int NUMGRUPOS = ELEMENTCOUNT(Grupos); // numero de grupos multirriego
 
@@ -258,6 +257,7 @@
             spare1        : 1;
   };
 
+  // flags de simulacion en modo DEVELOP
   union S_simFlags  {
     uint8_t all_simFlags;
     struct
@@ -271,12 +271,12 @@
   } ;
 
   struct S_BOTON {
-    uint16_t   bID;       // ID del boton (bitmask)
-    bool  estado;
-    bool  ultimo_estado;
-    int   led;            // pin del led asociado al boton (0 si no tiene)
-    S_bFLAGS  flags;      // flags varios
-    char  desc[20];       // descripcion por defecto del boton
+    const uint16_t bID;     // Fijo: Identificador de bit del boton (bitmask)
+    bool  estado;           // Variable: Estado actual
+    bool  ultimo_estado;    // Variable: Estado previo
+    const int   led;        // Fijo: Pin del LED asociado al boton (0 si no tiene)
+    S_bFLAGS  flags;        // flags varios
+    const char* const desc; // Fijo: descripcion por defecto del boton
   } ;
 
   // estructura con el estado general del sistema (State Machine)
@@ -550,7 +550,7 @@ bool deviceSwitch(uint8_t zona, const char *msg, int retries);
 void dimmerLeds(bool);
 void displayDemo(void);
 void displayEstadoRemoto(const char *estado_texto);
-void displayLedsGrupo(uint16_t *, int);
+void displayLedsGrupo(void);
 int  displayLCDGrupo(display_modo modo = FULL, int line = 4, int znumber = 0);
 void displayTipoGrupo();
 void displayRestar();

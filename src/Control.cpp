@@ -448,8 +448,6 @@ void handlePauseInError() {
     LOG_INFO("estado en ERROR y PAUSA pulsada pasamos a modoDEMO y reset del error");
     Estado.modoDEMO = true;
     sonido.bip(2);
-    resetFlags();   //reset flags de status
-    saveRiego(0,0,0,0); //reset riego salvado    
     if (Boton[getBotonIndex(bSTOP)].estado) setEstado(STOP,1);
     else setEstado(STANDBY);
 }
@@ -479,7 +477,7 @@ void procesaBotonStop()
 {
   if (boton->estado) {  //si hemos PULSADO STOP
     if (Estado.estado == REGANDO || Estado.estado == PAUSE || Estado.estado == TERMINANDO) {
-      handleStopInRegandoPauseTerm();           //parar riegos y pasar a estado STOP
+      handleStopInRegandoPauseTerm();           //parar riegos
       return;
     }
     if (Estado.estado == STANDBY) { 
@@ -493,11 +491,11 @@ void procesaBotonStop()
     }
   }
   //si hemos liberado STOP: salimos del estado stop
-  //(dejamos el release del STOP en modo ConF para que actue el codigo de procesaEstadoConfigurando
-  if (!boton->estado && Estado.estado == STOP) {
+  if (Estado.estado == STOP && !boton->estado) {
     LOG_TRACE("[poniendo estado STANDBY]");
     setEstado(STANDBY);
   }
+  //(en estado CONFIGURANDO dejamos el release del STOP para que actue el codigo de procesaEstadoConfigurando
 } //fin de procesaBotonStop
 
 // Paramos el riego en curso primero y todas las zonas de riego, y pasamos a estado STOP
@@ -530,7 +528,7 @@ void handleStopInStandby() {
 
 // Iniciamos la configuracion de un multirriego temporal
 void handleEncStopInStandby() {
-    setMultiTemp(NEWTEMP);  // apunta estructura multi a grupo temporal
+    setMultiTemp(NEWMTEMP);  // apunta estructura multi a grupo temporal
     setEstado(CONFIGURANDO,1);
     simulaPausePrev = true; // para evitar que al entrar en configuracion se simule un pause por el encoderSW pulsado
     configure->MultiTemp_process_start();
@@ -567,17 +565,16 @@ void handleEncGrupoInStandby(int n_grupo) {
     LOG_DEBUG("en MULTIRRIEGO + encoderSW, display de grupo:", multi.desc,"tamaño:", *multi.size );
     snprintf(buff, MAXBUFF, "grupo: %s", multi.desc);
     lcd.infoclear(buff, 1);
-    // displayLCDGrupo(FULL, 2);
     displayLCDGrupo(FULL, 2);
     showTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1);
-    displayLedsGrupo(multi.zserie_boton, *multi.size);
+    displayLedsGrupo();
     delay(config.msgdisplaymillis*3);
     setEstado(STANDBY);   //para que restaure pantalla
 }
 
 // Iniciamos el MULTIRRIEGO
 void handleGrupoInStandby(int n_grupo) {
-    /* Iniciamos el primer riego del MULTIRRIEGO machacando la variable boton.
+    /* Iniciamos el primer riego del grupo machacando la variable boton.
        Realmente estoy simulando la pulsacion del primer boton de riego de la serie
        que sera procesado en el siguiente paso del loop.
        Tambien grabamos el tiempo de inicio del riego de grupo  */
@@ -622,71 +619,71 @@ void procesaBotonZona()
 
 
 /**---------------------------------------------------------------
- * Si config.dynamic = true , se puede una vez iniciado un riego (de zona individual,
- * multirriego temporal o de grupo) el poder añadir/eliminar más zonas para regar. 
+ * Si config.dynamic = true , se puede una vez iniciado un riego (de zona, multirriego temporal o de grupo)
+ * el poder añadir o eliminar zonas en la cola de pendientes de riego. 
  * Para ello se pasa este riego a multirriego temporal si no lo fuera ya.
  * En el caso de riego en curso de zona individual, este no se ha factorizado y no se factorizan los añadidos.
  * Si lo que se modifica dinamicamente es un multirriego temporal o de grupo lanzados al principio 
- * si se factorizan todas las zonas iniciales y añadidas.
+ * si se factorizaron las zonas iniciales y se factorizaran las añadidas.
  */
 void handleDynamicZoneChange(int znumber) {
-  // if (multi.riegoON != multi.temporal) return; // si no queremos permitir cambios dinamicos en un multirriego de grupo (no temporal)
-  // La zona pulsada no puede coincidir con la actualmente en riego, se ignora en ese caso
-  if (zonaEnCurso.pBoton->bID != boton->bID) {
-    // CASO1 : estamos en riego de zona individual -> pasamos a multirriego temporal con la zona en curso como unica zona del grupo
+  // Si la zona pulsada coincide con la actualmente en riego, se ignora:
+  if (zonaEnCurso.pBoton->bID == boton->bID)
+    {sonido.bipKO(); LOG_DEBUG("zona pulsada:",znumber," es = a zona actual:",zonaEnCurso.znumber);}
+  else // si la zona pulsada es distinta a la zona en curso: procesamos el cambio dinamico
+  {
+    // CASO 1: estamos en riego de zona individual -> pasamos a multirriego temporal con la zona en curso como unica zona del grupo
     if (!multi.riegoON) {
       multi.riegoON = true;
       multi.noFactorizado  = true;  // marcamos como no factorizado
       multi.semaforo = false;
       multi.actual=0;
-      setMultiTemp(NEWTEMP);  // completa resto campos estructura multi como grupo temporal nuevo
+      setMultiTemp(NEWMTEMP);  // completa resto campos estructura multi como grupo temporal nuevo
       multi.zserie_boton[0] = zonaEnCurso.pBoton->bID;  // bId de la zona actual como primera de la lista
       multi.w_zserie[0] = zonaEnCurso.znumber;  // numero de la zona actual como primera de la lista
       multi.w_size = 1; // indicamos que hay una zona en la lista 
     }
-    // CASO2 : estamos en multirriego de grupo -> pasamos a multirriego temporal con las zonas del grupo como zonas del grupo temporal
+    // CASO 2: estamos en multirriego de grupo -> pasamos a multirriego temporal con las zonas del grupo como zonas del grupo temporal
     if (!multi.temporal) setMultiTemp();  // pasa estructura multi del grupo activo a grupo temporal 
-    // llegados aqui ya estamos en multiriego temporal (veniamos de el o lo hemos generado en el caso 1 o 2)  
-    // Procesar cambio dinamico y reflejarlo en el display
-    if (procesaDynamic(znumber)) displayLCDGrupo(RESTO, 2);
-    LOG_DEBUG("MULTI noFactorizado:",multi.noFactorizado,"actual:",multi.actual,"size:",*multi.size,"zona:",znumber);
+    // CASO 3: llegados aqui ya estamos en multiriego temporal (veniamos de el o lo hemos generado en el caso 1 o 2)  
+    if (procesaDynamic(znumber)) displayLCDGrupo(RESTO, 2); // Procesa cambio dinamico y reflejarlo en el display
+    LOG_DEBUG("MULTI: noFactorizado?:",multi.noFactorizado,"actual:",multi.actual,"size:",multi.w_size,"zona:",znumber);
   }
-  else {sonido.bipKO(); LOG_DEBUG("[DYNAMIC] zona pulsada:",znumber," es = a zona actual:",zonaEnCurso.znumber);}
 }
 
-/**-----------------------------------------------------------------------------------------
- * Procesa el cambio dinamico de zonas en un riego de zona individual o multirriego temporal o de grupo.
- * Si la zona no está en el grupo se añade al final, si existe en la cola se elimina de esta.
- */
+/**------------------------------------------------------------------------------------------
+ * Procesa el cambio dinamico de zonas pendientes de riego en un multirriego temporal.
+ * Si la zona existe en la cola se elimina, si no está ese añade al final.
+ * NOTA: en un multirriego temporal *multi.size apunta a multi.w_size */
 bool procesaDynamic(int znumber)
 {
-  LOG_DEBUG("[RECIBE] MULTI noFactorizado:",multi.noFactorizado,"actual:",multi.actual,"size:",*multi.size,"zona:",zonaEnCurso.znumber);
-  int n;
-  for(n=multi.actual; n<*multi.size; n++) { // recorremos la lista de zonas a ver si existe ya
-    // zona pulsada ya existe en la lista --> se elimina de la cola
-    if(multi.w_zserie[n] == znumber) { 
-      LOG_DEBUG("[vamos a ELIMINAR] n=",n,"actual:",multi.actual,"zona:",znumber,"size:",*multi.size);
-      for(n; n<*multi.size; n++) {          //  --> la eliminamos de esta
-        multi.w_zserie[n] = multi.w_zserie[n+1];
-        multi.zserie_boton[n] = multi.zserie_boton[n+1];
+  LOG_DEBUG("[RECIBE] actual:", multi.actual, " size:", multi.w_size, " zona:", znumber);
+  // 1. BUSQUEDA Y ELIMINACIÓN
+  for (int n = multi.actual; n < multi.w_size; n++) { 
+      if (multi.w_zserie[n] == znumber) { 
+          LOG_DEBUG("[vamos a ELIMINAR] n=",n,"actual:",multi.actual,"zona:",znumber,"size:",multi.w_size);
+          // Desplazamos elementos hacia la izquierda. 
+          for (int j = n; j < (multi.w_size - 1); j++) { // El límite es (multi.w_size - 1) para no leer j+1 fuera del array
+              multi.w_zserie[j] = multi.w_zserie[j + 1];
+              multi.zserie_boton[j] = multi.zserie_boton[j + 1];
+          }
+          multi.w_size--; // Decrementamos el tamaño
+          LOG_DEBUG("[ELIMINA] n=",n,"actual:",multi.actual,"nuevo size:",multi.w_size,"zona:",znumber);
+          LOG_INFO("DYNAMIC [ELIMINA] Zona:",znumber);
+          sonido.bip(2); 
+          return true; // zona encontrada y eliminada, salimos
       }
-      *multi.size = n-1;
-      LOG_DEBUG("[ELIMINA] n=",n,"actual:",multi.actual,"size:",*multi.size,"zona:",znumber);
-      LOG_INFO("DYNAMIC [ELIMINA] Zona:",znumber);
-      sonido.bip(2); 
-      return true; //zona eliminada
-    }
   } 
-  // la zona pulsada no existe en la lista --> se añade al final
-  multi.w_size = n; //indice zona de la lista donde añadir la nueva zona (1 a ZONASXGRUPO-1)
-  if (multi.w_size < ZONASXGRUPO) {  //añadimos zona al final de la lista si hay sitio
-    multi.zserie_boton[multi.w_size] = boton->bID;  // bId de la zona pulsada
-    multi.w_zserie[multi.w_size] = znumber;  // numero de la zona pulsada
-    *multi.size = multi.w_size + 1;
-    LOG_DEBUG("[AÑADE] n=",n,"actual:",multi.actual,"size:",*multi.size,"zona:",znumber);
-    LOG_INFO("DYNAMIC [AÑADE] Zona:",znumber);
-    sonido.bip(1); 
-    return true; //zona añadida
+  // 2. ADICIÓN AL FINAL
+  if (multi.w_size < ZONASXGRUPO) {
+      int index = multi.w_size; // El tamaño actual es el índice del siguiente hueco libre
+      multi.zserie_boton[index] = boton->bID;
+      multi.w_zserie[index] = znumber;
+      multi.w_size++; // Incrementamos tamaño
+      LOG_DEBUG("[AÑADE] actual:",multi.actual,"nuevo size:",multi.w_size,"zona:",znumber);
+      LOG_INFO("DYNAMIC [AÑADE] Zona:", znumber);
+      sonido.bip(1); 
+      return true; // zona añadida, salimos
   }
   sonido.bipKO(); 
   return false; //no hay sitio --> zona ignorada   
@@ -995,7 +992,7 @@ void setStateMachine(m_estados estado, estado_tipos tipo)
   Boton[getBotonIndex(bPAUSE)].flags.holddisabled = true; //Deshabilitamos el hold de Pause
   if(Estado.reposo) reposoOFF();     //por si salimos de stop antinenes
   rotaryEncoder.disable();  // para que no cuente pasos salvo que lo habilitemos
-  if (estado == STOP) {resetFlags(); saveRiego(0,0,0,0);} //reset flags riegos en curso
+  if (estado == STOP || (estado == STANDBY && !multi.riegoON)) {resetFlags(); saveRiego(0,0,0,0);} //reset flags riegos en curso
   standbyTime = millis(); //reseteamos tiempo de inactividad    
 }
 
@@ -1073,7 +1070,6 @@ void setEstado(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parp
             
         case CONFIGURANDO:
             resetLeds();
-            // lcd.infoclear("CONFIGURANDO", NOBLINK, LOWBIP, bipcount);
             sonido.lowbip(bipcount);
             break;
     }
@@ -1096,6 +1092,7 @@ void statusError(error_tipos errorID, bool recoverable, velocidad_parpadeo zonab
       Estado.recoverableError = recoverable; //error recuperable o no
       Estado.error = errorID;
       Estado.tipo = LOCAL;
+      resetFlags(); // reseteamos flags de riegos
       rotaryEncoder.disable();
   // set user interfase (UI):
       lcd.clear(BORRA2H);

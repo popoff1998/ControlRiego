@@ -41,7 +41,6 @@ void DisplayLCD::initLCD() {
   LiquidCrystal_I2C::init();
   clear();
   setBacklight(ON);
-
   DefineLargeChar(); // Create the custom characters
 
   setCursor(5, 0);
