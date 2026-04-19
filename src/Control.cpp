@@ -314,8 +314,12 @@ void setupEstadoFinal()
         *                                                               *
         *                    Proceso de los BOTONES                     *
         *                                                               *
-        ----------------------------------------------------------------*/
+        *---------------------------------------------------------------*/
 
+
+/*---------------------------------------------------------------*
+ *                    Proceso boton PAUSE                        *
+ *---------------------------------------------------------------*/
 
   void procesaBotonPause()
   {
@@ -473,6 +477,11 @@ bool handleHoldPause() {
     return RC;
 }
 
+
+/*---------------------------------------------------------------*
+ *                    Proceso boton STOP                         *
+ *---------------------------------------------------------------*/
+
 void procesaBotonStop()
 {
   if (boton->estado) {  //si hemos PULSADO STOP
@@ -545,6 +554,10 @@ void handleStopInError() {
 }
 
 
+/*---------------------------------------------------------------*
+ *            Proceso botones MULTIRRIEGO (GRUPOS)               *
+ *---------------------------------------------------------------*/
+
 void procesaBotonMultirriego()
 {
   if (multi.riegoON)  //ya hay un multirriego en curso,, ignoramos boton
@@ -594,6 +607,11 @@ void handleEncGrupoInStop(int n_grupo) {
           break;
   }    
 }
+
+
+/*---------------------------------------------------------------*
+ *                    Proceso boton ZONA                         *
+ *---------------------------------------------------------------*/
 
 void procesaBotonZona()
 {
@@ -690,117 +708,12 @@ bool procesaDynamic(int znumber)
 }   //fin de procesaDynamic
 
 
-void procesaIfWebServer()
-{
-  #ifdef WEBSERVER
-    procesaWebServer();
-  #endif    
-} 
-
 
      /*---------------------------------------------------------------*
       *                                                               *
       *                    Proceso de los ESTADOS                     *
       *                                                               *
       ----------------------------------------------------------------*/
-
-
-/*
- La mecanica general de la maquina de estados en modo normal es que primero se procesa el boton pulsado, 
- pudiendo este cambiar el estado, y despues se procesa el estado.
- En modo configuracion es totalmente opuesto: los botones se procesan en procesaEstadoConfigurando.
- Esto se hace así para tener separada la lógica de modo normal de la de configuración, ya que las acciones 
- que realizan los botones en una y otra son totalmente distintas.
-*/
-void procesaEstadoConfigurando()
-{
-  // Si hay boton pulsado (con flag ACTION), lo procesamos segun el menu en el que estemos
-  if (boton != nullptr) {
-    if (boton->flags.action) {
-      if (boton->bID != bSTOP && webServerAct)  //si webserver esta activo solo procesamos boton STOP
-        return;
-      switch(boton->bID) {
-        case bPAUSE:
-            if(!boton->estado) break; //no se procesa el release del PAUSE
-            //si estamos en el menu: PAUSE procesa la seleccion
-            if(configure->inMenu()) {
-              LOG_DEBUG("[MENU] PAUSE pulsado recibido");
-              configure->procesaSelectMenu();
-              break;
-            }
-            // si ya estamos configurando algo: PAUSE consolida lo configurado en config
-            LOG_DEBUG("PAUSE pulsado recibido y estamos configurando algo");
-            handleParameterConsolidation(); 
-            break;
-        case bSTOP:
-            if(!boton->estado) {    //release STOP
-              if(configure->configuringMultiTemp()) handleStartMultiTemp(); //si configurando multirriego temporal: STOP lanza el riego
-              configure->exit();  // salvamos parametros a fichero si procede y salimos de ConF
-            }
-            break;
-        case MULTIRRIEGO:
-            if (configure->inMenu() && configure->get_currentItem()==0) { //si no estamos configurando nada:
-              handleGroupConfig();                                            // configuramos el grupo seleccionado
-            }  
-            break;
-        default:  //procesamos boton de ZONAx
-            if (configure->inMenu() && configure->get_currentItem()==0) {   //si no estamos configurando nada :
-              configure->Idx_process_start(getZonaIndex(boton->bID));             // configuramos el idx del boton
-            }
-            if (configure->configuringMulti() || configure->configuringMultiTemp()) { //si estamos configurando grupo multirriego:
-              configure->Multi_process_update();                             //añadimos zona al multirriego que estamos definiendo
-            }
-      }
-    }
-    //limpiamos el boton procesado (evitando borrar zona apuntada caso de multirriego temporal) 
-    if (!multi.semaforo)  boton = nullptr;
-    // Si no se ha pulsado boton procesamos el webserver si esta activado o el encoder en caso contrario
-  } else webServerAct ? procesaIfWebServer() : procesaEncoderConfig();
-}; //fin de procesaEstadoConfigurando
-
-
-void handleGroupConfig()
-{
-      int n_grupo = setGrupo(); //apunta estructura multi al grupo seleccionado
-      //Configuramos el grupo de multirriego apuntado en multi
-      rotaryEncoder.disable();
-      configure->Multi_process_start(n_grupo);
-}
-
-// Al pulsar PAUSE estando configurando algo se consolidan los cambios realizados 
-// en la configuracion de tiempo, idx, rango o multirriego.
-// (*) En el caso de configurar un multirriego temporal, el primer PAUSE consolida 
-// pero un segundo PAUSE reiniciaria el proceso de definir el multirriego temporal, 
-// para que el usuario pueda corregir lo que ha introducido antes de lanzarlo.
-void handleParameterConsolidation()
-{
-      if(configure->configuringTime()) {
-        configure->Time_process_end();  //  salvamos en config el nuevo tiempo por defecto
-      }
-      if(configure->configuringIdx()) {
-        configure->Idx_process_end();  //  salvamos en config el nuevo IDX
-      }
-      if(configure->configuringRange()) {
-        configure->Range_process_end();  //  salvamos en config nuevo valor del parametro
-      }
-      if(configure->configuringMulti()) {
-        configure->Multi_process_end();  // actualizamos config con las zonas introducidas
-      }
-      if(configure->configuringMultiTemp()) {
-        if (configure->get_MultiTempReady()) { // si ya se habia consolidado el multirriego temporal, 
-           handleEncStopInStandby();           // un nuevo PAUSE reinicia este proceso para que el usuario pueda corregir errores
-           LOG_DEBUG("reiniciando definicion de multirriego temporal por nuevo PAUSE");
-        }
-        else configure->MultiTemp_process_end();  // preparamos lanzamiento multirriego temporal
-      }
-}
-
-void handleStartMultiTemp()
-{
-  if (configure->get_MultiTempReady()) {  //solo si se ha guardado alguna zona iniciamos riego grupo temporal
-      startMultirriego(); // prepara comienzo multirriego temporal en el siguiente paso del loop
-  }    
-}
 
 
 void procesaEstadoError()
@@ -946,6 +859,7 @@ void procesaEstadoStop()
   if (!Estado.reposo && (millis() - standbyTime >= (4 * 1000UL * STANDBYSECS))) reposoON();
 };
 
+
 // verificamos zona sigue OFF en Domoticz periodicamente
 void procesaEstadoPause() {
   // Solo verificamos si toca, VERIFY ON y no estamos en modoDEMO (o estamos en modo simulacion)
@@ -967,6 +881,108 @@ void procesaEstadoPause() {
     else Estado.error = NOERROR; 
   }
 } //fin de procesaEstadoPause
+
+
+/*---------------------------------------------------------------*
+ *                  Proceso estado CONFIGURANDO                  *
+ *---------------------------------------------------------------*/
+
+void procesaEstadoConfigurando()
+{
+  /*
+   La mecanica general de la maquina de estados en modo normal es que primero se procesa el boton pulsado, 
+   pudiendo este cambiar el estado, y despues se procesa el estado.
+   En modo configuracion es totalmente opuesto: los botones se procesan en procesaEstadoConfigurando.
+   Esto se hace así para tener separada la lógica de modo normal de la de configuración, ya que las acciones 
+   que realizan los botones en una y otra son totalmente distintas.
+  */
+  // Si hay boton pulsado (con flag ACTION), lo procesamos segun el menu en el que estemos
+  if (boton != nullptr) {
+    if (boton->flags.action) {
+      if (boton->bID != bSTOP && webServerAct)  //si webserver esta activo solo procesamos boton STOP
+        return;
+      switch(boton->bID) {
+        case bPAUSE:
+            if(!boton->estado) break; //no se procesa el release del PAUSE
+            //si estamos en el menu: PAUSE procesa la seleccion
+            if(configure->inMenu()) {
+              LOG_DEBUG("[MENU] PAUSE pulsado recibido");
+              configure->procesaSelectMenu();
+              break;
+            }
+            // si ya estamos configurando algo: PAUSE consolida en config lo modificado
+            LOG_DEBUG("PAUSE pulsado recibido y estamos configurando algo");
+            handleParameterConsolidation(); 
+            break;
+        case bSTOP:
+            if(!boton->estado) {    //release STOP
+              if(configure->configuringMultiTemp()) handleStartMultiTemp(); //si configurando multirriego temporal: STOP lanza el riego
+              configure->exit();  // salvamos parametros a fichero si procede y salimos de ConF
+            }
+            break;
+        case MULTIRRIEGO:
+            if (configure->inMenu() && configure->get_currentItem()==0) { //si no estamos configurando nada:
+              handleGroupConfig();                                            // configuramos el grupo seleccionado
+            }  
+            break;
+        default:  //procesamos boton de ZONAx
+            if (configure->inMenu() && configure->get_currentItem()==0) {   //si no estamos configurando nada :
+              configure->Idx_process_start(getZonaIndex(boton->bID));             // configuramos el idx del boton
+            }
+            if (configure->configuringMulti() || configure->configuringMultiTemp()) { //si estamos configurando grupo multirriego:
+              configure->Multi_process_update();                             //añadimos zona al multirriego que estamos definiendo
+            }
+      }
+    }
+    //limpiamos el boton procesado (evitando borrar zona apuntada caso de multirriego temporal) 
+    if (!multi.semaforo)  boton = nullptr;
+    // Si no se ha pulsado boton procesamos el webserver si esta activado o el encoder en caso contrario
+  } else webServerAct ? procesaIfWebServer() : procesaEncoderConfig();
+}; //fin de procesaEstadoConfigurando
+
+
+void handleGroupConfig()
+{
+      int n_grupo = setGrupo(); //apunta estructura multi al grupo seleccionado
+      //Configuramos el grupo de multirriego apuntado en multi
+      rotaryEncoder.disable();
+      configure->Multi_process_start(n_grupo);
+}
+
+// Al pulsar PAUSE estando configurando algo se consolidan los cambios realizados 
+// en la configuracion de tiempo, idx, rango o multirriego.
+// (*) En el caso de configurar un multirriego temporal, el primer PAUSE consolida 
+// pero un segundo PAUSE reiniciaria el proceso de definir el multirriego temporal, 
+// para que el usuario pueda corregir lo que ha introducido antes de lanzarlo.
+void handleParameterConsolidation()
+{
+      if(configure->configuringTime()) {
+        configure->Time_process_end();  //  salvamos en config el nuevo tiempo por defecto
+      }
+      if(configure->configuringIdx()) {
+        configure->Idx_process_end();  //  salvamos en config el nuevo IDX
+      }
+      if(configure->configuringRange()) {
+        configure->Range_process_end();  //  salvamos en config nuevo valor del parametro
+      }
+      if(configure->configuringMulti()) {
+        configure->Multi_process_end();  // actualizamos config con las zonas introducidas
+      }
+      if(configure->configuringMultiTemp()) {
+        if (configure->get_MultiTempReady()) { // si ya se habia consolidado el multirriego temporal, 
+           handleEncStopInStandby();           // un nuevo PAUSE reinicia este proceso para que el usuario pueda corregir errores
+           LOG_DEBUG("reiniciando definicion de multirriego temporal por nuevo PAUSE");
+        }
+        else configure->MultiTemp_process_end();  // preparamos lanzamiento multirriego temporal
+      }
+}
+
+void handleStartMultiTemp()
+{
+  if (configure->get_MultiTempReady()) {  //solo si se ha guardado alguna zona iniciamos riego grupo temporal
+      startMultirriego(); // prepara comienzo multirriego temporal en el siguiente paso del loop
+  }    
+}
 
 
      /*---------------------------------------------------------------*
@@ -1119,6 +1135,13 @@ void statusError(error_tipos errorID, bool recoverable, velocidad_parpadeo zonab
       *                                                               *
       ----------------------------------------------------------------*/
 
+
+void procesaIfWebServer()
+{
+  #ifdef WEBSERVER
+    procesaWebServer();
+  #endif    
+} 
 
 /**---------------------------------------------------------------
  * Chequeo de perifericos
