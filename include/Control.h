@@ -312,7 +312,7 @@
   //estructura para salvar un grupo
   struct Grupo_parm {
     int size = 0;          // cantidad de zonas asociadas al grupo 
-    uint16_t zNumber[ZONASXGRUPO];  // ojo! numero de las zonas, no es el boton asociado a ellas
+    uint16_t zNumber[ZONASXGRUPO] = {};  // numeros de las zonas del grupo inicializados a 0
     char desc[20] = "";    // descripcion del grupo
   } ;
 

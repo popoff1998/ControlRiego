@@ -898,7 +898,7 @@ void procesaEstadoTerminando()
       sonido.bipFIN();
       delay(config.msgdisplaymillis*3);
       if(!multi.temporal) led(Boton[getBotonIndex(*multi.id)].led,OFF);  // apaga led grupo
-      resetFlags();  // reset flags de multirriego entre otros
+      multi.riegoON = false;  // reseteamos flag de multirriego activo
     }
   }
   else saveTablaToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
@@ -988,11 +988,10 @@ void setStateMachine(m_estados estado, estado_tipos tipo)
   Estado.failedStopRiego = false;
   Estado.recoverableError = false;
   Estado.errorInformado = false;
-  if (estado != PAUSE) riegoFromPause = false; //reiniciamos flag. TODO: ¿es necesario?
   Boton[getBotonIndex(bPAUSE)].flags.holddisabled = true; //Deshabilitamos el hold de Pause
   if(Estado.reposo) reposoOFF();     //por si salimos de stop antinenes
   rotaryEncoder.disable();  // para que no cuente pasos salvo que lo habilitemos
-  if (estado == STOP || (estado == STANDBY && !multi.riegoON)) {resetFlags(); saveRiego(0,0,0,0);} //reset flags riegos en curso
+  if (estado == STOP || (estado == STANDBY && !multi.riegoON)) resetFlags(); //reset flags riegos en curso
   standbyTime = millis(); //reseteamos tiempo de inactividad    
 }
 
@@ -1092,7 +1091,7 @@ void statusError(error_tipos errorID, bool recoverable, velocidad_parpadeo zonab
       Estado.recoverableError = recoverable; //error recuperable o no
       Estado.error = errorID;
       Estado.tipo = LOCAL;
-      resetFlags(); // reseteamos flags de riegos
+      resetFlags(); // reseteamos flags varios
       rotaryEncoder.disable();
   // set user interfase (UI):
       lcd.clear(BORRA2H);
@@ -1659,7 +1658,6 @@ void restoreRiego()
     lcd.displayTime(timer.ShowMinutes(), timer.ShowSeconds());
     saveRiego(0,0,0,0); //ya no es valida    
     setEstado(PAUSE); //ponemos en PAUSE para que el usuario confirme el inicio del riego salvado
-    // if(initRiego(RESUME)) setEstado(REGANDO); //ponemos en REGANDO directamente
 }    
 
 //Pone a off todos los leds de zonas y grupos y restablece estado led RGB
@@ -1688,6 +1686,7 @@ void resetFlags()
   multi.noFactorizado  = false;
   multi.semaforo = false;
   multi.size = nullptr; // para detectar error en caso de intentar usar multi sin haberla inicializado
+  saveRiego(0,0,0,0); // reseteamos estado de riego salvado
   webServerAct = false;
   simular.all_simFlags = false;
 }

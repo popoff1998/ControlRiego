@@ -216,7 +216,7 @@ void startConfigPortal()
   lcd.infoclear("reconectando WIFI");
   // deja led RGB segun la situacion final
   setLedStatus();
-  checkWifi();  // ¿TODO es necesario?
+  checkWifi();  // TODO ¿es necesario?
   delay(config.msgdisplaymillis);
 }
 
@@ -307,7 +307,6 @@ bool VerifyRecoveryWifi(bool checkRecon) {
     */    
     if (Estado.connected && Estado.recoverableError) {
       LOG_INFO("conexion Wifi recuperada despues Setup, leemos factor riegos");
-      //ledPWM(ledWifi,OFF);  // TODO comprobar si es necesario
       setStateMachine(STANDBY); // reseteamos estado ERROR
       initFactorRiegos(); //en caso de producirse error con esta funcion ya dejara este activado
       setupEstadoFinal();
