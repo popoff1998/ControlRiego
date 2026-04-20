@@ -354,9 +354,9 @@ void handleEncPauseInRegando() {
   LOG_DEBUG("encoderSW+PAUSE terminamos riego de zona en curso");
   // si estamos en un multirriego y no es la ultima zona y no hemos salvado ya un riego en curso
   // --> salvamos el riego en curso en riegoSaved para poder continuarlo despues del multirriego
-  if (multi.riegoON && (multi.actual < *multi.size) && !riegoSaved.znumber) {
+  if (multi.riegoON && (multi.actualIndex+1 < *multi.size) && !riegoSaved.znumber) {
     saveRiego(zonaEnCurso.znumber, zonaEnCurso.pBoton->bID, timer.ShowMinutes(), timer.ShowSeconds());
-    LOG_DEBUG("salvando riego de zona en curso en riegoSaved");
+    LOG_DEBUG("salvando riego de zona en curso en riegoSaved multi.actualIndex=", multi.actualIndex, " multi.size=", *multi.size);
   }
 }
 
@@ -364,7 +364,7 @@ void handleEncPauseInRegando() {
 void handlePauseInRegando() {
   setEstado(PAUSE,1);
   if (stopRiego(zonaEnCurso.pBoton->bID)) timer.PauseTimer();
-  else { //error al parar riego
+  else { //error al parar riego (ya puesto por stopRiego)
     LOG_WARN("error al pausar riego ERROR(E",Estado.error, ") (", errorToString(Estado.error), ") zona :",zonaEnCurso.pBoton->desc );
   }  
 }  
@@ -512,7 +512,7 @@ void handleStopInRegandoPauseTerm() {
     if (!Estado.modoDEMO) lcd.infoclear("Parando riegos", 1, BIP, 6);
     timer.StopTimer();
     tic_CountDownTimer.detach(); //detiene actualizacion periodica del temporizador
-    bool updateTimeFin = (Estado.estado == PAUSE? false : true); // si estamos en PAUSE no actualizamos tiempo fin
+    bool updateTimeFin = (Estado.estado == PAUSE ? false : true); // si estamos en PAUSE no actualizamos tiempo fin
     // paramos riego en curso primero y todas las zonas despues
     if (!stopRiego(zonaEnCurso.pBoton->bID, updateTimeFin) || !stopAllRiegos()) {
       return;    //error al parar riegos
@@ -655,7 +655,7 @@ void handleDynamicZoneChange(int znumber) {
       multi.riegoON = true;
       multi.noFactorizado  = true;  // marcamos como no factorizado
       multi.semaforo = false;
-      multi.actual=0;
+      multi.actualIndex=0;
       setMultiTemp(NEWMTEMP);  // completa resto campos estructura multi como grupo temporal nuevo
       multi.zserie_boton[0] = zonaEnCurso.pBoton->bID;  // bId de la zona actual como primera de la lista
       multi.w_zserie[0] = zonaEnCurso.znumber;  // numero de la zona actual como primera de la lista
@@ -665,7 +665,7 @@ void handleDynamicZoneChange(int znumber) {
     if (!multi.temporal) setMultiTemp();  // pasa estructura multi del grupo activo a grupo temporal 
     // CASO 3: llegados aqui ya estamos en multiriego temporal (veniamos de el o lo hemos generado en el caso 1 o 2)  
     if (procesaDynamic(znumber)) displayLCDGrupo(RESTO, 2); // Procesa cambio dinamico y reflejarlo en el display
-    LOG_DEBUG("MULTI: noFactorizado?:",multi.noFactorizado,"actual:",multi.actual,"size:",multi.w_size,"zona:",znumber);
+    LOG_DEBUG("MULTI: noFactorizado?:",multi.noFactorizado,"actualIndex:",multi.actualIndex,"size:",multi.w_size,"zona:",znumber);
   }
 }
 
@@ -675,18 +675,18 @@ void handleDynamicZoneChange(int znumber) {
  * NOTA: en un multirriego temporal *multi.size apunta a multi.w_size */
 bool procesaDynamic(int znumber)
 {
-  LOG_DEBUG("[RECIBE] actual:", multi.actual, " size:", multi.w_size, " zona:", znumber);
+  LOG_DEBUG("[RECIBE] actualIndex:", multi.actualIndex, " size:", multi.w_size, " zona:", znumber);
   // 1. BUSQUEDA Y ELIMINACIÓN
-  for (int n = multi.actual; n < multi.w_size; n++) { 
+  for (int n = multi.actualIndex; n < multi.w_size; n++) { 
       if (multi.w_zserie[n] == znumber) { 
-          LOG_DEBUG("[vamos a ELIMINAR] n=",n,"actual:",multi.actual,"zona:",znumber,"size:",multi.w_size);
+          LOG_DEBUG("[vamos a ELIMINAR] zona:",znumber,"posicion",n+1,"size:",multi.w_size);
           // Desplazamos elementos hacia la izquierda. 
           for (int j = n; j < (multi.w_size - 1); j++) { // El límite es (multi.w_size - 1) para no leer j+1 fuera del array
               multi.w_zserie[j] = multi.w_zserie[j + 1];
               multi.zserie_boton[j] = multi.zserie_boton[j + 1];
           }
           multi.w_size--; // Decrementamos el tamaño
-          LOG_DEBUG("[ELIMINA] n=",n,"actual:",multi.actual,"nuevo size:",multi.w_size,"zona:",znumber);
+          LOG_DEBUG("[ELIMINA] zona:",znumber,"posicion",n+1,"nuevo size:",multi.w_size);
           LOG_INFO("DYNAMIC [ELIMINA] Zona:",znumber);
           sonido.bip(2); 
           return true; // zona encontrada y eliminada, salimos
@@ -698,7 +698,7 @@ bool procesaDynamic(int znumber)
       multi.zserie_boton[index] = boton->bID;
       multi.w_zserie[index] = znumber;
       multi.w_size++; // Incrementamos tamaño
-      LOG_DEBUG("[AÑADE] actual:",multi.actual,"nuevo size:",multi.w_size,"zona:",znumber);
+      LOG_DEBUG("[AÑADE] zona:",znumber,"nuevo size:",multi.w_size);
       LOG_INFO("DYNAMIC [AÑADE] Zona:", znumber);
       sonido.bip(1); 
       return true; // zona añadida, salimos
@@ -773,8 +773,8 @@ void procesaEstadoTerminando()
 {
   sonido.bip(5);
   tic_CountDownTimer.detach(); //detiene actualizacion periodica del temporizador
-  // si veniamos de PAUSE no actualizamos tiempo fin
-  bool updateTimeFin = (riegoFromPause? false : true);
+  // si veniamos de PAUSE no actualizamos tiempo fin (ya se hizo al entrar en PAUSE)
+  bool updateTimeFin = (riegoFromPause? false : true); // por si venimos de cancel desde PAUSE
   riegoFromPause = false;
   // paramos riego en curso
   stopRiego(zonaEnCurso.pBoton->bID, updateTimeFin);
@@ -789,13 +789,15 @@ void procesaEstadoTerminando()
   if (multi.riegoON) {
     //sumamos tiempo riego zona terminada al tiempo de riego del grupo
     if(!multi.temporal) finalTimeGrupo(lastGrupos[multi.ngrupo-1], lastRiegos[zonaEnCurso.zindex].total); 
-    multi.actual++;
-    if (multi.actual < *multi.size) {  // pasamos a regar la siguiente zona del grupo
+    multi.actualIndex++;
+    // pasamos a regar la siguiente zona del grupo si quedan en cola:
+    if (multi.actualIndex < *multi.size) {  
       //Simular la pulsacion del siguiente boton de la serie de multirriego
-      boton = &Boton[getBotonIndex(multi.zserie_boton[multi.actual])];
+      boton = &Boton[getBotonIndex(multi.zserie_boton[multi.actualIndex])];
       multi.semaforo = true;
     }
-    else {         // señalamos fin del multirriego y actualizamos timestamp de finalizacion
+    // no quedan zonas por regar: señalamos fin del multirriego y actualizamos timestamp de finalizacion
+    else {         
       if(!multi.temporal) {
         finalTimeGrupo(lastGrupos[multi.ngrupo-1]);
         saveTablaToFile(lastGruposFile, "lastGrupos", lastGrupos, NUMGRUPOS);  //guardamos en fichero tabla de ultimos riegos de grupos
@@ -820,8 +822,8 @@ void procesaEstadoTerminando()
       restoreRiego();
       return; 
   }
-  // Si acabamos riego pero seguimos en multirriego, pasamos por STANDBY silencioso
-  // (sin cambios en la UI) para seguir con la siguiente zona , si no ponemos STANDBY normal.
+  // Si acabamos riego pero seguimos en multirriego, pasamos por STANDBY silencioso (sin cambios en la UI)
+  // para seguir con la siguiente zona , si no ponemos STANDBY normal.
   multi.riegoON ? setStateMachine(STANDBY) : setEstado(STANDBY);
 }; //fin de procesaEstadoTerminando
 
@@ -1606,16 +1608,22 @@ bool initRiego(bool resume)
 }
 
 // Termina/interrumpe el riego correspondiente al boton de zona (id) pasado
-// alertIfFails: Si TRUE y falla, dispara la alerta (por defecto para llamadas individuales).
+//  update: Si TRUE, actualiza hora de fin de riego (por defecto). 
+//             FALSE en llamadas desde stopAllRiegos o al cancelar riego en pausa).
+//  alertIfFails: Si TRUE y falla, dispara la alerta (por defecto). 
+//                   FALSE en llamada desde stopAllRiegos).
 bool stopRiego(uint16_t id, bool update, bool alertIfFails, int retries)
 {
     int zIndex = getZonaIndex(id);
-    LOG_DEBUG( "Terminando riego: ", config.zona[zIndex].desc);
+    LOG_DEBUG( "Terminando riego: ", config.zona[zIndex].desc, "updateTimeFin:", update, "alertIfFails:", alertIfFails);
     if (deviceSwitch(zIndex+1, "Off", retries)) {
-        if (Estado.estado == PAUSE) LOG_INFO( "Terminado OK (PAUSA) riego: " , config.zona[zIndex].desc );
-        else LOG_INFO( "Terminado OK riego: " , config.zona[zIndex].desc );
-        // solo actualizamos hora de fin si no hemos sido llamado desde stopAllRiegos
+        // solo actualizamos hora de fin si no hemos sido llamado desde stopAllRiegos a desde pausa
         if(update) finalTimeLastRiego(lastRiegos[zIndex]);
+        const char* msgOk = "Terminado OK riego:";
+        int totalSegundos = lastRiegos[zIndex].total;int min = totalSegundos / 60;int seg = totalSegundos % 60;
+        if (Estado.estado == PAUSE && update) LOG_INFO( "(PAUSA)" , msgOk, config.zona[zIndex].desc );
+          else if(update || alertIfFails) LOG_INFO(msgOk, config.zona[zIndex].desc, " tiempo regado: ", min, "m :", seg, "s");
+                else LOG_INFO( msgOk, config.zona[zIndex].desc );
         #ifdef EXTRADEBUG
             for(uint i=0;i<NUMZONAS;i++) {
                   LOG_DEBUG("[ULTIMOSRIEGOS] fin zona:", i+1, "time:",lastRiegos[i].final);
@@ -1624,7 +1632,7 @@ bool stopRiego(uint16_t id, bool update, bool alertIfFails, int retries)
         return true;
     } else { 
         // Error al apagar la EV
-        if (alertIfFails) {  // Si este es el primer error del lote o la única parada.
+        if (alertIfFails) {  // Recordatorio de EV no cerrada.
           LOG_ERROR( "Error al detener riego de: ", config.zona[zIndex].desc );
           statusError(Estado.error,NORECUPERABLE,RAPIDO,RAPIDO); //disparamos alerta con el error ya establecido
           Estado.failedStopRiego = true; // El riego NO se detuvo, activar el recordatorio de error 
@@ -1661,7 +1669,7 @@ bool stopAllRiegos()
 //Guarda el estado del riego en curso para una posible reanudacion
 void saveRiego(int znumber, int bID, int minutes, int seconds)
 {
-  if (znumber) LOG_INFO("salvando estado riego zona :",znumber," tiempo restante: ", minutes, ":", seconds);
+  if (znumber) LOG_INFO("salvando estado riego zona :",znumber," tiempo restante: ", minutes, "m :", seconds, "s");
   else LOG_DEBUG("reset estado riego salvado");
   riegoSaved.znumber = znumber;
   riegoSaved.bID = bID;
@@ -1710,6 +1718,7 @@ void resetFlags()
   multi.semaforo = false;
   multi.size = nullptr; // para detectar error en caso de intentar usar multi sin haberla inicializado
   saveRiego(0,0,0,0); // reseteamos estado de riego salvado
+  riegoFromPause = false;
   webServerAct = false;
   simular.all_simFlags = false;
 }

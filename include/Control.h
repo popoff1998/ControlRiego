@@ -363,12 +363,12 @@
     bool temporal = false;  // grupo multirriego es temporal
     bool noFactorizado  = false;  // grupo multirriego es dinámico (a partir de un riego de zona individual, no factorizado)
     bool semaforo = false;  // procesar siguiente zona del multirriego
-    int  actual;            //variable auxiliar durante un multirriego
+    int  actualIndex;            // variable auxiliar durante el riego: indice en multi.zserie_boton de la zona que se esta regando actualmente
     // campos de configuración del grupo multirriego en curso 
     int  ngrupo;            // numero del grupo al que apunta
     uint16_t zserie_boton[16];     //contiene los id de las zonas del grupo (bZona_x)
     uint16_t w_zserie[16];  //contiene las zonas del grupo (Zona_x)
-    int  w_size;            //variable auxiliar durante ConF
+    int  w_size;            //variable auxiliar durante ConF: numero de zonas configuradas en el grupo (tamaño del grupo)
     const uint16_t *id;     //apuntador al id del boton/selector grupo en Grupos[]. Solo lectura.
     int *size;              //apuntador a config con el tamaño del grupo
     const char *desc;       //apuntador a config con la descripcion del grupo. Solo lectura.
@@ -648,6 +648,7 @@ void procesaEstadoStandby(void);
 void procesaEstados(void);
 void procesaEstadoStop(void);
 void procesaEstadoTerminando(void);
+void procesaIfWebServer();
 void procesaWebServer(void);
 bool queryStatus(uint8_t, const char *);
 float readTemp();

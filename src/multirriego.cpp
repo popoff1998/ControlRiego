@@ -81,10 +81,10 @@ bool startMultirriego()
   if (*multi.size > 0) {    // si grupo tiene zonas definidas
       multi.riegoON = true;
       multi.noFactorizado  = false;
-      multi.actual = 0;
+      multi.actualIndex = 0;
       multi.semaforo = true;
       LOG_INFO("MULTIRRIEGO iniciado: ", multi.desc);
-      boton = &Boton[getBotonIndex(multi.zserie_boton[multi.actual])]; // simula pulsacion boton primera zona del grupo
+      boton = &Boton[getBotonIndex(multi.zserie_boton[multi.actualIndex])]; // simula pulsacion boton primera zona del grupo
       if (multi.temporal) ultimosRiegos(HIDE); // apaga leds zonas seleccionadas en el multirriego temporal
       else led(Boton[getBotonIndex(*multi.id)].led,ON); // enciende led del grupo pulsado si es normal
       sonido.bip(4);
@@ -133,7 +133,7 @@ int displayLCDGrupo(display_modo modo, int line, int znumber) {
     int pos = 0;
     buff[0] = '\0'; // vaciar buffer antes de usarlo (caso de RESTO con todo regado o WORKING sin zonas añadidas)
     const int size = (modo == WORKING) ? multi.w_size : *multi.size; // usamos el contador de configuración o el tamaño del grupo según el modo
-    const int inicio = (modo == RESTO) ? (multi.actual + 1) : 0; // inicio a partir de multi.actual+1 para RESTO, o desde el principio para FULL y WORKING
+    const int inicio = (modo == RESTO) ? (multi.actualIndex + 1) : 0; // inicio a partir de multi.actual+1 para RESTO, o desde el principio para FULL y WORKING
     // Construye la cadena con las zonas a mostrar
     for (int i = inicio; i < size; i++) {
         if (pos > (LCDMAXLEN - 2)) break; // no hay espacio para mostrar más zonas
