@@ -293,19 +293,7 @@ bool Configure::get_MultiTempReady()
 //  escritura de parametros a fichero si procede y salimos de ConF
 void Configure::exit()
 {
-      if (saveConfig) {
-        LOG_INFO("saveConfig=true  --> salvando parametros a fichero");
-        if (saveConfigFile(parmFile)) {
-          lcd.infoclear("SAVED parameters", BLINKDISPLAY, BIPOK);
-          delay(config.msgdisplaymillis);
-          saveConfig = false;
-        }
-        else {
-          lcd.infoclear("ERROR saving", BLINKDISPLAY, BIPKO);
-          delay(config.msgdisplaymillis);
-          statusError(E0); // error no recuperable al guardar parametros
-        }
-      }  
+      if (saveConfig) saveConfigToParmfile();  
       #ifdef WEBSERVER
         if (webServerAct) {
           endWS();           //al salir de modo ConF no procesaremos peticiones al webserver
@@ -458,7 +446,7 @@ void Configure::procesaSelectMenu()
                   delay(2000);
                   ESP.restart();  // reset ESP32
                 }
-                else BIPKO;  
+                else sonido.bipKO();  
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break;
         case ESP32_TEMP :      //configuramos temperatura aviso ESP32

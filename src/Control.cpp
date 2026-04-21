@@ -53,11 +53,7 @@ void setup()
   //Obtenemos hora del servidor ntp y ajustamos hora del sistema y timezone
   setClock();
   //Si se ha modificado alguna opcion de configuracion en el portal AP, la guardamos
-  if (saveConfig) {
-    if (saveConfigFile(parmFile))  sonido.bipOK();
-    else sonido.bipKO();
-    saveConfig = false;
-  }
+  if (saveConfig) saveConfigToParmfile();
   //Recuperamos lastRiegos y lastGrupos (registro fecha/hora y riego realizado)
   initLastRiegos();
   initLastGrupos();
@@ -2006,10 +2002,10 @@ void setupParm()
     else LOG_ERROR(" **  [ERROR] en borrado ficheros de datos");
   }
   // Intenta leer fichero de parametros (principal o de backup si falla el principal)
-  if (!loadConfigFile(parmFile)) {
+  if (!loadConfigFromFile(parmFile)) {
     LOG_ERROR(" ** [ERROR] Leyendo fichero parametros " , parmFile);
     config = Config_parm(); //reset estructura config a valores por defecto
-    if (loadConfigFile(backupParmFile)) {lcd.infoclear("BACKUP parm loaded");delay(config.msgdisplaymillis*3);}
+    if (loadConfigFromFile(backupParmFile)) {lcd.infoclear("BACKUP parm loaded");delay(config.msgdisplaymillis*3);}
     else LOG_ERROR(" ** [ERROR] Leyendo fichero parametros backup ", backupParmFile);
   }
   // Si no se ha podido leer ningun fichero de parametros, inicializa con zero-config

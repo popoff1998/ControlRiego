@@ -1,7 +1,26 @@
 
 #include "Control.h"
 
-bool loadConfigFile(const char *p_filename)
+bool saveConfigToParmfile()
+{
+  LOG_INFO("saveConfig=true  --> salvando parametros a fichero");
+  saveConfig = false;
+  if (writeConfigToFile(parmFile)) {
+    lcd.infoclear("SAVED parameters", BLINKDISPLAY, BIPOK);
+    delay(config.msgdisplaymillis);
+    config.initialized = true;  // para indicar que ya hay config válida en memoria
+    return true;
+  }
+  else {
+    lcd.infoclear("ERROR saving", BLINKDISPLAY, BIPKO);
+    delay(config.msgdisplaymillis);
+    statusError(E0); // error no recuperable al guardar parametros
+    return false;
+  }
+}
+
+
+bool loadConfigFromFile(const char *p_filename)
 {
   LOG_TRACE("");
   #ifdef EXTRADEBUG
@@ -116,11 +135,11 @@ bool loadConfigFile(const char *p_filename)
   config.logWarnToFile = doc["logWarnToFile"] | DFLT_LOGWARNTOFILE;
   //-------------------------------------------------------------------------------------------
   return config.initialized;
-} // end loadConfigFile
+} // end loadConfigFromFile
 
-bool saveConfigFile(const char *p_filename)
+bool writeConfigToFile(const char *p_filename)
 {
-  LOG_TRACE("TRACE: in saveConfigFile");
+  LOG_TRACE("");
   // "w" trunca el archivo automáticamente, no hace falta remove() previo
   File file = LittleFS.open(p_filename, "w");
   if(!file){
@@ -143,7 +162,6 @@ bool saveConfigFile(const char *p_filename)
     grupos[i]["desc"]    = config.group[i].desc;
     JsonArray zonas = grupos[i]["zonas"].to<JsonArray>();
     for(int j=0; j<config.group[i].size; j++) {
-      //zonas[j] = config.group[i].zNumber[j];  // otra forma de hacer lo mismo
       zonas.add(config.group[i].zNumber[j]);
     }  
   }
@@ -184,8 +202,9 @@ bool saveConfigFile(const char *p_filename)
   }
   else LOG_DEBUG("    tamaño del jsondoc: (",docsize,")");
   file.close();
+  LOG_INFO("Parametros guardados OK en ", p_filename);
   return true;
-} // end saveConfigFile
+} // end writeConfigToFile
 
 
 bool copyFile(const char *fileFrom, const char *fileTo) {
