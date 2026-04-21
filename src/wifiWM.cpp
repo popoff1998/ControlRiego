@@ -289,16 +289,7 @@ bool VerifyRecoveryWifi(bool checkRecon) {
     }
   //  Verificamos estado actual de la wifi (y display wifi level si procede)
     int wifilevel = checkWifi(config.showwifilevel); // conectado a wifi?
-    if(wifilevel) {
-      LOG_TRACE("Wifi OK, nivel=",wifilevel,"%");
-      if (config.showwifilevel && Estado.estado == STANDBY) {
-         LOG_TRACE("showwifilevel=",config.showwifilevel,"wifilevel=",wifilevel);
-         if(wifilevel==100) wifilevel=99; 
-         lcd.setCursor(0,3);
-         snprintf(buff,MAXBUFF,"%02d%%",wifilevel);
-         lcd.print(buff); 
-      }
-    } else if (config.showwifilevel && Estado.estado == STANDBY) {lcd.setCursor(0,3);lcd.print("--%");} //borramos nivel wifi si se mostraba
+    if(Estado.estado == STANDBY) showWifiLevel(wifilevel); // muestra nivel wifi en standby si se ha configurado para mostrarlo{
     /*
       Caso de haber recuperado la conexion wifi despues del Setup leemos factor riegos.
       Si este diese error de conexion con Domoticz, se dejara el flag Estado.recoverableError activado
@@ -315,3 +306,15 @@ bool VerifyRecoveryWifi(bool checkRecon) {
       else return false;
 }  
 
+// muestra nivel de señal wifi en display (si se ha configurado para mostrarlo)
+void showWifiLevel(int wifilevel) {
+    lcd.setCursor(0, 3);
+    // Si la opción de mostrar está desactivada, limpiamos el área y salimos
+    if (!config.showwifilevel) {lcd.print("   "); return;}
+    if (wifilevel > 0) {
+        if (wifilevel >= 100) wifilevel = 99;
+        LOG_TRACE("Wifi OK, nivel=", wifilevel, "%");
+        lcd.printf("%02d%%", wifilevel);
+    } 
+    else lcd.print("--%"); // Caso de pérdida de señal o wifilevel == 0
+}

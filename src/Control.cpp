@@ -602,6 +602,9 @@ void handleEncGrupoInStop(int n_grupo) {
       case 1:                     //activa Webserver
           scWebserver();
           break;
+      case 2:                     //togle display del nivel de señal wifi
+          scWifiLevel();
+          break;
       case 4:                     //easter egg
           scSorpresa();
           break;
@@ -846,7 +849,7 @@ void procesaEstadoStandby()
   //  - actualizacion de hora por NTP si no la tenemos actualizada
   //  - actualiza y muestra temperatura ambiente
   if (flagV) { 
-    VerifyRecoveryWifi(checkRecon); //verificacion de wifi y recuperacion si procede
+    VerifyRecoveryWifi(checkRecon); //verificacion de wifi, refresco nivel wifi y recuperacion si procede
     if (!timeOK && Estado.connected) setClock(); // si no hemos recibido time por NTP -> actualizamos time del sistema con el del servidor NTP
     showTemp(); // actualiza y muestra temperatura ambiente
   }   
@@ -857,6 +860,8 @@ void procesaEstadoStop()
 {
   // En stop activamos el comportamiento hold de pausa
   Boton[getBotonIndex(bPAUSE)].flags.holddisabled = false;
+  // Si se muestra nivel wifi, lo actualizamos cada intervalo de verificaciones
+  if (config.showwifilevel && flagV) showWifiLevel(checkWifi(true));
   // Apagamos el display y atenuamos led status pasado 4 x STANDBYSECS
   if (!Estado.reposo && (millis() - standbyTime >= (4 * 1000UL * STANDBYSECS))) reposoON();
 };
@@ -1077,12 +1082,14 @@ void setEstado(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parp
             lcd.infoclear("STANDBY",NOBLINK,BIP,bipcount);
             showTemp();
             StaticTimeUpdate(REFRESH);
+            showWifiLevel(checkWifi(config.showwifilevel));
             setEncoderTime();
             break;
             
         case STOP:
             resetLeds();
             lcd.infoclear("STOP", NOBLINK, LOWBIP, bipcount);
+            showWifiLevel(checkWifi(config.showwifilevel));
             break;
             
         case CONFIGURANDO:
@@ -1788,7 +1795,6 @@ void tmvalue()
 // Verifica la conexion con Domoticz
 bool checkSCD()
 {
-  LOG_TRACE("");
   setParpadeo(tic_LedRecon, RAPIDO, parpadeoLedPWM, LEDB);
   LOG_INFO("----  VERIFICANDO RECONEXION DOMOTICZ  ----");
   bool SCD_OK = getDiaNoche(amanecer, anochecer); //enviamos mandato a Domoticz para comprobar que hay conexion
@@ -1863,12 +1869,12 @@ void Verificaciones()
   }
   // Actualiza el "latido" en la RAM RTC
   lastUptime = millis() / 1000;
-  // Si llevamos 1 dia vivos, "limpiamos" el contador de rearranques
+  // Si llevamos 1 dia "vivos", limpiamos el contador de rearranques
   if (millis() > 24*60*60*1000UL && bootCount > 0) bootCount = 0; 
   /*
     Con flagV activado, se realizan las siguientes verificaciones periodicas:
       - estado de la wifi y recuperacion de la conexion si no la hay (en procesaEstadoStandby y procesaEstadoError)
-      - actualiza y muestra nivel señal wifi si procede (en procesaEstadoStandby)
+      - actualiza y muestra nivel señal wifi si procede (en procesaEstadoStandby y procesaEstadoStop)
       - actualizacion de hora por NTP si no se hubiera hecho ya (en procesaEstadoStandby)
       - actualiza y muestra temperatura ambiente (en procesaEstadoStandby)
       - recordatorio error grave al parar un riego (en procesaEstadoError)
@@ -1878,7 +1884,7 @@ void Verificaciones()
        - intento de recuperacion de la conexion wifi si no la hay (en procesaEstadoError)
        - intento de recuperacion de la conexion con Domoticz (en procesaEstadoError)
     Con checkLogSize activado, se realiza la verificacion del tamaño del log y rotacion si procede
-      (en procesaEstadoStandby y procesaEstadoError)   
+       (en procesaEstadoStandby y procesaEstadoError)   
   */
 }
 
@@ -2283,7 +2289,7 @@ void stopHW(const char* mensaje) {
 // Atajos Stop+Enc+Grupo_n
 // **************************************************************************
 
-// Shortcut Webserver
+// Shortcut Webserver: activa servidor web
 void scWebserver() {
   #ifdef WEBSERVER
     if(Estado.connected) {
@@ -2292,6 +2298,12 @@ void scWebserver() {
     }  
     else BIPKO; //no es posible
   #endif  
+}
+
+// Shortcut WifiLevel: togle display del nivel de señal wifi
+void scWifiLevel() {
+    config.showwifilevel = !config.showwifilevel;
+    showWifiLevel(checkWifi(config.showwifilevel));
 }
 
 // Shortcut Eastern Egg

@@ -205,8 +205,8 @@
   //----------------  fin dependientes del HW   ----------------------------------------
 
   //Para legibilidad del codigo
-  #define ON  1
-  #define OFF 0
+  #define ON  true
+  #define OFF false
   #define SHOW 1
   #define HIDE 0
   #define READ 1
@@ -667,6 +667,7 @@ bool saveConfigFile(const char*);
 void saveRiego(int znumber, int bID, int minutes, int seconds);
 void scSorpresa();
 void scWebserver();
+void scWifiLevel();
 bool serialDetect(void);
 void setClock(void);
 void setConnected(bool);
@@ -693,6 +694,7 @@ void setZonaEnCurso(uint16_t bID);
 void showInfoZona(int zIndex);
 void showTemp(void);
 void showTimeLastRiego(S_timeRiego&, int);
+void showWifiLevel(int wifilevel);
 void simulaPauseIfEncoderSW();
 void startConfigPortal();
 bool startMultirriego();
