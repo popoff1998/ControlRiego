@@ -57,15 +57,15 @@ void setup()
   //Recuperamos lastRiegos y lastGrupos (registro fecha/hora y riego realizado)
   initLastRiegos();
   initLastGrupos();
-  //Cargamos factores de riego desde el SCD
-  initFactorRiegos();
+  //Si parametros ok verificamos conexion y cargamos factores de riego desde el SCD
+  if (config.initialized) checkAndInitFactorRiegos();
   //Estado final en funcion de la conexion
   setupEstadoFinal();
   #ifdef DEVELOP
     filesInfo();
     printFile(logErrorFile);
   #endif
-  inSetup = false;
+  Estado.inSetup = false;
   PRINTLN("   *** Setup finalizado *** MS:", millis() , "\n\n");
 }
 
@@ -179,7 +179,7 @@ void setupEstadoFinal()
   LOG_DEBUG("setupEstadoFinal entrada, Estado.error=", Estado.error, "Estado.recoverableError=",
      Estado.recoverableError, "modoDEMO=", Estado.modoDEMO, "connected=", Estado.connected);
   
-  if (inSetup) {
+  if (Estado.inSetup) {
     //Deshabilitamos el hold de Pause
     Boton[getBotonIndex(bPAUSE)].flags.holddisabled = true;
     //Llamo a parseInputs CLEAR para eliminar prepulsaciones antes del bucle loop
@@ -202,7 +202,7 @@ void setupEstadoFinal()
   }
   // Si estado actual es ERROR seguimos así
   if (Estado.estado == ERROR) {
-    if (inSetup) LOG_ERROR(">>>>   Setup ended with ERROR ", Estado.error, "(", errorToString(Estado.error), ") ");
+    if (Estado.inSetup) LOG_ERROR(">>>>   Setup ended with ERROR ", Estado.error, "(", errorToString(Estado.error), ") ");
     else LOG_DEBUG("Salida por ERROR", Estado.error, "(", errorToString(Estado.error), ") ");
     LOG_DEBUG("   Recuperable:", Estado.recoverableError, "modoDEMO:", Estado.modoDEMO);
     return;
@@ -211,11 +211,10 @@ void setupEstadoFinal()
   if (Estado.connected) {  
       if (testButton(bSTOP,ON))  setEstado(STOP,1);
       else setEstado(STANDBY,1);
-      if (inSetup) {
+      if (Estado.inSetup) {
           sonido.bipOK();
           logStatusF(" <<<<<  Setup ended OK  >>>> MS: %lu", millis());
       } else {
-          logStatusF(" <<<<<  Conexiones Restablecidas  >>>> MS: %lu", millis());
           if (config.tempRemote == -1) {
               config.tempRemote = 1; // restauramos temp remota si estaba asi configurada
               logStatus("Restored remote temperature sensor mode");
@@ -394,16 +393,15 @@ void handleEncPauseInStandby() {
       Estado.noWIFI = false;
       LOG_INFO("encoderSW+PAUSE pasamos a modo NORMAL y leemos factor riegos");
       sonido.bip(2);
+      ledPWM(LEDB,OFF);
       lcd.infoclear("Saliendo de DEMO");
       if (!checkWifi()) wifiReconnect();
-      if (Estado.connected) { 
-        initFactorRiegos();
-        if(config.verify && Estado.estado != ERROR) {
+      // verificamos conexion con Domoticz y cargamos factores de riego
+      // Si carga OK y config.verify es true, paramos todos los riegos de las zonas.
+      if (checkAndInitFactorRiegos() && config.verify) { // OJO: el orden del && es importante
           lcd.info("..y parando riegos",2);
           stopAllRiegos(); //verificamos operativa OFF para las zonas
         }    
-        ledPWM(LEDB,OFF);
-      }    
       setupEstadoFinal();
       //recuperamos tablas de ultimos riegos reales
       initLastRiegos();
@@ -413,8 +411,7 @@ void handleEncPauseInStandby() {
     else {
       Estado.modoDEMO = true;
       LOG_INFO("encoderSW+PAUSE pasamos a modoDEMO (DEMO)");
-      sonido.bip(2);
-      displayDemo();
+      setEstado(STANDBY,2);
     }
 }
       
@@ -846,6 +843,7 @@ void procesaEstadoStandby()
   //  - actualiza y muestra temperatura ambiente
   if (flagV) { 
     VerifyRecoveryWifi(checkRecon); //verificacion de wifi, refresco nivel wifi y recuperacion si procede
+    // LOG_DEBUG("si no timeOK llamamos a setClock. timeOK=", timeOK, "conected=", Estado.connected);
     if (!timeOK && Estado.connected) setClock(); // si no hemos recibido time por NTP -> actualizamos time del sistema con el del servidor NTP
     showTemp(); // actualiza y muestra temperatura ambiente
   }   
@@ -1159,25 +1157,42 @@ void check()
   #endif
 }
 
+/**------------------------------------------------------------------------------------------------------------
+ * Verifica si hay conexion con el SCD y en ese caso llama a loadFactorRiegos. 
+ * Devuelve true si el SCD esta operativo y se han podido cargar los factores de riego, false en caso contrario.
+ * Si el SCD no responde, se activa error E2 recuperable si no hay error previo
+ */
+bool checkAndInitFactorRiegos(bool signalError) {
+  //inicializamos a valor 100 por defecto para caso de error
+  for(uint i=0;i<NUMZONAS;i++) { factorRiegos[i]=100; }
+  factorRiegosLeido = false;
+  if (config.domoticz_ip[0] == '\0') { //si no hay ip de domoticz configurada, no intentamos leer factores de riego
+    LOG_ERROR("No hay IP de Domoticz configurada, no se cargarán factores de riego");
+    if (signalError) statusError(E2); // activamos error de conexion con SCD no recuperable
+    return false;
+  }
+  //si no tenemos wifi o noWIFI, ni lo intentamos
+  if (!Estado.connected || Estado.noWIFI) return false;
+  lcd.info("conectando Domoticz", 2);
+  if (!checkSCD()) {
+    if (signalError) statusError(E2, RECUPERABLE); // activamos error de conexion con SCD recuperable
+    return false;
+  }
+  lcd.info("Domoticz OK", 2);
+  // si hemos sido llamados por un error previo grabamos que ya se ha recuperado el error de conexion con SCD
+  if (!signalError) logStatus("Conectado a Domoticz, leyendo factores de riego...");
+  return loadFactorRiegos();
+}
+
+
 /**---------------------------------------------------------------
  * Lee factores de riego del domoticz
  */
-void initFactorRiegos()
+bool loadFactorRiegos()
 {
-  LOG_DEBUG("entrada InitFactorRiegos Estado.error=", Estado.error, "Estado.recoverableError=", Estado.recoverableError, "noWIFI=", Estado.noWIFI);
-  //inicializamos a valor 100 por defecto para caso de error
-  for(uint i=0;i<NUMZONAS;i++) {
-    factorRiegos[i]=100;
-  }
-  factorRiegosLeido = false;
-  //si no tenemos wifi o noWIFI, ni lo intentamos
-  if((!Estado.connected) || Estado.noWIFI) 
-      return;
-  lcd.info("conectando Domoticz", 2);
-  lcd.clear(BORRA2H);
+  LOG_DEBUG("entrada loadFactorRiegos Estado.error=", Estado.error, "Estado.recoverableError=", Estado.recoverableError, "noWIFI=", Estado.noWIFI);
   //leemos factores del Domoticz:
-  for(uint i=0;i<NUMZONAS;i++)
-  {
+  for(uint i=0;i<NUMZONAS;i++) {
     uint factorR = getFactor(i+1, factorRiegosLeido);
     if(factorR == 999) break;     //en modoDEMO no continuamos iterando si no se ha podido leer por alguna causa
     if (Estado.estado == ERROR) break;   //al primer error salimos
@@ -1186,12 +1201,13 @@ void initFactorRiegos()
     // si XNAME: true, leemos la descripcion de la zona del domoticz (si existe) y la guardamos en config
     if (config.xname) updateZoneDescription(i);
   }
-  LOG_DEBUG("salida  InitFactorRiegos Estado.error=", Estado.error, "Estado.recoverableError=", Estado.recoverableError, "Estado.noWIFI=", Estado.noWIFI);
-  if(!Estado.error && inSetup) lcd.info("Domoticz OK", 2);
+  LOG_DEBUG("salida  loadFactorRiegos Estado.error=", Estado.error, "Estado.recoverableError=", Estado.recoverableError, "Estado.noWIFI=", Estado.noWIFI);
+  if(Estado.error) return false;
   #ifdef VERBOSE
     printFactoresRiego();
   #endif
-}  //fin initFactorRiegos
+  return true;
+}  //fin loadFactorRiegos
 
 //Aqui convertimos minutes y seconds por el factorRiegos
 void timeByFactor(int factor,uint8_t *fminutes, uint8_t *fseconds)
@@ -1216,21 +1232,28 @@ void setClock()
 {
   // sntp_set_time_sync_notification_cb(cbSyncTime);  // set a Callback function for time synchronization notification
   // sntp_set_sync_interval(60 * 60 * 1000UL); // 60 minutos (default ESP32 es 180 minutos - 3 horas)
-  if (inSetup) lcd.info("sincronizando clock", 2);
+  if (!Estado.connected) return; //si no tenemos wifi no intentamos sincronizar reloj
+  lcd.info("sincronizando clock", 2);
   LOG_DEBUG("Timezone: ", config.TZ, "   NTP server: ", config.ntpServer);
   configTzTime(config.TZ, config.ntpServer); 
   struct tm timeinfo;
   if(!getLocalTime(&timeinfo, NTP_TIMEOUT)) {
     timeOK = false;
-    if (inSetup) LOG_ERROR(">>> NO TIME SET by NTP <<<");
+    if (Estado.inSetup) LOG_ERROR(">>> NO TIME SET by NTP <<<");
     return;
   }
   timeOK = true;
+  // Creamos el mensaje para el LCD (ej: "clock OK 14:30")
+  char lcdMsg[20]; 
+  strftime(lcdMsg, sizeof(lcdMsg), "clock OK  %H:%M", &timeinfo);
+  lcd.info(lcdMsg, 2); // Mostramos la hora en la línea 2
+  delay(config.msgdisplaymillis);
+  // Creamos el mensaje para el log
   char message[150];
   strftime(message, sizeof(message), ">>> TIME SET by NTP <<<   Local time: %A, %B %d %Y %H:%M:%S (zone %Z %z)", &timeinfo);
   PRINTLN("\n[setClock]", message);
   LOG_INFO("NTP update every ", sntp_get_sync_interval()/(1000*60), " minutos");
-  if (!inSetup) logStatus(message); // registramos en log de errores que ya tenemos NTP time 
+  if (!Estado.inSetup) logStatus(message); // registramos en log de errores que ya tenemos NTP time 
 }
 
 // devuelve time_t en hora local a partir del time_t del sistema (UTC)
@@ -1792,31 +1815,22 @@ void tmvalue()
 bool checkSCD()
 {
   setParpadeo(tic_LedRecon, RAPIDO, parpadeoLedPWM, LEDB);
-  LOG_INFO("----  VERIFICANDO RECONEXION DOMOTICZ  ----");
+  LOG_INFO("----  VERIFICANDO CONEXION DOMOTICZ  ----");
   bool SCD_OK = getDiaNoche(amanecer, anochecer); //enviamos mandato a Domoticz para comprobar que hay conexion
   setLed(tic_LedRecon, APAGA, LEDB); //paramos parpadeo led recon y lo dejamos apagado
-  if(!SCD_OK) { LOG_DEBUG(" ** sin conexion con Domoticz"); 
+  if(!SCD_OK) { 
     return false; }
-  setStateMachine(STANDBY); // pasa a STANDBY sin mostrar mensajes en LCD
+  setStateMachine(STANDBY); // pasa a STANDBY sin mostrar mensajes en LCD para borrar estado previo de error de conexion
   return true;
 }
 
-//verificamos que hay wifi y el Domoticz esta conectado, solo en este caso reintentamos leer factores de riego
+//verificamos si el Domoticz esta conectado, solo en este caso reintentamos leer factores de riego
 void VerifyRecoverySCD()
 {  
   LOG_TRACE("");
   lcd.displayON(); //por si estuviera parpadeando(apagado) por error en pantalla
-  if(Estado.connected) {
-    if (checkSCD()) {
-      LOG_INFO("Domoticz conectado OK");
-      initFactorRiegos(); //en caso de producirse error con esta funcion ya dejara este activado
-      setupEstadoFinal();
-    }
-  } else {
-    lcd.clear(BORRA1H);
-    statusError(E1, RECUPERABLE); //error de conexion recuperable
-    LOG_DEBUG(" ** sin conexion wifi");
-    }
+  checkAndInitFactorRiegos(NOSIGNALERROR);
+  setupEstadoFinal();
   if(Estado.recoverableError) LOG_INFO("reintento en ",RECONNECTINTERVAL," minutos \n");
 }
 
@@ -1965,7 +1979,7 @@ static const char* errorToString(error_tipos tipoerror)
 {
   static const ErrorEntry tablaErrores[] = {
       { E0, "error en parametros" },
-      { E1, "sin conex. wifi" },
+      { E1, "sin conexion wifi" },
       { E2, "sin conex. domoticz" },
       { E3, "en factores riego" },
       { E4, "al iniciar riego" },
@@ -2037,6 +2051,10 @@ void setupConfig()
       strlcpy(config.group[i].desc, Boton[bIndex].desc, sizeof(config.group[i].desc));
     }  
   }
+  //inicializamos factores de riego a valor 100 por defecto
+  for(uint i=0;i<NUMZONAS;i++) {
+    factorRiegos[i]=100;
+  }
   #ifdef MUTESOUND
     config.mute = true;   // arranque con sonidos silenciados
   #endif
@@ -2044,7 +2062,7 @@ void setupConfig()
   tm.seconds = config.seconds;
   tmvalue();
   setLogToFile();  // tipo de mensages a grabar en el fichero de errores (ERROR , WARNING)
-  LOG_TRACE("Inicializando Configure");
+  LOG_TRACE("Inicializando clase Configure");
   configure = new Configure();
 } //fin setupConfig
 
@@ -2187,7 +2205,7 @@ void logStatus(const char* mensaje) {
   #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
     PRINTLN_FILE("[SYSTEM] [", getTimestamp(), "]", mensaje);
     // en setup, abre y cierra para grabar fecha correcta de lastwrite (borrada en el primer open sin ntp)
-    if (inSetup && timeOK) { 
+    if (Estado.inSetup && timeOK) { 
         LOG_FILE_CLOSE();
         LOG_ATTACH_FS_AUTO(LittleFS, logErrorFile, FILE_APPEND);
     }
@@ -2270,7 +2288,7 @@ void initFS() {
 void stopHW(const char* mensaje) {
     initFS();
     if (mensaje != nullptr) LOG_ERROR(mensaje);
-    if (!inSetup) {
+    if (!Estado.inSetup) {
       lcd.infoclear("PARANDO SISTEMA", 1, BIPKO);
       lcd.info(" - BUG de SW o HW -", 2);
       lcd.info("Pulsa ENC para", 3);

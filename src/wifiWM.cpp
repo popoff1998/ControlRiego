@@ -25,6 +25,9 @@ WiFiManagerParameter custom_domoticz_port("domoticz_port", "puerto");
 WiFiManagerParameter custom_ntpserver("ntpServer", "NTP_server");
 WiFiManagerParameter custom_timezone("timeZone", "timezone");
 
+//mensaje de wifi reconectando
+static const char* MSG_WIFI_CONN = "conectando WIFI";
+
 //mensaje de wifi OK con SSID
 const char* wifiOKmsg(bool compact = false) {
   static char buffer[70]; // Un poco más de margen por si el SSID es largo
@@ -38,7 +41,7 @@ void saveWifiCallback() {
     LOG_INFO("[CALLBACK] fired");
     // Eliminamos el temporizador y apagamos el led indicador de modo AP
     setLed(tic_APLed, APAGA, ledAP);
-    lcd.infoclear("conectando WIFI");
+    lcd.infoclear(MSG_WIFI_CONN);
     // Empezamos el temporizador que hará parpadear el LED indicador de wifi
     setParpadeo(tic_WifiLed, RAPIDO, parpadeoLedPWM, ledWifi);
 }
@@ -72,19 +75,17 @@ void preOtaUpdateCallback()
 
 //evento llamado en caso de desconexion de la wifi
 void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
-  if (Estado.connected) LOG_ERROR("WiFi lost connection. Reason: ", info.wifi_sta_disconnected.reason);
+  if (Estado.connected) {
+    LOG_ERROR("WiFi lost connection. Reason: ", info.wifi_sta_disconnected.reason);
+    Estado.errorInformado = true; // bloquea futuros LOG_WARN/ERROR
+    setConnected(false);
+  }
   else LOG_DEBUG("WiFi lost connection. Reason: ", info.wifi_sta_disconnected.reason);
-  Estado.errorInformado = true; // bloquea futuros LOG_WARN/ERROR
-  setConnected(false);
 }
 
 //evento llamado en caso de conexion de la wifi
 void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info){
   logStatus(wifiOKmsg());
-  if (Estado.estado == STANDBY) {
-    lcd.info("STANDBY",1);  //restaura pantalla (borra msg de reconexion)
-    showTemp();  // muestra temperatura ambiente en standby
-  }
   Estado.errorInformado = false; //reiniciamos bloqueo futuros LOG_WARN/ERROR
   setConnected(true);
 }
@@ -132,7 +133,7 @@ void setupRedWM(S_initFlags &initFlags)
   custom_ntpserver.setValue(config.ntpServer, 40);
   custom_timezone.setValue(config.TZ, 100);
   if(Estado.noWIFI) return;
-  lcd.infoclear("conectando WIFI");
+  lcd.infoclear(MSG_WIFI_CONN);
   ledPWM(LEDR,OFF);   // Apagamos LEDR
   setParpadeo(tic_WifiLed, RAPIDO, parpadeoLedPWM, ledWifi); // y empezamos el temporizador que hará parpadear el LED indicador de wifi
   // activamos conexion wifi y comprobamos si se establece
@@ -153,7 +154,7 @@ void setupRedWM(S_initFlags &initFlags)
   //si no hemos podido conectar y existe una red wifi salvada,reintentamos hasta 20 seg.
   // (para caso corte de corriente)
   if (Estado.recoverableError && wm.getWiFiIsSaved()) {
-    lcd.infoclear("conectando WIFI");
+    lcd.infoclear(MSG_WIFI_CONN);
     PRINTLN("[setupRedWM] Hay wifi salvada -> reintentamos la conexion");
     int j=0;
     Estado.recoverableError = false;
@@ -197,8 +198,6 @@ void setupRedWM(S_initFlags &initFlags)
 
 /**
  * @brief activa portal para configuracion red wifi y/o parámetros de conexion
- * 
- * @param config 
  */
 void startConfigPortal() 
 {
@@ -220,11 +219,24 @@ void startConfigPortal()
   delay(config.msgdisplaymillis);
 }
 
-//set del estado de la conexion wifi y del led indicador si procede
+//set del estado de la conexion wifi info en display y led indicador si procede
 void setConnected(bool state) {
+  LOG_DEBUG("setConnected: ", state, "Estado:", Estado.estado);
   Estado.connected = state;
-  if (Estado.estado != ERROR && Estado.estado != PAUSE && Estado.estado != CONFIGURANDO) 
-      setLed(tic_WifiLed, state? ENCIENDE : APAGA, ledWifi);
+  // Ajusta la UI (led status)
+  if (Estado.estado != PAUSE) 
+      setLedStatus();
+  // Ajusta la UI (display) si no estamos en el Setup en caso de conexion
+  if (state && !Estado.inSetup) {
+      if (Estado.estado == STANDBY) {
+          lcd.info(wifiOKmsg(SHORT),2);
+          delay(config.msgdisplaymillis);
+          lcd.info("",2);  //restaura pantalla (borra msg de reconexion)
+      }
+      else lcd.infoclear(wifiOKmsg(SHORT), 1); // borra pantalla y muestra wifi OK en display primera linea
+      // LOG_DEBUG("si no timeOK llamamos a setClock. timeOK=", timeOK);
+      if (!timeOK) setClock(); // sincronizamos reloj al conectar wifi
+    }        
 }
 
 // Verificacion estado de la conexion wifi
@@ -234,17 +246,21 @@ int checkWifi(bool level) {
   // Hay conexion wifi: si no la habia previamente, informamos recuperacion
   if(WiFi.status() == WL_CONNECTED) {
     if (!Estado.connected) {
-      logStatus(wifiOKmsg());  
+      logStatus(wifiOKmsg());
       Estado.errorInformado = false; // reiniciamos bloqueo futuros LOG_WARN/ERROR
+      setConnected(true);
     }
-    setConnected(true);
     return level==true ? wm.getRSSIasQuality(WiFi.RSSI()) : true; 
   }
   // No hay conexion wifi: informamos error si no se habia informado previamente
   else {
-    if (!Estado.errorInformado) LOG_ERROR(" ** [ERROR] No estamos conectados a la wifi");
-    Estado.errorInformado = true; // bloquea futuros LOG_ERROR
-    setConnected(false);  
+    if (Estado.connected) {
+        if (!Estado.errorInformado) {
+          LOG_ERROR(" ** [ERROR] No estamos conectados a la wifi");
+          Estado.errorInformado = true; // bloquea futuros LOG_ERROR
+        }
+        setConnected(false);
+    }      
     return false;
   }
 }
@@ -252,21 +268,17 @@ int checkWifi(bool level) {
 bool wifiReconnect () {
     LOG_INFO("----  INTENTANDO RECONEXION WIFI  ----");
     setParpadeo(tic_WifiLed, RAPIDO, parpadeoLedPWM, ledWifi);
-    lcd.info("conectando WIFI",1);
-    // WiFi.reconnect(); 
+    if (Estado.estado == STANDBY) lcd.info(MSG_WIFI_CONN,2);
+    else {
+      lcd.info(MSG_WIFI_CONN, 1); // muestra mensaje de reconexion
+      lcd.info("",2); // y borra segunda linea
+    }
     WiFi.disconnect();
     delay(3000);
     WiFi.begin();
     delay(3000);
-    if (checkWifi()) {
-      lcd.info(wifiOKmsg(SHORT), 1);
-      if (Estado.estado == STANDBY) {
-          delay(config.msgdisplaymillis);
-          lcd.info("STANDBY",1);  //restaura pantalla (borra msg de reconexion)
-          showTemp();  // muestra temperatura ambiente en standby
-      }
-      return true;
-    } else return false;
+    setLedStatus(); // elimina parpadeo led wifi
+    return checkWifi();
 }    
 
 bool VerifyRecoveryWifi(bool checkRecon) {
@@ -298,12 +310,12 @@ bool VerifyRecoveryWifi(bool checkRecon) {
     */    
     if (Estado.connected && Estado.recoverableError) {
       LOG_INFO("conexion Wifi recuperada despues Setup, leemos factor riegos");
-      setStateMachine(STANDBY); // reseteamos estado ERROR
-      initFactorRiegos(); //en caso de producirse error con esta funcion ya dejara este activado
+      setStateMachine(STANDBY); // reseteamos estado ERROR sin cambios en el display
+      lcd.clear(BORRA2H); // borramos mensaje de error previo en display
+      checkAndInitFactorRiegos(); //en caso de producirse error con esta funcion ya dejara este activado
       setupEstadoFinal();
     }
-    if (Estado.connected && !Estado.error) return true;
-      else return false;
+    return (Estado.connected && !Estado.error);
 }  
 
 // muestra nivel de señal wifi en display (si se ha configurado para mostrarlo)

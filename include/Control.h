@@ -207,6 +207,7 @@
   //Para legibilidad del codigo
   #define ON  true
   #define OFF false
+  #define NOSIGNALERROR false
   #define SHOW 1
   #define HIDE 0
   #define READ 1
@@ -285,6 +286,7 @@
     estado_tipos tipo   = LOCAL;
     error_tipos error  = NOERROR;
     // Campos de flags/modos de operación
+    bool inSetup = true;
     bool connected = false;
     bool modoDEMO = false;
     bool noWIFI = false;
@@ -332,7 +334,7 @@
     static const int  n_Grupos = NUMGRUPOS;     //no modificable por fichero de parámetros (depende HW)
     Grupo_parm group[n_Grupos];                 // parametros de cada grupo (zonas asociadas y descripcion)
     char domoticz_ip[40] = "";                  // IP o nombre del servidor Domoticz
-    char domoticz_port[6] = "";                 // puerto del servidor Domoticz
+    char domoticz_port[6] = "8080";             // puerto del servidor Domoticz
     char ntpServer[40] = NTPSERVER_SPAIN;       // servidor NTP por defecto
     char TZ[50] = TZ_Europe_Madrid;             // time zone por defecto en formato TZ posix
     uint8_t   minutes = DEFAULTMINUTES;         // tiempo de riego por defecto
@@ -487,7 +489,6 @@
     bool webServerAct = false;
     bool saveConfig = false;
     bool riegoFromPause = false;
-    bool inSetup = true;
     bool fsOK = false;  // filesystem ok
     unsigned long standbyTime;
     int numloops = 0;
@@ -538,6 +539,7 @@ void apagaLeds(void);
 int  getBotonIndex(uint16_t);
 void blinkDisplay(void);
 void check(void);
+bool checkAndInitFactorRiegos(bool signalError = true);
 bool checkSCD(void);
 int  checkWifi(bool level=false);
 void cleanFS(void);
@@ -594,7 +596,7 @@ void handleStopInRegandoPauseTerm();
 void handleStopInStandby();
 void inicioTimeLastRiego(S_timeRiego&, const char* texto = nullptr, bool resume=false);
 void initEncoder(void);
-void initFactorRiegos(void);
+bool loadFactorRiegos(void);
 void initFS();
 void initGPIOs(void);
 void initHardware(bool);

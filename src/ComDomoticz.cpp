@@ -99,9 +99,8 @@ bool isErrorIgnorable(const String &response) {
         return true; 
     }
     // Si no es DEMO, el error es real -> se informa
-    if (response == "Err2") Estado.error = E2;
-    else Estado.error = E3;
-    LOG_WARN("Fallo de comunicación: ", response.c_str());
+    if (response == "Err2") { Estado.error = E2; LOG_WARN("Fallo de comunicación: ", response.c_str()); }
+    else { Estado.error = E3; LOG_WARN("Domoticz devuelve error: ", response.c_str()); }
     return false;
 }
 
