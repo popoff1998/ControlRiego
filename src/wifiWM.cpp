@@ -10,9 +10,9 @@ Ticker tic_WifiLed;
 Ticker tic_APLed;
 
 #ifdef DEVELOP
-  int timeout = 20;  //config portal timeout para pruebas
+  int timeout = 30;  //config portal timeout para pruebas (segundos)
 #else
-  int timeout = 180;  //config portal timeout para produccion  
+  int timeout = 180;  //config portal timeout para produccion (segundos) 
 #endif
 
 // Creamos una instancia de la clase WiFiManager
@@ -20,10 +20,10 @@ Ticker tic_APLed;
 WiFiManager wm;
 
 
-WiFiManagerParameter custom_domoticz_server("domoticz_ip", "Domoticz_ip");
+WiFiManagerParameter custom_domoticz_server("domoticz_ip", "Domoticz ip", "", 15,"pattern='\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}'"); // custom input attrs (ip mask)
 WiFiManagerParameter custom_domoticz_port("domoticz_port", "puerto");
-WiFiManagerParameter custom_ntpserver("ntpServer", "NTP_server");
-WiFiManagerParameter custom_timezone("timeZone", "timezone");
+WiFiManagerParameter custom_ntpserver("ntpServer", "NTP server");
+WiFiManagerParameter custom_timezone("timeZone", "timeZone");
 
 //mensaje de wifi reconectando
 static const char* MSG_WIFI_CONN = "conectando WIFI";
@@ -39,6 +39,8 @@ const char* wifiOKmsg(bool compact = false) {
 //llamado cuando WiFiManager sale del modo configuracion
 void saveWifiCallback() {
     LOG_INFO("[CALLBACK] fired");
+    LOG_INFO("Should save config");
+    saveConfig = true;
     // Eliminamos el temporizador y apagamos el led indicador de modo AP
     setLed(tic_APLed, APAGA, ledAP);
     lcd.infoclear(MSG_WIFI_CONN);
@@ -53,24 +55,39 @@ void configModeCallback (WiFiManager *myWiFiManager) {
   setLed(tic_WifiLed, APAGA, ledWifi);
   // Empezamos el temporizador que hará parpadear el LED indicador de AP
   setParpadeo(tic_APLed, NORMAL, parpadeoLedPWM, ledAP);
-  lcd.infoclear("   modo -AP- :", BLINKDISPLAY, LOWBIP, 1); //lo señalamos en display
+  lcd.infoclear("   modo -AP- :", 1, LOWBIP, 1); //lo señalamos en display
   lcd.info("\"Ardomo\" activado", 3);
 }
 
-//llamado cuando WiFiManager recibe parametros adicionales
-void saveParamCallback()
-{
-  LOG_INFO("[CALLBACK] fired");
-  LOG_INFO("Should save config");
-  saveConfig = true;
-  wm.stopConfigPortal();
-}
+//llamado cuando WiFiManager recibe parametros adicionales (de pagina independiente de parametros)
+// void saveParamCallback()
+// {
+//   LOG_INFO("[CALLBACK] fired");
+//   LOG_INFO("Should save config");
+//   saveConfig = true;
+//   wm.stopConfigPortal();
+// }
 
-//lamado antes de empezar carga del sketch via OTA
+//llamado antes de empezar carga del sketch via OTA
 void preOtaUpdateCallback()
 {
   LOG_INFO("[CALLBACK] fired");
   lcd.infoclear("OTA in progress", BLINKDISPLAY, LOWBIP, 1);
+  #ifdef DISPLAYOTA
+    // actualizamos el progreso en el display
+    Update.onProgress([](unsigned int progress, unsigned int total) {
+        static int lastPercent = -1;
+        int percentage = (progress / (total / 100));
+        if (percentage != lastPercent) {
+            lastPercent = percentage;
+            lcd.setCursor(16, 0);
+            lcd.printf("%d%%", percentage);
+            #ifdef DEVELOP
+            Serial.printf("OTA Progress: %d%%\r", percentage);
+            #endif
+        }
+    });
+  #endif
 }
 
 //evento llamado en caso de desconexion de la wifi
@@ -111,19 +128,25 @@ void setupRedWM(S_initFlags &initFlags)
   //esp_wifi_set_ps( WIFI_PS_NONE );  // Set current WiFi power save type (Default is WIFI_PS_MIN_MODEM)
   //WiFi.setTxPower(WIFI_POWER_19_5dBm); // ajusta la potencia de transmision wifi al maximo
   wm.setHostname(HOSTNAME); 
-  //sets timeout until configuration portal gets turned off
-  wm.setConfigPortalTimeout(timeout);
+  wm.setConfigPortalTimeout(timeout); //sets timeout until configuration portal gets turned off
+  wm.setAPClientCheck(true);  // avoid timeout if client connected to softap
+  wm.setMinimumSignalQuality(25);  // set min RSSI (percentage) to show in scans, null = 8%
   // callbacks
   wm.setAPCallback(configModeCallback);
   wm.setSaveConfigCallback(saveWifiCallback);
-  wm.setSaveParamsCallback(saveParamCallback);
+  // wm.setSaveParamsCallback(saveParamCallback);
   wm.setPreOtaUpdateCallback(preOtaUpdateCallback);
   //if this is set, it will exit after config, even if connection is unsuccessful
   wm.setBreakAfterConfig(true);
   //muestra version en el titulo de la pagina web inicial
   wm.setTitle("Version: " + String(FW_VERSION));
-  //pagina de parametros independiente
-  wm.setParamsPage(true);
+  // Orden de los ítems del menú principal (no compatible con setParamsPage)
+  // menu tokens, "wifi","wifinoscan","info","param","close","sep","erase","restart","exit" (sep is seperator)
+  const char* menu[] = {"wifi","exit","sep","info","update","erase"}; // (if param is in menu, params will not show up in wifi page!)
+  wm.setMenu(menu,6);
+  //parametros adicionales en la misma pagina que la wifi o en una pagina independiente
+  // wm.setParamsPage(false); // muestra los parametros adicionales en la misma pagina que la wifi (default)
+  // wm.setParamsPage(true); // muestra los parametros adicionales en una pagina independiente
   wm.addParameter(&custom_domoticz_server);
   wm.addParameter(&custom_domoticz_port);
   wm.addParameter(&custom_ntpserver);
@@ -212,7 +235,7 @@ void startConfigPortal()
     strcpy(config.ntpServer, custom_ntpserver.getValue());
     strcpy(config.TZ, custom_timezone.getValue());
   }
-  lcd.infoclear("reconectando WIFI");
+  // lcd.infoclear("reconectando WIFI");
   // deja led RGB segun la situacion final
   setLedStatus();
   checkWifi();  // TODO ¿es necesario?

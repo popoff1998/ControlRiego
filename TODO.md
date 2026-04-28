@@ -88,4 +88,6 @@
 - Si error en parámetros (E0) Stop activa webserver V3.3
 - Si parametro dynamic=true tambien se permite modificar multiriego de grupo pasandolo a temporal V3.3
 - Configurando grupo temporal: un segundo PAUSE en lugar de liberar STOP reinicia el proceso de definirlo V3.3
+- En modo AP el portal de configuración wifi no se cierra pasado el timeout si hay un cliente conectado. V3.3 
+- Menu de portal AP: Parametros pasan a pagina de Configuración Wifi V3.3
 

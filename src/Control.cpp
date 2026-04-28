@@ -445,8 +445,8 @@ void handlePauseInError() {
     LOG_INFO("estado en ERROR y PAUSA pulsada pasamos a modoDEMO y reset del error");
     Estado.modoDEMO = true;
     sonido.bip(2);
-    if (Boton[getBotonIndex(bSTOP)].estado) setEstado(STOP,1);
-    else setEstado(STANDBY);
+    if (testButton(bSTOP,ON))  setEstado(STOP,1);
+    else setEstado(STANDBY,2);
 }
 
 // Detecta si se mantiene pulsado el boton PAUSE
