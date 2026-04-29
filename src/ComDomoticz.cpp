@@ -121,13 +121,16 @@ String httpGetDomoticz(const String &message) {
   lcd.displayON(); 
   String tmpStr = "";
   tmpStr.reserve(150); 
-  tmpStr += "http://";
-  tmpStr += config.domoticz_ip;
-  tmpStr += ":";
-  tmpStr += config.domoticz_port;
+  tmpStr += "http://"; tmpStr += config.SCD_ip; tmpStr += ":"; tmpStr += config.SCD_port;
   tmpStr += message;
   LOG_DEBUG("URL Generada:", tmpStr);
   httpclient.begin(client, tmpStr);
+  // Si tenemos usuario y password, enviamos la cabecera de autenticación básica
+  // (si enviamos solo usuario sin password Domoticz lo ignora)
+  if (config.SCD_user[0] != '\0' && config.SCD_password[0] != '\0') { 
+    httpclient.setAuthorization(config.SCD_user, config.SCD_password);
+    LOG_DEBUG("Añadida cabecera de autenticación para usuario:", config.SCD_user);
+  }
   httpclient.setConnectTimeout(HTTPCLIENTCONNECTTIMEOUT);
   httpclient.setTimeout(HTTPCLIENTRESPONSETIMEOUT);
   String response = "{}";

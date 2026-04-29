@@ -111,8 +111,8 @@ bool loadConfigFromFile(const char *p_filename)
   //--------------  procesa parametro individuales   ----------------------------------------
   config.minutes = doc["tiempo"]["minutos"] | DEFAULTMINUTES;
   config.seconds = doc["tiempo"]["segundos"] | DEFAULTSECONDS;
-  strlcpy(config.domoticz_ip, doc["domoticz"]["ip"] | "", sizeof(config.domoticz_ip));
-  strlcpy(config.domoticz_port, doc["domoticz"]["port"] | "", sizeof(config.domoticz_port));
+  strlcpy(config.SCD_ip, doc["domoticz"]["ip"] | "", sizeof(config.SCD_ip));
+  strlcpy(config.SCD_port, doc["domoticz"]["port"] | "8080", sizeof(config.SCD_port));
   strlcpy(config.ntpServer, doc["time"]["ntpServer"] | NTPSERVER_SPAIN, sizeof(config.ntpServer));
   strlcpy(config.TZ, doc["time"]["timeZone"] | TZ_Europe_Madrid, sizeof(config.TZ));
   config.warnESP32temp = doc["warnESP32temp"] | DFLT_MAX_ESP32_TEMP; 
@@ -134,6 +134,7 @@ bool loadConfigFromFile(const char *p_filename)
   config.lastr24 = doc["lastr24"] | DEFAULTLASTR24;
   config.logWarnToFile = doc["logWarnToFile"] | DFLT_LOGWARNTOFILE;
   //-------------------------------------------------------------------------------------------
+  if (config.SCD_ip[0] == '\0') LOG_WARN("IP de Domoticz no definida en el fichero de parámetros");
   return config.initialized;
 } // end loadConfigFromFile
 
@@ -168,8 +169,8 @@ bool writeConfigToFile(const char *p_filename)
   //--------------  procesa parametro individuales   ----------------------------------------
   doc["tiempo"]["minutos"]  = config.minutes; 
   doc["tiempo"]["segundos"] = config.seconds;
-  doc["domoticz"]["ip"]     = config.domoticz_ip;
-  doc["domoticz"]["port"]   = config.domoticz_port;
+  doc["domoticz"]["ip"]     = config.SCD_ip;
+  doc["domoticz"]["port"]   = config.SCD_port;
   doc["time"]["ntpServer"]  = config.ntpServer;
   doc["time"]["timeZone"]   = config.TZ;
   doc["warnESP32temp"]      = config.warnESP32temp; 
@@ -286,7 +287,7 @@ void printParms() {
     }
   }
   //--------------  imprime parametro conexion   ----------------------------------------
-  Serial.printf("\tdomoticz_ip= %s / domoticz_port= %s \n", config.domoticz_ip, config.domoticz_port);
+  Serial.printf("\tSCD_ip= %s / SCD_port= %s \n", config.SCD_ip, config.SCD_port);
   Serial.printf("\tntpServer= %s / timezone= %s \n", config.ntpServer, config.TZ);
   //--------------  imprime parametro individuales   ----------------------------------------
   Serial.printf("\tminutes= %d / seconds= %d \n", config.minutes, config.seconds);
@@ -306,6 +307,31 @@ void printParms() {
   Serial.printf("\tlastr24= %s \n", config.lastr24 ? "TRUE" : "FALSE");
   Serial.printf("\tdebugmode= %s \n", config.logWarnToFile ? "TRUE" : "FALSE");
   Serial.println("----------------------------------------------------------------\n");
+}
+
+bool parseSCDuri(const String& uri) {
+    config.SCD_user[0] = config.SCD_password[0] = '\0'; // Reseteamos credenciales por si no vienen en la URI
+    if (uri.length() == 0) return false;
+    int atIndex = uri.indexOf('@');
+    String authPart = "";
+    String hostPart = "";
+    // 1. Dividir entre Credenciales y Host
+    if (atIndex != -1) {
+        authPart = uri.substring(0, atIndex); // "user:pass"
+        hostPart = uri.substring(atIndex + 1); // "ip"
+    } else hostPart = uri; // Solo hay ip, sin credenciales
+    // 2. Procesar Usuario y Password
+    if (authPart.length() > 0) {
+        int colonAuthIndex = authPart.indexOf(':');
+        if (colonAuthIndex != -1) {
+            strlcpy(config.SCD_user, authPart.substring(0, colonAuthIndex).c_str(), sizeof(config.SCD_user));
+            strlcpy(config.SCD_password, authPart.substring(colonAuthIndex + 1).c_str(), sizeof(config.SCD_password));
+        } else {
+            strlcpy(config.SCD_user, authPart.c_str(), sizeof(config.SCD_user));
+        }
+    }
+    strlcpy(config.SCD_ip, hostPart.c_str(), sizeof(config.SCD_ip));
+    return (config.SCD_ip[0] != '\0'); // Retornamos true si al menos existe el campo IP
 }
 
 

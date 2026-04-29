@@ -333,8 +333,10 @@
     Zona_parm zona[n_Zonas];                    // parametros de cada zona (descripcion y idx en Domoticz)
     static const int  n_Grupos = NUMGRUPOS;     //no modificable por fichero de parámetros (depende HW)
     Grupo_parm group[n_Grupos];                 // parametros de cada grupo (zonas asociadas y descripcion)
-    char domoticz_ip[40] = "";                  // IP o nombre del servidor Domoticz
-    char domoticz_port[6] = "8080";             // puerto del servidor Domoticz
+    char SCD_ip[40] = "";                       // IP o nombre del servidor SCD (Domoticz)
+    char SCD_port[6] = "8080";                  // puerto del servidor SCD
+    char SCD_user[21] = "";                     // usuario para autenticacion en SCD (opcional)
+    char SCD_password[41] = "";                 // password para autenticacion en SCD (opcional)
     char ntpServer[40] = NTPSERVER_SPAIN;       // servidor NTP por defecto
     char TZ[50] = TZ_Europe_Madrid;             // time zone por defecto en formato TZ posix
     uint8_t   minutes = DEFAULTMINUTES;         // tiempo de riego por defecto
@@ -628,6 +630,7 @@ void parpadeoLedPWM(int id);
 void parpadeoLedZona(int);
 void parpadeoLedZonas24h(time_t);
 S_BOTON *parseInputs(bool);
+bool parseSCDuri(const String &uri);
 void printCharArray(char*, size_t);
 void printFactoresRiego();
 void printFile(const char*);

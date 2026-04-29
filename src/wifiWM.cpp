@@ -20,8 +20,8 @@ Ticker tic_APLed;
 WiFiManager wm;
 
 
-WiFiManagerParameter custom_domoticz_server("domoticz_ip", "Domoticz ip", "", 15,"pattern='\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}'"); // custom input attrs (ip mask)
-WiFiManagerParameter custom_domoticz_port("domoticz_port", "puerto");
+WiFiManagerParameter custom_SCD_server("SCD_ip", "Domoticz ip", "", 15,"pattern='\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}'"); // custom input attrs (ip mask)
+WiFiManagerParameter custom_SCD_port("SCD_port", "puerto");
 WiFiManagerParameter custom_ntpserver("ntpServer", "NTP server");
 WiFiManagerParameter custom_timezone("timeZone", "timeZone");
 
@@ -147,12 +147,12 @@ void setupRedWM(S_initFlags &initFlags)
   //parametros adicionales en la misma pagina que la wifi o en una pagina independiente
   // wm.setParamsPage(false); // muestra los parametros adicionales en la misma pagina que la wifi (default)
   // wm.setParamsPage(true); // muestra los parametros adicionales en una pagina independiente
-  wm.addParameter(&custom_domoticz_server);
-  wm.addParameter(&custom_domoticz_port);
+  wm.addParameter(&custom_SCD_server);
+  wm.addParameter(&custom_SCD_port);
   wm.addParameter(&custom_ntpserver);
   wm.addParameter(&custom_timezone);
-  custom_domoticz_server.setValue(config.domoticz_ip, 40);
-  custom_domoticz_port.setValue(config.domoticz_port, 5);
+  custom_SCD_server.setValue(config.SCD_ip, 40);
+  custom_SCD_port.setValue(config.SCD_port, 5);
   custom_ntpserver.setValue(config.ntpServer, 40);
   custom_timezone.setValue(config.TZ, 100);
   if(Estado.noWIFI) return;
@@ -208,10 +208,12 @@ void setupRedWM(S_initFlags &initFlags)
   setLedStatus();
     // ----------------------------- save the custom parameters
   if (saveConfig) {
-    strcpy(config.domoticz_ip, custom_domoticz_server.getValue());
-    strcpy(config.domoticz_port, custom_domoticz_port.getValue());
+    strcpy(config.SCD_ip, custom_SCD_server.getValue());
+    strcpy(config.SCD_port, custom_SCD_port.getValue());
     strcpy(config.ntpServer, custom_ntpserver.getValue());
     strcpy(config.TZ, custom_timezone.getValue());
+    if (config.SCD_ip[0] == '\0') LOG_WARN("IP de Domoticz no definida");
+
   }
   //dejamos activado evento de desconexion o conexion ?? (wifi events):
   WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
@@ -230,10 +232,11 @@ void startConfigPortal()
   }
   // ----------------------------- save the custom parameters
   if (saveConfig) {
-    strcpy(config.domoticz_ip, custom_domoticz_server.getValue());
-    strcpy(config.domoticz_port, custom_domoticz_port.getValue());
+    strcpy(config.SCD_ip, custom_SCD_server.getValue());
+    strcpy(config.SCD_port, custom_SCD_port.getValue());
     strcpy(config.ntpServer, custom_ntpserver.getValue());
     strcpy(config.TZ, custom_timezone.getValue());
+    if (config.SCD_ip[0] == '\0') LOG_WARN("IP de Domoticz no definida");
   }
   // lcd.infoclear("reconectando WIFI");
   // deja led RGB segun la situacion final

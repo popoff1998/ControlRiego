@@ -1166,7 +1166,7 @@ bool checkAndInitFactorRiegos(bool signalError) {
   //inicializamos a valor 100 por defecto para caso de error
   for(uint i=0;i<NUMZONAS;i++) { factorRiegos[i]=100; }
   factorRiegosLeido = false;
-  if (config.domoticz_ip[0] == '\0') { //si no hay ip de domoticz configurada, no intentamos leer factores de riego
+  if (config.SCD_ip[0] == '\0') { //si no hay ip de domoticz configurada, no intentamos leer factores de riego
     LOG_ERROR("No hay IP de Domoticz configurada, no se cargarán factores de riego");
     if (signalError) statusError(E2); // activamos error de conexion con SCD no recuperable
     return false;
@@ -2051,6 +2051,9 @@ void setupConfig()
       strlcpy(config.group[i].desc, Boton[bIndex].desc, sizeof(config.group[i].desc));
     }  
   }
+  //por si la ip del SCD Domoticz incluyera user y pass, los extraemos y los guardamos en los campos correspondientes de config
+  if (config.SCD_user[0] == '\0') parseSCDuri(config.SCD_ip);
+  if (config.SCD_ip[0] == '\0') LOG_WARN("SCD IP vacia, no se podra conectar a Domoticz");
   //inicializamos factores de riego a valor 100 por defecto
   for(uint i=0;i<NUMZONAS;i++) {
     factorRiegos[i]=100;
