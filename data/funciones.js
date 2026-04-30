@@ -100,13 +100,29 @@ function createButton(label, onClick, cls = "") {
     return b;
 }
 
-function loadSimpleTable(data, tableId, isEditable = true) {
+// Función para cargar tablas simples (pares key y valor) con opción editable y validaciones dinámicas
+async function loadSimpleTable(data, tableId, isEditable = false, templateSection = {}) {
     const body = document.getElementById(tableId);
     if (!body) return;
-    body.innerHTML = Object.entries(data).map(([k, v]) => `
-        <tr><td>${k}</td><td>${isEditable ? `<input type="text" value="${v || ''}" data-field="${k}">` : (v || '')}</td></tr>
-    `).join('');
+    if (!isEditable) {
+        body.innerHTML = Object.entries(data)
+            .map(([k, v]) => `<tr><td>${k}</td><td>${v || ''}</td></tr>`) .join('');
+        return;
+    }
+    // Solo si es editable cargamos reglas y procesamos inputs
+    const config = await getServerConfig();
+    const rules = config.rules || {};
+    body.innerHTML = Object.entries(data).map(([key, value]) => {
+        const lowerKey = key.toLowerCase();
+        const ruleKey = Object.keys(rules).find(rk => lowerKey.includes(rk));
+        const validationAttrs = ruleKey ? rules[ruleKey] : "";
+        const placeholder = templateSection[key] || "";
+        return `<tr><td>${key}</td><td><input type="text" value="${value || ''}" data-field="${key}" 
+            placeholder="${placeholder}" ${validationAttrs}></td></tr>`;
+    }).join('');
 }
+
+
 
 /** Operaciones de Archivo */
 const getFileName = p => p.includes('/') ? p.substring(p.lastIndexOf('/') + 1) : p;

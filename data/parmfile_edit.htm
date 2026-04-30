@@ -36,12 +36,14 @@
     </table>
 
     <h2>Domoticz</h2>
+    <p>Solo IP requerida</p>
     <table>
         <thead><tr><th>Campo</th><th>Valor</th></tr></thead>
         <tbody id="domoticzTableBody"></tbody>
     </table>
 
     <h2>NTP Server y TimeZone</h2>
+    <p>Timezone en formato TZ posix.</p>
     <table>
         <thead><tr><th>Campo</th><th>Valor</th></tr></thead>
         <tbody id="timeTableBody"></tbody>
@@ -58,7 +60,7 @@
 
 <script src="/funciones.js"></script>
 <script>
-let fileName = "", originalJsonData = {}, hasChanges = false;
+let fileName = "", originalJsonData = {}, rawTemplate = {}, hasChanges = false;
 
 window.addEventListener("load", async () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -84,8 +86,9 @@ window.addEventListener("load", async () => {
             ]);
             hasChanges = false;
         }
+        rawTemplate = template;
         originalJsonData = mergeWithTemplate(dataServidor, template);
-        loadTables(originalJsonData);
+        await loadTables(originalJsonData, rawTemplate);
         document.body.addEventListener("input", (e) => {
             if (e.target.tagName === "INPUT") {
                 hasChanges = true;
@@ -148,16 +151,11 @@ const loadArrayTable = (list, idBody) => {
         </tr>`).join('');
 };
 
-function loadSimpleTable(obj, id) {
-    document.getElementById(id).innerHTML = Object.entries(obj).map(([k, v]) => `
-        <tr><td>${k}</td><td><input type="text" value="${v}" data-field="${k}"></td></tr>`).join('');
-}
-
-function loadTables(d) {
+async function loadTables(d, tmp) {
     loadArrayTable(d.botones || [], "botonesTableBody");
     loadArrayTable(d.grupos || [], "gruposTableBody");
-    loadSimpleTable(d.domoticz || {}, "domoticzTableBody");
-    loadSimpleTable(d.time || {}, "timeTableBody");
+    await loadSimpleTable(d.domoticz || {}, "domoticzTableBody", true, tmp.domoticz || {}); // editable
+    await loadSimpleTable(d.time || {}, "timeTableBody", true, tmp.time || {}); // editable
 }
 
 function collectChanges() {
@@ -173,12 +171,26 @@ function collectChanges() {
         d.grupos[i].zonas = ins[1].value.split(",").map(Number).filter(n => n > 0);
     });
     ["domoticz", "time"].forEach(key => {
-        document.querySelectorAll(`#${key}TableBody input`).forEach(i => d[key][i.dataset.field] = i.value);
+        document.querySelectorAll(`#${key}TableBody tr`).forEach(tr => {
+            const input = tr.querySelector("input");
+            const field = input.dataset.field;
+            let value = input.value.trim();
+            // Si el usuario deja el campo vacío mantenemos el valor del template
+            d[key][field] = (value !== "") ? value : rawTemplate[key][field];            
+        });
     });
     return d;
 }
 
 async function saveChanges() {
+    // verifica formato campos que tengan pattern es correcto (necesario al no ser via un submit del formulario)
+    const todosLosInputs = document.querySelectorAll("input");
+    for (let input of todosLosInputs) {
+        if (!input.checkValidity()) {
+            input.reportValidity();
+            return;
+        }
+    }
     console.log("Guardando cambios...hasChanges=", hasChanges);
     try { await apiSaveConfig(collectChanges(), hasChanges, false); } catch (e) {}
 }

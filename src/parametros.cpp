@@ -112,7 +112,9 @@ bool loadConfigFromFile(const char *p_filename)
   config.minutes = doc["tiempo"]["minutos"] | DEFAULTMINUTES;
   config.seconds = doc["tiempo"]["segundos"] | DEFAULTSECONDS;
   strlcpy(config.SCD_ip, doc["domoticz"]["ip"] | "", sizeof(config.SCD_ip));
-  strlcpy(config.SCD_port, doc["domoticz"]["port"] | "8080", sizeof(config.SCD_port));
+  strlcpy(config.SCD_port, doc["domoticz"]["port"] | DFLT_SCD_PORT, sizeof(config.SCD_port));
+  strlcpy(config.SCD_user, doc["domoticz"]["user"] | "", sizeof(config.SCD_user));
+  strlcpy(config.SCD_password, doc["domoticz"]["password"] | "", sizeof(config.SCD_password));
   strlcpy(config.ntpServer, doc["time"]["ntpServer"] | NTPSERVER_SPAIN, sizeof(config.ntpServer));
   strlcpy(config.TZ, doc["time"]["timeZone"] | TZ_Europe_Madrid, sizeof(config.TZ));
   config.warnESP32temp = doc["warnESP32temp"] | DFLT_MAX_ESP32_TEMP; 
@@ -171,6 +173,8 @@ bool writeConfigToFile(const char *p_filename)
   doc["tiempo"]["segundos"] = config.seconds;
   doc["domoticz"]["ip"]     = config.SCD_ip;
   doc["domoticz"]["port"]   = config.SCD_port;
+  doc["domoticz"]["user"]   = config.SCD_user;
+  doc["domoticz"]["password"] = config.SCD_password;
   doc["time"]["ntpServer"]  = config.ntpServer;
   doc["time"]["timeZone"]   = config.TZ;
   doc["warnESP32temp"]      = config.warnESP32temp; 

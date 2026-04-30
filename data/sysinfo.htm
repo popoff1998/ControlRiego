@@ -39,7 +39,7 @@ apiGetJson('/api/sysinfo')
         if (Object.keys(sysInfo).length === 0) {
             tableBody.innerHTML = '<tr><td colspan="2" style="text-align: center;">No data available</td></tr>';
         } else {
-            loadSimpleTable(sysInfo, "sysInfoTableBody", false); // false = solo lectura
+            loadSimpleTable(sysInfo, "sysInfoTableBody"); // solo lectura
         }
     })
     .catch(error => {

@@ -112,6 +112,7 @@
   #define SHORTCUTSENABLED    true    // admite atajos en estado STOP
   #define ENCSWASPAUSE        true    // encoderSW simula PAUSE en estado CONFIGURANDO
   #define ZONASXGRUPO         9       // maximo de zonas en un grupo multirriego (9 para coja en pantalla, max. 16)
+  #define DFLT_SCD_PORT       "8080"  // * puerto por defecto para conexión con Domoticz
                                       // [*] = configurables
 
  //----------------  dependientes del HW   (no modificar) ---------------------------
@@ -334,7 +335,7 @@
     static const int  n_Grupos = NUMGRUPOS;     //no modificable por fichero de parámetros (depende HW)
     Grupo_parm group[n_Grupos];                 // parametros de cada grupo (zonas asociadas y descripcion)
     char SCD_ip[40] = "";                       // IP o nombre del servidor SCD (Domoticz)
-    char SCD_port[6] = "8080";                  // puerto del servidor SCD
+    char SCD_port[6] = DFLT_SCD_PORT;           // puerto del servidor SCD
     char SCD_user[21] = "";                     // usuario para autenticacion en SCD (opcional)
     char SCD_password[41] = "";                 // password para autenticacion en SCD (opcional)
     char ntpServer[40] = NTPSERVER_SPAIN;       // servidor NTP por defecto

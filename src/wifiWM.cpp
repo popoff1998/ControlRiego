@@ -15,15 +15,42 @@ Ticker tic_APLed;
   int timeout = 180;  //config portal timeout para produccion (segundos) 
 #endif
 
+// Personalizacion del html que se muestra en el portal AP (texto de los botones, placeholders, validaciones, etc.)
+
+const char* custom_head_element = 
+    "<style>input::placeholder { font-style: italic; opacity: 0.6; }</style>"
+    "<script>"
+    "document.addEventListener('DOMContentLoaded', function() {"
+    "  var replaceText = function(selector, newText) {"
+    "    var el = document.querySelector(selector);"
+    "    if(el) el.innerHTML = newText;"
+    "  };"
+    "  replaceText('form[action=\"/wifi\"] button', 'Configure WiFi & Parms');"
+    "  replaceText('form[action=\"/update\"] button', 'FW Update');"
+    "  replaceText('form[action=\"/erase\"] button', 'Erase WIFI');"
+    "});"
+    "</script>";
+    
+
+// Pattern para validar IPs y puertos en los campos de configuración (usado en el portal AP de WiFiManager y en el webserver)
+#define RX_OCTETO "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
+#define RX_IP_BASE "^(" RX_OCTETO "\\." RX_OCTETO "\\." RX_OCTETO "\\." RX_OCTETO ")$|^([a-zA-Z0-9\\-]+\\.local)$"
+#define RX_PORT_BASE "^([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$"
+
+// Atributos HTML completos de esos campos, con validación y mensajes de error personalizados
+const char* IP_ATTRS = "pattern='" RX_IP_BASE "' title='IP o host.local' required";
+const char* PORT_ATTRS = "pattern='" RX_PORT_BASE "' title='Puerto (1-65535)' placeholder='" DFLT_SCD_PORT "'";
+
 // Creamos una instancia de la clase WiFiManager
 
 WiFiManager wm;
 
-
-WiFiManagerParameter custom_SCD_server("SCD_ip", "Domoticz ip", "", 15,"pattern='\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}'"); // custom input attrs (ip mask)
-WiFiManagerParameter custom_SCD_port("SCD_port", "puerto");
-WiFiManagerParameter custom_ntpserver("ntpServer", "NTP server");
-WiFiManagerParameter custom_timezone("timeZone", "timeZone");
+WiFiManagerParameter custom_SCD_server("SCD_ip", "Domoticz ip (requerida)", "", sizeof(config.SCD_ip)-1,IP_ATTRS); // custom input attrs (ip mask)
+WiFiManagerParameter custom_SCD_port("SCD_port", "puerto", DFLT_SCD_PORT, sizeof(config.SCD_port)-1, PORT_ATTRS); // custom input attrs (port mask)
+WiFiManagerParameter custom_SCD_user("SCD_user", "user", "", sizeof(config.SCD_user)-1);
+WiFiManagerParameter custom_SCD_password("SCD_password", "password", "", sizeof(config.SCD_password)-1);
+WiFiManagerParameter custom_ntpserver("ntpServer", "NTP server", "", sizeof(config.ntpServer)-1, "placeholder='" NTPSERVER_SPAIN "'");
+WiFiManagerParameter custom_timezone("timeZone", "timeZone", "", sizeof(config.TZ)-1, "placeholder='" TZ_Europe_Madrid "'");
 
 //mensaje de wifi reconectando
 static const char* MSG_WIFI_CONN = "conectando WIFI";
@@ -36,10 +63,35 @@ const char* wifiOKmsg(bool compact = false) {
   return buffer;
 }
 
+// copia los parametros de conexion wifi a los parametros personalizados de WiFiManager (para mostrarlos en el portal AP)
+void copyConfigToCustomParams() {
+  custom_SCD_server.setValue(config.SCD_ip, sizeof(config.SCD_ip)-1);
+  custom_SCD_port.setValue(config.SCD_port, sizeof(config.SCD_port)-1);
+  custom_SCD_user.setValue(config.SCD_user, sizeof(config.SCD_user)-1);
+  custom_SCD_password.setValue(config.SCD_password, sizeof(config.SCD_password)-1);
+  custom_ntpserver.setValue(config.ntpServer, sizeof(config.ntpServer)-1);
+  custom_timezone.setValue(config.TZ, sizeof(config.TZ)-1);
+}
+
+// copia los parametros personalizados de WiFiManager a config, usando defaults si alguno esta vacio
+void copyCustomParamsToConfig() {
+  const char* val;
+  strlcpy(config.SCD_ip, custom_SCD_server.getValue(), sizeof(config.SCD_ip));
+  val = custom_SCD_port.getValue();
+  strlcpy(config.SCD_port, (val && val[0]) ? val : DFLT_SCD_PORT, sizeof(config.SCD_port));
+  strlcpy(config.SCD_user, custom_SCD_user.getValue(), sizeof(config.SCD_user));
+  strlcpy(config.SCD_password, custom_SCD_password.getValue(), sizeof(config.SCD_password));
+  val = custom_ntpserver.getValue();
+  strlcpy(config.ntpServer, (val && val[0]) ? val : NTPSERVER_SPAIN, sizeof(config.ntpServer));
+  val = custom_timezone.getValue();
+  strlcpy(config.TZ, (val && val[0]) ? val : TZ_Europe_Madrid, sizeof(config.TZ));
+  if (config.SCD_ip[0] == '\0') LOG_WARN("IP de Domoticz no definida");
+  LOG_DEBUG("Config actualizado: SCD_ip=", config.SCD_ip, ", SCD_port=", config.SCD_port, ", ntpServer=", config.ntpServer, ", timeZone=", config.TZ);
+}
+
 //llamado cuando WiFiManager sale del modo configuracion
 void saveWifiCallback() {
-    LOG_INFO("[CALLBACK] fired");
-    LOG_INFO("Should save config");
+    LOG_INFO("[CALLBACK] fired, should save config");
     saveConfig = true;
     // Eliminamos el temporizador y apagamos el led indicador de modo AP
     setLed(tic_APLed, APAGA, ledAP);
@@ -140,21 +192,23 @@ void setupRedWM(S_initFlags &initFlags)
   wm.setBreakAfterConfig(true);
   //muestra version en el titulo de la pagina web inicial
   wm.setTitle("Version: " + String(FW_VERSION));
+  wm.setCustomHeadElement(custom_head_element); // custom html to add to head, can be a js script to change styles and text in the page
   // Orden de los ítems del menú principal (no compatible con setParamsPage)
   // menu tokens, "wifi","wifinoscan","info","param","close","sep","erase","restart","exit" (sep is seperator)
   const char* menu[] = {"wifi","exit","sep","info","update","erase"}; // (if param is in menu, params will not show up in wifi page!)
   wm.setMenu(menu,6);
+  wm.setShowInfoErase(false); // oculta el botón "erase" de la pagina de informacion (si se muestra en el menu)
+  wm.setShowInfoUpdate(false); // oculta el botón "update" de la pagina de informacion (si se muestra en el menu)
   //parametros adicionales en la misma pagina que la wifi o en una pagina independiente
   // wm.setParamsPage(false); // muestra los parametros adicionales en la misma pagina que la wifi (default)
   // wm.setParamsPage(true); // muestra los parametros adicionales en una pagina independiente
   wm.addParameter(&custom_SCD_server);
   wm.addParameter(&custom_SCD_port);
+  wm.addParameter(&custom_SCD_user);
+  wm.addParameter(&custom_SCD_password);
   wm.addParameter(&custom_ntpserver);
   wm.addParameter(&custom_timezone);
-  custom_SCD_server.setValue(config.SCD_ip, 40);
-  custom_SCD_port.setValue(config.SCD_port, 5);
-  custom_ntpserver.setValue(config.ntpServer, 40);
-  custom_timezone.setValue(config.TZ, 100);
+  copyConfigToCustomParams();
   if(Estado.noWIFI) return;
   lcd.infoclear(MSG_WIFI_CONN);
   ledPWM(LEDR,OFF);   // Apagamos LEDR
@@ -182,9 +236,9 @@ void setupRedWM(S_initFlags &initFlags)
     int j=0;
     Estado.recoverableError = false;
     setParpadeo(tic_WifiLed, RAPIDO, parpadeoLedPWM, ledWifi);
+    WiFi.reconnect(); // reintentamos conexion a la wifi salvada (asincrono, no bloqueante)
     while(WiFi.status() != WL_CONNECTED) {
       Serial.print(F("."));
-      WiFi.reconnect(); 
       delay(2000);
       j++;
       if(j == MAXCONNECTRETRY) {
@@ -206,15 +260,8 @@ void setupRedWM(S_initFlags &initFlags)
   }
   // dejamos led RGB segun la situacion final
   setLedStatus();
-    // ----------------------------- save the custom parameters
-  if (saveConfig) {
-    strcpy(config.SCD_ip, custom_SCD_server.getValue());
-    strcpy(config.SCD_port, custom_SCD_port.getValue());
-    strcpy(config.ntpServer, custom_ntpserver.getValue());
-    strcpy(config.TZ, custom_timezone.getValue());
-    if (config.SCD_ip[0] == '\0') LOG_WARN("IP de Domoticz no definida");
-
-  }
+  // copia parametros del portal AP a la config wifi
+  if (saveConfig) copyCustomParamsToConfig();
   //dejamos activado evento de desconexion o conexion ?? (wifi events):
   WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
   WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_CONNECTED);
@@ -230,15 +277,8 @@ void startConfigPortal()
   if (!wm.startConfigPortal("Ardomo")) {
     LOG_INFO(" exit or hit timeout");
   }
-  // ----------------------------- save the custom parameters
-  if (saveConfig) {
-    strcpy(config.SCD_ip, custom_SCD_server.getValue());
-    strcpy(config.SCD_port, custom_SCD_port.getValue());
-    strcpy(config.ntpServer, custom_ntpserver.getValue());
-    strcpy(config.TZ, custom_timezone.getValue());
-    if (config.SCD_ip[0] == '\0') LOG_WARN("IP de Domoticz no definida");
-  }
-  // lcd.infoclear("reconectando WIFI");
+  // copia parametros del portal AP a la config wifi
+  if (saveConfig) copyCustomParamsToConfig();
   // deja led RGB segun la situacion final
   setLedStatus();
   checkWifi();  // TODO ¿es necesario?
@@ -260,8 +300,7 @@ void setConnected(bool state) {
           lcd.info("",2);  //restaura pantalla (borra msg de reconexion)
       }
       else lcd.infoclear(wifiOKmsg(SHORT), 1); // borra pantalla y muestra wifi OK en display primera linea
-      // LOG_DEBUG("si no timeOK llamamos a setClock. timeOK=", timeOK);
-      if (!timeOK) setClock(); // sincronizamos reloj al conectar wifi
+      if (!timeOK) setClock(); // sincronizamos reloj al conectar wifi (si no se ha sincronizado ya en el Setup)
     }        
 }
 

@@ -23,6 +23,9 @@
    int logDays = 15; // dias de log a mostrar por defecto
    bool restartRequired = false; //indica si es necesario reiniciar el sistema para aplicar cambios
 
+   extern const char* IP_ATTRS; // atributos HTML para validación de IPs (definidos en wifiWM.cpp)
+   extern const char* PORT_ATTRS; // atributos HTML para validación de puertos (definidos en wifiWM.cpp)
+
    #ifdef DEVELOP
       const bool httpUpdateDebug = true;  //enable serial debug msgs
       const bool showtest_section = true;  //enable testing section in advanced.htm
@@ -453,6 +456,9 @@ void handleServerVars() {
     doc["maxFW"]         = maxFirmwareSize;
     doc["maxFS"]         = maxFSSize;
     doc["freeFS"]        = freeFSSize;
+    JsonObject rules = doc["rules"].to<JsonObject>();
+    rules["ip"]          = IP_ATTRS;   // "pattern='...' title='...' required"
+    rules["port"]        = PORT_ATTRS; // "pattern='...' title='...' placeholder='...'"
     String response;
     serializeJson(doc, response);
     wserver.send(200, "application/json", response);    
