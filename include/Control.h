@@ -223,6 +223,7 @@
   #define RESUME 1
   #define SHORT 1
   #define NEWMTEMP 1
+  #define UMBRAL_EPOCH 1767225600 // fecha 1/1/2026 en formato epoch (si la fecha es anterior se considera no valida)
 
   // constexpr calculado por el preprocesador y no modificable en tiempo de ejecucion
   constexpr uint16_t Zonas[] = {_ZONAS};  // array de todos los botones de zonas de riego disponibles
@@ -475,6 +476,7 @@
     Ticker tic_LedZona;      //para parpadeo led zona de riego
     Ticker tic_LedZonas24h;  //para parpadeo led zonas regadas ultimas 24h
     Ticker tic_verificaciones;       //para verificaciones periodicas
+    timeval tv;
     S_timeRiego lastRiegos[NUMZONAS];
     S_timeRiego lastGrupos[NUMGRUPOS];
     S_Riego_estado riegoSaved; // estructura con el estado del riego que se ha cancelado
@@ -699,7 +701,7 @@ void setupWS();
 void setZonaEnCurso(uint16_t bID);
 void showInfoZona(int zIndex);
 void showTemp(void);
-void showTimeLastRiego(S_timeRiego&, int);
+void showTimeLastRiego(S_timeRiego&);
 void showWifiLevel(int wifilevel);
 void simulaPauseIfEncoderSW();
 void startConfigPortal();
@@ -735,7 +737,8 @@ void zeroConfig();
 
 template<typename T>
 void saveTablaToFile(const char* filename, const char* arrayName, T* tabla, size_t size) {
-    if(Estado.modoDEMO) return; // no guardar en modo demo
+    // no guardar en modo demo o si la hora o fecha no es correcta (antes del 1 de enero de 2026 00:00 GMT)
+    if(Estado.modoDEMO || !timeOK || time(NULL)<UMBRAL_EPOCH) return;
     JsonDocument doc;
     JsonArray arr = doc[arrayName].to<JsonArray>();
     for (size_t i = 0; i < size; i++) {

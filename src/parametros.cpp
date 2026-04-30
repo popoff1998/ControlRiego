@@ -313,6 +313,7 @@ void printParms() {
   Serial.println("----------------------------------------------------------------\n");
 }
 
+// Función para parsear la URI de conexión a Domoticz y extraer IP, usuario y contraseña
 bool parseSCDuri(const String& uri) {
     config.SCD_user[0] = config.SCD_password[0] = '\0'; // Reseteamos credenciales por si no vienen en la URI
     if (uri.length() == 0) return false;

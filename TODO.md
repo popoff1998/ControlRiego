@@ -89,5 +89,7 @@
 - Si parametro dynamic=true tambien se permite modificar multiriego de grupo pasandolo a temporal V3.3
 - Configurando grupo temporal: un segundo PAUSE en lugar de liberar STOP reinicia el proceso de definirlo V3.3
 - En modo AP el portal de configuración wifi no se cierra pasado el timeout si hay un cliente conectado. V3.3 
-- Menu de portal AP: Parametros pasan a pagina de Configuración Wifi V3.3
+- Menu de portal AP: Parametros pasan a pagina de Configuración Wifi y campos user/pw SCD V3.3
+- Identificacion (opcional) con user/pw al SCD (Domoticz) usando httpclient.setAuthorization V3.3
+- Fecha de ultimo riego: muestra tiempo pasado desde que se produjo si no hay fecha valida (no se salva) V3.3
 

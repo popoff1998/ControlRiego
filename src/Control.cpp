@@ -568,11 +568,11 @@ void procesaBotonMultirriego()
 
 // Hacemos encendido de los leds del grupo y mostramos en el display info de este
 void handleEncGrupoInStandby(int n_grupo) {
-    LOG_DEBUG("en MULTIRRIEGO + encoderSW, display de grupo:", multi.desc,"tamaño:", *multi.size );
+    LOG_DEBUG("display de grupo:", n_grupo, "(", multi.desc,") tamaño:", *multi.size );
     snprintf(buff, MAXBUFF, "grupo: %s", multi.desc);
     lcd.infoclear(buff, 1);
     displayLCDGrupo(FULL, 2);
-    showTimeLastRiego(lastGrupos[n_grupo-1], n_grupo-1);
+    showTimeLastRiego(lastGrupos[n_grupo-1]);
     displayLedsGrupo();
     delay(config.msgdisplaymillis*3);
     setEstado(STANDBY);   //para que restaure pantalla
@@ -832,19 +832,18 @@ void procesaEstadoStandby()
   if (!Estado.reposo && (millis() - standbyTime >= (1000UL * STANDBYSECS))) reposoON();
   // leemos encoder
   procesaEncoderTime();
-  // gestion del tamano del fichero de log de errores cada LONGINTERVAL minutos
   if (checkLogSize) {
+    // gestion del tamano del fichero de log de errores cada LONGINTERVAL minutos
     gestionarTamanoLog(); // Borra/rota fichero de log de errores si su tamano es excesivo
+    // actualizacion de hora por NTP si no la tenemos actualizada cada LONGINTERVAL minutos
+    if (!timeOK && Estado.connected) setClock(); 
     checkLogSize = false;
   }
   // verificaciones en STANDBY cada VERIFY_INTERVAL segundos
   //  - verificacion de wifi y recuperacion si procede
-  //  - actualizacion de hora por NTP si no la tenemos actualizada
   //  - actualiza y muestra temperatura ambiente
   if (flagV) { 
     VerifyRecoveryWifi(checkRecon); //verificacion de wifi, refresco nivel wifi y recuperacion si procede
-    // LOG_DEBUG("si no timeOK llamamos a setClock. timeOK=", timeOK, "conected=", Estado.connected);
-    if (!timeOK && Estado.connected) setClock(); // si no hemos recibido time por NTP -> actualizamos time del sistema con el del servidor NTP
     showTemp(); // actualiza y muestra temperatura ambiente
   }   
 }; //fin de procesaEstadoStandby
@@ -1233,7 +1232,7 @@ void setClock()
   // sntp_set_time_sync_notification_cb(cbSyncTime);  // set a Callback function for time synchronization notification
   // sntp_set_sync_interval(60 * 60 * 1000UL); // 60 minutos (default ESP32 es 180 minutos - 3 horas)
   if (!Estado.connected) return; //si no tenemos wifi no intentamos sincronizar reloj
-  lcd.info("sincronizando clock", 2);
+  if (Estado.inSetup) lcd.info("sincronizando clock", 2);
   LOG_DEBUG("Timezone: ", config.TZ, "   NTP server: ", config.ntpServer);
   configTzTime(config.TZ, config.ntpServer); 
   struct tm timeinfo;
@@ -1243,11 +1242,13 @@ void setClock()
     return;
   }
   timeOK = true;
-  // Creamos el mensaje para el LCD (ej: "clock OK 14:30")
-  char lcdMsg[20]; 
-  strftime(lcdMsg, sizeof(lcdMsg), "clock OK  %H:%M", &timeinfo);
-  lcd.info(lcdMsg, 2); // Mostramos la hora en la línea 2
-  delay(config.msgdisplaymillis);
+  if (Estado.inSetup) {
+    // Creamos el mensaje para el LCD (ej: "clock OK 14:30")
+    char lcdMsg[20]; 
+    strftime(lcdMsg, sizeof(lcdMsg), "clock OK  %H:%M", &timeinfo);
+    lcd.info(lcdMsg, 2); // Mostramos la hora en la línea 2
+    delay(config.msgdisplaymillis);
+  }
   // Creamos el mensaje para el log
   char message[150];
   strftime(message, sizeof(message), ">>> TIME SET by NTP <<<   Local time: %A, %B %d %Y %H:%M:%S (zone %Z %z)", &timeinfo);
@@ -1259,7 +1260,8 @@ void setClock()
 // devuelve time_t en hora local a partir del time_t del sistema (UTC)
 time_t tLoc()
 {
-  if (!timeOK) return 0; //no tenemos time, devolvemos 0
+  if (!timeOK) return (millis() / 1000); //no tenemos time, devolvemos segundos transcurridos desde el arranque
+  // if (!timeOK) return 0; //no tenemos time, devolvemos 0
   time_t t = time(NULL); // time() devuelve el tiempo UTC actual (epoch time en segundos desde 00:00 1/1/1970) leyendolo del reloj del ESP32
   struct tm *tmd;
   tmd = localtime(&t); // localtime() convierte time_t a struct tm en la zona horaria local
@@ -1315,28 +1317,32 @@ void setEncoderMenu(int menuitems, int currentitem) {
 }
 
 //muestra dia/hora actual y lo regado desde las 0h/ultimas24h encendiendo sus leds o apagandolos
-void ultimosRiegos(int modo)
-{
-  const char MESES[12][5] = {"Ene.", "Feb.", "Mar.", "Abr.", "May.", "Jun.", "Jul.", "Ago.", "Sep.", "Oct.", "Nov.", "Dic."};
+void ultimosRiegos(int modo) {
   LOG_TRACE("modo:",modo);
+  static const char* const MESES[] = {"Ene.", "Feb.", "Mar.", "Abr.", "May.", "Jun.", "Jul.", "Ago.", "Sep.", "Oct.", "Nov.", "Dic."};
+  time_t t;
   switch(modo) {
     case SHOW:
         lcd.infoclear("Hora actual:");
-        if (timeOK) {
-            time_t t = tLoc();
-            sprintf(buff, " %d", day(t));
-            lcd.info(buff,3);
-            lcd.info(MESES[month(t)-1],4);
-            lcd.displayTime(hour(t),minute(t));
-            for(uint i=0;i<NUMZONAS;i++) { // enciende leds zonas regadas desde medianoche
-              if(lastRiegos[i].inicio > previousMidnight(t)) {
-                  LOG_DEBUG("[ULTIMOSRIEGOS] zona:", i+1, "time:",lastRiegos[i].inicio);
-                  led(Boton[getBotonIndex(Zonas[i])].led,ON);
-              }
-            }
-            if (config.lastr24) //activa parpadeo leds zonas regadas entre 24h y medianoche
-              tic_LedZonas24h.attach(RAPIDO/10.0, parpadeoLedZonas24h, t);
-          } else {lcd.info("   <<< NO TIME >>>",3); sonido.bipKO();}
+        // Si no tenemos hora, mostramos mensaje de error y salimos
+        if (!timeOK) {lcd.info("   <<< NO TIME >>>",3); sonido.bipKO(); return;}
+        t = tLoc(); // timestamp local actual en segundos desde 1/1/1970
+        // Si la fecha actual es invalida (anterior al 1/1/2026) mensaje de error y salimos
+        if (t < UMBRAL_EPOCH) {lcd.info(" << NO VALID DATE >>",3); sonido.bipKO(); return;}
+        // Mostramos dia, mes y hora actual en el display
+        sprintf(buff, " %d", day(t));
+        lcd.info(buff,3);
+        lcd.info(MESES[month(t)-1],4);
+        lcd.displayTime(hour(t),minute(t));
+        // Encendemos leds de las zonas que se han regado desde medianoche
+        for(uint i=0;i<NUMZONAS;i++) {
+          if(lastRiegos[i].inicio > previousMidnight(t)) {
+              LOG_DEBUG("[ULTIMOSRIEGOS] zona:", i+1, "time:",lastRiegos[i].inicio);
+              led(Boton[getBotonIndex(Zonas[i])].led,ON);
+          }
+        }
+        //activa parpadeo leds zonas regadas entre 24h y medianoche
+        if (config.lastr24) tic_LedZonas24h.attach(RAPIDO/10.0, parpadeoLedZonas24h, t);
         break;
     case HIDE:
         setParpadeo(tic_LedZonas24h, PARAR);
@@ -1408,20 +1414,41 @@ void finalTimeGrupo(S_timeRiego &timeRiego, time_t tZona)
   }
 }  
 
-void showTimeLastRiego(S_timeRiego &timeRiego, int index) 
+// Muestra en el display el tiempo del ultimo riego de la zona o grupo apuntado en timeRiego.
+void showTimeLastRiego(S_timeRiego &timeRiego) 
 {
   time_t t1=timeRiego.inicio;
   time_t t2=timeRiego.final;
-  LOG_DEBUG("Zona/Grupo:", index+1 , "time.inicio", t1, "time.final", t2);
-  if (t1 && t2-t1 > 0) { // si tenemos inicio y finalizacion del riego
-    snprintf(buff, MAXBUFF, "-ultimo riego:   %02dm", (timeRiego.total+20)/60);
+  time_t tnow = tLoc(); // timestamp local actual en segundos desde 1/1/1970
+  LOG_DEBUG("time.inicio", t1, "time.final", t2, "time.now", tnow, "time.total (seg)", timeRiego.total);
+  // Caso 1: Si tenemos inicio y finalizacion del riego mostramos la duración del riego en minutos 
+  if (t1 && t2-t1 > 0) {  // si t2>t1>0, tenemos un riego registrado con inicio y fin correcto (real o arranque)
+    snprintf(buff, MAXBUFF, "-ultimo riego:  %02dm", (timeRiego.total+20)/60);
     lcd.info(buff,3);
-    snprintf(buff, MAXBUFF, " %d/%02d %d:%02d (%d:%02d)", day(t1), month(t1), hour(t1), minute(t1), hour(t2), minute(t2));
-    lcd.info(buff,4);
+    // Los timestamps pueden ser absolutos (tiempo real obtenido via NTP) o relativos 
+    // (tiempo desde arranque o incluso un fake-hwclock obtenido del sistema del SCD), 
+    // por lo que se contemplan varios subcasos:
+    // CASO 1.A: El riego se grabó con fecha real, la mostramos (ej: " 15/09 18:30 (18:45)")
+    if (t1 >= UMBRAL_EPOCH) {
+      snprintf(buff, MAXBUFF, " %d/%02d %d:%02d (%d:%02d)",
+                day(t1), month(t1), hour(t1), minute(t1), hour(t2), minute(t2));
+    } 
+    // CASO 1.B: El riego se grabó con tiempo de arranque, solo podemos calcular y mostrar el tiempo
+    //   transcurrido desde que se regó (ej: " hace: 0d 2h y 15m") si tnow SIGUE contando tiempo desde el arranque
+    else if (tnow < UMBRAL_EPOCH) { 
+      time_t diff = (tnow > t1) ? (tnow - t1) : 0;  // Misma era, la resta es segura
+      snprintf(buff, MAXBUFF, " hace: %dd %dh y %02dm", 
+        (int)(diff / SECS_PER_DAY), 
+        (int)((diff % SECS_PER_DAY) / 3600), 
+        (int)((diff % 3600) / 60));
+    // CASO 1.C: Se regó con tiempo de arranque y ahora hay NTP (tnow >> t1)
+    } else strlcpy(buff, "   < sin datos >", MAXBUFF);
+  // Caso 2: Si no hay tiempo registrado ( no se cumple t2>t1>0), no mostramos información de tiempo de riego
   } else {
-      lcd.info("-ultimo riego:",3);
-      lcd.info("   > sin datos <",4);
+    lcd.info("-ultimo riego:",3);
+    strlcpy(buff, "   > sin datos <", MAXBUFF);
   }  
+  lcd.info(buff,4);
 }
 
 /*---------------------------------------------------------------
@@ -1460,10 +1487,7 @@ void startZoneWatering() {
 // Muestra en el display info zona (idx, factor de riego, fecha y tiempo ultimo riego)
 void showInfoZona(int zIndex) {
     led(boton->led,ON);
-    #ifdef EXTRADEBUG
-      Serial.printf("Boton: %s Factor de riego: %d \n", config.zona[boton->znumber-1].desc,factorRiegos[zIndex]);
-      Serial.printf("          boton.led: %d \n",boton->led);
-    #endif
+    LOG_DEBUG("display de zona ", config.zona[zIndex].desc, "idx:", config.zona[zIndex].idx, "factorRiego:", factorRiegos[zIndex]); 
     lcd.clear();
     lcd.infoCut(config.zona[zIndex].desc, 11);
     lcd.setCursor(12, 0);
@@ -1471,7 +1495,7 @@ void showInfoZona(int zIndex) {
     lcd.print(buff);
     snprintf(buff, MAXBUFF, "-factor riego:  %d", factorRiegos[zIndex]);
     lcd.info(buff,2);
-    showTimeLastRiego(lastRiegos[zIndex], zIndex);
+    showTimeLastRiego(lastRiegos[zIndex]);
     delay(config.msgdisplaymillis*4);
     led(boton->led,OFF);
     setEstado(STANDBY);
@@ -1814,7 +1838,7 @@ void tmvalue()
 // Verifica la conexion con Domoticz
 bool checkSCD()
 {
-  setParpadeo(tic_LedRecon, RAPIDO, parpadeoLedPWM, LEDB);
+  if (!Estado.inSetup) setParpadeo(tic_LedRecon, RAPIDO, parpadeoLedPWM, LEDB);
   LOG_INFO("----  VERIFICANDO CONEXION DOMOTICZ  ----");
   bool SCD_OK = getDiaNoche(amanecer, anochecer); //enviamos mandato a Domoticz para comprobar que hay conexion
   setLed(tic_LedRecon, APAGA, LEDB); //paramos parpadeo led recon y lo dejamos apagado
@@ -2393,6 +2417,7 @@ void scSorpresa() {
           Serial.println(F("   4 - simular EV no esta ON en Domoticz"));
           Serial.println(F("   5 - simular EV no esta OFF en Domoticz"));
           Serial.println(F("   6 - simular error al salir del PAUSE"));
+          Serial.println(F("   7 - simular fecha erronea de NTP"));
           Serial.println(F("   9 - simular crash de sw"));
       }
       switch (inputNumber) {
@@ -2419,6 +2444,12 @@ void scSorpresa() {
             case 6:
                 Serial.println(F("recibido:   6 - simular error al salir del PAUSE"));
                 simular.ErrorPause = true;
+                break;
+            case 7:
+                Serial.println(F("recibido:   7 - simular fecha erronea de NTP"));
+                tv.tv_sec = 0; // fecha 1/1/1970
+                settimeofday(&tv, NULL);
+                timeOK = true;
                 break;
             case 9:
                 Serial.println(F("recibido:   9 - simular crash de sw"));

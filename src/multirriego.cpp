@@ -21,8 +21,8 @@ int setGrupo() {
     #ifdef M3GRP
       n_grupo = setMultibyId(getMultiStatus());
     #endif
-    LOG_DEBUG("en MULTIRRIEGO, setMultibyId devuelve: Grupo", n_grupo,"(",multi.desc,") multi.size=" , *multi.size);
-    for (int k=0; k < *multi.size; k++) LOG_DEBUG( "       multi.w_zserie: x" , multi.w_zserie[k]);
+    LOG_DEBUG("Set: Grupo", n_grupo,"(",multi.desc,") multi.size=" , *multi.size);
+    for (int k=0; k < *multi.size; k++) LOG_DEBUG( "       multi.w_zserie: " , multi.w_zserie[k]);
     return n_grupo;
 }
 
@@ -30,7 +30,7 @@ int setGrupo() {
 // y devuelve el numero del grupo (1...NUMGRUPOS+1) , 0 en caso de que no exista
 int setMultibyId(uint16_t id)
 {
-  LOG_DEBUG("[setMultibyId] recibe id= 0x",DebugLogBase::HEX,id);
+  LOG_DEBUG("Recibe id=0x",DebugLogBase::HEX,id);
 
   for(int i=0; i<NUMGRUPOS+1; i++)
   {
@@ -48,7 +48,7 @@ int setMultibyId(uint16_t id)
           Serial.printf("bId: x%04x \n",multi.zserie_boton[j]); // bId(boton) asociado a la zona
         #endif  
       }
-      LOG_DEBUG(" devuelve GRUPO", multi.ngrupo,"(",multi.desc,") con",*multi.size,"zonas");
+      LOG_DEBUG(" Devuelve GRUPO", multi.ngrupo,"(",multi.desc,") con",*multi.size,"zonas");
       return multi.ngrupo;
     }
   }
