@@ -314,30 +314,30 @@ void printParms() {
 }
 
 // Función para parsear la URI de conexión a Domoticz y extraer IP, usuario y contraseña
-bool parseSCDuri(const String& uri) {
-    config.SCD_user[0] = config.SCD_password[0] = '\0'; // Reseteamos credenciales por si no vienen en la URI
-    if (uri.length() == 0) return false;
-    int atIndex = uri.indexOf('@');
-    String authPart = "";
-    String hostPart = "";
-    // 1. Dividir entre Credenciales y Host
-    if (atIndex != -1) {
-        authPart = uri.substring(0, atIndex); // "user:pass"
-        hostPart = uri.substring(atIndex + 1); // "ip"
-    } else hostPart = uri; // Solo hay ip, sin credenciales
-    // 2. Procesar Usuario y Password
-    if (authPart.length() > 0) {
-        int colonAuthIndex = authPart.indexOf(':');
-        if (colonAuthIndex != -1) {
-            strlcpy(config.SCD_user, authPart.substring(0, colonAuthIndex).c_str(), sizeof(config.SCD_user));
-            strlcpy(config.SCD_password, authPart.substring(colonAuthIndex + 1).c_str(), sizeof(config.SCD_password));
-        } else {
-            strlcpy(config.SCD_user, authPart.c_str(), sizeof(config.SCD_user));
-        }
-    }
-    strlcpy(config.SCD_ip, hostPart.c_str(), sizeof(config.SCD_ip));
-    return (config.SCD_ip[0] != '\0'); // Retornamos true si al menos existe el campo IP
-}
+// bool parseSCDuri(const String& uri) {
+//     config.SCD_user[0] = config.SCD_password[0] = '\0'; // Reseteamos credenciales por si no vienen en la URI
+//     if (uri.length() == 0) return false;
+//     int atIndex = uri.indexOf('@');
+//     String authPart = "";
+//     String hostPart = "";
+//     // 1. Dividir entre Credenciales y Host
+//     if (atIndex != -1) {
+//         authPart = uri.substring(0, atIndex); // "user:pass"
+//         hostPart = uri.substring(atIndex + 1); // "ip"
+//     } else hostPart = uri; // Solo hay ip, sin credenciales
+//     // 2. Procesar Usuario y Password
+//     if (authPart.length() > 0) {
+//         int colonAuthIndex = authPart.indexOf(':');
+//         if (colonAuthIndex != -1) {
+//             strlcpy(config.SCD_user, authPart.substring(0, colonAuthIndex).c_str(), sizeof(config.SCD_user));
+//             strlcpy(config.SCD_password, authPart.substring(colonAuthIndex + 1).c_str(), sizeof(config.SCD_password));
+//         } else {
+//             strlcpy(config.SCD_user, authPart.c_str(), sizeof(config.SCD_user));
+//         }
+//     }
+//     strlcpy(config.SCD_ip, hostPart.c_str(), sizeof(config.SCD_ip));
+//     return (config.SCD_ip[0] != '\0'); // Retornamos true si al menos existe el campo IP
+// }
 
 
 void filesInfo() 

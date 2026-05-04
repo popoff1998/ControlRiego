@@ -6,16 +6,9 @@ Configure::Configure()
       this->reset();
       _currentItem = 0;
       _data_pos_valid = false;
-}
-
-void Configure::menu(int item)
-{
-      this->reset();
-      _configuringMenu = true;
-      if(item >= 0 && item <= __ENDLINE__ + 1) _currentItem = item;
-      _maxItems = this->showMenu(_currentItem);
-      setEncoderMenu(_maxItems, _currentItem);
-      LOG_TRACE("_currentitem=",_currentItem);
+      static_assert(IDX_MULT == 0, "IDX_MULT debe ser el primero en el ENUM");
+      static_assert(__ENDLINE__ == NUM_ITEMS - 1, "__ENDLINE__ debe ser el último elemento del menu");
+      LOG_DEBUG("Constructor Configure, NUM_ITEMS:", NUM_ITEMS);
 }
 
 void Configure::reset()
@@ -25,40 +18,6 @@ void Configure::reset()
       _actualGrupo = 0;
 }
 
-bool Configure::configuringTime()
-{
-  return _configuringTime;
-}
-
-bool Configure::configuringIdx()
-{
-  return _configuringIdx;
-}
-
-bool Configure::configuringRange()
-{
-  return _configuringRange;
-}
-
-bool Configure::configuringMulti()
-{
-  return _configuringMulti;
-}
-
-bool Configure::configuringMultiTemp()
-{
-  return _configuringMultiTemp;
-}
-
-bool Configure::configuringMelody()
-{
-  return _configuringMelody;
-}
-
-bool Configure::inMenu()
-{
-  return _configuringMenu;
-}
 
 //  configuramos IDX asociado a la zona
 void Configure::Idx_process_start(int zindex)
@@ -258,7 +217,6 @@ void Configure::Multi_process_end()
         lcd.clear(BORRA2H);
         sonido.bipOK();
         delay(config.msgdisplaymillis);
-        
       }
       saveConfig = true;
       ultimosRiegos(HIDE);
@@ -280,130 +238,114 @@ void Configure::MultiTemp_process_end()
       }
 }
 
-int Configure::get_currentItem()
+void Configure::toggle(bool &value)
 {
-  return _currentItem;
+      value = !value;
+      LOG_DEBUG("item", _currenItemText,"-> New value:", value);
+      lcd.setCursor(_data_pos[_currentItem],1);
+      lcd.print(value ? "ON " : "OFF");
+      sonido.bip(2);
+      saveConfig = true;
 }
 
-bool Configure::get_MultiTempReady()
+void Configure::menu(int item)
 {
-  return _MultiTempReady;
-}
-
-//  escritura de parametros a fichero si procede y salimos de ConF
-void Configure::exit()
-{
-      if (saveConfig) saveConfigToParmfile();  
-      #ifdef WEBSERVER
-        if (webServerAct) {
-          endWS();           //al salir de modo ConF no procesaremos peticiones al webserver
-          LOG_INFO("[ConF][WS] desactivado webserver");
-        }
-      #endif
-      if (Estado.estado == ERROR) return;
-      LOG_TRACE("[poniendo estado STANDBY]");
-      // Si salimos de modo ConF para comenzar multirriego temporal, ponemos STANDBY silencioso
-      // (sin cambios en la UI) , si no ponemos STANDBY normal.
-      _MultiTempReady ? setStateMachine(STANDBY) : setEstado(STANDBY);
       this->reset();
-      _currentItem = 0;
-      setEncoderTime();
+      _configuringMenu = true;
+      if(item >= 0 && item < __ENDLINE__) _currentItem = item;
+      LOG_DEBUG("item recibido:", item, "menu item:",_currentItem);
+      _maxItems = this->showMenu(_currentItem);
+      setEncoderMenu(_maxItems, _currentItem);
+      LOG_TRACE("_currentitem=",_currentItem);
 }
 
 
-int Configure::showMenu(int opcion)
+int Configure::showMenu(int itemIndex)
 {
+  static const char* parteFija[NUM_ITEMS] = { nullptr };
 
-      String opcionesMenuConf[__ENDLINE__ + 1] = {};
-      
-      //  OJO el orden en que se muestran en el menu no depende de su posicion aqui
-      //  sino del orden en que se definen en el enum _menuItems.
-      //  Texto parte fija del menu:
-                                    /*   <------17------->     maxima longitud */ 
-      opcionesMenuConf[IDX_MULT]      = "Botones IDX/MULT.";
-      opcionesMenuConf[DFLT_TIME]     = "Dflt TIME: ";
-      opcionesMenuConf[COPY_BACKUP]   = "Copy to BACKUP";
-      opcionesMenuConf[WIFI_PARM]     = "WIFI parm (AP)";
-      #ifdef WEBSERVER 
-      opcionesMenuConf[WEBSERVER_ACT] = "WEBSERVER act.";
-      #endif
-      opcionesMenuConf[LOAD_BACKUP]   = "Load from BACKUP";
-      opcionesMenuConf[ESP32_TEMP]    =  "ESP32 temp: xx/";
-      opcionesMenuConf[LED_DIMM_LVL]  = "Led DIMM lvl: ";
-      opcionesMenuConf[LED_MAX_LVL]   = "Led MAX lvl: ";
-      opcionesMenuConf[TEMP_ADJ]      = "Temp adj.: ";
-      opcionesMenuConf[TEMP_SOURCE]   = "TEMP:       ";
-      opcionesMenuConf[REM_TEMP_IDX]  = "Rem TEMP IDX: ";
-      opcionesMenuConf[MSG_TIME]      = "MSG time: ";
-      opcionesMenuConf[MUTE]          = "MUTE: ";
-      opcionesMenuConf[VOLUME]        = "VOLUME: ";
-      opcionesMenuConf[FIN_MELODY]    = "FinMELODY: ";
-      opcionesMenuConf[NIVEL_WIFI]    = "NIVEL wifi: ";
-      opcionesMenuConf[XNAME_ONOFF]   = "XNAME: ";
-      opcionesMenuConf[VERIFY_ONOFF]  = "VERIFY: ";
-      opcionesMenuConf[DYNAMIC]       = "DYNAMIC: ";
-      opcionesMenuConf[LASTRIEGOS24]  = "RIEGOS 24H: ";
+  if (!_data_pos_valid) {
+    //  OJO el orden en que se muestran en el menu no depende de su posicion aqui
+    //  sino del orden en que se definen en el enum _menuItems.
+    //  Texto parte fija del menu:
+                          /*    <------17------->     maxima longitud */ 
+    parteFija[IDX_MULT]      = "Botones IDX/MULT.";
+    parteFija[DFLT_TIME]     = "Dflt TIME: ";
+    parteFija[COPY_BACKUP]   = "Copy to BACKUP";
+    parteFija[WIFI_PARM]     = "WIFI parm (AP)";
+    #ifdef WEBSERVER 
+    parteFija[WEBSERVER_ACT] = "WEBSERVER act.";
+    #endif
+    parteFija[LOAD_BACKUP]   = "Load from BACKUP";
+    parteFija[ESP32_TEMP]    =  "ESP32 temp: xx/";
+    parteFija[LED_DIMM_LVL]  = "Led DIMM lvl: ";
+    parteFija[LED_MAX_LVL]   = "Led MAX lvl: ";
+    parteFija[TEMP_ADJ]      = "Temp adj.: ";
+    parteFija[TEMP_SOURCE]   = "TEMP:       ";
+    parteFija[REM_TEMP_IDX]  = "Rem TEMP IDX: ";
+    parteFija[MSG_TIME]      = "MSG time: ";
+    parteFija[MUTE]          = "MUTE: ";
+    parteFija[VOLUME]        = "VOLUME: ";
+    parteFija[FIN_MELODY]    = "FinMELODY: ";
+    parteFija[NIVEL_WIFI]    = "NIVEL wifi: ";
+    parteFija[XNAME_ONOFF]   = "XNAME: ";
+    parteFija[VERIFY_ONOFF]  = "VERIFY: ";
+    parteFija[DYNAMIC]       = "DYNAMIC: ";
+    parteFija[LASTRIEGOS24]  = "RIEGOS 24H: ";
+    #ifdef LOGTOFILE 
+    parteFija[WARNTOLOG]     = "DEBUG mode: ";
+    #endif
+    parteFija[__ENDLINE__]   = "-----------------";
+                            /*  <------17------->     maxima longitud */ 
+
+    for(int r = 0; r < NUM_ITEMS; r++) {
+      if(parteFija[r]) _data_pos[r] = strlen(parteFija[r]) + 3;
+      LOG_DEBUG("menuitem",r,"longitud",_data_pos[r]-3,"data_pos",_data_pos[r]);
+    }
+    _data_pos_valid = true;
+  }
+
+  _currentItem = itemIndex;
+  _currenItemText = parteFija[_currentItem];
+  LOG_DEBUG("_currentitem=",_currentItem,"_currenItemText=",parteFija[_currentItem]);
+
+  // Muestra menu (4 lineas) en pantalla
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Menu Configuracion:");
+  lcd.setCursor(0,1);
+  lcd.print("->");
+  for (int lin = 1; lin < 4; lin++) {
+    if (itemIndex > __ENDLINE__ || parteFija[itemIndex] == nullptr) break;
+    lcd.setCursor(3, lin);
+    String itemL = String(parteFija[itemIndex]);
+    // Construye la linea del menu añadiendo la parte variable a la fija (solo se generan las lineas a mostrar)
+    switch (itemIndex) {
+      case DFLT_TIME: snprintf(buff, MAXBUFF, "%02d:%02d", config.minutes, config.seconds); itemL += buff; break;
+      case ESP32_TEMP: itemL = "ESP32 temp: " + String((int)temperatureRead()) + "/" + String(config.warnESP32temp); break;
+      case LED_DIMM_LVL: itemL += String(config.dimmlevel); break;
+      case LED_MAX_LVL: itemL += String(config.maxledlevel); break;
+      case TEMP_ADJ: snprintf(buff, MAXBUFF, "%+g", config.tempOffset*(TEMP_OFFSET_FACTOR/100.0));; itemL += buff; break;
+      case TEMP_SOURCE: itemL = (config.tempRemote==0 ?  "TEMP: LOCAL " : "TEMP: REM.  ") + (readTemp()==999 ? "--" : String(readTemp())); break;
+      case REM_TEMP_IDX: itemL += String(config.tempRemoteIdx); break;
+      case MSG_TIME: itemL += String(config.msgdisplaymillis); break;
+      case MUTE: itemL += (config.mute ? "ON" : "OFF"); break;
+      case VOLUME: itemL += String(config.volume); break;
+      case FIN_MELODY: itemL += String(config.finMelody); break;
+      case NIVEL_WIFI: itemL += (config.showwifilevel ? "ON" : "OFF"); break;
+      case XNAME_ONOFF: itemL += (config.xname ? "ON" : "OFF"); break;
+      case VERIFY_ONOFF: itemL += (config.verify ? "ON" : "OFF"); break;
+      case DYNAMIC: itemL += (config.dynamic ? "ON" : "OFF"); break;
+      case LASTRIEGOS24: itemL += (config.lastr24 ? "ON" : "OFF"); break;
       #ifdef LOGTOFILE 
-      opcionesMenuConf[WARNTOLOG]     = "DEBUG mode: ";
+      case WARNTOLOG: itemL += (config.logWarnToFile ? "ON" : "OFF"); break;
       #endif
-      opcionesMenuConf[__ENDLINE__]   = "-----------------";
-                                    /*   <------17------->     maxima longitud */ 
-
-      const int MAXOPCIONES = ELEMENTCOUNT(opcionesMenuConf);
-      LOG_TRACE("sizeof Total",sizeof(opcionesMenuConf),"sizeof [0]",sizeof(opcionesMenuConf[0]));
-      if(!_data_pos_valid) {
-          for(int r=0; r<MAXOPCIONES; r++) {
-            _data_pos[r] = opcionesMenuConf[r].length() + 3;
-            LOG_DEBUG("menuitem",r,"longitud",_data_pos[r]-3,"data_pos",_data_pos[r]);
-          }
-          _data_pos_valid = true;
-      }    
-
-      //  Texto variable:
-      sprintf(buff, "%02d:%02d",config.minutes,config.seconds);
-      opcionesMenuConf[DFLT_TIME]  += buff;
-      opcionesMenuConf[ESP32_TEMP]  =  "ESP32 temp: " + String((int)temperatureRead()) + "/" + String(config.warnESP32temp);
-      opcionesMenuConf[LED_DIMM_LVL]  += String(config.dimmlevel);
-      opcionesMenuConf[LED_MAX_LVL]  += String(config.maxledlevel);
-      sprintf(buff, "%+g", config.tempOffset*(TEMP_OFFSET_FACTOR/100.0)); //elimina ceros decimales al final y pone + si positivo
-      opcionesMenuConf[TEMP_ADJ]  += buff;
-      opcionesMenuConf[TEMP_SOURCE] = (config.tempRemote==0 ?  "TEMP: LOCAL " : "TEMP: REM.  ") + (readTemp()==999 ? "--" : String(readTemp()));
-      opcionesMenuConf[REM_TEMP_IDX] += String(config.tempRemoteIdx);
-      opcionesMenuConf[MSG_TIME] += String(config.msgdisplaymillis);
-      opcionesMenuConf[MUTE] += (config.mute ? "ON" : "OFF");
-      opcionesMenuConf[VOLUME] += String(config.volume);
-      opcionesMenuConf[FIN_MELODY] += String(config.finMelody);
-      opcionesMenuConf[NIVEL_WIFI] += (config.showwifilevel ? "ON" : "OFF");
-      opcionesMenuConf[XNAME_ONOFF] += (config.xname ? "ON" : "OFF");
-      opcionesMenuConf[VERIFY_ONOFF] += (config.verify ? "ON" : "OFF");
-      opcionesMenuConf[DYNAMIC] += (config.dynamic ? "ON" : "OFF");
-      opcionesMenuConf[LASTRIEGOS24] += (config.lastr24 ? "ON" : "OFF");
-      #ifdef LOGTOFILE 
-      opcionesMenuConf[WARNTOLOG] += (config.logWarnToFile ? "ON" : "OFF");
-      #endif
-
-
-
-      LOG_TRACE("opcion=",opcion,"_currentitem_prev=",_currentItem,"MAXOPCIONES=",MAXOPCIONES);
-      _currentItem = opcion;
-      snprintf(_currenItemText,18,"%s",opcionesMenuConf[_currentItem].c_str());
-      LOG_DEBUG("_currentitem=",_currentItem,"_currenItemText=",_currenItemText);
-
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("Menu Configuracion:");
-      lcd.setCursor(0,1);
-      lcd.print("->");
-      //lcd.print("--" "\x7E");  //  "-->"
-      for (int l=1; l<4; l++) {
-        LOG_TRACE("linea ", l, " opcion ", opcion);
-        lcd.setCursor(3,l);
-        lcd.print(opcionesMenuConf[opcion]);
-        opcion++;
-        if(opcion >= MAXOPCIONES) break; 
-      }
-      return MAXOPCIONES;
-}
+    }
+    lcd.print(itemL);
+    itemIndex++;
+  }
+  return __ENDLINE__;
+}      
 
 
 // ejecutamos opcion seleccionada del menu
@@ -486,10 +428,7 @@ void Configure::procesaSelectMenu()
                 this->Range_process_start(1000, 4000, 500);   
                 break;
         case MUTE :   // toggle MUTE
-                config.mute = !config.mute;
-                sonido.bip(2);
-                saveConfig = true;
-                this->menu();  // vuelve a mostrar menu de configuracion
+                this->toggle(config.mute);
                 break;
         case VOLUME :   //configuramos volumen de la melodia
                 configValuep = &config.volume;  
@@ -501,42 +440,24 @@ void Configure::procesaSelectMenu()
                 _configuringMelody = true;
                 break; 
         case NIVEL_WIFI :   // toggle display nivel señal wifi
-                config.showwifilevel = !config.showwifilevel;
-                sonido.bip(2);
-                saveConfig = true;
-                this->menu();  // vuelve a mostrar menu de configuracion
+                this->toggle(config.showwifilevel);
                 break; 
         case XNAME_ONOFF :   // toggle actualizar nombres zonas con los del Domoticz
-                config.xname = !config.xname;
-                sonido.bip(2);
-                saveConfig = true;
-                this->menu();  // vuelve a mostrar menu de configuracion
+                this->toggle(config.xname);
                 break;
         case VERIFY_ONOFF :   // toggle verificar estado dispositivo en el Domoticz
-                config.verify = !config.verify;
-                sonido.bip(2);
-                saveConfig = true;
-                this->menu();  // vuelve a mostrar menu de configuracion
+                this->toggle(config.verify);
                 break;
         case DYNAMIC :   // toggle añadido/borrado dinamico de zonas durante el riego
-                config.dynamic = !config.dynamic;
-                sonido.bip(2);
-                saveConfig = true;
-                this->menu();  // vuelve a mostrar menu de configuracion
+                this->toggle(config.dynamic);
                 break;
         case LASTRIEGOS24 :   // toggle ultimos riegos desde 0:00h o ultimas 24h
-                config.lastr24 = !config.lastr24;
-                sonido.bip(2);
-                saveConfig = true;
-                this->menu();  // vuelve a mostrar menu de configuracion
+                this->toggle(config.lastr24);
                 break;
         #ifdef LOGTOFILE 
         case WARNTOLOG :   // toggle log de mensajes WARN en fichero de log
-                config.logWarnToFile = !config.logWarnToFile;
-                sonido.bip(2);
-                saveConfig = true;
+                this->toggle(config.logWarnToFile);
                 setLogToFile();
-                this->menu();  // vuelve a mostrar menu de configuracion
                 break;
         #endif
         default:         
@@ -544,3 +465,21 @@ void Configure::procesaSelectMenu()
       }
 }
 
+//  escritura de parametros a fichero si procede y salimos de ConF
+void Configure::exit()
+{
+      if (saveConfig) saveConfigToParmfile();  
+      #ifdef WEBSERVER
+        if (webServerAct) {
+          endWS();           //al salir de modo ConF no procesaremos peticiones al webserver
+          LOG_INFO("[ConF][WS] desactivado webserver");
+        }
+      #endif
+      if (Estado.estado == ERROR) return;
+      // Si salimos de modo ConF para comenzar multirriego temporal, ponemos STANDBY silencioso
+      // (sin cambios en la UI) , si no ponemos STANDBY normal.
+      _MultiTempReady ? setStateMachine(STANDBY) : setEstado(STANDBY);
+      this->reset();
+      _currentItem = 0;
+      setEncoderTime();
+}

@@ -7,9 +7,11 @@ class Configure
   private:
     //  Las opciones del menu se muestran en pantalla en el orden en que se definen aqui,
     //  la primera opcion debe ser IDX_MULT y la ultima __ENDLINE__ ,
-    //  el resto se pueden mover libremente.
-    //  Para añadir una nueva opcion, añadirla en el enum _menuItems y en el array opcionesMenuConf
-    //  y añadir el case correspondiente en procesaSelectMenu
+    //  el resto se pueden mover libremente en este enum, no siendo necesario hacerlo en otro lugar del codigo.
+    //
+    //  PARA AÑADIR UNA NUEVA OPCION: añadirla en este enum,
+    //  en el array parteFija y case de la parte variable (si tuviera) del showMenu en Configure.cpp,
+    //  y su tratamiento en el case correspondiente en procesaSelectMenu
     enum _menuItems {     
       IDX_MULT      = 0,  //  botones IDX/MULT debe ser fijo primer item
       DFLT_TIME     ,   
@@ -35,9 +37,10 @@ class Configure
       DYNAMIC       ,
       LASTRIEGOS24  ,
       #ifdef LOGTOFILE 
-      WARNTOLOG , 
+      WARNTOLOG     , 
       #endif
-      __ENDLINE__         //  ultimo item fijo (= numero de lineas del menu excluyendo esta linea)
+      __ENDLINE__   ,   //  ultimo item fijo 
+      NUM_ITEMS         //  (= numero de lineas del menu excluyendo esta)
     };
     int _actualZonaIndex;
     int _actualGrupo;
@@ -45,9 +48,9 @@ class Configure
     int _currentItem;
     int _rangeFactor;
     int *configValuep;
-    int _data_pos[__ENDLINE__ + 1];  //  posicion de los datos en la linea de menu
+    int _data_pos[NUM_ITEMS];  //  posicion de los datos en la linea de menu
     bool _data_pos_valid;
-    char _currenItemText[18];
+    const char* _currenItemText;
     union {
       uint8_t all_configureflags;
       struct { uint8_t
@@ -83,17 +86,18 @@ class Configure
     void Multi_process_end(void);
     void MultiTemp_process_start(void);
     void MultiTemp_process_end(void);
-    bool configuringTime(void);
-    bool configuringIdx(void);
-    bool configuringMulti(void);
-    bool configuringMultiTemp(void);
-    bool configuringRange(void);
-    bool configuringMelody(void);
-    bool inMenu(void);
-    int  showMenu(int);
+    void toggle(bool &value);
     void procesaSelectMenu(void);
-    int  get_currentItem(void);
-    bool get_MultiTempReady(void);
+    int  showMenu(int);
+    int  get_currentItem() const { return _currentItem; }
+    bool configuringTime() const { return _configuringTime; }
+    bool configuringIdx() const { return _configuringIdx; }
+    bool configuringRange() const { return _configuringRange; }
+    bool configuringMulti() const { return _configuringMulti; }
+    bool configuringMultiTemp() const { return _configuringMultiTemp; }
+    bool configuringMelody() const { return _configuringMelody; }
+    bool inMenu() const { return _configuringMenu; }
+    bool get_MultiTempReady() const { return _MultiTempReady; }
 };
 
 #endif

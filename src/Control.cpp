@@ -1309,7 +1309,7 @@ void setEncoderRange(int min, int max, int current, int aceleracion) {
 }
 
 void setEncoderMenu(int menuitems, int currentitem) {
-    LOG_DEBUG("currentitem=",currentitem);
+    LOG_DEBUG("currentitem=",currentitem, "menuitems=",menuitems);
     rotaryEncoder.setBoundaries(0, menuitems-1, true); //minValue, maxValue, circleValues true|false
     rotaryEncoder.setEncoderValue(currentitem);
     rotaryEncoder.disableAcceleration();
@@ -2076,7 +2076,7 @@ void setupConfig()
     }  
   }
   //por si la ip del SCD Domoticz incluyera user y pass, los extraemos y los guardamos en los campos correspondientes de config
-  if (config.SCD_user[0] == '\0') parseSCDuri(config.SCD_ip);
+  // if (config.SCD_user[0] == '\0') parseSCDuri(config.SCD_ip);
   if (config.SCD_ip[0] == '\0') LOG_WARN("SCD IP vacia, no se podra conectar a Domoticz");
   //inicializamos factores de riego a valor 100 por defecto
   for(uint i=0;i<NUMZONAS;i++) {
