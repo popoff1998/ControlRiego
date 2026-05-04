@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/style_base.css">
-    <link rel="stylesheet" href="/style_botones.css">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="stylesheet" href="style_base.css">
+    <link rel="stylesheet" href="style_botones.css">
     <title>Edicion parámetros</title>
     <style>
         body {display: flex; flex-direction: column; max-width: 768px;}
@@ -18,7 +19,7 @@
 </head>
 <body>
     <h1>Editar parámetros de configuración BÁSICOS</h1>
-    <a href="/index.htm" class="back">← Home</a>
+    <a href="/" class="back">← Home</a>
     <h2>Botones</h2>
     <p>Nombre: max. 9 caracteres.</p>
     <p>Idx = 0 para zonas no asignadas.</p>
@@ -58,7 +59,7 @@
         <button type="button" onclick="processCancel()" class="secondary-button">Cancel</button>
     </div>
 
-<script src="/funciones.js"></script>
+<script src="funciones.js"></script>
 <script>
 let fileName = "", originalJsonData = {}, rawTemplate = {}, hasChanges = false;
 
@@ -73,7 +74,7 @@ window.addEventListener("load", async () => {
         // 1. Prioridad: ¿Venimos de EditRaw con cambios pendientes?
         if (source === 'tempRawData' && sessionData) {
             console.log("Recuperando borrador de la sesión...");
-            template = await apiGetJson('/templateParm.json').catch(() => ({}));
+            template = await apiGetJson('templateParm.json').catch(() => ({}));
             dataServidor = JSON.parse(sessionData);
             hasChanges = true; 
         } 
@@ -81,7 +82,7 @@ window.addEventListener("load", async () => {
         else {
             console.log("Cargando archivo:", fileName);
             [template, dataServidor] = await Promise.all([
-                apiGetJson('/templateParm.json').catch(() => ({})),
+                apiGetJson('templateParm.json').catch(() => ({})),
                 apiGetJson(fileName).catch(() => ({}))
             ]);
             hasChanges = false;

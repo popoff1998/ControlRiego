@@ -39,7 +39,7 @@ function createTableRow(file, tableId, config) {
         const link = document.createElement("a");
         link.target = "_blank";
         // Lógica de enlaces original
-        if (tableId === "filesTableBody") link.href = isDir ? '/files.htm?dir=' + file.name : file.name;
+        if (tableId === "filesTableBody") link.href = isDir ? 'files.htm?dir=' + file.name : file.name;
         else link.href = file.name;
         
         // Lógica de etiquetas original
@@ -67,7 +67,7 @@ function createTableRow(file, tableId, config) {
         btnGrp.append(
             createButton("Export", () => downloadFile(file.name)),
             createButton("Backup", () => handleFileAction("BACKUP", file.name)),
-            createButton("Edit", () => window.open(`/parmfile_edit.htm?file=${file.name}`, '_self'))
+            createButton("Edit", () => window.open(`parmfile_edit.htm?file=${file.name}`, '_self'))
         );
     } else if (tableId === "backupTableBody") {
         btnGrp.appendChild(createButton("Restore", () => {
@@ -232,10 +232,10 @@ async function apiSaveConfig(data, askRestart = false, isRaw = false) {
                 return;
             }
             sessionStorage.setItem('needsRestart', 'true');
-            window.location.href = '/parmfile.htm';
+            window.location.href = 'parmfile.htm';
         } else {
             alert("Archivo guardado correctamente.");
-            window.location.href = '/parmfile.htm';
+            window.location.href = 'parmfile.htm';
         }
     } catch (error) { alert(error.message); throw error; }
 }

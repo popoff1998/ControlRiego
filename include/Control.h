@@ -48,8 +48,7 @@
     #define HOSTNAME "ardomot"
   #else
     #define HOSTNAME "ardomo"
-  #endif  
-  #define WSPORT 8080
+  #endif
 
   #define FORMAT_LITTLEFS_IF_FAILED true
   #ifndef clean_FS

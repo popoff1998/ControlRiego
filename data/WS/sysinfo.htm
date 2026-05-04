@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/style_base.css">
-    <link rel="stylesheet" href="/style_botones.css">
-    <link rel="stylesheet" href="/style_tableFiles.css">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="stylesheet" href="style_base.css">
+    <link rel="stylesheet" href="style_botones.css">
+    <link rel="stylesheet" href="style_tableFiles.css">
     <title>System Info</title>
     <style>
     table {margin: 20px auto; background-color: #fff;}
@@ -31,7 +32,7 @@
         <!-- Rows will be dynamically added here -->
     </tbody>
 </table>
-<script src="/funciones.js"></script>
+<script src="funciones.js"></script>
 <script>
 const tableBody = document.getElementById("sysInfoTableBody");
 apiGetJson('/api/sysinfo')

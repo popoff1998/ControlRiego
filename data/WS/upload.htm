@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Upload</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
     <style>
         body{font-family:sans-serif;max-width:320px;margin:10px auto;padding:0 12px;color:#333}
         h1{color:#135a8a;margin:0 0 10px}
@@ -23,16 +24,16 @@
     <h1>Upload Files</h1>
     <a href="/">← Home</a>
     <div style="margin-top:15px">
-        <label style="font-size:13px">Destino (opcional):</label>
-        <select id="s"><option value="">(raíz)</option><option value="datos">datos</option></select>
+        <label style="font-size:13px">Destino:</label>
+        <select id="s"><option value="WS">Webserver (/WS)</option><option value="datos">Datos (/datos)</option></select>
         <div class="info-fs">Espacio libre: <span id="freeSp">--</span></div>
     </div>
     <div id="z"><p>Arrastra archivos aquí<br>o haz clic</p></div>
     <input type="file" multiple id="i" style="display:none">
     <div class="f">
-        <a href="$update?page=custom">OTA</a> | <a href="#" id="logLink" class="l">LOG</a>
+        <a href="/$update?page=custom">OTA</a> | <a href="#" id="logLink" class="l">LOG</a>
     </div>
-<script src="/funciones.js"></script>    
+<script src="funciones.js"></script>    
 <script>
 let maxTotalSize = 0; // Se llenará desde el servidor
 const z=document.getElementById('z'), i=document.getElementById('i'), 

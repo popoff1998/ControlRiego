@@ -6,9 +6,11 @@
    #include "Control.h"
    #include <WebServer.h>
    #include <ESPmDNS.h>
-   
-   #include "OTAupdateServer.h"  // HTTPUpdateServer adapted to use LittleFS
-   #include "builtinfiles.h"     // The text of builtin files are in this header file
+
+   #define WSPORT 8080
+   #define WEBROOT "/WS" // directorio raiz donde estan los archivos del servidor web (ej. /WS/index.htm)
+   #include "builtinpages.h"     // The text of builtin html pages are in this header file
+   #include "OTAupdateServer.h"  // HTTP OTA Update Server class for ESP32 using LittleFS
 
    // enable the CUSTOM_ETAG_CALC to enable calculation of ETags by a custom function
   //  #define CUSTOM_ETAG_CALC
@@ -16,6 +18,7 @@
    // mark parameters not used in example
    #define UNUSED __attribute__((unused))
 
+   // OTA update parameters
    const char* const update_path = "/$update";
    const char* const update_username = "admin";
    const char* const update_password = "admin";
@@ -80,9 +83,9 @@ static bool resolveFilePath(String &outPath) {
 /* 
   Divide una ruta de archivo completa en su directorio y nombre de archivo.
   Parámetros:
-   - fullPath: Ruta completa del archivo (por ejemplo, "/dir/subdir/file.txt")
-   - dirPath: Referencia a String donde se almacenará la ruta del directorio (por ejemplo, "/dir/subdir").
-   - fileName: Referencia a String donde se almacenará el nombre del archivo (por ejemplo, "file.txt").
+   - fullPath: Ruta completa del archivo (ej: "/dir/subdir/file.txt")
+   - dirPath: Referencia a String donde se almacenará la ruta del directorio (ej: "/dir/subdir").
+   - fileName: Referencia a String donde se almacenará el nombre del archivo.
 */
 void splitFilePath(String &fullPath, String &dirPath, String &fileName) {
   LOG_DEBUG("fullPath recibido:", fullPath);
@@ -140,6 +143,8 @@ static void buildFileListJSON(File &dir, const String &filter, String &outResult
     outResult += "\n]";
 }
 
+// Envía un archivo como adjunto para descarga en el cliente, 
+// estableciendo las cabeceras necesarias para que el navegador lo trate como tal.
 static void sendFileAttachment(const String &path) {
     LOG_DEBUG("path:", path);
     File download = LittleFS.open(path);
@@ -221,6 +226,7 @@ static const struct {
   {nullptr,  "text/plain; charset=utf-8"}      // Fallback 
 };
 
+// Devuelve el tipo MIME basado en la extensión del archivo, con un fallback a text/plain con UTF-8
 const char* GetContentType(const String &filename) {
   int lastDot = filename.lastIndexOf('.');
   if (lastDot < 0) return "text/plain; charset=utf-8"; 
@@ -231,8 +237,8 @@ const char* GetContentType(const String &filename) {
       return mimeTypes[i].mime;
     }
   }
-  // Si no tiene extensión, devolvemos el fallback con UTF-8
-  return "text/plain; charset=utf-8"; // Fallback con UTF-8
+  // Si no tiene extensión reconocida, devolvemos el fallback text/plain con UTF-8
+  return "text/plain; charset=utf-8";
 }
 
 void printArgs() {
@@ -289,9 +295,9 @@ void serveFile(String path) {
 
 // redirect to index or upload
 void handleRedirect() {
-  LOG_DEBUG("Redirecting to /index.htm or /$upload");
-  String url = "/index.htm";
+  String url = WEBROOT "/index.htm";
   if (!LittleFS.exists(url)) { url = "/$upload"; }
+  LOG_DEBUG("Redirecting to", url);
   wserver.sendHeader("Location", url, true);
   wserver.send(302);
 }
@@ -386,13 +392,13 @@ void handleAdvancedPage() {
       wserver.requestAuthentication();
       return;
   }
-  serveFile("/advanced.htm", "text/html");
+  serveFile(WEBROOT "/advanced.htm", "text/html");
 }
 
-// Forzamos el volcado y cierre del log para liberar LittleFS
-void handleListLogs() {
+// Forzamos el volcado y cierre del log antes de mostrarlo, para asegurar que se muestren los mensajes más recientes.
+void handleShowErrorLog() {
     refreshLogFile();
-    serveFile("/errores.htm", "text/html");
+    serveFile(WEBROOT "/errores.htm", "text/html");
 }
 
 // parmfile_editraw page (requires auth)
@@ -401,11 +407,11 @@ void handleEditRawPage() {
       wserver.requestAuthentication();
       return;
   }
-  serveFile("/parmfile_editRaw.htm", "text/html");
+  serveFile(WEBROOT "/parmfile_editRaw.htm", "text/html");
 }
 
 // show zone log (reads log file / obtains Domoticz data)
-void handleShowZONElog() {
+void handleShowZonelog() {
   int zona = wserver.arg("zona").toInt();
   LOG_DEBUG("Zona recibida:", zona);
   String json = readSCDLogFile(zona); // obtiene del Domoticz el log de riegos de la zona
@@ -421,17 +427,20 @@ void handleDownload() {
   }
 }
 
+// Serves the upload.htm page, either custom from LittleFS or builtin from PROGMEM)
 void handleUploadPage() {
   // 1. Verificar si se pide custom y si existe el archivo
   if (wserver.hasArg("page") && wserver.arg("page") == "custom") {
-      if (LittleFS.exists("/upload.htm")) {
-          serveFile("/upload.htm");
-       return;
+      String customPath = WEBROOT "/upload.htm";
+      if (LittleFS.exists(customPath)) {
+        wserver.sendHeader("Location", customPath);
+        wserver.send(302);          
+        return;
       }
-      LOG_WARN("Custom Upload page requested but /upload.htm not found."); 
+      LOG_WARN("Custom Upload page requested but", customPath, "not found."); 
   }
   // 2. Si no, servir la de PROGMEM
-  LOG_INFO("Serving builtin page");
+  LOG_WARN("Serving builtin page");
   wserver.send(200, "text/html", FPSTR(uploadContent));
 }
 
@@ -512,7 +521,6 @@ class FileServerHandler : public RequestHandler {
           // Serve file through our serveFile() so cache headers and gzip handling are applied
           LOG_TRACE("GET request for:", fName);
           String pathToServe = fName;
-          if (pathToServe.endsWith("/")) pathToServe += "index.html";
           if (LittleFS.exists(pathToServe) || LittleFS.exists(pathToServe + ".gz")) {
             serveFile(pathToServe); // serveFile() will automatically try .gz version if the original doesn't exist
             return true;
@@ -586,8 +594,8 @@ class FileServerHandler : public RequestHandler {
             _uploadErrorSent = true;
             return;
           }
-          // OPCIONAL: limitar uploads a un directorio raíz (por seguridad). Cambia a "/" para permitir todo.
-          const String uploadRoot = "/"; // <--- ajusta si quieres otra raíz o "/" para cualquier sitio
+          // OPCIONAL: limitar uploads a un directorio raíz (por seguridad). Cambiar a "/" para permitir todo.
+          const String uploadRoot = "/"; // <--- ajustar si se quiere otra raíz o "/" para cualquier sitio
           if (uploadRoot != "/") {
             // si la ruta enviada no está ya bajo uploadRoot, la colocamos allí
             if (!fName.startsWith(uploadRoot + "/") && fName != uploadRoot) {
@@ -670,15 +678,18 @@ class FileServerHandler : public RequestHandler {
 // ---------------------------
 void defWebpagesHandles() {
     wserver.on("/", HTTP_GET, handleRedirect);
+    wserver.on("/index.htm", HTTP_GET, handleRedirect);
+    wserver.on("/index.html", HTTP_GET, handleRedirect);
     // paginas html (las builting comienzan por $)
     wserver.on("/$upload",         HTTP_GET,  handleUploadPage); // sirve la pagina de upload (custom o builtin)
-    wserver.on("/advanced.htm",    HTTP_GET,  handleAdvancedPage); // requiere auth
-    wserver.on("/errores.htm",     HTTP_GET,  handleListLogs); // fuerza cierre ficheros para actualizar timestamps
-    wserver.on("/parmfile_editRaw.htm",    HTTP_GET,  handleEditRawPage); // requiere auth
+    wserver.on(WEBROOT "/advanced.htm",         HTTP_GET, handleAdvancedPage); // requiere auth
+    wserver.on(WEBROOT "/errores.htm",          HTTP_GET, handleShowErrorLog); // fuerza cierre ficheros para actualizar timestamps
+    wserver.on(WEBROOT "/parmfile_editRaw.htm", HTTP_GET, handleEditRawPage); // requiere auth
+
     // apis que devuelven un JSON
     wserver.on("/api/list",        HTTP_GET,  handleListFiles);
     wserver.on("/api/sysinfo",     HTTP_GET,  handleSysInfo);
-    wserver.on("/api/showZONElog", HTTP_GET,  handleShowZONElog);
+    wserver.on("/api/showZONElog", HTTP_GET,  handleShowZonelog);
     wserver.on("/api/serverVars",  HTTP_GET,  handleServerVars); // devuelve JSON con variables de interés para el cliente (ej. logDays)
     // otras apis
     wserver.on("/api/download",    HTTP_GET,  handleDownload);
@@ -690,8 +701,9 @@ void defWebpagesHandles() {
     wserver.addHandler(new FileServerHandler());
     // enable CORS header in webserver results
     wserver.enableCORS(true);
-    wserver.serveStatic("/", LittleFS, "/");
-    wserver.onNotFound([]() {wserver.send(404, "text/html", FPSTR(notFoundContent));}); // serve a built-in htm page
+    // wserver.serveStatic("/", LittleFS, "/");
+     // serve a built-in htm page for not found (404) errors
+    wserver.onNotFound([]() {wserver.send(404, "text/html", FPSTR(notFoundContent));});
 }
 
 // ---------------------------

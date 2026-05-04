@@ -1,0 +1,2 @@
+En este directorio raiz del webserver se encuentran los elementos de este (paginas, imagenes , css y js)
+En el directorio /datos los ficheros variables creados por la CCR de parametros y ultimos riegos.

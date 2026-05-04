@@ -10,10 +10,11 @@
     <title>Parmfile</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/style_base.css">
-    <link rel="stylesheet" href="/style_botones.css">
-    <link rel="stylesheet" href="/style_tableFiles.css">
-    <link rel="stylesheet" href="/style_datacard.css">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="stylesheet" href="style_base.css">
+    <link rel="stylesheet" href="style_botones.css">
+    <link rel="stylesheet" href="style_tableFiles.css">
+    <link rel="stylesheet" href="style_datacard.css">
 </head>
 
 <style>
@@ -34,7 +35,7 @@
   
 <body>
     <h1 style="margin-top: 20px;">Gestión fichero de parámetros</h1>
-    <a href="/index.htm" class="back">← Home</a>
+    <a href="/" class="back">← Home</a>
     <div id="restartBanner" class="restart-banner">⚠️ Hay cambios guardados pendientes de aplicar. 
         <button onclick="sessionStorage.removeItem('needsRestart'); window.location.href='/api/restart'">Reiniciar ahora</button>
     </div>
@@ -58,7 +59,7 @@
         <tbody id="backupTableBody"></tbody>
     </table>
     
-<script src="/funciones.js"></script>
+<script src="funciones.js"></script>
 <script>
 // Variables de configuración
 const MAX_PARMFILE = 4 * 1024;    // Tamaño máximo para un JSON de parámetros

@@ -4,9 +4,10 @@
   <meta charset="UTF-8">
   <title>Log de zona</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="/style_base.css">
-  <link rel="stylesheet" href="/style_botones.css">
-  <link rel="stylesheet" href="/style_tableFiles.css">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="stylesheet" href="style_base.css">
+  <link rel="stylesheet" href="style_botones.css">
+  <link rel="stylesheet" href="style_tableFiles.css">
   <style>
     .table-container { max-width: 900px; margin: auto; }
     h2 { margin-top: 1em; margin-bottom: 0; } 
@@ -24,7 +25,7 @@
 <body>
   <div class="table-container">
     <h1 style="margin-top: 20px;">Log de riegos en Domoticz</h1>
-    <a href="/index.htm" class="back">← Home</a>
+    <a href="/" class="back">← Home</a>
     <div class="header-and-info-container">
       <h2 id="titulo">Log de Zona</h2>
       <div class="table-info" id="infoDias">(*últimos - días)</div>
@@ -34,7 +35,7 @@
       <tbody><!-- Rows will be dynamically added here --></tbody>
     </table>
   </div>
-<script src="/funciones.js"></script>
+<script src="funciones.js"></script>
 <script>
 function getParam(name) {
     const url = new URL(window.location.href);
