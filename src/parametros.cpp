@@ -353,21 +353,14 @@ void filesInfo()
   Serial.print("__________________________\n");
 }
 
-
 void listDir(fs::FS &fs, const char * dirname, uint8_t levels, uint8_t depth) {
-    // Función auxiliar local para generar la indentación (tabulaciones)
     auto printIndent = [depth]() {
         for (uint8_t i = 0; i < depth; i++) Serial.print("   "); // Tres espacios por nivel
     };
     printIndent();
     Serial.printf("Listing directory: %s\r\n", dirname);
     File root = fs.open(dirname);
-    if (!root) {
-        if (depth == 0) Serial.println("- failed to open directory");
-        else { printIndent(); Serial.printf("- failed to open directory: %s\r\n", dirname); }
-        return;
-    }
-    if (!root.isDirectory()) { Serial.println(" - not a directory"); return; }
+    if (!root || !root.isDirectory()) return;
     File file = root.openNextFile();
     while (file) {
         printIndent(); // Aplica la indentación antes de imprimir el elemento
@@ -378,22 +371,26 @@ void listDir(fs::FS &fs, const char * dirname, uint8_t levels, uint8_t depth) {
                  (tmstruct->tm_year) + 1900, (tmstruct->tm_mon) + 1, tmstruct->tm_mday,
                  tmstruct->tm_hour, tmstruct->tm_min, tmstruct->tm_sec);
         if (file.isDirectory()) {
-            Serial.printf("[DIR] %s", file.name()); // Usamos file.name() directamente
-            Serial.printf(" LAST WRITE: %s\r\n", timeStr);
-            if (levels > 0) { // Comprobación de niveles restantes
+            // Alineamos "[DIR] nombre" a 35 caracteres
+            Serial.printf("[DIR]  %-30s LAST WRITE: %s\r\n", file.name(), timeStr);
+            if (levels > 0) {
                 String subDirPath = dirname;
-                if (!subDirPath.endsWith("/")) { subDirPath += "/"; }
+                if (!subDirPath.endsWith("/")) subDirPath += "/";
                 subDirPath += file.name();
                 listDir(fs, subDirPath.c_str(), levels - 1, depth + 1);
             }
         } else {
-            Serial.printf("[FILE] %s", file.path());
-            Serial.printf("\tSIZE: %lu bytes", (unsigned long)file.size());
-            Serial.printf(" LAST WRITE: %s\r\n", timeStr);
+            // EXPLICACIÓN: %-30s alinea a la izquierda y rellena con espacios hasta 30
+            // %8lu alinea el tamaño a la derecha para que las unidades coincidan
+            Serial.printf("[FILE] %-30s SIZE: %8lu bytes  LAST WRITE: %s\r\n", 
+                          file.path(), 
+                          (unsigned long)file.size(), 
+                          timeStr);
         }
         file = root.openNextFile();
     }
 }
+
 
 String sysInfo() {
     JsonDocument doc; 

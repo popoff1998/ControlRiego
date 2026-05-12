@@ -619,7 +619,6 @@ bool estadoLedId(int);
 void ledYellow(int);
 void leerEncoderSW();
 void leeSerial(void);
-void listAllFilesInDir(fs::FS &fs, String dir_path);
 void listDir(fs::FS &fs, const char * dirname, uint8_t levels, uint8_t depth = 0);
 bool loadConfigFromFile(const char *);
 void logStatus(const char *mensaje);
