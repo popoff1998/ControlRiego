@@ -13,7 +13,7 @@
   #include <WiFiManager.h> 
   #include <SPI.h>
   #include <Time.h>
-  #include <TimeLib.h>
+  // #include <TimeLib.h>
   #include <CountUpDownTimer.h>
   #include <ArduinoJson.h>
   #include <Ticker.h>
@@ -55,8 +55,9 @@
     #define clean_FS false
   #endif
 
-  // Macros utiles:
+  // Macros y constantes utiles:
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0])) // calcula el numero de elementos de un array
+  #define UMBRAL_EPOCH 1767225600 // fecha 1/1/2026 en formato epoch (si la fecha es anterior se considera no valida)
        
   //-------------------------------------------------------------------------------------
   //                #define FW_VERSION  movido a platformio.ini   // version del software
@@ -223,7 +224,6 @@
   #define RESUME 1
   #define SHORT 1
   #define NEWMTEMP 1
-  #define UMBRAL_EPOCH 1767225600 // fecha 1/1/2026 en formato epoch (si la fecha es anterior se considera no valida)
 
   // constexpr calculado por el preprocesador y no modificable en tiempo de ejecucion
   constexpr uint16_t Zonas[] = {_ZONAS};  // array de todos los botones de zonas de riego disponibles
@@ -302,6 +302,11 @@
     time_t final; 
     time_t reinicio; 
     time_t total; 
+  } ;
+
+  struct S_last24h {
+    time_t limit24h; 
+    time_t midnight;
   } ;
 
   // variables contador de tiempo
@@ -629,7 +634,7 @@ void memoryInfo(void);
 void pararLedsWifiAP();
 void parpadeoLedPWM(int id);
 void parpadeoLedZona(int);
-void parpadeoLedZonas24h(time_t);
+void parpadeoLedZonas24h(S_last24h*);
 S_BOTON *parseInputs(bool);
 bool parseSCDuri(const String &uri);
 void printCharArray(char*, size_t);
@@ -717,8 +722,6 @@ time_t tLoc(void);
 void timeByFactor(int,uint8_t *,uint8_t *);
 void timerTick(void);
 void  tmvalue(void);
-String TS2Date(time_t);
-String TS2Hour(time_t);
 void ultimosRiegos(int);
 void updateZoneDescription(int i);
 bool validaBoton();
@@ -804,5 +807,32 @@ void procesaArray(T* array, size_t size, F func) {
 //     r.total = 0;
 //     Serial.println("Elemento reseteado");
 // });
+
+
+
+// *****************************************************************************************
+// Funciones de tiempo para evitar usar TimeLib.h
+// ***************************************************************************************** 
+
+// Sustitutos directos para TimeLib
+// #define day(t)    getDay(t)
+// #define month(t)  getMonth(t)
+// #define hour(t)   getHour(t)
+// #define minute(t) getMinute(t)
+
+#define SECS_PER_DAY 86400UL
+
+// Función interna para obtener la estructura tm de una variable time_t, usando gmtime_r para que NO tenga en cuenta TZ
+static inline struct tm getTimeStruct(time_t t) {
+  struct tm tm_struct;
+  gmtime_r(&t, &tm_struct);
+  LOG_DEBUG("estructura devuelta:", asctime(&tm_struct));
+  return tm_struct;
+}
+
+// static inline int getDay(time_t t)    { return getTimeStruct(t).tm_mday; }
+// static inline int getMonth(time_t t)  { return getTimeStruct(t).tm_mon + 1; }
+// static inline int getHour(time_t t)   { return getTimeStruct(t).tm_hour; }
+// static inline int getMinute(time_t t) { return getTimeStruct(t).tm_min; }
 
 #endif  // control_h

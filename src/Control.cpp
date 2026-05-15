@@ -1257,28 +1257,51 @@ void setClock()
   if (!Estado.inSetup) logStatus(message); // registramos en log de errores que ya tenemos NTP time 
 }
 
+
 // devuelve time_t en hora local a partir del time_t del sistema (UTC)
 time_t tLoc()
 {
-  if (!timeOK) return (millis() / 1000); //no tenemos time, devolvemos segundos transcurridos desde el arranque
-  // if (!timeOK) return 0; //no tenemos time, devolvemos 0
-  time_t t = time(NULL); // time() devuelve el tiempo UTC actual (epoch time en segundos desde 00:00 1/1/1970) leyendolo del reloj del ESP32
-  struct tm *tmd;
-  tmd = localtime(&t); // localtime() convierte time_t a struct tm en la zona horaria local
-  //copy tmd struct to tmElements_t struct
-  tmElements_t tmElements;
-  tmElements.Second = tmd->tm_sec;
-  tmElements.Minute = tmd->tm_min;
-  tmElements.Hour = tmd->tm_hour;
-  tmElements.Day = tmd->tm_mday;
-  tmElements.Month = tmd->tm_mon + 1; // tm_mon is 0-based
-  tmElements.Year = tmd->tm_year - 70;    // tmd->tm_year is years since 1900 , tmElements.Year is years since 1970
-  //calculate time_t from tmElements_t struct
-  // makeTime() (from TimeLib) NO tiene en cuenta el timezone del sistema  --> devuelve time local en este caso
-  // mktime() (from time.h) si lo tiene en cuenta --> devolveria time UTC
-  time_t tLocal = makeTime(tmElements);
-  return tLocal;
+  if (!timeOK) return (millis() / 1000); //no tenemos time, devolvemos segundos transcurridos desde el arranque 
+  time_t t = time(NULL); // time() devuelve el tiempo UTC actual (epoch time en segundos desde 00:00 1/1/1970) 
+  struct tm tm_loc;
+  localtime_r(&t, &tm_loc); 
+  // _timezone en ESP32 guarda el desfase ESTÁNDAR (invierno) cambiado de signo.
+  // Para España (UTC+1), _timezone vale -3600. Por eso usamos el signo menos (-_timezone).
+  // Si tm_isdst > 0, significa que actualmente estamos en horario de verano (+1 hora extra = 3600s).
+  long desfaseTotal = -_timezone + (tm_loc.tm_isdst > 0 ? 3600 : 0);
+  return t + desfaseTotal;
 }
+
+
+// time_t tLoc()
+// {
+//     if (!timeOK) return (millis() / 1000); //no tenemos time, devolvemos segundos transcurridos desde el arranque
+//     // if (!timeOK) return 0; //no tenemos time, devolvemos 0
+//     time_t t = time(NULL); // time() devuelve el tiempo UTC actual (epoch time en segundos desde 00:00 1/1/1970)
+//     struct tm tm_utc, tm_loc;
+//     gmtime_r(&t, &tm_utc);    // Obtener estructura en UTC
+//     localtime_r(&t, &tm_loc); // Obtener estructura en Local
+//     // SOLUCIÓN AL FALLO: Forzamos a mktime a ignorar el 0 automático de UTC
+//     // y a calcular el Horario de Verano real según las reglas de la zona horaria.
+//     tm_utc.tm_isdst = -1; 
+//     tm_loc.tm_isdst = -1;
+//     // NOTA DE DISEÑO: mktime() asume que las estructuras son locales y les restará el TZ (a ambas),
+//     // pero al restarlos (t_loc - t_utc), ambas restas se anulan y nos queda la diferencia real entre UTC y Local 
+//     time_t t_utc = mktime(&tm_utc);
+//     time_t t_loc = mktime(&tm_loc);
+//     LOG_DEBUG("t UTC:", t_utc, "t Local:", t_loc, "Diferencia (t_loc - t_utc):", (t_loc - t_utc), "segundos");
+//     // Calculamos la diferencia entre ambas estructuras, que nos da el desfase de la zona horaria en segundos 
+//     // (incluyendo DST si aplica), y se lo sumamos al timestamp UTC para obtener el timestamp local correcto.
+//     return t + (t_loc - t_utc);
+// }
+
+// Devuelve el timestamp del último inicio de día (00:00:00) para un timestamp dado
+time_t previousMidnight(time_t tLocal) {
+    struct tm tm_s = getTimeStruct(tLocal);
+    // Calculamos cuántos segundos han pasado desde las 00:00:00 de hoy
+    uint32_t segundosHoy = (tm_s.tm_hour * 3600UL) + (tm_s.tm_min * 60UL) + tm_s.tm_sec;
+    return tLocal - segundosHoy;
+}  
 
 
 void initEncoder() {
@@ -1318,51 +1341,58 @@ void setEncoderMenu(int menuitems, int currentitem) {
 
 //muestra dia/hora actual y lo regado desde las 0h/ultimas24h encendiendo sus leds o apagandolos
 void ultimosRiegos(int modo) {
-  LOG_TRACE("modo:",modo);
+  LOG_TRACE("modo:", modo);
   static const char* const MESES[] = {"Ene.", "Feb.", "Mar.", "Abr.", "May.", "Jun.", "Jul.", "Ago.", "Sep.", "Oct.", "Nov.", "Dic."};
-  time_t t;
   switch(modo) {
-    case SHOW:
-        lcd.infoclear("Hora actual:");
-        // Si no tenemos hora, mostramos mensaje de error y salimos
-        if (!timeOK) {lcd.info("   <<< NO TIME >>>",3); sonido.bipKO(); return;}
-        t = tLoc(); // timestamp local actual en segundos desde 1/1/1970
-        // Si la fecha actual es invalida (anterior al 1/1/2026) mensaje de error y salimos
-        if (t < UMBRAL_EPOCH) {lcd.info(" << NO VALID DATE >>",3); sonido.bipKO(); return;}
-        // Mostramos dia, mes y hora actual en el display
-        sprintf(buff, " %d", day(t));
-        lcd.info(buff,3);
-        lcd.info(MESES[month(t)-1],4);
-        lcd.displayTime(hour(t),minute(t));
-        // Encendemos leds de las zonas que se han regado desde medianoche
-        for(uint i=0;i<NUMZONAS;i++) {
-          if(lastRiegos[i].inicio > previousMidnight(t)) {
-              LOG_DEBUG("[ULTIMOSRIEGOS] zona:", i+1, "time:",lastRiegos[i].inicio);
-              led(Boton[getBotonIndex(Zonas[i])].led,ON);
-          }
-        }
-        //activa parpadeo leds zonas regadas entre 24h y medianoche
-        if (config.lastr24) tic_LedZonas24h.attach(RAPIDO/10.0, parpadeoLedZonas24h, t);
-        break;
     case HIDE:
-        setParpadeo(tic_LedZonas24h, PARAR);
-        for(unsigned int i=0;i<NUMZONAS;i++) {
-          led(Boton[getBotonIndex(Zonas[i])].led,OFF);
-        }
+      setParpadeo(tic_LedZonas24h, PARAR);
+      for(uint i=0; i<NUMZONAS; i++) led(Boton[getBotonIndex(Zonas[i])].led, OFF);
         break;
-  }
+    case SHOW:
+      lcd.infoclear("Hora actual:");
+      // Si no tenemos hora, mostramos mensaje de error y salimos
+      if (!timeOK) { lcd.info("   <<< NO TIME >>>", 3); sonido.bipKO(); return; }
+      time_t t = tLoc();
+      // Si la fecha actual es invalida (anterior al 1/1/2026) mensaje de error y salimos 
+      if (t < UMBRAL_EPOCH) { lcd.info(" << NO VALID DATE >>", 3); sonido.bipKO(); return; }
+      struct tm tm_now = getTimeStruct(t);  // obtenemos estructura tm con la fecha y hora local
+      sprintf(buff, " %d", tm_now.tm_mday);
+      lcd.info(buff, 3);
+      lcd.info(MESES[tm_now.tm_mon], 4); // tm_mon ya es 0-11, perfecto para el array
+      lcd.displayTime(tm_now.tm_hour, tm_now.tm_min);
+      // Lógica de LEDs
+      time_t midnight = previousMidnight(t); // obtenemos timestamp de la última medianoche (hora local)
+      // Encendemos leds de las zonas que se han regado desde medianoche hasta ahora
+      for(uint i=0; i<NUMZONAS; i++) {
+        if(lastRiegos[i].inicio > midnight) {
+            LOG_DEBUG("[ULTIMOSRIEGOS] zona:", i+1, "time:", lastRiegos[i].inicio);
+            led(Boton[getBotonIndex(Zonas[i])].led, ON);
+        }
+      }
+      if (!config.lastr24) break;
+      //activa parpadeo leds zonas regadas desde hace 24h y medianoche
+      static S_last24h tData; // Instancia estática para que persista al salir de la función
+      tData.limit24h = t - SECS_PER_DAY;
+      tData.midnight = midnight;
+      // Pasamos la dirección de memoria (&tData) de la estructura (4 bytes, Ticker no admite pasar un valor de mas tamaño)
+      tic_LedZonas24h.attach(RAPIDO/10.0, parpadeoLedZonas24h, &tData);
+      break;
+  }      
 }
 
-void parpadeoLedZonas24h(time_t t)
+// Hace parpadear los leds de las zonas que se han regado en las últimas 24h pero antes de la medianoche de hoy
+void parpadeoLedZonas24h(S_last24h* tData)
 {
-  for(uint i=0;i<NUMZONAS;i++) { // enciende leds zonas regadas ultimas 24h hasta medianoche
-    if(lastRiegos[i].inicio > (t-SECS_PER_DAY) && lastRiegos[i].inicio <= previousMidnight(t)) {
-        LOG_TRACE("[ULTIMOSRIEGOS 24H] zona:", i+1, "time:",lastRiegos[i].inicio);
-        int ledid = Boton[getBotonIndex(Zonas[i])].led;
-        byte estado = estadoLedId(ledid);
-        led(ledid,!estado);
+    for(uint i=0; i < NUMZONAS; i++) { 
+        time_t inicioRiego = lastRiegos[i].inicio;
+        // Si el riego ocurrió en las últimas 24h pero ANTES de la medianoche de hoy
+        if(inicioRiego > tData->limit24h && inicioRiego <= tData->midnight) {
+            LOG_TRACE("[ULTIMOSRIEGOS 24H] zona:", i+1, "time:", inicioRiego);
+            int ledid = Boton[getBotonIndex(Zonas[i])].led;
+            byte estado = estadoLedId(ledid);
+            led(ledid, !estado);
+        }
     }
-  }
 }
 
 void inicioTimeLastRiego(S_timeRiego &timeRiego, const char* texto, bool resume) 
@@ -1430,8 +1460,12 @@ void showTimeLastRiego(S_timeRiego &timeRiego)
     // por lo que se contemplan varios subcasos:
     // CASO 1.A: El riego se grabó con fecha real, la mostramos (ej: " 15/09 18:30 (18:45)")
     if (t1 >= UMBRAL_EPOCH) {
+      struct tm tm1 = getTimeStruct(t1);
+      struct tm tm2 = getTimeStruct(t2);
       snprintf(buff, MAXBUFF, " %d/%02d %d:%02d (%d:%02d)",
-                day(t1), month(t1), hour(t1), minute(t1), hour(t2), minute(t2));
+             tm1.tm_mday, tm1.tm_mon + 1, 
+             tm1.tm_hour, tm1.tm_min, 
+             tm2.tm_hour, tm2.tm_min);
     } 
     // CASO 1.B: El riego se grabó con tiempo de arranque, solo podemos calcular y mostrar el tiempo
     //   transcurrido desde que se regó (ej: " hace: 0d 2h y 15m") si tnow SIGUE contando tiempo desde el arranque
@@ -2100,22 +2134,6 @@ void resetESP32() {
     lcd.infoclear(">>  REINICIANDO  <<", 3);
     delay(config.msgdisplaymillis);
     ESP.restart();  // reset ESP32
-}
-
-// convierte timestamp a fecha hora
-String TS2Date(time_t t)
-{
-char buff[32];
-sprintf(buff, "%02d-%02d-%02d %02d:%02d:%02d", day(t), month(t), year(t), hour(t), minute(t), second(t));
-return buff;
-}
-
-// convierte timestamp a hora
-String TS2Hour(time_t t)
-{
-char buff[32];
-sprintf(buff, "%02d:%02d:%02d", hour(t), minute(t), second(t));
-return buff;
 }
 
 
