@@ -1313,8 +1313,8 @@ void initEncoder() {
 
 void setEncoderTime() {
     LOG_TRACE("");
-    rotaryEncoder.setBoundaries(0, 1000, false); //minValue, maxValue, circleValues true|false (when max go to min and vice versa)
-    rotaryEncoder.setEncoderValue(500);
+    rotaryEncoder.setBoundaries(-2147483648, 2147483647, false); // Usamos los límites máximos del tipo long para que sea virtualmente infinito
+    rotaryEncoder.setEncoderValue(0);
     rotaryEncoder.setAcceleration(50); // set the value - larger number = more accelearation; 0 or 1 means disabled acceleration
     rotaryEncoder.enable();
     tmvalue(); //set valor tm.value para ajustar tiempo con procesaencoder
@@ -1323,9 +1323,6 @@ void setEncoderTime() {
 void setEncoderRange(int min, int max, int current, int aceleracion) {
     LOG_DEBUG("min=",min,"max=",max,"current=",current);
     rotaryEncoder.setBoundaries(min, max, false); //minValue, maxValue, circleValues true|false 
-    // ver issue: https://github.com/igorantolic/ai-esp32-rotary-encoder/issues/78
-    //   (rotaryEncoder.setEncoderValue() offset by one when value is negative #78):
-    if (current < 0 && current > min) current = current - 1 ; //ÑAPA hasta que se arregle
     rotaryEncoder.setEncoderValue(current);
     rotaryEncoder.setAcceleration(aceleracion);
     rotaryEncoder.enable();
@@ -1333,7 +1330,7 @@ void setEncoderRange(int min, int max, int current, int aceleracion) {
 
 void setEncoderMenu(int menuitems, int currentitem) {
     LOG_DEBUG("currentitem=",currentitem, "menuitems=",menuitems);
-    rotaryEncoder.setBoundaries(0, menuitems-1, true); //minValue, maxValue, circleValues true|false
+    rotaryEncoder.setBoundaries(0, menuitems, true); //minValue, maxValue, circleValues true|false
     rotaryEncoder.setEncoderValue(currentitem);
     rotaryEncoder.disableAcceleration();
     rotaryEncoder.enable();

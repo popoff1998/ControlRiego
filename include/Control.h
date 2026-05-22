@@ -32,7 +32,7 @@
   #endif
   
   //Librerias de terceros locales en carpeta /lib
-  #include "AiEsp32RotaryEncoder.h" // libreria para el encoder rotatorio AiEsp32RotaryEncoder
+  #include "Encoder.h" // libreria con la clase Encoder para el encoder rotatorio
   #include "MCP23017.h"  // expansor E/S MCP23017
   #include "pitches.h"   // notas musicales
   //Para mis Tipos
@@ -474,7 +474,7 @@
     CountUpDownTimer timer(DOWN); // temporizador cuenta atras
     S_simFlags simular;           // estructura flags para simular errores
     Configure    *configure;
-    AiEsp32RotaryEncoder rotaryEncoder(ENCDT,ENCCLK,-1, -1, ROTARY_ENCODER_STEPS);
+    Encoder rotaryEncoder(ENCDT,ENCCLK);
     Ticker tic_CountDownTimer;       //para llamar a la funcion de cuenta atras del temporizador
     Ticker tic_LedRecon;     //para parpadeo led LEDB con LEDR activo (morado)
     Ticker tic_LedError;     //para parpadeo led ERROR (LEDR)

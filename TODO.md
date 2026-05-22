@@ -92,4 +92,6 @@
 - Menu de portal AP: Parametros pasan a pagina de Configuración Wifi y campos user/pw SCD V3.3
 - Identificacion (opcional) con user/pw al SCD (Domoticz) usando httpclient.setAuthorization V3.3
 - Fecha de ultimo riego: muestra tiempo pasado desde que se produjo si no hay fecha valida (no se salva) V3.3
+- Sustitucion de libreria Timelib.h por funciones locales V3.3
+- Nueva clase Encoder optimizada y corregidos los bugs de AiEspRotaryEncoder V3.3
 

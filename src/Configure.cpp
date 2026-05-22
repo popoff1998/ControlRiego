@@ -344,7 +344,7 @@ int Configure::showMenu(int itemIndex)
     lcd.print(itemL);
     itemIndex++;
   }
-  return __ENDLINE__;
+  return __ENDLINE__ - 1; // maximo indice del menu (excluyendo __ENDLINE__ no seleccionable)
 }      
 
 
