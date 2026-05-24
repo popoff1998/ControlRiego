@@ -832,20 +832,21 @@ void procesaEstadoStandby()
   if (!Estado.reposo && (millis() - standbyTime >= (1000UL * STANDBYSECS))) reposoON();
   // leemos encoder
   procesaEncoderTime();
-  if (checkLogSize) {
-    // gestion del tamano del fichero de log de errores cada LONGINTERVAL minutos
-    gestionarTamanoLog(); // Borra/rota fichero de log de errores si su tamano es excesivo
-    // actualizacion de hora por NTP si no la tenemos actualizada cada LONGINTERVAL minutos
-    if (!timeOK && Estado.connected) setClock(); 
-    checkLogSize = false;
-  }
-  // verificaciones en STANDBY cada VERIFY_INTERVAL segundos
-  //  - verificacion de wifi y recuperacion si procede
-  //  - actualiza y muestra temperatura ambiente
+  // Verificaciones en STANDBY cada VERIFY_INTERVAL segundos
+  //   - verificacion de wifi y recuperacion si procede
+  //   - actualiza y muestra temperatura ambiente
   if (flagV) { 
     VerifyRecoveryWifi(checkRecon); //verificacion de wifi, refresco nivel wifi y recuperacion si procede
     showTemp(); // actualiza y muestra temperatura ambiente
-  }   
+  }
+  // Verificaciones en STANDBY cada LONGINTERVAL minutos   
+  //   - gestion del tamano del fichero de log de errores
+  //   - actualizacion de hora por NTP si no la tenemos actualizada
+  if (checkLogSize) {
+    gestionarTamanoLog(); // Borra/rota fichero de log de errores si su tamano es excesivo
+    if (!timeOK && Estado.connected) setClock(); 
+    checkLogSize = false;
+  }
 }; //fin de procesaEstadoStandby
 
 
@@ -951,9 +952,6 @@ void handleGroupConfig()
 
 // Al pulsar PAUSE estando configurando algo se consolidan los cambios realizados 
 // en la configuracion de tiempo, idx, rango o multirriego.
-// (*) En el caso de configurar un multirriego temporal, el primer PAUSE consolida 
-// pero un segundo PAUSE reiniciaria el proceso de definir el multirriego temporal, 
-// para que el usuario pueda corregir lo que ha introducido antes de lanzarlo.
 void handleParameterConsolidation()
 {
       if(configure->configuringTime()) {
@@ -968,6 +966,9 @@ void handleParameterConsolidation()
       if(configure->configuringMulti()) {
         configure->Multi_process_end();  // actualizamos config con las zonas introducidas
       }
+      // En el caso de configurar un multirriego temporal el primer PAUSE consolida, 
+      // pero un segundo PAUSE reiniciaria el proceso de definir el multirriego temporal, 
+      // para que el usuario pueda corregir lo que ha introducido antes de lanzarlo.
       if(configure->configuringMultiTemp()) {
         if (configure->get_MultiTempReady()) { // si ya se habia consolidado el multirriego temporal, 
            handleEncStopInStandby();           // un nuevo PAUSE reinicia este proceso para que el usuario pueda corregir errores
@@ -1415,29 +1416,25 @@ void inicioTimeLastRiego(S_timeRiego &timeRiego, const char* texto, bool resume)
 void finalTimeLastRiego(S_timeRiego &timeRiego) 
 {
   time_t t = tLoc();
-  char zonaText[7];
-  snprintf(zonaText, sizeof(zonaText), "ZONA%d", zonaEnCurso.znumber);
-  LOG_DEBUG("actualizo lastriegos fin ", zonaText, "timestamp:", t);
+  LOG_DEBUG("actualizo lastriegos fin Zona", zonaEnCurso.znumber, "timestamp:", t);
   timeRiego.final = t;
   timeRiego.total = timeRiego.total + (timeRiego.final - timeRiego.reinicio); //acumulado = acumulado + (intervalo regado)
-  LOG_DEBUG("tiempo total regado hasta ahora ", zonaText, "total:", timeRiego.total / 60.0, "minutos");
+  LOG_DEBUG("tiempo total regado hasta ahora Zona", zonaEnCurso.znumber, "total:", timeRiego.total / 60.0, "minutos");
 }  
 
 void finalTimeGrupo(S_timeRiego &timeRiego, time_t tZona) 
 {
-  char grupoText[7];
-  snprintf(grupoText, sizeof(grupoText), "GRUPO%d", multi.ngrupo);
   // si tZona no es 0, es el tiempo de regado de una zona del grupo -> acumulamos el tiempo de la zona al total del grupo
   if (tZona) {
     timeRiego.total = timeRiego.total + tZona; //total = acumulado hasta ahora + tiempo ultima zona regada
-    LOG_DEBUG("tiempo regado hasta ahora ", grupoText, "acumulado:", timeRiego.total / 60.0, "minutos");
+    LOG_DEBUG("tiempo regado hasta ahora Grupo", multi.ngrupo, "acumulado:", timeRiego.total / 60.0, "minutos");
   }
   // si tZona es 0, significa que estamos en fin de riego de grupo -> registramos el timestamp final del grupo
   else {
     time_t t = tLoc();
-    LOG_DEBUG("actualizo lastriegos fin ", grupoText, "timestamp:", t);
+    LOG_DEBUG("actualizo lastriegos fin Grupo", multi.ngrupo, "timestamp:", t);
     timeRiego.final = t;
-    LOG_DEBUG("tiempo total riego ", grupoText, "total:", timeRiego.total / 60.0, "minutos");
+    LOG_DEBUG("tiempo total riego Grupo", multi.ngrupo, "total:", timeRiego.total / 60.0, "minutos");
   }
 }  
 
@@ -1595,13 +1592,13 @@ void procesaEncoderConfig()
   if (configure->configuringTime()) procesaEncoderTime(); //encoder ajusta tiempo de riego por defecto
 }
   
-//lee encoder para actualizar el clock
+//lee encoder para actualizar el tiempo de riego
 void procesaEncoderTime()
 {
-  //* Ajuste de tiempo de riego en STANDBY o CONFIGURANDO tiempo de riego por defecto
+  // Ajuste de tiempo de riego, en estado STANDBY o CONFIGURANDO tiempo de riego por defecto,
   // encoder ajusta tiempo (mm:ss) de MINSECONDS a MAXMINUTES
-  // en segundos hasta 59 y a partir de ahí en minutos enteros
-  // por lo tanto uno de los dos (mm o ss) debe ser 0.
+  // en segundos hasta 59 y a partir de ahí en minutos enteros.
+  // Por lo tanto uno de los dos (mm o ss) debe ser 0.
   // tm.value recoge el valor del campo distinto de 00 que se ajusta  
   int encvalue = rotaryEncoder.encoderChanged();  //devuelve cuanto y en que sentido se ha movido el encoder
   if(!encvalue) return; 

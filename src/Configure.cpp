@@ -189,6 +189,7 @@ void Configure::Multi_process_update()
 // actualizamos config con las zonas introducidas
 void Configure::Multi_process_end()
 {
+      saveConfig = true;
       char grupoText[21];
       if (multi.w_size) {  //solo si se ha pulsado alguna zona
         // actualizamos config con tamaño y zonas introducidas para el grupo
@@ -197,28 +198,22 @@ void Configure::Multi_process_end()
         for (int i=0; i<multi.w_size; ++i) {
           config.group[g-1].zNumber[i] = multi.w_zserie[i];
         }
-
         LOG_INFO("Config updated : GRUPO",g,"tamaño:",*multi.size,"(",multi.desc,")");
         #ifdef DEVELOP
         printMultiGroup( g-1);
         #endif
         snprintf(grupoText, sizeof(grupoText), "Actualizado GRUPO%d", _actualGrupo);
-        lcd.info(grupoText,2);
-        lcd.clear(BORRA2H);
-        sonido.bipOK();
-        delay(config.msgdisplaymillis);
       }
       else {   //se borra contenido del grupo
         *multi.size = 0;
-        
         LOG_INFO("vaciado GRUPO",_actualGrupo,"tamaño:",*multi.size,"(",multi.desc,")");
         snprintf(grupoText, sizeof(grupoText), ">> Vaciado GRUPO%d <<", _actualGrupo);
-        lcd.info(grupoText,2);
-        lcd.clear(BORRA2H);
-        sonido.bipOK();
-        delay(config.msgdisplaymillis);
       }
-      saveConfig = true;
+      
+      lcd.info(grupoText,2);
+      lcd.clear(BORRA2H);
+      sonido.bipOK();
+      delay(config.msgdisplaymillis);
       ultimosRiegos(HIDE);
       led(Boton[getBotonIndex(*multi.id)].led,OFF);
       this->menu(0);  // vuelve a mostrar menu de configuracion, primera linea

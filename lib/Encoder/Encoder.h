@@ -15,7 +15,7 @@ class Encoder
 private:
     portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
 
-    // Contadores de hardware puros (Modificados únicamente en la ISR)
+    // Contador de hardware puro
     volatile long rawEncoderPos = 0; 
 
     // Variables internas de control para el cálculo del menú e hilo principal

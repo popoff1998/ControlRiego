@@ -12,7 +12,7 @@ void IRAM_ATTR Encoder::readEncoder_ISR()
 
     portENTER_CRITICAL_ISR(&(this->mux));
     
-    this->old_AB = (this->old_AB << 2) & 0x0C; // Desplazamos el estado anterior a la izquierda y limpiamos los bits inferiores 
+    this->old_AB = (this->old_AB << 2) & 0x0C; // Desplazamos el estado anterior a la izquierda y limpiamos el resto de bits 
     int8_t ENC_PORT = ((digitalRead(this->encoderBPin)) ? (1 << 1) : 0) | ((digitalRead(this->encoderAPin)) ? (1 << 0) : 0);
     this->old_AB |= (ENC_PORT & 0x03); // Combinamos el nuevo estado con el anterior para obtener un valor entre 0 y 15 que representa la transición 
     // Suma la transición calculada según la tabla de estados
