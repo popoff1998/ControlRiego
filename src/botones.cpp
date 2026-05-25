@@ -125,6 +125,7 @@ void wifiClearSignal(uint veces)
   }
 }
 
+// Hace parpadear un led PWM (RGB) segun su estado actual (al ser llamada desde el Ticker)
 void parpadeoLedPWM(int id) {
   bool estadoActual;
   if (id == LEDR) estadoActual = sLEDR;
@@ -134,11 +135,21 @@ void parpadeoLedPWM(int id) {
   ledPWM(id, !estadoActual);
 }
 
+// Hace parpadear un led de zona segun su estado actual
 void parpadeoLedZona(int ledid)
 {
-  byte estado = estadoLedId(ledid);
-  led(ledid,!estado);
+  led(ledid,!estadoLedId(ledid));
 }
+
+// Hace parpadear los leds de zona pasados en el array
+void parpadeoLedZonas(S_ledsParpadeo* datos)
+{
+    for(uint8_t i = 0; i < datos->cantidad; i++) { 
+        int ledid = datos->leds[i];
+        led(ledid, !estadoLedId(ledid));
+    }
+}
+
 
 // Versión para parpadeo RAPIDO, NORMAL y LENTO de leds PWM (RGB) o de zonas
 void setParpadeo(Ticker &t, velocidad_parpadeo vel, void (*f)(int), int id) {

@@ -1337,9 +1337,8 @@ void setEncoderMenu(int menuitems, int currentitem) {
     rotaryEncoder.enable();
 }
 
-//muestra dia/hora actual y lo regado desde las 0h/ultimas24h encendiendo sus leds o apagandolos
+//muestra dia/hora actual y lo regado desde las 0h/ultimas24h encendiendo sus leds, o apagandolos
 void ultimosRiegos(int modo) {
-  LOG_TRACE("modo:", modo);
   static const char* const MESES[] = {"Ene.", "Feb.", "Mar.", "Abr.", "May.", "Jun.", "Jul.", "Ago.", "Sep.", "Oct.", "Nov.", "Dic."};
   switch(modo) {
     case HIDE:
@@ -1352,46 +1351,36 @@ void ultimosRiegos(int modo) {
       if (!timeOK) { lcd.info("   <<< NO TIME >>>", 3); sonido.bipKO(); return; }
       time_t t = tLoc();
       // Si la fecha actual es invalida (anterior al 1/1/2026) mensaje de error y salimos 
-      if (t < UMBRAL_EPOCH) { lcd.info(" << NO VALID DATE >>", 3); sonido.bipKO(); return; }
+      if (t < UMBRAL_EPOCH) { lcd.info(" << INVALID DATE >>", 3); sonido.bipKO(); return; }
       struct tm tm_now = getTimeStruct(t);  // obtenemos estructura tm con la fecha y hora local
       sprintf(buff, " %d", tm_now.tm_mday);
       lcd.info(buff, 3);
       lcd.info(MESES[tm_now.tm_mon], 4); // tm_mon ya es 0-11, perfecto para el array
       lcd.displayTime(tm_now.tm_hour, tm_now.tm_min);
-      // Lógica de LEDs
+      // Enciende o hace parpadear los leds de las zonas que se han regado
+      static S_ledsParpadeo ledsParpadeo; // static: no se borra al salir de la función para poder usarla en parpadeoLedZonas
+      ledsParpadeo.cantidad = 0;
+      time_t limit24h = t - SECS_PER_DAY;
       time_t midnight = previousMidnight(t); // obtenemos timestamp de la última medianoche (hora local)
-      // Encendemos leds de las zonas que se han regado desde medianoche hasta ahora
-      for(uint i=0; i<NUMZONAS; i++) {
-        if(lastRiegos[i].inicio > midnight) {
-            LOG_DEBUG("[ULTIMOSRIEGOS] zona:", i+1, "time:", lastRiegos[i].inicio);
-            led(Boton[getBotonIndex(Zonas[i])].led, ON);
+        // Encendemos leds de las zonas que se han regado desde medianoche hasta ahora
+        for(uint i=0; i<NUMZONAS; i++) {
+          if(lastRiegos[i].inicio > midnight) {
+              LOG_DEBUG("[ULTIMOSRIEGOS medianoche] zona:", i+1, "time:", lastRiegos[i].inicio);
+              led(Boton[getBotonIndex(Zonas[i])].led, ON);
+            }
+          else if (config.lastr24 && lastRiegos[i].inicio > limit24h) {
+              LOG_DEBUG("[ULTIMOSRIEGOS 24h] zona:", i+1, "time:", lastRiegos[i].inicio);
+              ledsParpadeo.leds[ledsParpadeo.cantidad] = Boton[getBotonIndex(Zonas[i])].led;
+              ledsParpadeo.cantidad++;
+          }
         }
-      }
-      if (!config.lastr24) break;
-      //activa parpadeo leds zonas regadas desde hace 24h y medianoche
-      static S_last24h tData; // Instancia estática para que persista al salir de la función
-      tData.limit24h = t - SECS_PER_DAY;
-      tData.midnight = midnight;
-      // Pasamos la dirección de memoria (&tData) de la estructura (4 bytes, Ticker no admite pasar un valor de mas tamaño)
-      tic_LedZonas24h.attach(RAPIDO/10.0, parpadeoLedZonas24h, &tData);
+      // Activa parpadeo leds zonas regadas desde hace 24h y medianoche, pasando la estructura con los leds
+      // por su dirección de memoria &ledsParpadeo (4 bytes, Ticker no admite pasar un valor de mas tamaño)
+      if (ledsParpadeo.cantidad > 0) tic_LedZonas24h.attach(RAPIDO/10.0, parpadeoLedZonas, &ledsParpadeo);
       break;
-  }      
+    }  
 }
 
-// Hace parpadear los leds de las zonas que se han regado en las últimas 24h pero antes de la medianoche de hoy
-void parpadeoLedZonas24h(S_last24h* tData)
-{
-    for(uint i=0; i < NUMZONAS; i++) { 
-        time_t inicioRiego = lastRiegos[i].inicio;
-        // Si el riego ocurrió en las últimas 24h pero ANTES de la medianoche de hoy
-        if(inicioRiego > tData->limit24h && inicioRiego <= tData->midnight) {
-            LOG_TRACE("[ULTIMOSRIEGOS 24H] zona:", i+1, "time:", inicioRiego);
-            int ledid = Boton[getBotonIndex(Zonas[i])].led;
-            byte estado = estadoLedId(ledid);
-            led(ledid, !estado);
-        }
-    }
-}
 
 void inicioTimeLastRiego(S_timeRiego &timeRiego, const char* texto, bool resume) 
 {

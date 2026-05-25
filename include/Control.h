@@ -304,11 +304,11 @@
     time_t total; 
   } ;
 
-  struct S_last24h {
-    time_t limit24h; 
-    time_t midnight;
-  } ;
-
+// Definición de la estructura de control para el Ticker de parpadeo de los leds regados en ultimas 24h
+struct S_ledsParpadeo {
+    int leds[NUMZONAS];
+    uint8_t cantidad;
+};
   // variables contador de tiempo
   struct S_tm {
     uint8_t minutes = 0;
@@ -634,7 +634,7 @@ void memoryInfo(void);
 void pararLedsWifiAP();
 void parpadeoLedPWM(int id);
 void parpadeoLedZona(int);
-void parpadeoLedZonas24h(S_last24h*);
+void parpadeoLedZonas(S_ledsParpadeo*);
 S_BOTON *parseInputs(bool);
 bool parseSCDuri(const String &uri);
 void printCharArray(char*, size_t);
