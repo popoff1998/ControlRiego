@@ -107,8 +107,8 @@ void Configure::Range_process_start(int min, int max, int aceleracion, int range
       tm.value = *configValuep;
       setEncoderRange(min, max, tm.value, aceleracion);
 
-      LOG_DEBUG("[ConF] configurando RANGO Item:",_currentItem, "valor actual:",tm.value,"_data_pos:",_data_pos[_currentItem]);
-      LOG_DEBUG("[ConF]                    rangefactor:",_rangeFactor);
+      LOG_DEBUG("[ConF] configurando Rango: '",_currenItemText,"' valor actual:", tm.value);
+      LOG_TRACE("[ConF]   min:",min," max:",max," aceleracion:",aceleracion," rangefactor:",rangefactor, "_data_pos:",_data_pos[_currentItem]);
       lcd.setCursorBlink(_data_pos[_currentItem],1);
       sonido.bip(1);
 }
@@ -148,6 +148,7 @@ void Configure::Multi_process_start(int grupo)
 //  configuramos grupo multirriego temporal
 void Configure::MultiTemp_process_start()
 {
+      // LOG_DEBUG("MultiTemp_process_start: multi.w_size=",multi.w_size);  
       this->reset();
       _configuringMultiTemp = true;
       _actualGrupo = 0;
@@ -173,6 +174,7 @@ void Configure::configureMulti_display()
 
 void Configure::Multi_process_update()
 {
+      // LOG_DEBUG("Multi_process_update: boton->bID=", boton->bID, "multi.w_size=",multi.w_size);  
       int zIndex = getZonaIndex(boton->bID);
       if (multi.w_size < ZONASXGRUPO) {  //max. zonas por grupo
         multi.zserie_boton[multi.w_size] = boton->bID;  // bId de la zona
@@ -219,24 +221,24 @@ void Configure::Multi_process_end()
       this->menu(0);  // vuelve a mostrar menu de configuracion, primera linea
 }
 
-// Mostramos en pantalla mensaje para iniciarlo
+// Mostramos en pantalla mensaje para iniciarlo y activamos flag para que al salir de ConF se lance multirriego temporal
 void Configure::MultiTemp_process_end()
 {
-      if (multi.w_size) {  //solo si se ha pulsado alguna zona
-        _MultiTempReady = true;  // flag para indicar que al salir de ConF se lanzará el multirriego temporal con las zonas configuradas
+      // LOG_DEBUG("MultiTemp_process_end: multi.w_size=",multi.w_size);
+      if (!multi.w_size) return;  // si no se ha definido ninguna zona no hacemos nada  
+      _MultiTempReady = true;  // al salir de ConF se lanzará el multirriego temporal con las zonas configuradas
 
-        LOG_INFO("process_end grupo TEMPORAL : GRUPO",_actualGrupo,"tamaño:",*multi.size,"(",multi.desc,")");
-        sonido.bipOK();
-        lcd.info("  >> libere STOP <<",1);
-        lcd.info("para comenzar riego",2);
-        lcd.info("de las zonas:",3);
-      }
+      LOG_INFO("process_end grupo TEMPORAL : GRUPO",_actualGrupo,"tamaño:",*multi.size);
+      sonido.bipOK();
+      lcd.info("  >> libere STOP <<",1);
+      lcd.info("para comenzar riego",2);
+      lcd.info("de las zonas:",3);
 }
 
 void Configure::toggle(bool &value)
 {
       value = !value;
-      LOG_DEBUG("item", _currenItemText,"-> New value:", value);
+      LOG_DEBUG("item '", _currenItemText,"' -> New value:", value);
       lcd.setCursor(_data_pos[_currentItem],1);
       lcd.print(value ? "ON " : "OFF");
       sonido.bip(2);
@@ -302,7 +304,7 @@ int Configure::showMenu(int itemIndex)
 
   _currentItem = itemIndex;
   _currenItemText = parteFija[_currentItem];
-  LOG_DEBUG("_currentitem=",_currentItem,"_currenItemText=",parteFija[_currentItem]);
+  LOG_DEBUG("item:",_currentItem,"'",_currenItemText,"'");
 
   // Muestra menu (4 lineas) en pantalla
   lcd.clear();

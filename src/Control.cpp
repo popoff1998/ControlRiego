@@ -532,7 +532,6 @@ void handleStopInStandby() {
 void handleEncStopInStandby() {
     setMultiTemp(NEWMTEMP);  // apunta estructura multi a grupo temporal
     setEstado(CONFIGURANDO,1);
-    simulaPausePrev = true; // para evitar que al entrar en configuracion se simule un pause por el encoderSW pulsado
     configure->MultiTemp_process_start();
 }
 
@@ -917,7 +916,8 @@ void procesaEstadoConfigurando()
             break;
         case bSTOP:
             if(!boton->estado) {    //release STOP
-              if(configure->configuringMultiTemp()) handleStartMultiTemp(); //si configurando multirriego temporal: STOP lanza el riego
+              if(configure->configuringMultiTemp() && configure->get_MultiTempReady()) // si se han definido zonas en el multirriego temporal
+                  startMultirriego(); // prepara comienzo multirriego temporal en el siguiente paso del loop
               configure->exit();  // salvamos parametros a fichero si procede y salimos de ConF
             }
             break;
@@ -974,15 +974,8 @@ void handleParameterConsolidation()
            handleEncStopInStandby();           // un nuevo PAUSE reinicia este proceso para que el usuario pueda corregir errores
            LOG_DEBUG("reiniciando definicion de multirriego temporal por nuevo PAUSE");
         }
-        else configure->MultiTemp_process_end();  // preparamos lanzamiento multirriego temporal
+        else if (multi.w_size) configure->MultiTemp_process_end();  // primer PAUSE y hay zonas: preparamos lanzamiento multirriego temporal
       }
-}
-
-void handleStartMultiTemp()
-{
-  if (configure->get_MultiTempReady()) {  //solo si se ha guardado alguna zona iniciamos riego grupo temporal
-      startMultirriego(); // prepara comienzo multirriego temporal en el siguiente paso del loop
-  }    
 }
 
 
@@ -1009,6 +1002,8 @@ void setStateMachine(m_estados estado, estado_tipos tipo)
   if(Estado.reposo) reposoOFF();     //por si salimos de stop antinenes
   rotaryEncoder.disable();  // para que no cuente pasos salvo que lo habilitemos
   if (estado == STOP || (estado == STANDBY && !multi.riegoON)) resetFlags(); //reset flags riegos en curso
+  if (estado == CONFIGURANDO) simulaPauseIfEncoderSW(INITIALIZE); // para evitar que al entrar en configuracion se simule un pause por el encoderSW pulsado
+
   standbyTime = millis(); //reseteamos tiempo de inactividad    
 }
 

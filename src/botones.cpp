@@ -334,8 +334,10 @@ S_BOTON *parseInputs(bool read)
  * En modo configuracion, encoderSW simula pulsación de PAUSE
  * (selecciona item menu, valida cambios, etc)
  */
-void simulaPauseIfEncoderSW() {
-    // static bool simulaPausePrev = false; 
+void simulaPauseIfEncoderSW(bool initialize) {
+    static bool simulaPausePrev = false;
+    // Si nos piden inicializar, actualizamos el estado anterior y salimos
+    if (initialize) { simulaPausePrev = encoderSW; return; } 
     int i = getBotonIndex(bPAUSE);         
     // 1. TRANSICIÓN: PULSO (De false a true)
     if (encoderSW && !simulaPausePrev) {
@@ -348,8 +350,8 @@ void simulaPauseIfEncoderSW() {
     // 2. TRANSICIÓN: LIBERACIÓN (De true a false)
     if (!encoderSW && simulaPausePrev) {
         simulaPausePrev = false;
-        Boton[i].estado = false; // seguramente no es necesario, pero por claridad
-        LOG_DEBUG("bPAUSE LIBERACIÓN simulada.");
+        // Boton[i].estado = false; // seguramente no es necesario, pero por claridad
+        // LOG_DEBUG("bPAUSE LIBERACIÓN simulada.");
     } 
 }
 

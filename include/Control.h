@@ -224,6 +224,7 @@
   #define RESUME 1
   #define SHORT 1
   #define NEWMTEMP 1
+  #define INITIALIZE 1
 
   // constexpr calculado por el preprocesador y no modificable en tiempo de ejecucion
   constexpr uint16_t Zonas[] = {_ZONAS};  // array de todos los botones de zonas de riego disponibles
@@ -492,7 +493,6 @@ struct S_ledsParpadeo {
     bool timeOK = false;
     bool factorRiegosLeido = false;
     bool encoderSW = false;
-    bool simulaPausePrev = false;
     bool checkRecon = false; // verificaciones de conexion cada RECONNECTINTERVAL minutos
     bool checkLogSize = false; // verificaciones de tamano log errores cada LONGINTERVAL minutos
     bool webServerAct = false;
@@ -529,7 +529,6 @@ struct S_ledsParpadeo {
     extern bool saveConfig;
     extern bool checkRecon;
     extern bool encoderSW;
-    extern bool simulaPausePrev;
     extern const char *parmFile; 
     extern const char *backupParmFile;
     extern const char *lastRiegosFile;
@@ -599,7 +598,6 @@ void handlePauseInPause();
 void handlePauseInRegando();
 void handlePauseInStandby();
 void handlePauseInStop();
-void handleStartMultiTemp();
 void handleStopInError();
 void handleStopInRegandoPauseTerm();
 void handleStopInStandby();
@@ -707,7 +705,7 @@ void showInfoZona(int zIndex);
 void showTemp(void);
 void showTimeLastRiego(S_timeRiego&);
 void showWifiLevel(int wifilevel);
-void simulaPauseIfEncoderSW();
+void simulaPauseIfEncoderSW(bool initialize = false);
 void startConfigPortal();
 bool startMultirriego();
 void startZoneWatering();
