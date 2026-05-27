@@ -12,7 +12,7 @@
   }
 #endif
 
-// Devuelve grupo pulsado/seleccionado
+// Devuelve grupo pulsado/seleccionado y lo apunta en multi.
 int setGrupo() {
     int n_grupo;
     #ifdef GRP4
@@ -27,12 +27,12 @@ int setGrupo() {
 }
 
 // Asigna en multi valores o apuntadores de/a config del grupo cuyo bId(boton) se recibe
-// y devuelve el numero del grupo (1...NUMGRUPOS+1) , 0 en caso de que no exista
+// y devuelve el numero del grupo (1...NUMGRUPOS) , -1 en caso de que no exista (antes para el sistema)
 int setMultibyId(uint16_t id)
 {
   LOG_DEBUG("Recibe id=0x",DebugLogBase::HEX,id);
 
-  for(int i=0; i<NUMGRUPOS+1; i++)
+  for(int i=0; i<NUMGRUPOS; i++)
   {
     if(Grupos[i] == id) {
       multi.id = &Grupos[i];

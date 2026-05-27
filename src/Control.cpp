@@ -555,6 +555,7 @@ void procesaBotonMultirriego()
   if (multi.riegoON)  //ya hay un multirriego en curso,, ignoramos boton
       return;
   int n_grupo = setGrupo(); //apunta estructura multi al grupo seleccionado
+  // assert(n_grupo > 0 && n_grupo <= NUMGRUPOS); // seguridad en modo desarrollo para asegurar que el indice de grupo es correcto
   if (Estado.estado == STANDBY) {
     LOG_DEBUG("en MULTIRRIEGO, encoderSW status  :", encoderSW, "grupo seleccionado:", n_grupo, "multi.desc:", multi.desc, "multi.size:", *multi.size);
     if (encoderSW) handleEncGrupoInStandby(n_grupo);  //muestra info del grupo
@@ -945,6 +946,7 @@ void procesaEstadoConfigurando()
 void handleGroupConfig()
 {
       int n_grupo = setGrupo(); //apunta estructura multi al grupo seleccionado
+      // assert(n_grupo > 0 && n_grupo <= NUMGRUPOS); // seguridad en modo desarrollo: verificamos que el grupo seleccionado es correcto
       //Configuramos el grupo de multirriego apuntado en multi
       rotaryEncoder.disable();
       configure->Multi_process_start(n_grupo);
@@ -999,8 +1001,8 @@ void setStateMachine(m_estados estado, estado_tipos tipo)
   Estado.recoverableError = false;
   Estado.errorInformado = false;
   Boton[getBotonIndex(bPAUSE)].flags.holddisabled = true; //Deshabilitamos el hold de Pause
-  if(Estado.reposo) reposoOFF();     //por si salimos de stop antinenes
   rotaryEncoder.disable();  // para que no cuente pasos salvo que lo habilitemos
+  if(Estado.reposo) reposoOFF();     //por si salimos de stop antinenes
   if (estado == STOP || (estado == STANDBY && !multi.riegoON)) resetFlags(); //reset flags riegos en curso
   if (estado == CONFIGURANDO) simulaPauseIfEncoderSW(INITIALIZE); // para evitar que al entrar en configuracion se simule un pause por el encoderSW pulsado
 
@@ -1403,7 +1405,7 @@ void finalTimeLastRiego(S_timeRiego &timeRiego)
   LOG_DEBUG("actualizo lastriegos fin Zona", zonaEnCurso.znumber, "timestamp:", t);
   timeRiego.final = t;
   timeRiego.total = timeRiego.total + (timeRiego.final - timeRiego.reinicio); //acumulado = acumulado + (intervalo regado)
-  LOG_DEBUG("tiempo total regado hasta ahora Zona", zonaEnCurso.znumber, "total:", timeRiego.total / 60.0, "minutos");
+  LOG_DEBUG("regado hasta ahora Zona", zonaEnCurso.znumber, "total:", timeRiego.total / 60.0, "minutos");
 }  
 
 void finalTimeGrupo(S_timeRiego &timeRiego, time_t tZona) 
@@ -1411,14 +1413,14 @@ void finalTimeGrupo(S_timeRiego &timeRiego, time_t tZona)
   // si tZona no es 0, es el tiempo de regado de una zona del grupo -> acumulamos el tiempo de la zona al total del grupo
   if (tZona) {
     timeRiego.total = timeRiego.total + tZona; //total = acumulado hasta ahora + tiempo ultima zona regada
-    LOG_DEBUG("tiempo regado hasta ahora Grupo", multi.ngrupo, "acumulado:", timeRiego.total / 60.0, "minutos");
+    LOG_DEBUG("regado hasta ahora Grupo", multi.ngrupo, "acumulado:", timeRiego.total / 60.0, "minutos");
   }
   // si tZona es 0, significa que estamos en fin de riego de grupo -> registramos el timestamp final del grupo
   else {
     time_t t = tLoc();
     LOG_DEBUG("actualizo lastriegos fin Grupo", multi.ngrupo, "timestamp:", t);
     timeRiego.final = t;
-    LOG_DEBUG("tiempo total riego Grupo", multi.ngrupo, "total:", timeRiego.total / 60.0, "minutos");
+    LOG_DEBUG("total riego Grupo", multi.ngrupo, ":", timeRiego.total / 60.0, "minutos");
   }
 }  
 
@@ -1770,16 +1772,12 @@ void resetLeds()
   setLedStatus();                   //restablece led RGB a estado actual  
 }
 
-//Pone a false diversos flags de estado
+//Reset diversos flags de estado
 void resetFlags()
 {
   LOG_TRACE("");
-  multi.riegoON  = false;
-  multi.temporal = false;
-  multi.noFactorizado  = false;
-  multi.semaforo = false;
-  multi.size = nullptr; // para detectar error en caso de intentar usar multi sin haberla inicializado
-  saveRiego(0,0,0,0); // reseteamos estado de riego salvado
+  multi = S_MULTI{}; // reseteamos estado de multirriego a valores iniciales
+  riegoSaved = S_Riego_estado{}; // reseteamos estado de riego salvado a valores iniciales
   riegoFromPause = false;
   webServerAct = false;
   simular.all_simFlags = false;

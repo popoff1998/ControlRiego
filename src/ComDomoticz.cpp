@@ -189,7 +189,7 @@ int convertFactorString(const String &response)
  */
 String cmdtoSCD(const char* mandato)
 {
-  LOG_DEBUG(" comando: ", mandato);
+  LOG_DEBUG(" mandato: ", mandato);
   String message = COMMANDPRF + String(mandato);
   return httpGetDomoticz(message);
 }

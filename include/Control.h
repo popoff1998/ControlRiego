@@ -370,19 +370,19 @@ struct S_ledsParpadeo {
   // (algunos son pointer al grupo correspondiente en config *)
   struct S_MULTI {
     // campos de estado del multirriego en curso
-    bool riegoON  = false;  // multirriego activo
-    bool temporal = false;  // grupo multirriego es temporal
-    bool noFactorizado  = false;  // grupo multirriego es dinámico (a partir de un riego de zona individual, no factorizado)
-    bool semaforo = false;  // procesar siguiente zona del multirriego
-    int  actualIndex;            // variable auxiliar durante el riego: indice en multi.zserie_boton de la zona que se esta regando actualmente
+    bool riegoON  = false;          // multirriego activo
+    bool temporal = false;          // grupo multirriego es temporal
+    bool noFactorizado  = false;    // grupo multirriego es dinámico (a partir de un riego de zona individual, no factorizado)
+    bool semaforo = false;          // procesar siguiente zona del multirriego
+    int  actualIndex = 0;           // variable auxiliar durante el riego: indice en multi.zserie_boton de la zona que se esta regando actualmente
     // campos de configuración del grupo multirriego en curso 
-    int  ngrupo;            // numero del grupo al que apunta
-    uint16_t zserie_boton[16];     //contiene los id de las zonas del grupo (bZona_x)
-    uint16_t w_zserie[16];  //contiene las zonas del grupo (Zona_x)
-    int  w_size;            //variable auxiliar durante ConF: numero de zonas configuradas en el grupo (tamaño del grupo)
-    const uint16_t *id;     //apuntador al id del boton/selector grupo en Grupos[]. Solo lectura.
-    int *size;              //apuntador a config con el tamaño del grupo
-    const char *desc;       //apuntador a config con la descripcion del grupo. Solo lectura.
+    int  ngrupo = -1;            // numero del grupo al que apunta (no valido por defecto, se asigna al iniciar el riego o la configuracion del grupo)
+    uint16_t zserie_boton[16]= {0}; //contiene los id de las zonas del grupo (bZona_x)
+    uint16_t w_zserie[16]= {0};     //contiene las zonas del grupo (Zona_x)
+    int  w_size = 0;                //variable auxiliar durante ConF: numero de zonas configuradas en el grupo (tamaño del grupo)
+    const uint16_t *id= nullptr;    //apuntador al id del boton/selector grupo en Grupos[]. Solo lectura.
+    int *size= nullptr;             //apuntador a config con el tamaño del grupo
+    const char *desc= nullptr;      //apuntador a config con la descripcion del grupo. Solo lectura.
   } ;
 
 // estructura para la zona activa (regando, terminando, parando, a parar...etc)  
@@ -488,13 +488,13 @@ struct S_ledsParpadeo {
     S_Riego_estado riegoSaved; // estructura con el estado del riego que se ha cancelado
     S_zonaEnCurso zonaEnCurso; // estructura con el estado de la zona en curso (regando, terminando, parando, a parar...etc)
     uint factorRiegos[NUMZONAS];
-    bool flagV = OFF;
     bool flagVtimer = OFF;
+    bool flagV = OFF;  // activa vericifaciones cada VERIFY_INTERVAL segundos
+    bool checkRecon = false; // activa verificaciones cada RECONNECTINTERVAL minutos
+    bool checkLogSize = false; // activa verificaciones cada LONGINTERVAL minutos
     bool timeOK = false;
     bool factorRiegosLeido = false;
     bool encoderSW = false;
-    bool checkRecon = false; // verificaciones de conexion cada RECONNECTINTERVAL minutos
-    bool checkLogSize = false; // verificaciones de tamano log errores cada LONGINTERVAL minutos
     bool webServerAct = false;
     bool saveConfig = false;
     bool riegoFromPause = false;

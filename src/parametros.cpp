@@ -265,7 +265,7 @@ bool deleteDatos()
 //init minimo de config para evitar fallos en caso de no poder cargar parametros de ficheros
 void zeroConfig() {
   LOG_TRACE("");
-  config = Config_parm(); //reset estructura config a valores por defecto
+  config = Config_parm{}; //reset estructura config existente a valores por defecto
 }
 
 void cleanFS() {
