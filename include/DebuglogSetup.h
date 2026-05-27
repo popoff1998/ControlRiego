@@ -16,7 +16,6 @@
     // #define EXTRATRACE
   #endif
 
-  extern bool timeOK;
   #ifdef RELEASE
     //Comportamiento general para uso normal . DESCOMENTAR LO QUE CORRESPONDA
     // #define DEBUGLOG_DISABLE_LOG

@@ -76,6 +76,7 @@
     #define RECONNECTINTERVAL   1      // tiempo en minutos para intentar reconexion a la wifi
     #define LONGINTERVAL        2      // tiempo en minutos para verificaciones largo plazo 
   #endif
+  #define MAX_FILE_SIZE       4096    // tamaño maximo de los ficheros de parametros, backup, riegos, logs... en bytes (4KB)
   #define NTPSERVER_SPAIN     "es.pool.ntp.org"  // servidor NTP por defecto
   #define TZ_Europe_Madrid    "CET-1CEST,M3.5.0,M10.5.0/3"  // time zone en formato TZ posix
   #define NTP_TIMEOUT         7000    // tiempo de espera para recibir respuesta del servidor NTP en mseg
@@ -231,6 +232,13 @@
   constexpr uint16_t Grupos[]  = {_GRUPOS}; // array de todos los botones de grupos disponibles
   constexpr int NUMZONAS = ELEMENTCOUNT(Zonas); // numero de zonas (botones riego individual)
   constexpr int NUMGRUPOS = ELEMENTCOUNT(Grupos); // numero de grupos multirriego
+  constexpr const char *parmFile         = "/datos/config_parm.json";   // fichero de parametros activos
+  constexpr const char *backupParmFile   = "/datos/config_backup.json"; // fichero de respaldo de los parametros
+  constexpr const char *lastRiegosFile   = "/datos/lastRiegos.json";    // fichero de ultimos riegos de zonas
+  constexpr const char *lastGruposFile   = "/datos/lastGrupos.json";    // fichero de ultimos riegos de grupos
+  constexpr const char *logErrorFile     = "/datos/logError.txt";       // fichero de log de errores
+  constexpr const char *logErrorFilePrev = "/datos/logError_prev.txt";  // fichero de log de errores previo (renombrado al superar tamano maximo)
+
 
 /* --------------------------------------------------------------------------------------
  *                                Estructuras
@@ -458,12 +466,6 @@ struct S_ledsParpadeo {
 
     int NUM_S_BOTON = ELEMENTCOUNT(Boton);
     
-    const char *parmFile         = "/datos/config_parm.json";   // fichero de parametros activos
-    const char *backupParmFile   = "/datos/config_backup.json"; // fichero de respaldo de los parametros
-    const char *lastRiegosFile   = "/datos/lastRiegos.json";    // fichero de ultimos riegos de zonas
-    const char *lastGruposFile   = "/datos/lastGrupos.json";    // fichero de ultimos riegos de grupos
-    const char *logErrorFile     = "/datos/logError.txt";       // fichero de log de errores
-    const char *logErrorFilePrev = "/datos/logError_prev.txt";  // fichero de log de errores previo (renombrado al superar tamano maximo)
     S_MULTI multi;     //estructura con variables del grupo de multirriego activo
     S_BOTON  *boton;   // apuntador al boton en curso en la matriz Boton[]
     S_Estado Estado;   // estructura con el estado actual de la maquina de estados
@@ -527,14 +529,8 @@ struct S_ledsParpadeo {
     extern S_simFlags simular;
     extern bool webServerAct;
     extern bool saveConfig;
-    extern bool checkRecon;
     extern bool encoderSW;
-    extern const char *parmFile; 
-    extern const char *backupParmFile;
-    extern const char *lastRiegosFile;
-    extern const char *lastGruposFile;
-    extern const char *logErrorFile;
-    extern const char *logErrorFilePrev;
+    extern bool timeOK;
     extern char buff[];
   #endif
 
@@ -764,6 +760,14 @@ bool loadTablaFromFile(const char* filename, const char* arrayName, T* tabla, si
         LOG_WARN("Error abriendo el fichero para leer", arrayName);
         return false;
     }
+    size_t fileSize = file.size();
+
+    if (fileSize == 0 || fileSize > MAX_FILE_SIZE) {
+        file.close();
+        LOG_ERROR("ERROR: Tamaño de", filename, "no válido:", fileSize, "bytes");
+        return false;
+    }
+
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, file);
     file.close();
@@ -788,7 +792,7 @@ bool loadTablaFromFile(const char* filename, const char* arrayName, T* tabla, si
 
 // *****************************************************************************************
 // Ejemplo de template con proceso variable al que se le pasa la funcion a ejecutar
-// que puede tener varias instrucciones (lambda function)
+// que puede tener varias instrucciones (lambda function) y serviria para distintos templates
 // ***************************************************************************************** 
 
 template<typename T, typename F>
@@ -821,7 +825,7 @@ void procesaArray(T* array, size_t size, F func) {
 #define SECS_PER_DAY 86400UL
 
 // Función interna para obtener la estructura tm de una variable time_t, usando gmtime_r para que NO tenga en cuenta TZ
-static inline struct tm getTimeStruct(time_t t) {
+inline struct tm getTimeStruct(time_t t) {
   struct tm tm_struct;
   gmtime_r(&t, &tm_struct);
   LOG_DEBUG("estructura devuelta:", asctime(&tm_struct));

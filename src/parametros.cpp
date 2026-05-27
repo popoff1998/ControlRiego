@@ -34,8 +34,8 @@ bool loadConfigFromFile(const char *p_filename)
   }
   size_t size = file.size();
   LOG_INFO("\t tamaño de", p_filename, "-->", size, "bytes");
-  if (size > 4096) {
-    LOG_ERROR("Config file size is too large");
+  if (size > MAX_FILE_SIZE || size == 0) {
+    LOG_ERROR("ERROR: Tamaño de", p_filename, "no válido:", size, "bytes");
     file.close();
     return false;
   }
