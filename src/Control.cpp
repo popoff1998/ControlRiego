@@ -510,7 +510,7 @@ void handleStopInRegandoPauseTerm() {
     if (!stopRiego(zonaEnCurso.pBoton->bID, updateTimeFin) || !stopAllRiegos()) {
       return;    //error al parar riegos
     }
-    saveTablaToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
+    saveRiegosToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
     if (!Estado.modoDEMO) lcd.infoclear("STOP riegos OK", BLINKDISPLAY, BIP, 0);
     else lcd.infoclear("STOP riegos SIMULADO", BLINKDISPLAY, BIP, 0);
     setEstado(STOP,1);
@@ -796,12 +796,12 @@ void procesaEstadoTerminando()
     else {         
       if(!multi.temporal) {
         finalTimeGrupo(lastGrupos[multi.ngrupo-1]);
-        saveTablaToFile(lastGruposFile, "lastGrupos", lastGrupos, NUMGRUPOS);  //guardamos en fichero tabla de ultimos riegos de grupos
+        saveRiegosToFile(lastGruposFile, "lastGrupos", lastGrupos, NUMGRUPOS);  //guardamos en fichero tabla de ultimos riegos de grupos
       }
       // descomentar la siguiente linea si queremos mostrar ultimo riego previo del grupo
       // que se ha cambiado dinamicamente a temporal. En caso contrario se mostrara "SIN DATOS"
-      // else loadTablaFromFile(lastGruposFile, "lastGrupos", lastGrupos, NUMGRUPOS);  
-      saveTablaToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
+      // else loadRiegosFromFile(lastGruposFile, "lastGrupos", lastGrupos, NUMGRUPOS);  
+      saveRiegosToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
       lcd.info("multirriego",1);
       int msgl = snprintf(buff, MAXBUFF, "%s fin", multi.desc);
       lcd.info(buff, 2, msgl);
@@ -812,7 +812,7 @@ void procesaEstadoTerminando()
       multi.riegoON = false;  // reseteamos flag de multirriego activo
     }
   }
-  else saveTablaToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
+  else saveRiegosToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
   // Caso especial: Si hay riego salvado y NO estamos en multirriego, lo recuperamos y terminamos.
   if (!multi.riegoON && riegoSaved.znumber) {
       restoreRiego();
@@ -1622,29 +1622,23 @@ void procesaEncoderTime()
 // Carga la estructura de ultimos riegos de zonas desde el archivo correspondiente o inicializa a ceros
 void initLastRiegos()
 {
-  if (loadTablaFromFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS)) {
+  static_assert(ELEMENTCOUNT(lastRiegos) == NUMZONAS, "El tamaño del array lastRiegos debe ser igual a NUMZONAS");
+  memset(lastRiegos, 0, sizeof(lastRiegos)); // Inicializamos a ceros por defecto para el caso de que no se pueda cargar o no exista el archivo
+  if (loadRiegosFromFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS)) {
     LOG_INFO("Ultimos riegos de zonas leidos de ", lastRiegosFile);
-    return;
-  }
-  for(uint i=0;i<NUMZONAS;i++) {
-   lastRiegos[i].inicio = 0;
-   lastRiegos[i].final = 0;
-   lastRiegos[i].total = 0;
-  }
+  } else
+    LOG_WARN("No se han podido cargar los ultimos riegos desde ", lastRiegosFile, ", inicializados a ceros");
 }
 
 // Carga la estructura de ultimos riegos de grupos desde el archivo correspondiente o inicializa a ceros
 void initLastGrupos()
 {
-  if (loadTablaFromFile(lastGruposFile, "lastGrupos", lastGrupos, NUMGRUPOS)) {
+  static_assert(ELEMENTCOUNT(lastGrupos) == NUMGRUPOS, "El tamaño del array lastGrupos debe ser igual a NUMGRUPOS");
+  memset(lastGrupos, 0, sizeof(lastGrupos)); // Inicializamos a ceros por defecto para el caso de que no se pueda cargar o no exista el archivo
+  if (loadRiegosFromFile(lastGruposFile, "lastGrupos", lastGrupos, NUMGRUPOS)) {
     LOG_INFO("Ultimos riegos de grupos leidos de ",lastGruposFile);
-    return;
-  }
-  for(uint i=0;i<NUMGRUPOS;i++) {
-   lastGrupos[i].inicio = 0;
-   lastGrupos[i].final = 0;
-   lastGrupos[i].total = 0;
-  }
+  } else
+    LOG_WARN("No se han podido cargar los ultimos riegos desde ", lastGruposFile, ", inicializados a ceros");
 }
 
 // Inicia/reanuda el riego correspondiente al boton de zona pulsado ultimo

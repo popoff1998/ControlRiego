@@ -261,6 +261,63 @@ bool deleteDatos()
   return bRC;
 }
 
+void saveRiegosToFile(const char* filename, const char* arrayName, S_timeRiego* tabla, size_t size) {
+    // no guardar en modo demo o si la hora o fecha no es correcta (antes del 1 de enero de 2026 00:00 GMT)
+    if(Estado.modoDEMO || !timeOK || time(NULL)<UMBRAL_EPOCH) return;
+    JsonDocument doc;
+    JsonArray arr = doc[arrayName].to<JsonArray>();
+    for (size_t i = 0; i < size; i++) {
+        JsonObject obj = arr.add<JsonObject>(); 
+        obj["inicio"] = tabla[i].inicio;
+        obj["final"]  = tabla[i].final;
+        obj["total"]  = tabla[i].total;
+    }
+    File file = LittleFS.open(filename, "w");
+    if (!file) {
+        LOG_ERROR("Error abriendo el fichero para guardar", arrayName);
+        return;
+    }
+    serializeJson(doc, file);
+    file.close();
+    LOG_DEBUG(arrayName, "guardado OK.");
+}
+
+bool loadRiegosFromFile(const char* filename, const char* arrayName, S_timeRiego* tabla, size_t size) {
+    File file = LittleFS.open(filename, "r");
+    if (!file) {
+        LOG_WARN("Error abriendo el fichero para leer", arrayName);
+        return false;
+    }
+    size_t fileSize = file.size();
+
+    if (fileSize == 0 || fileSize > MAX_FILE_SIZE) {
+        file.close();
+        LOG_ERROR("ERROR: Tamaño de", filename, "no válido:", fileSize, "bytes");
+        return false;
+    }
+
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, file);
+    file.close();
+    if (error) {
+        LOG_ERROR("Error al deserializar JSON:", error.c_str());
+        return false;
+    }
+    JsonArray arr = doc[arrayName];
+    if (!arr) {
+        LOG_ERROR("No se encontró el array", arrayName, "en el fichero", filename);
+        return false;
+    }
+    for (size_t i = 0; i < size && i < arr.size(); i++) {
+        JsonObject obj = arr[i];
+        tabla[i].inicio = obj["inicio"] | 0;
+        tabla[i].final  = obj["final"]  | 0;
+        tabla[i].total  = obj["total"]  | 0;
+    }
+    LOG_DEBUG(arrayName, "cargado OK.");
+    return true;
+}
+
 
 //init minimo de config para evitar fallos en caso de no poder cargar parametros de ficheros
 void zeroConfig() {

@@ -58,6 +58,8 @@
   // Macros y constantes utiles:
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0])) // calcula el numero de elementos de un array
   #define UMBRAL_EPOCH 1767225600 // fecha 1/1/2026 en formato epoch (si la fecha es anterior se considera no valida)
+  #define SECS_PER_DAY 86400UL
+
        
   //-------------------------------------------------------------------------------------
   //                #define FW_VERSION  movido a platformio.ini   // version del software
@@ -620,6 +622,7 @@ void leerEncoderSW();
 void leeSerial(void);
 void listDir(fs::FS &fs, const char * dirname, uint8_t levels, uint8_t depth = 0);
 bool loadConfigFromFile(const char *);
+bool loadRiegosFromFile(const char *filename, const char *arrayName, S_timeRiego *tabla, size_t size);
 void logStatus(const char *mensaje);
 void logStatusF(const char *format, ...);
 void mcpIinit(void);
@@ -668,9 +671,9 @@ void resetFlags(void);
 void resetLCD(void);
 void resetLeds(void);
 void restoreRiego(void);
-bool writeConfigToFile(const char*);
 bool saveConfigToParmfile(void);
 void saveRiego(int znumber, int bID, int minutes, int seconds);
+void saveRiegosToFile(const char *filename, const char *arrayName, S_timeRiego *tabla, size_t size);
 void scSorpresa();
 void scWebserver();
 void scWifiLevel();
@@ -723,84 +726,22 @@ void Verificaciones(void);
 bool VerifyRecoveryWifi(bool checkRecon);
 void VerifyRecoverySCD(void);
 void wifiClearSignal(uint);
+bool writeConfigToFile(const char*);
 bool wifiReconnect(void);
 void zeroConfig();
 
-
-// *****************************************************************************************
-// Funciones (templates) para gestion de las tablas de registro de riegos de zonas y grupos
-// ***************************************************************************************** 
-
-template<typename T>
-void saveTablaToFile(const char* filename, const char* arrayName, T* tabla, size_t size) {
-    // no guardar en modo demo o si la hora o fecha no es correcta (antes del 1 de enero de 2026 00:00 GMT)
-    if(Estado.modoDEMO || !timeOK || time(NULL)<UMBRAL_EPOCH) return;
-    JsonDocument doc;
-    JsonArray arr = doc[arrayName].to<JsonArray>();
-    for (size_t i = 0; i < size; i++) {
-        JsonObject obj = arr.add<JsonObject>(); 
-        obj["inicio"] = tabla[i].inicio;
-        obj["final"]  = tabla[i].final;
-        obj["total"]  = tabla[i].total;
-    }
-    File file = LittleFS.open(filename, "w");
-    if (!file) {
-        LOG_ERROR("Error abriendo el fichero para guardar", arrayName);
-        return;
-    }
-    serializeJson(doc, file);
-    file.close();
-    LOG_DEBUG(arrayName, "guardado OK.");
-}
-
-template<typename T>
-bool loadTablaFromFile(const char* filename, const char* arrayName, T* tabla, size_t size) {
-    File file = LittleFS.open(filename, "r");
-    if (!file) {
-        LOG_WARN("Error abriendo el fichero para leer", arrayName);
-        return false;
-    }
-    size_t fileSize = file.size();
-
-    if (fileSize == 0 || fileSize > MAX_FILE_SIZE) {
-        file.close();
-        LOG_ERROR("ERROR: Tamaño de", filename, "no válido:", fileSize, "bytes");
-        return false;
-    }
-
-    JsonDocument doc;
-    DeserializationError error = deserializeJson(doc, file);
-    file.close();
-    if (error) {
-        LOG_ERROR("Error al deserializar JSON:", error.c_str());
-        return false;
-    }
-    JsonArray arr = doc[arrayName];
-    if (!arr) {
-        LOG_ERROR("No se encontró el array", arrayName, "en el fichero", filename);
-        return false;
-    }
-    for (size_t i = 0; i < size && i < arr.size(); i++) {
-        JsonObject obj = arr[i];
-        tabla[i].inicio = obj["inicio"] | 0;
-        tabla[i].final  = obj["final"]  | 0;
-        tabla[i].total  = obj["total"]  | 0;
-    }
-    LOG_DEBUG(arrayName, "cargado OK.");
-    return true;
-}
 
 // *****************************************************************************************
 // Ejemplo de template con proceso variable al que se le pasa la funcion a ejecutar
 // que puede tener varias instrucciones (lambda function) y serviria para distintos templates
 // ***************************************************************************************** 
 
-template<typename T, typename F>
-void procesaArray(T* array, size_t size, F func) {
-    for (size_t i = 0; i < size; ++i) {
-        func(array[i]);
-    }
-}
+// template<typename T, typename F>
+// void procesaArray(T* array, size_t size, F func) {
+//     for (size_t i = 0; i < size; ++i) {
+//         func(array[i]);
+//     }
+// }
 
 // EJEMPLO llamada con varias instrucciones en el callback:
 // procesaArray(lastRiegos, NUMZONAS, [](S_timeRiego& r){
@@ -821,8 +762,6 @@ void procesaArray(T* array, size_t size, F func) {
 // #define month(t)  getMonth(t)
 // #define hour(t)   getHour(t)
 // #define minute(t) getMinute(t)
-
-#define SECS_PER_DAY 86400UL
 
 // Función interna para obtener la estructura tm de una variable time_t, usando gmtime_r para que NO tenga en cuenta TZ
 inline struct tm getTimeStruct(time_t t) {
