@@ -17,6 +17,7 @@
     MIMI,
     TARARI,
     MARIO,
+    finMelodynum // numero de melodias definidas en el enum +1
   };
 
   enum m_estados {

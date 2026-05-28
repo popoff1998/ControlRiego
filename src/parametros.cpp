@@ -26,6 +26,20 @@ bool abrirYDeserializarJson(const char* filename, JsonDocument& doc, size_t maxS
     return true;
 }
 
+int getJsonParamRange(JsonVariant docNode, int minVal, int maxVal, int defaultVal, const char* paramName) {
+    // Si el nodo no existe en el JSON, usamos el valor por defecto sin warning
+    if (docNode.isNull()) {
+        return defaultVal;
+    }
+    int value = docNode.as<int>();
+    // Validación de rango estricto
+    if (value < minVal || value > maxVal) {
+        LOG_WARN("Parametro '", paramName, "' fuera de rango (", minVal, " a ", maxVal, "). Leido: ", value, ". Usando default: ", defaultVal);
+        return defaultVal;
+    }
+    return value;
+}
+
 bool saveConfig()
 {
   LOG_INFO("saveConfigRequired=true  --> salvando parametros a fichero");
@@ -67,31 +81,37 @@ bool loadConfigFromFile(const char *p_filename)
     LOG_ERROR("ERROR: Demasiados grupos:", arrayGrupos.size(), ">", NUMGRUPOS);
     return false;
   }
-  // Reseteamos flag y contadores antes de procesar
+  // Reseteamos flag antes de procesar
   config.initialized = false;
-  int zonasCargadasOk = 0;
-  int gruposCargadosOk = 0;  
-  // 2. PROCESAR ZONAS
+  // 2. PROCESAR ZONAS (Obligatoria al menos una)
   LOG_TRACE("procesa zonas");
   for (JsonObject z : arrayBotones) {
-      int i = z["zona"] | 0;  // numero de la zona definida
+      int i = z["zona"] | 0;
       if (i > NUMZONAS || i <= 0) {
           LOG_ERROR("ERROR: numero de zona incorrecto:", i);
           return false;
       }
+      // Control de duplicados: Si el idx ya no es 0 o desc ya no está vacía
+      if (config.zona[i-1].idx != 0 || config.zona[i-1].desc[0] != '\0') {
+          LOG_ERROR("ERROR: Zona", i, "duplicada en el fichero");
+          return false;
+      }
       config.zona[i-1].idx = z["idx"] | 0;
       strlcpy(config.zona[i-1].desc, z["nombre"] | "", sizeof(config.zona[i-1].desc));
-      zonasCargadasOk++;
   }
-  if (zonasCargadasOk == arrayBotones.size()) {
-      config.initialized = true;  // solo si todas las zonas se han cargado OK
-  }
-  // 3. PROCESAR GRUPOS
+  // Si hemos salido del bucle de zonas vivos, la configuracion ya es estructuralmente VALIDA
+  config.initialized = true; 
+  // 3. PROCESAR GRUPOS (Opcionales, pero si existen deben ser perfectos)
   LOG_TRACE("procesa grupos");
   for (JsonObject g : arrayGrupos) {
-      int i = g["grupo"] | 0;  // numero del grupo definido
+      int i = g["grupo"] | 0;
       if (i > NUMGRUPOS || i <= 0) {
           LOG_ERROR("ERROR: numero de grupo incorrecto:", i);
+          return false;
+      }
+      // Control de duplicados: Si el tamaño es mayor que 0 o desc ya no está vacía
+      if (config.group[i-1].size > 0 || config.group[i-1].desc[0] != '\0') {
+          LOG_ERROR("ERROR: Grupo", i, "duplicado en el fichero");
           return false;
       }
       strlcpy(config.group[i-1].desc, g["desc"] | "", sizeof(config.group[i-1].desc));
@@ -101,44 +121,49 @@ bool loadConfigFromFile(const char *p_filename)
           LOG_ERROR("ERROR: Zonas en grupo", i, "exceden el máximo de:", ZONASXGRUPO);
           return false;
       }
-      config.group[i-1].size = count;    //tamaño del grupo
+      config.group[i-1].size = count;
       int j = 0;
       for(JsonVariant v : zonasArr) {
+          if (j >= ZONASXGRUPO) break;
           config.group[i-1].zNumber[j++] = v.as<int>();
       }
-      gruposCargadosOk++;
-  }
-  if (gruposCargadosOk != arrayGrupos.size()) {
-      config.initialized = false;  // si falla algun grupo, no considera inicializada config
   }
   LOG_TRACE("procesa resto de parametros");
   //--------------  procesa parametro individuales   ----------------------------------------
-  config.minutes = doc["tiempo"]["minutos"] | DEFAULTMINUTES;
-  config.seconds = doc["tiempo"]["segundos"] | DEFAULTSECONDS;
   strlcpy(config.SCD_ip, doc["domoticz"]["ip"] | "", sizeof(config.SCD_ip));
   strlcpy(config.SCD_port, doc["domoticz"]["port"] | DFLT_SCD_PORT, sizeof(config.SCD_port));
   strlcpy(config.SCD_user, doc["domoticz"]["user"] | "", sizeof(config.SCD_user));
   strlcpy(config.SCD_password, doc["domoticz"]["password"] | "", sizeof(config.SCD_password));
   strlcpy(config.ntpServer, doc["time"]["ntpServer"] | NTPSERVER_SPAIN, sizeof(config.ntpServer));
   strlcpy(config.TZ, doc["time"]["timeZone"] | TZ_Europe_Madrid, sizeof(config.TZ));
-  config.warnESP32temp = doc["warnESP32temp"] | DFLT_MAX_ESP32_TEMP; 
-  config.maxledlevel = doc["ledRGB"]["maxledlevel"] | DFLT_MAXLEDLEVEL; 
-  config.dimmlevel = doc["ledRGB"]["dimmlevel"] | DFLT_DIMMLEVEL; 
-  config.tempOffset = doc["tempOffset"] | DFLT_TEMP_OFFSET; 
   // leemos como bool (false si: 0 o false o ausente, true si: cualquier otro valor o true): 
   bool readValue = doc["tempRemote"] | (bool)DFLT_TEMP_DATA_REMOTE;  // DFLT_TEMP_DATA_REMOTE es 0 (int) pero lo convertimos a bool
   config.tempRemote = readValue ? 1 : 0;  // pasamos el bool a int (0 o 1)
   config.tempRemoteIdx = doc["tempRemoteIdx"] | 0; 
-  config.msgdisplaymillis = doc["msgdisplaymillis"] | DFLT_MSGDISPLAYMS; 
   config.mute = doc["mute"] | false; 
-  config.volume = doc["volume"] | DFLT_VOLUME; 
-  config.finMelody = doc["finMelody"] | DFLT_FINMELODY; 
   config.showwifilevel = doc["showwifilevel"] | false; 
   config.xname = doc["xname"] | DEFAULTXNAME;
   config.verify = doc["verify"] | DEFAULTVERIFY;
   config.dynamic = doc["dynamic"] | DEFAULTDYNAMIC;
   config.lastr24 = doc["lastr24"] | DEFAULTLASTR24;
   config.logWarnToFile = doc["logWarnToFile"] | DFLT_LOGWARNTOFILE;
+  //---  procesa tiempo por defecto (de 5 a 59 segundos o de 0 a 59 minutos enteros) ---
+  config.minutes = getJsonParamRange(doc["tiempo"]["minutos"], 0, 59, DEFAULTMINUTES, "tiempo.minutos");
+  if (config.minutes == 0) { // si minutos es 0, entonces segundos puede ser de 5 a 59
+    int minSecons = (DEFAULTSECONDS == 0) ? 5 : DEFAULTSECONDS; // evitamos combinacion 0-0 que no tiene sentido
+    config.seconds = getJsonParamRange(doc["tiempo"]["segundos"], 5, 59, minSecons, "tiempo.segundos");
+  } else config.seconds = 0; // si minutos es >0, entonces segundos tiene que ser 0
+  //---  procesa parametros individuales con rango controlado (Todos enteros) ---
+  config.warnESP32temp = getJsonParamRange(doc["warnESP32temp"], 40, 99, DFLT_MAX_ESP32_TEMP, "warnESP32temp"); 
+  config.maxledlevel   = getJsonParamRange(doc["ledRGB"]["maxledlevel"], 10, 255, DFLT_MAXLEDLEVEL, "ledRGB.maxledlevel"); 
+  config.dimmlevel     = getJsonParamRange(doc["ledRGB"]["dimmlevel"], 10, config.maxledlevel, DFLT_DIMMLEVEL, "ledRGB.dimmlevel"); 
+  config.tempOffset    = getJsonParamRange(doc["tempOffset"], -5, 5, DFLT_TEMP_OFFSET, "tempOffset"); 
+  config.msgdisplaymillis = getJsonParamRange(doc["msgdisplaymillis"], 1000, 4000, DFLT_MSGDISPLAYMS, "msgdisplaymillis"); 
+  config.volume           = getJsonParamRange(doc["volume"], 1, 10, DFLT_VOLUME, "volume"); 
+  config.finMelody        = getJsonParamRange(doc["finMelody"], 1, finMelodynum-1, DFLT_FINMELODY, "finMelody"); 
+  //-------------------------------------------------------------------------------------------
+
+
   //-------------------------------------------------------------------------------------------
   if (config.SCD_ip[0] == '\0') LOG_WARN("IP de Domoticz no definida en el fichero de parámetros");
   return config.initialized;

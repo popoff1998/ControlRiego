@@ -78,6 +78,9 @@
     #define RECONNECTINTERVAL   1      // tiempo en minutos para intentar reconexion a la wifi
     #define LONGINTERVAL        2      // tiempo en minutos para verificaciones largo plazo 
   #endif
+  // Validación en tiempo de compilación: uno de los dos DEBE ser 0, pero no ambos a la vez
+  static_assert((DEFAULTMINUTES == 0 && DEFAULTSECONDS > 0) || (DEFAULTMINUTES > 0 && DEFAULTSECONDS == 0),
+              "ERROR DE CONFIGURACION: La dupla por defecto de tiempo es invalida. Uno debe ser 0 y el otro mayor que 0.");
   #define MAX_FILE_SIZE       4096    // tamaño maximo de los ficheros de parametros, backup, riegos, logs... en bytes (4KB)
   #define NTPSERVER_SPAIN     "es.pool.ntp.org"  // servidor NTP por defecto
   #define TZ_Europe_Madrid    "CET-1CEST,M3.5.0,M10.5.0/3"  // time zone en formato TZ posix

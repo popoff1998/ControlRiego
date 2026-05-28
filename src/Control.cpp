@@ -2051,11 +2051,12 @@ void setupParm()
   if (!loadConfigFromFile(parmFile)) {
     LOG_ERROR(" ** [ERROR] Leyendo fichero parametros " , parmFile);
     config = Config_parm(); //reset estructura config a valores por defecto
-    if (loadConfigFromFile(backupParmFile)) {lcd.infoclear("BACKUP parm loaded");delay(config.msgdisplaymillis*3);}
+    if (loadConfigFromFile(backupParmFile)) {lcd.infoclear("BACKUP parm loaded", BLINKDISPLAY, BIPKO);delay(config.msgdisplaymillis*3);}
     else LOG_ERROR(" ** [ERROR] Leyendo fichero parametros backup ", backupParmFile);
   }
   // Si no se ha podido leer ningun fichero de parametros, inicializa con zero-config
   if (!config.initialized) zeroConfig();
+  setLogToFile(); // ya con los parametros cargados, establecemos si los warning se guardan en el log o no segun config
   // una vez cargados parametros, completa campos de config y boton
   setupConfig();
   #ifdef VERBOSE
@@ -2096,7 +2097,6 @@ void setupConfig()
   tm.minutes = config.minutes;
   tm.seconds = config.seconds;
   tmvalue();
-  setLogToFile();  // tipo de mensages a grabar en el fichero de errores (ERROR , WARNING)
   LOG_TRACE("Inicializando clase Configure");
   configure = new Configure();
 } //fin setupConfig
@@ -2298,6 +2298,7 @@ void initFS() {
   }  
   #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
     LOG_ATTACH_FS_AUTO(LittleFS, logErrorFile, FILE_APPEND); // open/close automatico, se añaden mensajes al final del fichero
+    LOG_FILE_SET_LEVEL(DebugLogLevel::LVL_WARN); // hasta leer config para ajustar a LVL_ERROR si config.logWarnToFile es false
     gestionarTamanoLog(); // Borra/rota fichero de log de errores si su tamano es excesivo
     if (dirCreated) logStatus("--- Directorio /datos creado ---");
   #endif
