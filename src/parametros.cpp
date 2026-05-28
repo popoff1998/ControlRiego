@@ -1,10 +1,35 @@
 
 #include "Control.h"
 
-bool saveConfigToParmfile()
+bool abrirYDeserializarJson(const char* filename, JsonDocument& doc, size_t maxSize) {
+    File file = LittleFS.open(filename, "r");
+    if (!file) {
+        LOG_WARN("Error abriendo el fichero para leer:", filename);
+        return false;
+    }
+    #ifdef EXTRADEBUG
+    printFile(filename);
+    #endif
+    size_t fileSize = file.size();
+    if (fileSize == 0 || fileSize > maxSize) {
+        file.close();
+        LOG_ERROR("ERROR: Tamaño de", filename, "no válido:", fileSize, "bytes");
+        return false;
+    }
+    LOG_DEBUG("\t tamaño de", filename, "-->", fileSize, "bytes");
+    DeserializationError error = deserializeJson(doc, file);
+    file.close();
+    if (error) {
+        LOG_ERROR("Error al deserializar JSON de", filename, ":", error.c_str());
+        return false;
+    }
+    return true;
+}
+
+bool saveConfig()
 {
-  LOG_INFO("saveConfig=true  --> salvando parametros a fichero");
-  saveConfig = false;
+  LOG_INFO("saveConfigRequired=true  --> salvando parametros a fichero");
+  saveConfigRequired = false;
   if (writeConfigToFile(parmFile)) {
     lcd.infoclear("SAVED parameters", BLINKDISPLAY, BIPOK);
     delay(config.msgdisplaymillis);
@@ -12,7 +37,7 @@ bool saveConfigToParmfile()
     return true;
   }
   else {
-    lcd.infoclear("ERROR saving", BLINKDISPLAY, BIPKO);
+    lcd.infoclear("ERROR saving parms", BLINKDISPLAY, BIPKO);
     delay(config.msgdisplaymillis);
     statusError(E0); // error no recuperable al guardar parametros
     return false;
@@ -23,29 +48,8 @@ bool saveConfigToParmfile()
 bool loadConfigFromFile(const char *p_filename)
 {
   LOG_TRACE("");
-  #ifdef EXTRADEBUG
-    LOG_DEBUG("Contenido del fichero de configuración", p_filename, ":");
-    printFile(p_filename);
-  #endif
-  File file = LittleFS.open(p_filename, "r");
-  if(!file){
-    LOG_ERROR("Failed to open file for reading", p_filename);
-    return false;
-  }
-  size_t size = file.size();
-  LOG_INFO("\t tamaño de", p_filename, "-->", size, "bytes");
-  if (size > MAX_FILE_SIZE || size == 0) {
-    LOG_ERROR("ERROR: Tamaño de", p_filename, "no válido:", size, "bytes");
-    file.close();
-    return false;
-  }
   JsonDocument doc;
-  DeserializationError error = deserializeJson(doc, file);
-  file.close();  // cerramos el fichero lo antes posible para caso de errores
-  if (error) {
-    LOG_ERROR("\t  deserializeJson() failed: ", error.c_str());
-    return false;
-  }
+  if (!abrirYDeserializarJson(p_filename, doc, MAX_FILE_SIZE)) return false;
   // 1. OBTENER ARRAYS Y VALIDAR TAMAÑO TOTAL ANTES DE ENTRAR EN BUCLES
   JsonArray arrayBotones = doc["botones"].as<JsonArray>();
   JsonArray arrayGrupos = doc["grupos"].as<JsonArray>();
@@ -283,26 +287,8 @@ void saveRiegosToFile(const char* filename, const char* arrayName, S_timeRiego* 
 }
 
 bool loadRiegosFromFile(const char* filename, const char* arrayName, S_timeRiego* tabla, size_t size) {
-    File file = LittleFS.open(filename, "r");
-    if (!file) {
-        LOG_WARN("Error abriendo el fichero para leer", arrayName);
-        return false;
-    }
-    size_t fileSize = file.size();
-
-    if (fileSize == 0 || fileSize > MAX_FILE_SIZE) {
-        file.close();
-        LOG_ERROR("ERROR: Tamaño de", filename, "no válido:", fileSize, "bytes");
-        return false;
-    }
-
     JsonDocument doc;
-    DeserializationError error = deserializeJson(doc, file);
-    file.close();
-    if (error) {
-        LOG_ERROR("Error al deserializar JSON:", error.c_str());
-        return false;
-    }
+    if (!abrirYDeserializarJson(filename, doc, MAX_FILE_SIZE)) return false;
     JsonArray arr = doc[arrayName];
     if (!arr) {
         LOG_ERROR("No se encontró el array", arrayName, "en el fichero", filename);

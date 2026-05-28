@@ -500,7 +500,7 @@ struct S_ledsParpadeo {
     bool factorRiegosLeido = false;
     bool encoderSW = false;
     bool webServerAct = false;
-    bool saveConfig = false;
+    bool saveConfigRequired = false;
     bool riegoFromPause = false;
     bool fsOK = false;  // filesystem ok
     unsigned long standbyTime;
@@ -530,7 +530,7 @@ struct S_ledsParpadeo {
     extern Config_parm config;
     extern S_simFlags simular;
     extern bool webServerAct;
-    extern bool saveConfig;
+    extern bool saveConfigRequired;
     extern bool encoderSW;
     extern bool timeOK;
     extern char buff[];
@@ -671,7 +671,7 @@ void resetFlags(void);
 void resetLCD(void);
 void resetLeds(void);
 void restoreRiego(void);
-bool saveConfigToParmfile(void);
+bool saveConfig(void);
 void saveRiego(int znumber, int bID, int minutes, int seconds);
 void saveRiegosToFile(const char *filename, const char *arrayName, S_timeRiego *tabla, size_t size);
 void scSorpresa();

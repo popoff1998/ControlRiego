@@ -50,7 +50,7 @@ void Configure::Idx_process_update()
 void Configure::Idx_process_end()
 {
       config.zona[_actualZonaIndex].idx = (uint16_t)tm.value;
-      saveConfig = true;
+      saveConfigRequired = true;
       int bIndex = getBotonIndex(Zonas[_actualZonaIndex]);
       
       LOG_INFO("Save Zona",_actualZonaIndex+1,"(",Boton[bIndex].desc,") IDX :",tm.value);
@@ -89,7 +89,7 @@ void Configure::Time_process_end()
 {
       config.minutes = tm.minutes;
       config.seconds = tm.seconds;
-      saveConfig = true;
+      saveConfigRequired = true;
 
       LOG_INFO("Save DEFAULT TIME, minutes:",tm.minutes," secons:",tm.seconds);
       lcd.setCursor(0,0);  // solo para anular visibilidad y parpadeo del cursor
@@ -126,7 +126,7 @@ void Configure::Range_process_update()
 void Configure::Range_process_end()
 {
       *configValuep = tm.value;
-      saveConfig = true;
+      saveConfigRequired = true;
 
       LOG_INFO("Save new value:", *configValuep);
       lcd.setCursor(0,0);  // solo para anular visibilidad y parpadeo del cursor
@@ -191,7 +191,7 @@ void Configure::Multi_process_update()
 // actualizamos config con las zonas introducidas
 void Configure::Multi_process_end()
 {
-      saveConfig = true;
+      saveConfigRequired = true;
       char grupoText[21];
       if (multi.w_size) {  //solo si se ha pulsado alguna zona
         // actualizamos config con tamaño y zonas introducidas para el grupo
@@ -242,7 +242,7 @@ void Configure::toggle(bool &value)
       lcd.setCursor(_data_pos[_currentItem],1);
       lcd.print(value ? "ON " : "OFF");
       sonido.bip(2);
-      saveConfig = true;
+      saveConfigRequired = true;
 }
 
 void Configure::menu(int item)
@@ -412,7 +412,7 @@ void Configure::procesaSelectMenu()
                 }
                 else {
                   sonido.bip(2);
-                  saveConfig = true;
+                  saveConfigRequired = true;
                 }
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break; 
@@ -465,7 +465,7 @@ void Configure::procesaSelectMenu()
 //  escritura de parametros a fichero si procede y salimos de ConF
 void Configure::exit()
 {
-      if (saveConfig) saveConfigToParmfile();  
+      if (saveConfigRequired) saveConfig();  
       #ifdef WEBSERVER
         if (webServerAct) {
           endWS();           //al salir de modo ConF no procesaremos peticiones al webserver

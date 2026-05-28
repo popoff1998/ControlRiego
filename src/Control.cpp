@@ -53,7 +53,7 @@ void setup()
   //Obtenemos hora del servidor ntp y ajustamos hora del sistema y timezone
   setClock();
   //Si se ha modificado alguna opcion de configuracion en el portal AP, la guardamos
-  if (saveConfig) saveConfigToParmfile();
+  if (saveConfigRequired) saveConfig();
   //Recuperamos lastRiegos y lastGrupos (registro fecha/hora y riego realizado)
   initLastRiegos();
   initLastGrupos();

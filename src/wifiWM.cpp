@@ -92,7 +92,7 @@ void copyCustomParamsToConfig() {
 //llamado cuando WiFiManager sale del modo configuracion
 void saveWifiCallback() {
     LOG_INFO("[CALLBACK] fired, should save config");
-    saveConfig = true;
+    saveConfigRequired = true;
     // Eliminamos el temporizador y apagamos el led indicador de modo AP
     setLed(tic_APLed, APAGA, ledAP);
     lcd.infoclear(MSG_WIFI_CONN);
@@ -116,7 +116,7 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 // {
 //   LOG_INFO("[CALLBACK] fired");
 //   LOG_INFO("Should save config");
-//   saveConfig = true;
+//   saveConfigRequired = true;
 //   wm.stopConfigPortal();
 // }
 
@@ -168,7 +168,7 @@ void setupRedWM(S_initFlags &initFlags)
   #endif  
   Estado.connected = false;
   Estado.recoverableError = false;
-  saveConfig = false;
+  saveConfigRequired = false;
   if(initFlags.initWifi) {
     wm.resetSettings(); //borra wifi guardada
     //delay(300);
@@ -261,7 +261,7 @@ void setupRedWM(S_initFlags &initFlags)
   // dejamos led RGB segun la situacion final
   setLedStatus();
   // copia parametros del portal AP a la config wifi
-  if (saveConfig) copyCustomParamsToConfig();
+  if (saveConfigRequired) copyCustomParamsToConfig();
   //dejamos activado evento de desconexion o conexion ?? (wifi events):
   WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
   WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_CONNECTED);
@@ -278,7 +278,7 @@ void startConfigPortal()
     LOG_INFO(" exit or hit timeout");
   }
   // copia parametros del portal AP a la config wifi
-  if (saveConfig) copyCustomParamsToConfig();
+  if (saveConfigRequired) copyCustomParamsToConfig();
   // deja led RGB segun la situacion final
   setLedStatus();
   checkWifi();  // TODO ¿es necesario?
