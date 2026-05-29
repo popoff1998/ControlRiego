@@ -48,100 +48,56 @@
         para modificar los parámetros.<br><br>
         <button id="cerrarBtn">Entendido</button>
     </dialog>
-<script src="funciones.js"></script>
-<script>
-const form = document.querySelector('form[name="edit_file"]');
-const textarea = document.querySelector('textarea[name="edit_textarea"]');
-const urlParams = new URLSearchParams(window.location.search);
-let fileName = urlParams.get('file');
-let hasChanges = false;
-let originalContent = "";
+  <script src="funciones.js"></script>
+  <script>
+  const form = document.querySelector('form[name="edit_file"]');
+  const textarea = document.querySelector('textarea[name="edit_textarea"]');
+  const urlParams = new URLSearchParams(window.location.search);
+  const fileName = urlParams.get('file');
+  let originalContent = "", hasChanges = false;
 
-window.addEventListener("load", async () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    // 1. Obtener el nombre del archivo (Prioridad: URL > Config Servidor)
-    fileName = urlParams.get('file');
-    if (!fileName) {
-        try {
-            const config = await getServerConfig();
-            fileName = config.parmFile;
-        } catch (e) {
-            alert("Error crítico: No se pudo determinar el archivo.");
-            return;
-        }
-    }
-    // 2. Cargar contenido (Prioridad: Sesión/Borrador > Servidor)
-    const source = urlParams.get('source');
-    const sessionData = sessionStorage.getItem('tempRawData');
-    if (source === 'tempRawData' && sessionData) {
-        try {
-            console.log("Recuperando borrador de la sesión...");
-            const data = JSON.parse(sessionData);
-            textarea.value = JSON.stringify(data, null, 2);
-            hasChanges = true; 
-        } catch (error) {
-            console.error("Error al parsear sesión, cargando del servidor...");
-            await loadFromServer(fileName, textarea);
-        }
-    } else {
-        await loadFromServer(fileName, textarea);
+  window.addEventListener("load", () => {
+      // Recuperación exclusiva desde el búfer de sesión (Punto B)
+      const sessionData = sessionStorage.getItem('tempRawData');
+      if (!sessionData) {
+          alert("Error: Acceso denegado. No hay sesión de edición activa.");
+          window.location.href = `parmfile_edit.htm?file=${fileName}`;
+          return;
+      }
+      textarea.value = JSON.stringify(JSON.parse(sessionData), null, 2);
+      originalContent = textarea.value;
+      const dialogo = document.getElementById('Warning');
+      if (dialogo) {
+          dialogo.showModal();
+          document.getElementById('cerrarBtn').addEventListener('click', () => dialogo.close());
+      }
+      textarea.addEventListener('input', () => hasChanges = (textarea.value !== originalContent));
+  });
+
+  window.onbeforeunload = () => hasChanges ? "¿Tiene cambios sin guardar?" : null;
+  
+  document.getElementById('cancel').addEventListener('click', () => {
+    if (textarea.value === originalContent || confirm("¿Descartar cambios de edición libre y volver?")) {
         hasChanges = false;
+        window.location.href = `parmfile_edit.htm?file=${fileName}&source=tempRawData`;
     }
-    originalContent = textarea.value;
-    // 3. Configuración de la interfaz (Warning y Listeners)
-    const dialogo = document.getElementById('Warning');
-    const cerrarBtn = document.getElementById('cerrarBtn');
-    if (dialogo) {
-        dialogo.showModal();
-        cerrarBtn.addEventListener('click', () => dialogo.close());
-    }
-    textarea.addEventListener('input', () => {
-        hasChanges = (textarea.value !== originalContent);
-    });
-});
-
-
-/** Función auxiliar para cargar datos del servidor */
-async function loadFromServer(file, targetTextarea) {
-    try {
-        const data = await apiGetJson(file);
-        targetTextarea.value = JSON.stringify(data, null, 2);
-    } catch (error) {
-        console.error("Error al cargar el archivo:", error);
-        targetTextarea.value = `Error al cargar el archivo: ${error.message || error}`;
-    }
-}
-
-// --- MANEJO DE SALIDA Y CANCEL ---
-
-window.onbeforeunload = function() {
-    if (hasChanges) { return "¿Tiene cambios sin guardar?"; }
-};
-
-const cancelButton = document.getElementById('cancel');
-cancelButton.addEventListener('click', () => {
-        if (textarea.value !== originalContent) {
-            if (confirm("¿Descartar cambios de edición libre y volver?")) {
-                // Volvemos a la básica. IMPORTANTE: No borramos sessionStorage aquí
-                // para que la básica recupere sus propios cambios.
-                hasChanges = false;
-                window.location.href = `parmfile_edit.htm?file=${fileName}&source=tempRawData`;
-            }
-        } else {
-            hasChanges = false;
-            window.location.href = `parmfile_edit.htm?file=${fileName}&source=tempRawData`;
-        }
-    });
-
-// --- GUARDAR ---
-form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    try {
-        // Pasamos el tercer parámetro como 'true' para validar sintaxis y estructura
-        await apiSaveConfig(textarea.value, hasChanges, true);
-    } catch (e) { /* Error gestionado en funciones.js */ }
-});
-
+  });
+  
+  form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+          const userRawJson = JSON.parse(textarea.value);
+          const structuredOutput = { fileType: CLIENT_FILE_TYPE, version: CLIENT_VERSION, SCDtype: CLIENT_SCD_TYPE };
+          
+          // Limpieza rápida de metadatos accidentales escritos por el usuario
+          delete userRawJson.fileType; delete userRawJson.version; delete userRawJson.SCDtype;
+          Object.assign(structuredOutput, userRawJson);
+          
+          await apiSaveConfig(structuredOutput, hasChanges, false);
+      } catch (err) { 
+          alert("ERROR: Sintaxis JSON inválida.\n" + err.message);
+      }
+  });
 </script>
 </body>
 </html>

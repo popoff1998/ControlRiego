@@ -106,9 +106,23 @@ async function handleImportClick() {
     if (file.size > MAX_PARMFILE) return alert(`Error: El fichero excede el tamaño máximo permitido (${returnFileSize(MAX_PARMFILE)}).`);
     try {
         const jsonString = await leerArchivoAsText(file);
-        validarJsonCompleto(jsonString);
-        console.log("JSON válido.");
-            if (confirm("¡Los parámetros actuales serán sustituidos por los de " + file.name + " ! ¿Continuar?")) {
+        validarJsonCompleto(jsonString); //Validación sintáctica
+        
+        // --- ADUANA DE CABECERA ---
+        const jsonImportado = JSON.parse(jsonString);
+        if (jsonImportado.fileType !== undefined) {
+            if (jsonImportado.fileType !== CLIENT_FILE_TYPE || 
+                parseInt(jsonImportado.version) !== CLIENT_VERSION || 
+                jsonImportado.SCDtype !== CLIENT_SCD_TYPE) {
+                alert(`❌ IMPORTACIÓN RECHAZADA:\nEl archivo no es compatible con este sistema.\n` +
+                      `Esperado: ${CLIENT_FILE_TYPE} V:${CLIENT_VERSION} (${CLIENT_SCD_TYPE})\n` +
+                      `Recibido: ${jsonImportado.fileType} V:${jsonImportado.version} (${jsonImportado.SCDtype})`);
+                return; // Aborta e impide que llegue al ESP32
+            }
+        } else {
+            console.log("Archivo antiguo sin cabecera aceptado para migración.");
+        }
+        if (confirm("¡Los parámetros actuales serán sustituidos por los de " + file.name + " ! ¿Continuar?")) {
             await apiUploadParmFile(file);
         }
     } catch (error) {

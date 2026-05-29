@@ -64,6 +64,13 @@ bool loadConfigFromFile(const char *p_filename)
   LOG_TRACE("");
   JsonDocument doc;
   if (!abrirYDeserializarJson(p_filename, doc, MAX_FILE_SIZE)) return false;
+  // 0. VALIDACIÓN DE CABECERA Y VERSIÓN
+  if (doc["fileType"].as<String>() != "CCR_config") {
+      LOG_ERROR("ERROR: El fichero no contiene un formato valido"); return false; }
+  if (doc["version"].as<int>() != PARMVERSION) {
+      LOG_ERROR("ERROR: Version de fichero incompatible (", doc["version"].as<int>(), " vs ", PARMVERSION, ")"); return false; }
+  if (doc["SCDtype"].as<String>() != SCDTYPE) {
+      LOG_ERROR("ERROR: Tipo de SCD incompatible (", doc["SCDtype"].as<String>(), " vs ", SCDTYPE, ")"); return false; }
   // 1. OBTENER ARRAYS Y VALIDAR TAMAÑO TOTAL ANTES DE ENTRAR EN BUCLES
   JsonArray arrayBotones = doc["botones"].as<JsonArray>();
   JsonArray arrayGrupos = doc["grupos"].as<JsonArray>();
@@ -179,8 +186,11 @@ bool writeConfigToFile(const char *p_filename)
     return false;
   }
   JsonDocument doc;
+  //--------------  FIRMA Y CONTROL DE VERSIÓN -----------------------
+  doc["fileType"] = "CCR_config";
+  doc["version"]  = PARMVERSION;
+  doc["SCDtype"]  = SCDTYPE; // por si en el futuro queremos usar el mismo formato de fichero para otros tipos de sistemas de control domótico
   //--------------  procesa botones (IDX)  --------------------------------------------------
-  doc["botones"].as<JsonArray>();
   JsonArray botones = doc["botones"].to<JsonArray>();
   for (int i=0; i<NUMZONAS; i++) {
     botones[i]["zona"]   = i+1;
@@ -232,6 +242,7 @@ bool writeConfigToFile(const char *p_filename)
   int docsize = serializeJsonPretty(doc, file);
   if (docsize == 0) {
     LOG_ERROR("Failed to write to file");
+    file.close();
     return false;
   }
   else LOG_DEBUG("    tamaño del jsondoc: (",docsize,")");

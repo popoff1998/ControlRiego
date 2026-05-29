@@ -66,6 +66,10 @@
   //-------------------------------------------------------------------------------------
 
   // Comportamiento General: valores fijos o por defecto los modificables por el usuario [*]
+  #define PARMVERSION         1       // version de la estructura de parametros
+  #define SCDTYPE             "DOMOTICZ" // tipo del Sistema de Control Domotico (SCD) al que se conecta
+  #define MAX_FILE_SIZE       4096    // tamaño maximo de los ficheros de parametros, backup, riegos, logs... en bytes (4KB)
+
   #ifdef RELEASE
     #define DEFAULTMINUTES      10    // * tiempo de riego por defecto (minutos)
     #define DEFAULTSECONDS      0     // * tiempo de riego por defecto (segundos)
@@ -81,7 +85,6 @@
   // Validación en tiempo de compilación: uno de los dos DEBE ser 0, pero no ambos a la vez
   static_assert((DEFAULTMINUTES == 0 && DEFAULTSECONDS > 0) || (DEFAULTMINUTES > 0 && DEFAULTSECONDS == 0),
               "ERROR DE CONFIGURACION: La dupla por defecto de tiempo es invalida. Uno debe ser 0 y el otro mayor que 0.");
-  #define MAX_FILE_SIZE       4096    // tamaño maximo de los ficheros de parametros, backup, riegos, logs... en bytes (4KB)
   #define NTPSERVER_SPAIN     "es.pool.ntp.org"  // servidor NTP por defecto
   #define TZ_Europe_Madrid    "CET-1CEST,M3.5.0,M10.5.0/3"  // time zone en formato TZ posix
   #define NTP_TIMEOUT         7000    // tiempo de espera para recibir respuesta del servidor NTP en mseg

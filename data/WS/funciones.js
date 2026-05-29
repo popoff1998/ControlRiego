@@ -1,8 +1,13 @@
-/* ============================================================
- * FUNCIONES AUXILIARES PARA INTERFAZ WEB ESP32 (Versión Completa)
- * ============================================================ */
+/* =============================================
+ * FUNCIONES AUXILIARES PARA INTERFAZ WEB ESP32
+ * ============================================= */
 
-/** Configuración del servidor con caché */
+/** Constantes de firma del fichero de parametros */
+const CLIENT_FILE_TYPE = "CCR_config";
+const CLIENT_VERSION   = 1;
+const CLIENT_SCD_TYPE  = "DOMOTICZ";
+
+/** Obtencion de variables del servidor con caché */
 async function getServerConfig(forceRefresh = false) {
     const cached = sessionStorage.getItem('serverConfig');
     if (!forceRefresh && cached) return JSON.parse(cached);
@@ -100,7 +105,7 @@ function createButton(label, onClick, cls = "") {
     return b;
 }
 
-// Función para cargar tablas simples (pares key y valor) con opción editable y validaciones dinámicas
+
 async function loadSimpleTable(data, tableId, isEditable = false, templateSection = {}) {
     const body = document.getElementById(tableId);
     if (!body) return;

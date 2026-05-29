@@ -454,6 +454,8 @@ void handleServerVars() {
     JsonDocument doc;
     doc["parmFile"]      = parmFile;
     doc["backupFile"]    = backupParmFile;
+    doc["versionFile"]   = PARMVERSION;
+    doc["SCDtype"]       = SCDTYPE;
     doc["errorFile"]     = logErrorFile;
     doc["lastRiegos"]    = lastRiegosFile;
     doc["lastGrupos"]    = lastGruposFile;

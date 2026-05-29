@@ -58,6 +58,7 @@
         <button type="button" onclick="editRaw()" class="secondary-button">Edit Full</button>
         <button type="button" onclick="processCancel()" class="secondary-button">Cancel</button>
     </div>
+</body>
 
 <script src="funciones.js"></script>
 <script>
@@ -66,20 +67,23 @@ let fileName = "", originalJsonData = {}, rawTemplate = {}, hasChanges = false;
 window.addEventListener("load", async () => {
     const urlParams = new URLSearchParams(window.location.search);
     try {
+        // 1. Obtener configuración del servidor y validar contra constantes del cliente
         const config = await getServerConfig().catch(() => ({}));
+        if (config.versionFile !== undefined && (parseInt(config.versionFile) !== CLIENT_VERSION || config.SCDtype !== CLIENT_SCD_TYPE)) {
+            const div = document.createElement('div');
+            div.style = "background:#ffe6e6;color:#cc0000;padding:10px;border:2px solid #cc0000;margin:15px auto;width:90%;text-align:center;font-weight:bold;border-radius:4px;";
+            div.innerHTML = `⚠️ ADVERTENCIA: Las constantes del Servidor (V:${config.versionFile}/${config.SCDtype}) no coinciden con la Web (V:${CLIENT_VERSION}/${CLIENT_SCD_TYPE}). El archivo guardado NO será interpretable.`;
+            document.body.insertBefore(div, document.body.firstChild);
+        }
         fileName = urlParams.get('file') || config.parmFile;
         const source = urlParams.get('source');
         const sessionData = sessionStorage.getItem('tempRawData');
         let template, dataServidor;
-        // 1. Prioridad: ¿Venimos de EditRaw con cambios pendientes?
         if (source === 'tempRawData' && sessionData) {
-            console.log("Recuperando borrador de la sesión...");
             template = await apiGetJson('templateParm.json').catch(() => ({}));
             dataServidor = JSON.parse(sessionData);
             hasChanges = true; 
-        } 
-        // 2. Carga normal desde el servidor
-        else {
+        } else {
             console.log("Cargando archivo:", fileName);
             [template, dataServidor] = await Promise.all([
                 apiGetJson('templateParm.json').catch(() => ({})),
@@ -88,6 +92,14 @@ window.addEventListener("load", async () => {
             hasChanges = false;
         }
         rawTemplate = template;
+        // 2. Validación estricta del archivo físico importado o cargado
+        if (dataServidor.fileType !== undefined) {
+            if (dataServidor.fileType !== CLIENT_FILE_TYPE || parseInt(dataServidor.version) !== CLIENT_VERSION || dataServidor.SCDtype !== CLIENT_SCD_TYPE) {
+                alert("ERROR CRÍTICO: El fichero de configuración tiene una cabecera incompatible.\nNo se puede editar.");
+                window.location.href = 'parmfile.htm';
+                return;
+            }
+        }
         originalJsonData = mergeWithTemplate(dataServidor, template);
         await loadTables(originalJsonData, rawTemplate);
         document.body.addEventListener("input", (e) => {
@@ -155,36 +167,55 @@ const loadArrayTable = (list, idBody) => {
 async function loadTables(d, tmp) {
     loadArrayTable(d.botones || [], "botonesTableBody");
     loadArrayTable(d.grupos || [], "gruposTableBody");
-    await loadSimpleTable(d.domoticz || {}, "domoticzTableBody", true, tmp.domoticz || {}); // editable
-    await loadSimpleTable(d.time || {}, "timeTableBody", true, tmp.time || {}); // editable
+    await loadSimpleTable(d.domoticz || {}, "domoticzTableBody", true, tmp.domoticz || {}); 
+    await loadSimpleTable(d.time || {}, "timeTableBody", true, tmp.time || {}); 
 }
 
 function collectChanges() {
+    // 1. Clonamos el JSON original completo para conservar todo 
     const d = JSON.parse(JSON.stringify(originalJsonData));
+    // 2. Forzamos de forma estricta la cabecera arriba (las propiedades existentes se moverán al principio)
+    const ordenado = {
+        fileType: CLIENT_FILE_TYPE,
+        version: CLIENT_VERSION,
+        SCDtype: CLIENT_SCD_TYPE
+    };
+    // 3. Volcamos el resto de propiedades clonadas eliminando duplicados de cabecera viejos
+    delete d.fileType; delete d.version; delete d.SCDtype;
+    Object.assign(ordenado, d);
+    // 4. Sobrescribimos en el objeto ordenado SOLO lo que el usuario puede tocar en las tablas
+    // Mapeo de tablas de zonas
     document.querySelectorAll("#botonesTableBody tr").forEach((tr, i) => {
         const ins = tr.querySelectorAll("input");
-        d.botones[i].idx = parseInt(ins[0].value) || 0;
-        d.botones[i].nombre = ins[1].value;
+        if (ins.length >= 2) {
+            ordenado.botones[i].idx = parseInt(ins[0].value) || 0;
+            ordenado.botones[i].nombre = ins[1].value;
+        }
     });
+    // Mapeo de tablas de grupos
     document.querySelectorAll("#gruposTableBody tr").forEach((tr, i) => {
         const ins = tr.querySelectorAll("input");
-        d.grupos[i].desc = ins[0].value;
-        d.grupos[i].zonas = ins[1].value.split(",").map(Number).filter(n => n > 0);
+        if (ins.length >= 2) {
+            ordenado.grupos[i].desc = ins[0].value;
+            ordenado.grupos[i].zonas = ins[1].value.split(",").map(Number).filter(n => n > 0);
+        }
     });
+    // Mapeo de sub-objetos que SÍ tienen tabla en el HTML básico
     ["domoticz", "time"].forEach(key => {
+        if (!ordenado[key]) ordenado[key] = {}; // Por seguridad si no existía
         document.querySelectorAll(`#${key}TableBody tr`).forEach(tr => {
             const input = tr.querySelector("input");
-            const field = input.dataset.field;
-            let value = input.value.trim();
-            // Si el usuario deja el campo vacío mantenemos el valor del template
-            d[key][field] = (value !== "") ? value : rawTemplate[key][field];            
+            if (input) {
+                const field = input.dataset.field;
+                let value = input.value.trim();
+                ordenado[key][field] = (value !== "") ? value : (rawTemplate[key] ? rawTemplate[key][field] : "");
+            }
         });
     });
-    return d;
+    return ordenado;
 }
 
 async function saveChanges() {
-    // verifica formato campos que tengan pattern es correcto (necesario al no ser via un submit del formulario)
     const todosLosInputs = document.querySelectorAll("input");
     for (let input of todosLosInputs) {
         if (!input.checkValidity()) {
@@ -204,16 +235,16 @@ function processCancel() {
 }
 
 function editRaw() {
-    if (hasChanges) {
-        // Guardamos el borrador y desactivamos la bandera para que onbeforeunload no moleste
-        sessionStorage.setItem('tempRawData', JSON.stringify(collectChanges()));
-        hasChanges = false; 
-        window.location.href =`parmfile_editRaw.htm?file=${fileName}&source=tempRawData`, '_self';
-    } else {
-        // Sin cambios, vamos directos sin el parámetro source
-        window.location.href =`parmfile_editRaw.htm?file=${fileName}`, '_self';
-    }
+    // Generamos el paquete estructurado completo
+    const cleanData = collectChanges();
+    // Eliminamos la cabecera para que no aparezca en el editor en crudo
+    delete cleanData.fileType;
+    delete cleanData.version;
+    delete cleanData.SCDtype;
+    // Guardamos el borrador limpio en la sesión
+    sessionStorage.setItem('tempRawData', JSON.stringify(cleanData));
+    hasChanges = false; 
+    window.location.href = `parmfile_editRaw.htm?file=${fileName}&source=tempRawData`;
 }
 </script>
-</body>
 </html>
