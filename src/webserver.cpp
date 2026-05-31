@@ -459,6 +459,7 @@ void handleServerVars() {
     doc["errorFile"]     = logErrorFile;
     doc["lastRiegos"]    = lastRiegosFile;
     doc["lastGrupos"]    = lastGruposFile;
+    doc["maxFileSize"]   = MAX_FILE_SIZE;
     doc["version"]       = FW_VERSION;
     doc["logDays"]       = logDays;
     doc["logEnabled"]    = (LOG_FILE_GET_LEVEL() != DebugLogLevel::LVL_NONE);

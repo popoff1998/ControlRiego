@@ -61,9 +61,10 @@ window.addEventListener("load", async () => {
 
   try {
     const config = await getServerConfig();
+    if (!config.lastRiegos || !config.lastGrupos) throw new Error("Faltan parámetros de configuración para esta página.");
     const [riegosRes, gruposRes, params] = await Promise.all([
-      apiGetJson(config.lastRiegos),
-      apiGetJson(config.lastGrupos),
+      fetchTableData(config.lastRiegos, 'tablaRiegos', 5, '-- Sin datos --'),
+      fetchTableData(config.lastGrupos, 'tablaGrupos', 4, '-- Sin datos --'),
       apiGetJson(config.parmFile).catch(() => ({}))
     ]);
     const renderTable = (idBody, list, type) => {
@@ -79,18 +80,17 @@ window.addEventListener("load", async () => {
       document.querySelectorAll(`#${idBody} .clicable`).forEach(el => {
         el.onclick = (e) => {
           const pos = el.dataset.pos;
+          if (!params.botones || !params.grupos) return; // Validación de seguridad por si 'params' falló al cargar
           const html = isZona 
-            ? `<b>${params.botones[pos].nombre}</b>`
-            : `<b>${params.grupos[pos].desc}</b><br>Zonas: ${params.grupos[pos].zonas.join(", ")}`;
+            ? `<b>${params.botones[pos]?.nombre || 'Zona'}</b>`
+            : `<b>${params.grupos[pos]?.desc || 'Grupo'}</b><br>Zonas: ${params.grupos[pos]?.zonas?.join(", ") || ''}`;
           showInfo(e, html);
         };
       });
     };
-
-    renderTable('tablaRiegos', riegosRes.lastRiegos, 'zona');
-    renderTable('tablaGrupos', gruposRes.lastGrupos, 'grupo');
-
-  } catch (e) { console.error("Error:", e); }
+    if (riegosRes && riegosRes.lastRiegos) renderTable('tablaRiegos', riegosRes.lastRiegos, 'zona');
+    if (gruposRes && gruposRes.lastGrupos)renderTable('tablaGrupos', gruposRes.lastGrupos, 'grupo');
+  } catch (error) {alert(error.message); console.error("Error:", error);}
 });
 </script>
 </body>

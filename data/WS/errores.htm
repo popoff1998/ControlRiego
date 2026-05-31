@@ -88,6 +88,7 @@
       try {
         // A. Pedimos la configuración general
         const config = await getServerConfig();
+        if (!config.errorFile) throw new Error("Faltan parámetros de configuración para esta página.");
         // B. Actualizamos la interfaz
         updateUI(config);
         // C. Procesamos el path del fichero de errores para la tabla
@@ -97,12 +98,12 @@
         const fileNameWithExt = fullPath.substring(lastSlash + 1);
         const filter = fileNameWithExt.split('.').slice(0, -1).join('.') || fileNameWithExt;
         // D. Pedimos la lista de archivos usando el filtro obtenido
-        const fileData = await apiGetJson(`/api/list?dir=${encodeURIComponent(dir)}&file=${encodeURIComponent(filter)}`);
-        populateTable(fileData, "logsTableBody");
-      } catch (error) {
-        console.error("Error cargando la página de logs:", error);
-      }
+        const fileData = await fetchTableData(
+          `/api/list?dir=${encodeURIComponent(dir)}&file=${encodeURIComponent(filter)}`, 
+          "logsTableBody", 4, "Error cargando logs", "-- No existen archivos de log --" );
+        if (fileData) populateTable(fileData, "logsTableBody");
+      } catch (error) {alert(error.message); console.error("Error:", error);}
     });
-  </script>
+</script>
 </body>
 </html>

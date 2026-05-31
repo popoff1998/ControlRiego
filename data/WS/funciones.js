@@ -13,9 +13,35 @@ async function getServerConfig(forceRefresh = false) {
     if (!forceRefresh && cached) return JSON.parse(cached);
     try {
         const config = await apiGetJson("/api/serverVars");
+        if (!config || Object.keys(config).length === 0) throw new Error("JSON vacío");
         sessionStorage.setItem('serverConfig', JSON.stringify(config));
         return config;
-    } catch (e) { return {}; }
+    } catch (e) {
+        console.error("Error obteniendo configuración del servidor:", e);
+        return {}; }
+}
+
+function renderTableMessage(tableId, message, colspan) {
+    const body = document.getElementById(tableId);
+    if (body) {
+        body.innerHTML = `<tr><td colspan="${colspan}" style="text-align: center;">${message}</td></tr>`;
+    }
+}
+
+// Solicita datos a una API. Si falla o está vacío, muestra un mensaje en la tabla y devuelve null.
+async function fetchTableData(apiUrl, tableId, colspan = 2, errorMsg = "Error cargando datos" , emptyMsg = "-- Sin datos --") {
+    try {
+        const data = await apiGetJson(apiUrl);
+        // Verificación de vacíos (soporta {}, [] y null/undefined)
+        const isEmpty = !data || (Array.isArray(data) && data.length === 0) || 
+                        (!Array.isArray(data) && Object.keys(data).length === 0);
+        if (isEmpty) { renderTableMessage(tableId, emptyMsg, colspan); return null; }
+        return data;
+    } catch (error) {
+        console.error(`Error en API ${apiUrl}:`, error);
+        renderTableMessage(tableId, errorMsg, colspan);
+        return null;
+    }
 }
 
 /** Población de tablas dinámicas */
@@ -43,11 +69,8 @@ function createTableRow(file, tableId, config) {
     } else {
         const link = document.createElement("a");
         link.target = "_blank";
-        // Lógica de enlaces original
         if (tableId === "filesTableBody") link.href = isDir ? 'files.htm?dir=' + file.name : file.name;
         else link.href = file.name;
-        
-        // Lógica de etiquetas original
         if (tableId === "parmTableBody" || tableId === "backupTableBody") link.textContent = nameOnly;
         else link.textContent = (isDir ? "📁 " : "📄 ") + file.name;
         
@@ -56,11 +79,10 @@ function createTableRow(file, tableId, config) {
     row.appendChild(nameCell);
 
     // 2 y 3. Tamaño y Fecha (Uso de template para ahorrar líneas)
-    row.innerHTML += `
+    row.insertAdjacentHTML('beforeend', `
         <td class="${isDir ? 'dirclass' : 'fileclass'}" data-label="Size">${isDir ? 'directory' : file.size}</td>
         <td data-label="Timestamp">${new Date(file.time * 1000).toLocaleString()}</td>
-    `;
-
+    `);
     // 4. Celda de Acciones
     const actionCell = document.createElement("td");
     actionCell.className = "buttoncolumn";

@@ -62,29 +62,31 @@
 <script src="funciones.js"></script>
 <script>
 // Variables de configuración
-const MAX_PARMFILE = 4 * 1024;    // Tamaño máximo para un JSON de parámetros
 const PARM_FILE_TYPES = ['.json']; // Solo se acepta la extensión .json
 let currentParmFile = "";
 let currentBackupFile = "";
+let MAX_PARMFILE = 4 * 1024; // // Tamaño máximo para un JSON de parámetros 4KB
 
 window.addEventListener("load", async () => {
-    // Comprobar si hay reinicio pendiente
-    if (sessionStorage.getItem('needsRestart') === 'true') {
-        document.getElementById('restartBanner').style.display = 'block';
-    }
-    try {
-        // 1. Obtener nombres de ficheros desde el servidor
-        const config = await getServerConfig();
-        currentParmFile = config.parmFile;
-        currentBackupFile = config.backupFile;
-        // 2. Cargar listas de archivos en las tablas
-        const parmData = await apiGetJson('/api/list?file=' + encodeURIComponent(currentParmFile));
-        populateTable(parmData, "parmTableBody");
-        const backupData = await apiGetJson('/api/list?file=' + encodeURIComponent(currentBackupFile));
-        populateTable(backupData, "backupTableBody");
-    } catch (error) {
-        console.error("Error inicializando listas de ficheros:", error);
-    }
+  // Comprobar si hay reinicio pendiente
+  if (sessionStorage.getItem('needsRestart') === 'true') {
+      document.getElementById('restartBanner').style.display = 'block';
+  }
+  try {
+    // 1. Obtener nombres de ficheros desde el servidor
+    const config = await getServerConfig();
+    if (!config.parmFile || !config.backupFile) throw new Error("Faltan parámetros de configuración para esta página.");
+    currentParmFile = config.parmFile;
+    currentBackupFile = config.backupFile;
+    MAX_PARMFILE = config.maxFileSize || MAX_PARMFILE; // Actualizar tamaño máximo desde el servidor si se proporciona
+    // 2. Cargar listas de archivos en las tablas
+    const [parmData, backupData] = await Promise.all([
+        fetchTableData('/api/list?file=' + encodeURIComponent(currentParmFile), "parmTableBody", 4, "Error cargando datos", "-- No existe fichero --"),
+        fetchTableData('/api/list?file=' + encodeURIComponent(currentBackupFile), "backupTableBody", 4, "Error cargando datos", "-- No existe fichero --")
+    ]);
+    if (parmData) populateTable(parmData, "parmTableBody");
+    if (backupData) populateTable(backupData, "backupTableBody");    
+  } catch (error) {alert(error.message); console.error("Error:", error);}
 });
 
 // * Utility para leer un archivo como texto usando Promesas
@@ -106,24 +108,28 @@ async function handleImportClick() {
     if (file.size > MAX_PARMFILE) return alert(`Error: El fichero excede el tamaño máximo permitido (${returnFileSize(MAX_PARMFILE)}).`);
     try {
         const jsonString = await leerArchivoAsText(file);
-        validarJsonCompleto(jsonString); //Validación sintáctica
-        
-        // --- ADUANA DE CABECERA ---
+        validarJsonCompleto(jsonString); // Validación sintáctica
         const jsonImportado = JSON.parse(jsonString);
+        let requiereRestart = true;
+        let mensajeConfirmacion = `¡Los parámetros actuales serán sustituidos por los de "${file.name}"!\n¿Desea continuar?`;
+        // 1. Control de archivos con cabecera
         if (jsonImportado.fileType !== undefined) {
             if (jsonImportado.fileType !== CLIENT_FILE_TYPE || 
                 parseInt(jsonImportado.version) !== CLIENT_VERSION || 
-                jsonImportado.SCDtype !== CLIENT_SCD_TYPE) {
-                alert(`❌ IMPORTACIÓN RECHAZADA:\nEl archivo no es compatible con este sistema.\n` +
-                      `Esperado: ${CLIENT_FILE_TYPE} V:${CLIENT_VERSION} (${CLIENT_SCD_TYPE})\n` +
-                      `Recibido: ${jsonImportado.fileType} V:${jsonImportado.version} (${jsonImportado.SCDtype})`);
-                return; // Aborta e impide que llegue al ESP32
-            }
-        } else {
-            console.log("Archivo antiguo sin cabecera aceptado para migración.");
+                jsonImportado.SCDtype !== CLIENT_SCD_TYPE) 
+                return alert(`❌ IMPORTACIÓN RECHAZADA:\nEl archivo no es compatible con este sistema.\n\n` +
+                             `Esperado: ${CLIENT_FILE_TYPE} V:${CLIENT_VERSION} (${CLIENT_SCD_TYPE})\n` +
+                             `Recibido: ${jsonImportado.fileType} V:${jsonImportado.version} (${jsonImportado.SCDtype})`);
+        } 
+        // 2. Control de archivos antiguos sin cabecera (Migración)
+        else {
+            requiereRestart = false;
+            mensajeConfirmacion = `⚠️ ADVERTENCIA: Has seleccionado un archivo antiguo sin cabecera.\n\n` +
+                                  `Se aceptará para migración, pero NO se aplicará al sistema hasta que lo edites y guardes de nuevo.\n\n` +
+                                  `¿Desea subirlo de todas formas?`;
         }
-        if (confirm("¡Los parámetros actuales serán sustituidos por los de " + file.name + " ! ¿Continuar?")) {
-            await apiUploadParmFile(file);
+        if (confirm(mensajeConfirmacion)) {
+            await apiUploadParmFile(file, requiereRestart);
         }
     } catch (error) {
         alert("Error: " + error.message);
@@ -131,28 +137,34 @@ async function handleImportClick() {
     }
 }
 
-async function apiUploadParmFile(file) {
+async function apiUploadParmFile(file, requiereRestart) {
     const formData = new FormData();
-    // IMPORTANTE: Usamos currentParmFile para que el servidor sepa qué archivo sobreescribir
     formData.append('file', file, currentParmFile); 
     const btn = document.getElementById('btnImport');
     btn.disabled = true; 
     try {
         const response = await fetch('/', { method: 'POST', body: formData });
-        if (response.ok) { 
-            await fetch('/api/setrestart'); 
-            if (confirm("Archivo subido con éxito. ¿Desea reiniciar el sistema?")) {
-                sessionStorage.removeItem('serverConfig'); // Limpiamos para que al volver cargue lo nuevo
-                sessionStorage.removeItem('needsRestart');
-                window.location.href='/api/restart'; 
-            } else {
-                sessionStorage.setItem('needsRestart', 'true');
-                location.reload();
-            }   
-        } else { 
+        if (!response.ok) {
             const errorText = await response.text();
-            alert("Error al subir: " + errorText); 
+            return alert("Error al subir: " + errorText);
         }
+        // Caso 1: Archivo correcto que requiere reiniciar el ESP32
+        if (requiereRestart) {
+            await fetch('/api/setrestart'); 
+            if (confirm("Archivo subido con éxito. ¿Desea reiniciar el sistema ahora?")) {
+                sessionStorage.removeItem('serverConfig');
+                sessionStorage.removeItem('needsRestart');
+                window.location.href = '/api/restart'; 
+                return;
+            }
+            sessionStorage.setItem('needsRestart', 'true');
+        } 
+        // Caso 2: Archivo sin cabecera (Migración limpia)
+        else {
+            sessionStorage.removeItem('needsRestart'); 
+            alert("Archivo de migración guardado.\n\nRecuerde pulsar 'Editar' en la tabla inferior para firmarlo con la cabecera correcta.");
+        }
+        location.reload(); // Recarga común para actualizar las tablas de archivos
     } catch (error) {
         alert("Ocurrió un error de red al subir el archivo.");
         console.error("Error al subir el archivo:", error);

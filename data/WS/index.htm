@@ -43,8 +43,11 @@
       if (sessionStorage.getItem('needsRestart') === 'true') {document.getElementById('warnRestart').style.display = 'inline';}
       // Precargamos la configuración para que las siguientes páginas sean instantáneas
       getServerConfig()
-        .then(() => console.log("Configuración precargada y lista."))
-        .catch(err => console.error("Error en precarga:", err));
+      .then(config => {
+        if (config && Object.keys(config).length > 0) { console.log("Configuración precargada y lista.");
+        } else { alert("No se pudo obtener la configuración del servidor. Algunas paginas no funcionaran."); }
+      })
+      .catch(err => console.error("Error en precarga:", err));
     });
     // Función específica para limpiar la caché al reiniciar desde el menú
     function handleRestart() {

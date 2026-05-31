@@ -9,56 +9,48 @@
     <title>Edicion parámetros</title>
     <style>
         body {display: flex; flex-direction: column; max-width: 768px;}
-        table {width: 90%; border-collapse: collapse; margin: 20px auto; box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);}
+        table {width: 90%; border-collapse: collapse; margin: 20px auto; box-shadow: 2px 2px 5px rgba(0,0,0,0.1);}
         th, td {border: 1px solid #ddd; padding: 8px; text-align: center;}
         th {background-color: #f4f4f4;}
-        input {width: 90%; padding: 5px; box-sizing: border-box; border: 1px solid #cccccc;}
+        input {width: 90%; padding: 5px; box-sizing: border-box; border: 1px solid #ccc;}
         p {margin: 0; padding: 0; font-size: 0.9em;}
         .highlight-zero {background-color: #ffcccc !important;}
     </style>
 </head>
 <body>
-    <h1>Editar parámetros de configuración BÁSICOS</h1>
+    <h1>Editar parámetros BÁSICOS</h1>
     <a href="/" class="back">← Home</a>
     <h2>Botones</h2>
-    <p>Nombre: max. 9 caracteres.</p>
-    <p>Idx = 0 para zonas no asignadas.</p>
+    <p>Nombre: max. 9 caracteres. Idx=0 no asignada.</p>
     <table>
         <thead><tr><th>Zona</th><th>Idx</th><th>Nombre</th></tr></thead>
         <tbody id="botonesTableBody"></tbody>
     </table>
-
     <h2>Grupos</h2>
-    <p>Descripción: max. 9 caracteres.</p>
-    <p>Zonas: número zona separados por coma.</p>
+    <p>Desc: max. 9 caracteres. Zonas sep. por coma.</p>
     <table>
         <thead><tr><th>Grupo</th><th>Descripción</th><th>Zonas</th></tr></thead>
         <tbody id="gruposTableBody"></tbody>
     </table>
-
     <h2>Domoticz</h2>
     <p>Solo IP requerida</p>
     <table>
         <thead><tr><th>Campo</th><th>Valor</th></tr></thead>
         <tbody id="domoticzTableBody"></tbody>
     </table>
-
     <h2>NTP Server y TimeZone</h2>
     <p>Timezone en formato TZ posix.</p>
     <table>
         <thead><tr><th>Campo</th><th>Valor</th></tr></thead>
         <tbody id="timeTableBody"></tbody>
     </table>
-
     <div class="button-group">
         <button onclick="saveChanges()" class="save-button"><b>Guardar Cambios y Salir</b></button>
     </div>
-
     <div class="button-group">
         <button type="button" onclick="editRaw()" class="secondary-button">Edit Full</button>
         <button type="button" onclick="processCancel()" class="secondary-button">Cancel</button>
     </div>
-</body>
 
 <script src="funciones.js"></script>
 <script>
@@ -67,24 +59,22 @@ let fileName = "", originalJsonData = {}, rawTemplate = {}, hasChanges = false;
 window.addEventListener("load", async () => {
     const urlParams = new URLSearchParams(window.location.search);
     try {
-        // 1. Obtener configuración del servidor y validar contra constantes del cliente
         const config = await getServerConfig().catch(() => ({}));
         if (config.versionFile !== undefined && (parseInt(config.versionFile) !== CLIENT_VERSION || config.SCDtype !== CLIENT_SCD_TYPE)) {
             const div = document.createElement('div');
             div.style = "background:#ffe6e6;color:#cc0000;padding:10px;border:2px solid #cc0000;margin:15px auto;width:90%;text-align:center;font-weight:bold;border-radius:4px;";
-            div.innerHTML = `⚠️ ADVERTENCIA: Las constantes del Servidor (V:${config.versionFile}/${config.SCDtype}) no coinciden con la Web (V:${CLIENT_VERSION}/${CLIENT_SCD_TYPE}). El archivo guardado NO será interpretable.`;
+            div.innerHTML = `⚠️ ADVERTENCIA: Constantes Servidor (V:${config.versionFile}/${config.SCDtype}) no coinciden con Web (V:${CLIENT_VERSION}/${CLIENT_SCD_TYPE}).`;
             document.body.insertBefore(div, document.body.firstChild);
         }
-        fileName = urlParams.get('file') || config.parmFile;
-        const source = urlParams.get('source');
+        fileName = urlParams.get('file') || config.parmFile || "";
+        if (!fileName) return (alert("Error: Sin archivo."), window.location.href = 'parmfile.htm');
         const sessionData = sessionStorage.getItem('tempRawData');
         let template, dataServidor;
-        if (source === 'tempRawData' && sessionData) {
+        if (urlParams.get('source') === 'tempRawData' && sessionData) {
             template = await apiGetJson('templateParm.json').catch(() => ({}));
             dataServidor = JSON.parse(sessionData);
             hasChanges = true; 
         } else {
-            console.log("Cargando archivo:", fileName);
             [template, dataServidor] = await Promise.all([
                 apiGetJson('templateParm.json').catch(() => ({})),
                 apiGetJson(fileName).catch(() => ({}))
@@ -92,75 +82,61 @@ window.addEventListener("load", async () => {
             hasChanges = false;
         }
         rawTemplate = template;
-        // 2. Validación estricta del archivo físico importado o cargado
-        if (dataServidor.fileType !== undefined) {
-            if (dataServidor.fileType !== CLIENT_FILE_TYPE || parseInt(dataServidor.version) !== CLIENT_VERSION || dataServidor.SCDtype !== CLIENT_SCD_TYPE) {
-                alert("ERROR CRÍTICO: El fichero de configuración tiene una cabecera incompatible.\nNo se puede editar.");
-                window.location.href = 'parmfile.htm';
-                return;
-            }
+        if (dataServidor.fileType !== undefined 
+            && (dataServidor.fileType !== CLIENT_FILE_TYPE || parseInt(dataServidor.version) !== CLIENT_VERSION || dataServidor.SCDtype !== CLIENT_SCD_TYPE)) {
+            alert("ERROR CRÍTICO: Cabecera incompatible.");
+            return window.location.href = 'parmfile.htm';
         }
+        if (dataServidor.fileType === undefined) alert("⚠️ ADVERTENCIA: Archivo antiguo sin cabecera. Se añadirá al guardar.");
+        
         originalJsonData = mergeWithTemplate(dataServidor, template);
         await loadTables(originalJsonData, rawTemplate);
+        
         document.body.addEventListener("input", (e) => {
             if (e.target.tagName === "INPUT") {
                 hasChanges = true;
-                const field = e.target.dataset.field;
-                if (field === "idx") validateIdx(e.target);
-                if (field === "zonas") validateZonas(e.target);
+                if (e.target.dataset.field === "idx") validateIdx(e.target);
+                if (e.target.dataset.field === "zonas") validateZonas(e.target);
             }
         });
-    } catch (e) {
-        console.error("Error:", e); 
-        alert("Error de carga: " + e.message);
-    }
+    } catch (e) { alert("Error: " + e.message); }
     window.onbeforeunload = () => hasChanges ? "¿Perder cambios?" : null;
 });
 
-// --- Utilidades de Interfaz ---
 function validateIdx(el) {
     el.value = el.value.replace(/[^0-9]/g, "").slice(0, 3);
     el.closest("td").classList.toggle("highlight-zero", parseInt(el.value) === 0);
 }
 
 function validateZonas(el) {
-    let v = el.value.replace(/[^1-9,]/g, "").replace(/,{2,}/g, ",");
-    el.value = v.replace(/(\d)(?=\d)/g, "$1,");
+    el.value = el.value.replace(/[^1-9,]/g, "").replace(/,{2,}/g, ",").replace(/(\d)(?=\d)/g, "$1,");
 }
 
-// --- Lógica de Datos ---
 function mergeWithTemplate(data, template) {
     if (!data || typeof data !== 'object') return JSON.parse(JSON.stringify(template));
     if (Array.isArray(template)) {
         const k = 'zona' in template[0] ? 'zona' : 'grupo';
-        return template.map(tItem => {
-            const dItem = data.find(d => d[k] === tItem[k]);
-            return dItem ? { ...tItem, ...dItem } : { ...tItem };
+        return template.map(t => {
+            const d = data.find(x => x[k] === t[k]);
+            return d ? { ...t, ...d } : { ...t };
         });
     }
     const merged = { ...data };
-    for (const key in template) {
-        if (typeof template[key] === 'object' && template[key] !== null) {
-            merged[key] = mergeWithTemplate(data[key], template[key]);
-        } else if (merged[key] === undefined) {
-            merged[key] = template[key];
-        }
+    for (const k in template) {
+        merged[k] = (typeof template[k] === 'object' && template[k] !== null) ? mergeWithTemplate(data[k], template[k]) : (merged[k] ?? template[k]);
     }
     return merged;
 }
 
-const loadArrayTable = (list, idBody) => {
-    const isZonas = idBody.includes("botones");
-    document.getElementById(idBody).innerHTML = list.map((item, i) => `
+const loadArrayTable = (list, id) => {
+    const isZ = id.includes("botones");
+    document.getElementById(id).innerHTML = list.map(item => `
         <tr>
-            <td><span class="${isZonas ? 'orla-v' : 'orla-a'}">${isZonas ? item.zona : item.grupo}</span></td>
-            ${isZonas ? `
-                <td class="${!item.idx ? 'highlight-zero' : ''}"><input type="number" value="${item.idx || 0}" data-field="idx"></td>
-                <td><input type="text" value="${item.nombre || ''}" maxlength="9" data-field="nombre"></td>
-            ` : `
-                <td><input type="text" value="${item.desc || ''}" maxlength="9" data-field="desc"></td>
-                <td><input type="text" value="${Array.isArray(item.zonas) ? item.zonas.join(",") : ''}" data-field="zonas" maxlength="17"></td>
-            `}
+            <td><span class="${isZ ? 'orla-v' : 'orla-a'}">${isZ ? item.zona : item.grupo}</span></td>
+            ${isZ ? `<td class="${!item.idx ? 'highlight-zero' : ''}"><input type="number" value="${item.idx || 0}" data-field="idx"></td>
+                     <td><input type="text" value="${item.nombre || ''}" maxlength="9" data-field="nombre"></td>` 
+                 : `<td><input type="text" value="${item.desc || ''}" maxlength="9" data-field="desc"></td>
+                    <td><input type="text" value="${Array.isArray(item.zonas) ? item.zonas.join(",") : ''}" data-field="zonas" maxlength="17"></td>`}
         </tr>`).join('');
 };
 
@@ -172,43 +148,24 @@ async function loadTables(d, tmp) {
 }
 
 function collectChanges() {
-    // 1. Clonamos el JSON original completo para conservar todo 
-    const d = JSON.parse(JSON.stringify(originalJsonData));
-    // 2. Forzamos de forma estricta la cabecera arriba (las propiedades existentes se moverán al principio)
-    const ordenado = {
-        fileType: CLIENT_FILE_TYPE,
-        version: CLIENT_VERSION,
-        SCDtype: CLIENT_SCD_TYPE
-    };
-    // 3. Volcamos el resto de propiedades clonadas eliminando duplicados de cabecera viejos
-    delete d.fileType; delete d.version; delete d.SCDtype;
-    Object.assign(ordenado, d);
-    // 4. Sobrescribimos en el objeto ordenado SOLO lo que el usuario puede tocar en las tablas
-    // Mapeo de tablas de zonas
-    document.querySelectorAll("#botonesTableBody tr").forEach((tr, i) => {
-        const ins = tr.querySelectorAll("input");
-        if (ins.length >= 2) {
-            ordenado.botones[i].idx = parseInt(ins[0].value) || 0;
-            ordenado.botones[i].nombre = ins[1].value;
-        }
+    const ordenado = { fileType: CLIENT_FILE_TYPE, version: CLIENT_VERSION, SCDtype: CLIENT_SCD_TYPE, ...JSON.parse(JSON.stringify(originalJsonData)) };
+    // Mapeo de arrays complejos (botones y grupos)
+    [["botones", "idx", "nombre"], ["grupos", "desc", "zonas"]].forEach(([key, f1, f2]) => {
+        document.querySelectorAll(`#${key}TableBody tr`).forEach((tr, i) => {
+            const ins = tr.querySelectorAll("input");
+            if (ins.length >= 2) {
+                ordenado[key][i][f1] = f1 === "idx" ? (parseInt(ins[0].value) || 0) : ins[0].value;
+                ordenado[key][i][f2] = f2 === "zonas" ? ins[1].value.split(",").map(Number).filter(n => n > 0) : ins[1].value;
+            }
+        });
     });
-    // Mapeo de tablas de grupos
-    document.querySelectorAll("#gruposTableBody tr").forEach((tr, i) => {
-        const ins = tr.querySelectorAll("input");
-        if (ins.length >= 2) {
-            ordenado.grupos[i].desc = ins[0].value;
-            ordenado.grupos[i].zonas = ins[1].value.split(",").map(Number).filter(n => n > 0);
-        }
-    });
-    // Mapeo de sub-objetos que SÍ tienen tabla en el HTML básico
     ["domoticz", "time"].forEach(key => {
-        if (!ordenado[key]) ordenado[key] = {}; // Por seguridad si no existía
+        ordenado[key] = ordenado[key] || {};
         document.querySelectorAll(`#${key}TableBody tr`).forEach(tr => {
             const input = tr.querySelector("input");
             if (input) {
-                const field = input.dataset.field;
-                let value = input.value.trim();
-                ordenado[key][field] = (value !== "") ? value : (rawTemplate[key] ? rawTemplate[key][field] : "");
+                const f = input.dataset.field;
+                ordenado[key][f] = input.value.trim() !== "" ? input.value.trim() : (rawTemplate[key]?.[f] || "");
             }
         });
     });
@@ -216,14 +173,9 @@ function collectChanges() {
 }
 
 async function saveChanges() {
-    const todosLosInputs = document.querySelectorAll("input");
-    for (let input of todosLosInputs) {
-        if (!input.checkValidity()) {
-            input.reportValidity();
-            return;
-        }
+    for (let input of document.querySelectorAll("input")) {
+        if (!input.checkValidity()) return input.reportValidity();
     }
-    console.log("Guardando cambios...hasChanges=", hasChanges);
     try { await apiSaveConfig(collectChanges(), hasChanges, false); } catch (e) {}
 }
 
@@ -235,16 +187,12 @@ function processCancel() {
 }
 
 function editRaw() {
-    // Generamos el paquete estructurado completo
     const cleanData = collectChanges();
-    // Eliminamos la cabecera para que no aparezca en el editor en crudo
-    delete cleanData.fileType;
-    delete cleanData.version;
-    delete cleanData.SCDtype;
-    // Guardamos el borrador limpio en la sesión
+    delete cleanData.fileType; delete cleanData.version; delete cleanData.SCDtype;
     sessionStorage.setItem('tempRawData', JSON.stringify(cleanData));
     hasChanges = false; 
     window.location.href = `parmfile_editRaw.htm?file=${fileName}&source=tempRawData`;
 }
 </script>
+</body>
 </html>

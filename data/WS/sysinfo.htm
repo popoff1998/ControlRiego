@@ -34,19 +34,10 @@
 </table>
 <script src="funciones.js"></script>
 <script>
-const tableBody = document.getElementById("sysInfoTableBody");
-apiGetJson('/api/sysinfo')
-    .then(sysInfo => {
-        if (Object.keys(sysInfo).length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="2" style="text-align: center;">No data available</td></tr>';
-        } else {
-            loadSimpleTable(sysInfo, "sysInfoTableBody"); // solo lectura
-        }
-    })
-    .catch(error => {
-        console.error('Error fetching system info:', error);
-        tableBody.innerHTML = '<tr><td colspan="2" style="text-align: center;">Error cargando system info</td></tr>';
-    });
+  window.addEventListener("DOMContentLoaded", async () => {
+      const sysInfo = await fetchTableData('/api/sysinfo', 'sysInfoTableBody');
+      if (sysInfo) loadSimpleTable(sysInfo, "sysInfoTableBody");
+  });  
 </script>
 </body>
 </html>
