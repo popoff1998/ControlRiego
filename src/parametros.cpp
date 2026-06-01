@@ -265,9 +265,9 @@ bool deleteDatos()
   return bRC;
 }
 
-void saveRiegosToFile(const char* filename, const char* arrayName, S_timeRiego* tabla, size_t size) {
+void saveRiegosToFile(const char* filename, const char* arrayName, S_timeRiego* tabla, size_t size, bool initialize) {
     // no guardar en modo demo o si la hora o fecha no es correcta (antes del 1 de enero de 2026 00:00 GMT)
-    if(Estado.modoDEMO || !timeOK || time(NULL)<UMBRAL_EPOCH) return;
+    if(!initialize && (Estado.modoDEMO || !timeOK || time(NULL)<UMBRAL_EPOCH)) return;
     JsonDocument doc;
     JsonArray arr = doc[arrayName].to<JsonArray>();
     for (size_t i = 0; i < size; i++) {

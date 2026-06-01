@@ -673,7 +673,7 @@ void resetLeds(void);
 void restoreRiego(void);
 bool saveConfig(void);
 void saveRiego(int znumber, int bID, int minutes, int seconds);
-void saveRiegosToFile(const char *filename, const char *arrayName, S_timeRiego *tabla, size_t size);
+void saveRiegosToFile(const char *filename, const char *arrayName, S_timeRiego *tabla, size_t size, bool initialize = false);
 void scSorpresa();
 void scWebserver();
 void scWifiLevel();

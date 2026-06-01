@@ -1626,8 +1626,10 @@ void initLastRiegos()
   memset(lastRiegos, 0, sizeof(lastRiegos)); // Inicializamos a ceros por defecto para el caso de que no se pueda cargar o no exista el archivo
   if (loadRiegosFromFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS)) {
     LOG_INFO("Ultimos riegos de zonas leidos de ", lastRiegosFile);
-  } else
+  } else {
     LOG_WARN("No se han podido cargar los ultimos riegos desde ", lastRiegosFile, ", inicializados a ceros");
+    saveRiegosToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS, true); // intentamos crear el archivo con la estructura inicializada a ceros para futuros usos
+    }
 }
 
 // Carga la estructura de ultimos riegos de grupos desde el archivo correspondiente o inicializa a ceros
@@ -1637,8 +1639,10 @@ void initLastGrupos()
   memset(lastGrupos, 0, sizeof(lastGrupos)); // Inicializamos a ceros por defecto para el caso de que no se pueda cargar o no exista el archivo
   if (loadRiegosFromFile(lastGruposFile, "lastGrupos", lastGrupos, NUMGRUPOS)) {
     LOG_INFO("Ultimos riegos de grupos leidos de ",lastGruposFile);
-  } else
+  } else {
     LOG_WARN("No se han podido cargar los ultimos riegos desde ", lastGruposFile, ", inicializados a ceros");
+    saveRiegosToFile(lastGruposFile, "lastGrupos", lastGrupos, NUMGRUPOS, true); // intentamos crear el archivo con la estructura inicializada a ceros para futuros usos
+    }
 }
 
 // Inicia/reanuda el riego correspondiente al boton de zona pulsado ultimo
