@@ -1,6 +1,6 @@
 /* ==================== BUTTON STYLES ==================== */
 
-/* Estilo base: padding, fuente, transición y sombreado común */
+/* Estilo base: Todo botón hereda esto por defecto */
 button {
   border: none;
   border-radius: 5px;
@@ -13,73 +13,90 @@ button {
   color: white;
   font-size: 16px;
 }
-/* 3. Definir el sombreado/elevación para el HOVER en la base */
+
 button:hover {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15), 0 0 2px rgba(0, 0, 0, 0.1);
-    background-color: var(--hover-color);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15), 0 0 2px rgba(0, 0, 0, 0.1);
+  background-color: var(--hover-color);
 }
-/* 4. Definir el sombreado/hundimiento para el ACTIVE en la base */
+
 button:active {
-    box-shadow: none; /* Eliminar la sombra para el efecto de "hundimiento" */
-    transform: translateY(1px); /* Moverlo ligeramente hacia abajo */
+  box-shadow: none;
+  transform: translateY(1px);
 }
 
-/** Button for save/submit actions */
+/* Modificadores específicos: SOLO cambian lo que es estrictamente diferente */
+
 .save-button {
-    background-color: #007BFF;
-    color: white;
-    font-weight: 600;
+  background-color: #007BFF;
+  font-weight: 600;
+}
+.save-button:hover {
+  background-color: #0056b3;
 }
 
-/** Secondary button for cancel/edit actions */
 .secondary-button {
-    background-color: #d1caca;
-    color: black;
+  background-color: #d1caca;
+  color: black;
 }
 .secondary-button:hover {
-    color: white;
-}
-
-.back-button {
-    background-color: #d1caca;
-    color: black;
-    padding: 8px 12px;
-    font-size: 0.95rem;
-}
-.back-button:hover {
-    background-color: #a89f9f;
+  background-color: #a8a2a2;
+  color: white;
 }
 
 .btn-log {
-    padding: 8px 12px;
-    background-color: #2e8e95;
-    color: white;
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 16px;
+  padding: 8px 12px; /* Padding más compacto para tablas */
+  background-color: #2e8e95;
 }
+.btn-log:hover {
+  background-color: #236d72;
+}
+
 .button-delete {
-    background-color: #9d072c;
-    color: #fff;
+  background-color: #9d072c;
 }
 .button-delete:hover {
-    background-color: #b60c38;
-    color: #fff;
+  background-color: #b60c38;
 }
 
+.button-import {
+  background-color: #1e9a31;
+  font-size: 18px;
+  padding: 12px 17px;
+}
+.button-import:hover {
+  background-color: #156b22;
+}
 
-/** Button group container for flexible button layout */
+.button-new {
+  font-size: 18px;
+  padding: 12px 17px;
+}
+
+.button-restore {
+  background-color: #780320;
+}
+.button-restore:hover {
+  background-color: #930628;
+}
+
+/* Contenedores de diseño */
 .button-group {
-    margin: 15px 5px;
-    text-align: center;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 20px;
-    min-width: 60px;
+  margin: 15px 5px;
+  text-align: center;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+  min-width: 60px;
 }
 .button-group button {
-    flex: 0 1 auto;
-} 
+  flex: 1 1 auto; /* Cambiado a 1 1 auto para que estire en móviles si es necesario, máx/mín se controla en página */
+}
 
+.banner { padding: 10px; margin: 15px auto; width: 90%; max-width: 800px; border-radius: 6px; font-family: sans-serif; box-sizing: border-box; text-align: center; }
+.banner button { margin-left: 15px; padding: 5px 10px; background-color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: 700; }
+.banner-info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+.banner-warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+.banner-warning button { color: #ff9800; }
+.banner-warning button:hover { background-color: #f5f5f5; }
+.banner-critical { background: #ffe6e6; color: #cc0000; border: 2px solid #cc0000; font-weight: bold; }

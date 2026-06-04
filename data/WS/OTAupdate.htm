@@ -1,83 +1,83 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1"/>
-    <title>OTA Update</title>
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
-    <style>
-        body{font-family:Arial,sans-serif;max-width:900px;margin:20px auto;color:#222;padding:0 10px}
-        h1{color:#135a8a}
-        .card{border:1px solid #ddd;border-radius:8px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
-        .btn-container { text-align: center; margin: 15px 0; }
-        .btn{font-size:1.1em;padding:10px 20px;border:none;border-radius:5px;background:#007BFF;color:#fff;cursor:pointer;transition:0.3s}
-        .btn:disabled{background:#A9A9A9;cursor:not-allowed; opacity: 0.6;}
-        .btn:hover:not(:disabled){background:#c0116b}
-        .file-select-area { margin-left: 30px; margin-bottom: 15px; }
-        .preview-text{margin:10px 0;font-size:1.1rem; min-height: 1.2em;}
-        .preview-text[data-status="error"]{color:crimson}
-        .preview-text[data-status="success"]{color:purple;font-family:monospace}
-        .progress-wrap{width:100%;margin-top:15px;display:none}
-        .progress{width:100%;height:18px;background:#eee;border-radius:9px;overflow:hidden}
-        .progress>i{display:block;height:100%;width:0%;background:linear-gradient(90deg,#3da3aa,#007BFF);transition:width 0.2s}
-        .percent{font-weight:700;color:#007BFF;display:block;margin-top:5px}
-        .status{margin-top:8px;font-weight:600}
-        form label{background:#e9e9e9;padding:8px 12px;border-radius:4px;border:1px solid #000;cursor:pointer;display:inline-block;margin-bottom:10px}
-        .disabled-label { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
-    </style>
-    <script src="funciones.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>OTA Update</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <style>
+    body{font-family:Arial,sans-serif;max-width:900px;margin:20px auto;color:#222;padding:0 10px}
+    h1{color:#135a8a}
+    .card{border:1px solid #ddd;border-radius:8px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
+    .btn-container { text-align: center; margin: 15px 0; }
+    .btn{font-size:1.1em;padding:10px 20px;border:none;border-radius:5px;background:#007BFF;color:#fff;cursor:pointer;transition:0.3s}
+    .btn:disabled{background:#A9A9A9;cursor:not-allowed; opacity: 0.6;}
+    .btn:hover:not(:disabled){background:#c0116b}
+    .file-select-area { margin-left: 30px; margin-bottom: 15px; }
+    .preview-text{margin:10px 0;font-size:1.1rem; min-height: 1.2em;}
+    .preview-text[data-status="error"]{color:crimson}
+    .preview-text[data-status="success"]{color:purple;font-family:monospace}
+    .progress-wrap{width:100%;margin-top:15px;display:none}
+    .progress{width:100%;height:18px;background:#eee;border-radius:9px;overflow:hidden}
+    .progress>i{display:block;height:100%;width:0%;background:linear-gradient(90deg,#3da3aa,#007BFF);transition:width 0.2s}
+    .percent{font-weight:700;color:#007BFF;display:block;margin-top:5px}
+    .status{margin-top:8px;font-weight:600}
+    form label{background:#e9e9e9;padding:8px 12px;border-radius:4px;border:1px solid #000;cursor:pointer;display:inline-block;margin-bottom:10px}
+    .disabled-label { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+  </style>
+  <script src="funciones.js"></script>
 </head>
 <body>
-    <h1>OTA Update</h1>
-    <div class="card">
-        <div style="text-align:right">Versión actual FW: <strong id="fwVersion">---</strong></div>
-        <h2>Firmware</h2>
-        <form id="formFW">
-            <div class="file-select-area">
-                <label id="labelFW" for="firmware">Seleccionar .bin</label>
-                <input type="file" id="firmware" style="display:none"/>
-                <p id="msgFW" class="preview-text" data-status="default">No seleccionado</p>
-            </div>
-            <div class="btn-container"><button id="btnFirmware" type="button" class="btn" disabled>Actualizar Firmware</button></div>
-            <div id="fwProgressWrap" class="progress-wrap">
-                <div class="progress"><i id="fwBar"></i></div>
-                <span id="fwPct" class="percent">0%</span>
-                <div id="fwStatus" class="status"></div>
-            </div>
-        </form>
-        <hr style="margin:30px 0">
-        <h2>FileSystem</h2>
-        <form id="formFS">
-            <div class="file-select-area">
-                <label id="labelFS" for="filesystem">Seleccionar .bin</label>
-                <input type="file" id="filesystem" style="display:none"/>
-                <p id="msgFS" class="preview-text" data-status="default">No seleccionado</p>
-            </div>
-            <div class="btn-container"><button id="btnFS" type="button" class="btn" disabled>Actualizar FileSystem</button></div>
-            <div id="fsProgressWrap" class="progress-wrap">
-                <div class="progress"><i id="fsBar"></i></div>
-                <span id="fsPct" class="percent">0%</span>
-                <div id="fsStatus" class="status"></div>
-            </div>
-        </form>
-    </div>
+  <h1>OTA Update</h1>
+  <div class="card">
+    <div style="text-align:right">Versión actual FW: <strong id="fwVersion">---</strong></div>
+    <h2>Firmware</h2>
+    <form id="formFW">
+      <div class="file-select-area">
+        <label id="labelFW" for="firmware">Seleccionar .bin</label>
+        <input type="file" id="firmware" style="display:none"/>
+        <p id="msgFW" class="preview-text" data-status="default">No seleccionado</p>
+      </div>
+      <div class="btn-container"><button id="btnFirmware" type="button" class="btn" disabled>Actualizar Firmware</button></div>
+      <div id="fwProgressWrap" class="progress-wrap">
+        <div class="progress"><i id="fwBar"></i></div>
+        <span id="fwPct" class="percent">0%</span>
+        <div id="fwStatus" class="status"></div>
+      </div>
+    </form>
+    <hr style="margin:30px 0">
+    <h2>FileSystem</h2>
+    <form id="formFS">
+      <div class="file-select-area">
+        <label id="labelFS" for="filesystem">Seleccionar .bin</label>
+        <input type="file" id="filesystem" style="display:none"/>
+        <p id="msgFS" class="preview-text" data-status="default">No seleccionado</p>
+      </div>
+      <div class="btn-container"><button id="btnFS" type="button" class="btn" disabled>Actualizar FileSystem</button></div>
+      <div id="fsProgressWrap" class="progress-wrap">
+        <div class="progress"><i id="fsBar"></i></div>
+        <span id="fsPct" class="percent">0%</span>
+        <div id="fsStatus" class="status"></div>
+      </div>
+    </form>
+  </div>
 
 <script>
 const OTA_CONFIG = { allowedTypes: ['.bin'], maxFWsize: 0, maxFSsize: 0, uploadUrl: '/$update?page=custom' };
 
 const getComp = (t) => {
-    const isFW = t === 'firmware', p = isFW ? 'fw' : 'fs';
-    return {
-        input: document.getElementById(isFW ? 'firmware' : 'filesystem'),
-        msg: document.getElementById(isFW ? 'msgFW' : 'msgFS'),
-        btn: document.getElementById(isFW ? 'btnFirmware' : 'btnFS'),
-        wrap: document.getElementById(p + 'ProgressWrap'),
-        bar: document.getElementById(p + 'Bar'),
-        pct: document.getElementById(p + 'Pct'),
-        status: document.getElementById(p + 'Status'),
-        max: isFW ? OTA_CONFIG.maxFWsize : OTA_CONFIG.maxFSsize,
-        form: document.getElementById(isFW ? 'formFW' : 'formFS')
-    };
+  const isFW = t === 'firmware', p = isFW ? 'fw' : 'fs';
+  return {
+    input: document.getElementById(isFW ? 'firmware' : 'filesystem'),
+    msg: document.getElementById(isFW ? 'msgFW' : 'msgFS'),
+    btn: document.getElementById(isFW ? 'btnFirmware' : 'btnFS'),
+    wrap: document.getElementById(p + 'ProgressWrap'),
+    bar: document.getElementById(p + 'Bar'),
+    pct: document.getElementById(p + 'Pct'),
+    status: document.getElementById(p + 'Status'),
+    max: isFW ? OTA_CONFIG.maxFWsize : OTA_CONFIG.maxFSsize,
+    form: document.getElementById(isFW ? 'formFW' : 'formFS')
+  };
 };
 
 const UI = {
@@ -139,16 +139,22 @@ function processUpload(type) {
             const ok = xhr.status >= 200 && xhr.status < 300;
             c.status.style.color = ok ? 'green' : 'crimson';
             c.status.textContent = xhr.responseText || (ok ? 'Éxito' : 'Error: ' + xhr.status);
-            UI.lockUI(false);
+            if (!ok) UI.lockUI(false); //desbloqueamos para reintentar
         }
     };
-    c.wrap.style.display = 'block'; xhr.send(fd);
+    xhr.onerror = () => {
+        c.status.style.color = 'crimson';
+        c.status.textContent = "Error crítico de red: Conexión perdida con el ESP32.";
+        UI.lockUI(false);
+    };
+    c.wrap.style.display = 'block'; 
+    xhr.send(fd);
 }
 
 (async function init() {
     ['formFW','formFS'].forEach(id => { const f = document.getElementById(id); if(f) f.reset(); });
     try {
-        const cfg = await getServerConfig();
+        const cfg = await getServerConfig(true);
         OTA_CONFIG.maxFWsize = cfg.maxFW || 0; OTA_CONFIG.maxFSsize = cfg.maxFS || 0;
         document.getElementById('fwVersion').textContent = cfg.version || "---";
     } catch (e) { console.error("Config error"); }

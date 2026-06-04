@@ -4,14 +4,14 @@
   <meta charset="UTF-8">
   <title>Histórico de Riegos y Grupos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="icon" href="favicon.ico">
   <link rel="stylesheet" href="style_base.css">
   <link rel="stylesheet" href="style_botones.css">
   <link rel="stylesheet" href="style_tableFiles.css">
 <style>
   .table-container { max-width: 900px; margin: auto; }
   h2 { margin-top: 2em; margin-bottom: 0.5em; }
-  table.files-table th, table.files-table td { text-align: center; vertical-align: middle; }
+  .ft th, .ft td { text-align: center; vertical-align: middle; }
   .info-flotante { 
     position: absolute; background: #333; color: #fff; padding: 8px; border-radius: 6px; 
     font-size: .85em; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,.4); pointer-events: none; 
@@ -27,32 +27,32 @@
   <h1 style="margin-top: 20px;">Últimos riegos registrados</h1>
   <div class="table-container">
     <h2>Zonas</h2>
-    <table class="files-table">
+    <table class="ft">
       <thead><tr><th>Zona</th><th>Inicio</th><th>Final</th><th>Minutos</th><th>Histórico</th></tr></thead>
       <tbody id="tablaRiegos"></tbody>
     </table>
-
     <h2>Grupos</h2>
-    <table class="files-table">
+    <table class="ft">
       <thead><tr><th>Grupo</th><th>Inicio</th><th>Final</th><th>Minutos</th></tr></thead>
       <tbody id="tablaGrupos"></tbody>
     </table>
   </div>
-
 <script src="funciones.js"></script>
 <script>
-const showZONElog = (z) => window.location.href = `showLog.htm?zona=${z}`;
-
+let params = {};
 window.addEventListener("load", async () => {
   const infoBox = document.createElement("div");
   infoBox.className = "info-flotante";
   document.body.appendChild(infoBox);
 
-  const showInfo = (e, txt) => {
-    if (infoBox.timer) clearTimeout(infoBox.timer);
-    infoBox.innerHTML = txt;
-    infoBox.style.left = `${e.pageX + 10}px`;
-    infoBox.style.top = `${e.pageY + 10}px`;
+  window.showInfo = (e, pos, isZona) => {
+    if (!params.botones || !params.grupos) return;
+    clearTimeout(infoBox.timer);
+    infoBox.innerHTML = isZona 
+      ? `<b>${params.botones[pos]?.nombre || 'Zona'}</b>`
+      : `<b>${params.grupos[pos]?.desc || 'Grupo'}</b><br>Zonas: ${params.grupos[pos]?.zonas?.join(", ") || ''}`;
+    infoBox.style.left = `${e.pageX + 20}px`;
+    infoBox.style.top = `${e.pageY - 45}px`;
     infoBox.classList.add("show");
     const hide = () => infoBox.classList.remove("show");
     e.target.onmouseleave = hide;
@@ -61,36 +61,30 @@ window.addEventListener("load", async () => {
 
   try {
     const config = await getServerConfig();
-    if (!config.lastRiegos || !config.lastGrupos) throw new Error("Faltan parámetros de configuración para esta página.");
-    const [riegosRes, gruposRes, params] = await Promise.all([
+    if (!config.lastRiegos || !config.lastGrupos) throw new Error(MSG_ERR_CONFIG);
+    
+    let riegosRes, gruposRes;
+    [riegosRes, gruposRes, params] = await Promise.all([
       fetchTableData(config.lastRiegos, 'tablaRiegos', 5, '-- Sin datos --'),
       fetchTableData(config.lastGrupos, 'tablaGrupos', 4, '-- Sin datos --'),
       apiGetJson(config.parmFile).catch(() => ({}))
     ]);
+
     const renderTable = (idBody, list, type) => {
       const isZona = type === 'zona';
       document.getElementById(idBody).innerHTML = list.map((item, pos) => `
         <tr>
-          <td><span class="${isZona ? 'orla-v' : 'orla-a'} clicable" data-pos="${pos}">${pos + 1}</span></td>
+          <td><span class="${isZona ? 'orla-v' : 'orla-a'} clicable" onclick="showInfo(event, ${pos}, ${isZona})">${pos + 1}</span></td>
           <td>${formatDateLocal(item.inicio)}</td>
           <td>${formatDateLocal(item.final)}</td>
           <td>${formatMinutes(item.total)}</td>
-          ${isZona ? `<td><button class="btn-log" onclick="showZONElog(${pos + 1})">LOG</button></td>` : ''}
+          ${isZona ? `<td><button class="btn-log" onclick="location.href='showLog.htm?zona=${pos + 1}'">LOG</button></td>` : ''}
         </tr>`).join('');
-      document.querySelectorAll(`#${idBody} .clicable`).forEach(el => {
-        el.onclick = (e) => {
-          const pos = el.dataset.pos;
-          if (!params.botones || !params.grupos) return; // Validación de seguridad por si 'params' falló al cargar
-          const html = isZona 
-            ? `<b>${params.botones[pos]?.nombre || 'Zona'}</b>`
-            : `<b>${params.grupos[pos]?.desc || 'Grupo'}</b><br>Zonas: ${params.grupos[pos]?.zonas?.join(", ") || ''}`;
-          showInfo(e, html);
-        };
-      });
     };
-    if (riegosRes && riegosRes.lastRiegos) renderTable('tablaRiegos', riegosRes.lastRiegos, 'zona');
-    if (gruposRes && gruposRes.lastGrupos)renderTable('tablaGrupos', gruposRes.lastGrupos, 'grupo');
-  } catch (error) {alert(error.message); console.error("Error:", error);}
+
+    if (riegosRes?.lastRiegos) renderTable('tablaRiegos', riegosRes.lastRiegos, 'zona');
+    if (gruposRes?.lastGrupos) renderTable('tablaGrupos', gruposRes.lastGrupos, 'grupo');
+  } catch (error) { alert(error.message); }
 });
 </script>
 </body>

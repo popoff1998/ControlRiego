@@ -35,11 +35,12 @@ const char* custom_head_element =
 // Pattern para validar IPs y puertos en los campos de configuración (usado en el portal AP de WiFiManager y en el webserver)
 #define RX_OCTETO "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
 #define RX_IP_BASE "^(" RX_OCTETO "\\." RX_OCTETO "\\." RX_OCTETO "\\." RX_OCTETO ")$|^([a-zA-Z0-9\\-]+\\.local)$"
-#define RX_PORT_BASE "^([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$"
+// #define RX_PORT_BASE "^([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$"
 
 // Atributos HTML completos de esos campos, con validación y mensajes de error personalizados
 const char* IP_ATTRS = "pattern='" RX_IP_BASE "' title='IP o host.local' required";
-const char* PORT_ATTRS = "pattern='" RX_PORT_BASE "' title='Puerto (1-65535)' placeholder='" DFLT_SCD_PORT "'";
+const char* PORT_ATTRS = "type='number' min='1' max='65535' placeholder='" DFLT_SCD_PORT "'";
+// const char* PORT_ATTRS = "pattern='" RX_PORT_BASE "' title='Puerto (1-65535)' placeholder='" DFLT_SCD_PORT "'";
 
 // Creamos una instancia de la clase WiFiManager
 

@@ -48,8 +48,8 @@
         <button onclick="saveChanges()" class="save-button"><b>Guardar Cambios y Salir</b></button>
     </div>
     <div class="button-group">
-        <button type="button" onclick="editRaw()" class="secondary-button">Edit Full</button>
-        <button type="button" onclick="processCancel()" class="secondary-button">Cancel</button>
+        <button onclick="editRaw()" class="secondary-button">Edit Full</button>
+        <button onclick="processCancel()" class="secondary-button">Cancel</button>
     </div>
 
 <script src="funciones.js"></script>
@@ -63,35 +63,36 @@ window.addEventListener("load", async () => {
         if (config.versionFile !== undefined && (parseInt(config.versionFile) !== CLIENT_VERSION || config.SCDtype !== CLIENT_SCD_TYPE)) {
             const div = document.createElement('div');
             div.style = "background:#ffe6e6;color:#cc0000;padding:10px;border:2px solid #cc0000;margin:15px auto;width:90%;text-align:center;font-weight:bold;border-radius:4px;";
-            div.innerHTML = `⚠️ ADVERTENCIA: Constantes Servidor (V:${config.versionFile}/${config.SCDtype}) no coinciden con Web (V:${CLIENT_VERSION}/${CLIENT_SCD_TYPE}).`;
+            div.innerHTML = `⚠️ ADVERTENCIA: Versión del servidor incompatible.`;
             document.body.insertBefore(div, document.body.firstChild);
         }
-        fileName = urlParams.get('file') || config.parmFile || "";
+        const fileParam = urlParams.get('file');
+        fileName = (fileParam && fileParam !== "null") ? fileParam : (config.parmFile || "");
         if (!fileName) return (alert("Error: Sin archivo."), window.location.href = 'parmfile.htm');
         const sessionData = sessionStorage.getItem('tempRawData');
         let template, dataServidor;
         if (urlParams.get('source') === 'tempRawData' && sessionData) {
+            // CASO A: Volvemos de editRaw. Cargamos del búfer y NO comprobamos cabecera.
             template = await apiGetJson('templateParm.json').catch(() => ({}));
             dataServidor = JSON.parse(sessionData);
             hasChanges = true; 
         } else {
+            // CASO B: Entrada directa (Carga inicial de un fichero desde el servidor) comprobamos cabecera.
             [template, dataServidor] = await Promise.all([
                 apiGetJson('templateParm.json').catch(() => ({})),
                 apiGetJson(fileName).catch(() => ({}))
             ]);
             hasChanges = false;
+            if (dataServidor.fileType !== undefined && 
+                (dataServidor.fileType !== CLIENT_FILE_TYPE || parseInt(dataServidor.version) !== CLIENT_VERSION || dataServidor.SCDtype !== CLIENT_SCD_TYPE)) {
+                alert("ERROR CRÍTICO: Cabecera incompatible.");
+                return window.location.href = 'parmfile.htm';
+            }
+            if (dataServidor.fileType === undefined) {alert("⚠️ ADVERTENCIA: Archivo antiguo sin cabecera. Se añadirá al guardar.");}
         }
         rawTemplate = template;
-        if (dataServidor.fileType !== undefined 
-            && (dataServidor.fileType !== CLIENT_FILE_TYPE || parseInt(dataServidor.version) !== CLIENT_VERSION || dataServidor.SCDtype !== CLIENT_SCD_TYPE)) {
-            alert("ERROR CRÍTICO: Cabecera incompatible.");
-            return window.location.href = 'parmfile.htm';
-        }
-        if (dataServidor.fileType === undefined) alert("⚠️ ADVERTENCIA: Archivo antiguo sin cabecera. Se añadirá al guardar.");
-        
         originalJsonData = mergeWithTemplate(dataServidor, template);
         await loadTables(originalJsonData, rawTemplate);
-        
         document.body.addEventListener("input", (e) => {
             if (e.target.tagName === "INPUT") {
                 hasChanges = true;
@@ -105,7 +106,7 @@ window.addEventListener("load", async () => {
 
 function validateIdx(el) {
     el.value = el.value.replace(/[^0-9]/g, "").slice(0, 3);
-    el.closest("td").classList.toggle("highlight-zero", parseInt(el.value) === 0);
+    el.closest("td").classList.toggle("highlight-zero", (parseInt(el.value) || 0) === 0);
 }
 
 function validateZonas(el) {
@@ -133,7 +134,7 @@ const loadArrayTable = (list, id) => {
     document.getElementById(id).innerHTML = list.map(item => `
         <tr>
             <td><span class="${isZ ? 'orla-v' : 'orla-a'}">${isZ ? item.zona : item.grupo}</span></td>
-            ${isZ ? `<td class="${!item.idx ? 'highlight-zero' : ''}"><input type="number" value="${item.idx || 0}" data-field="idx"></td>
+            ${isZ ? `<td class="${!item.idx ? 'highlight-zero' : ''}"><input type="text" inputmode="numeric" value="${item.idx || 0}" data-field="idx"></td>
                      <td><input type="text" value="${item.nombre || ''}" maxlength="9" data-field="nombre"></td>` 
                  : `<td><input type="text" value="${item.desc || ''}" maxlength="9" data-field="desc"></td>
                     <td><input type="text" value="${Array.isArray(item.zonas) ? item.zonas.join(",") : ''}" data-field="zonas" maxlength="17"></td>`}
@@ -176,11 +177,11 @@ async function saveChanges() {
     for (let input of document.querySelectorAll("input")) {
         if (!input.checkValidity()) return input.reportValidity();
     }
-    try { await apiSaveConfig(collectChanges(), hasChanges, false); } catch (e) {}
+    try { await apiSaveConfig(collectChanges(), hasChanges); } catch (e) {}
 }
 
 function processCancel() {
-    if (hasChanges && !confirm("Perder cambios?")) return;
+    if (hasChanges && !confirm("¿Perder cambios?")) return;
     hasChanges = false;
     sessionStorage.removeItem('tempRawData');
     window.location.href = 'parmfile.htm';

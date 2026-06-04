@@ -1,11 +1,5 @@
-<!-- 
-   Esta página, parmfile.htm, permite gestionar el fichero de parámetros de la CCR.
-   Cargarlo desde el PC, crear uno nuevo o restaurar desde el fichero de backup.
-   Ademas, ver, editar, descargar o borrar el fichero actual. 
- --> 
-
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <title>Parmfile</title>
     <meta charset="UTF-8">
@@ -19,53 +13,48 @@
 
 <style>
     .container { display: flex; flex-direction: column; align-items: center; gap: 20px; margin: 25px auto 50px; }
-    .button-group button { flex: 1 1 auto; max-width: 120px; min-width: 80px; padding: 10px 12px; }
-    .button-import, .button-new { padding: 12px 17px; font-size: 18px; min-width: 100px; color: #fff; }
-    .button-import { background-color: #1e9a31; }
-    .button-restore { background-color: #780320; color: #fff; }
-    .button-restore:hover { background-color: #930628; color: #fff; }
-    @media (max-width: 768px) { button.back-button { padding: 6px 10px; font-size: 0.9rem; } }
-    form { display: flex; flex-wrap: wrap; gap: 25px; justify-content: center; }
-    input[type="file"] { flex: 1 1 auto; max-width: 350px; }
-    .restart-banner { display: none; background-color: #ff9800; color: white; padding: 15px; margin: 10px auto; width: 90%;
-         max-width: 600px; border-radius: 8px; text-align: center; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    .restart-banner button { margin-left: 15px; padding: 5px 10px; background-color: white; color: #ff9800; border: none;
-         border-radius: 4px; cursor: pointer; }
+    /* Limidadores de tamaño específicos para la botonera de esta página */
+    .button-group button { max-width: 120px; min-width: 80px; }
+    .button-import, .button-new { min-width: 100px; flex: 1 1 auto; }
+    form { display: flex; flex-wrap: wrap; gap: 25px; justify-content: center; width: 100%; max-width: 600px; }
+    input[type="file"] { flex: 1 1 300px; max-width: 450px; min-width: 300px; }
+    .form-actions { display: flex; gap: 30px; flex: 0 0 auto; }
 </style>
-  
+
 <body>
-    <h1 style="margin-top: 20px;">Gestión fichero de parámetros</h1>
-    <a href="/" class="back">← Home</a>
-    <div id="restartBanner" class="restart-banner">⚠️ Hay cambios guardados pendientes de aplicar. 
-        <button onclick="sessionStorage.removeItem('needsRestart'); window.location.href='/api/restart'">Reiniciar ahora</button>
-    </div>
-    <div class="container">
-        <h2>Carga de parámetros a la CCR:</h2>
-        <form id="uploadForm" enctype="multipart/form-data" style="white-space: nowrap" >
-            <input type="file" id="fileInput" name="file" accept=".json" required>
-            <button type="button" id="btnImport" class="button-flex button-import" onclick="handleImportClick()">Import</button>
-            <button type="button" class="button-flex button-new" onclick="openNewFile()">New</button>
-        </form>
-    </div>
-    <h3>Fichero de Parámetros en la CCR: </h3>
-    <table>
-        <thead><tr><th>Nombre</th><th>Tamaño</th><th>Timestamp</th><th>Acción</th></tr></thead>
-        <tbody id="parmTableBody"></tbody>
-    </table>
-    
-    <h3>Fichero de Backup en la CCR:</h3>
-    <table>
-        <thead><tr><th>Nombre</th><th>Tamaño</th><th>Timestamp</th><th>Acción</th></tr></thead>
-        <tbody id="backupTableBody"></tbody>
-    </table>
+  <h1 style="margin-top: 20px;">Gestión fichero de parámetros</h1>
+  <a href="/" class="back">← Home</a>
+  <div id="restartBanner" class="banner banner-warning" style="display: none;"><strong>⚠️ Hay cambios guardados pendientes de aplicar.</strong> 
+      <button onclick="sessionStorage.removeItem('needsRestart'); window.location.href='/api/restart'">Reiniciar ahora</button>
+  </div>
+  <div class="container">
+    <h2>Carga de parámetros a la CCR:</h2>
+    <form id="uploadForm" enctype="multipart/form-data" style="white-space: nowrap" >
+      <input type="file" id="fileInput" name="file" accept=".json" required>
+      <div class="form-actions">
+        <button type="button" id="btnImport" class="button-import" onclick="handleImportClick()">Import</button>
+        <button type="button" class="button-new" onclick="openNewFile()">New</button>
+      </div>
+    </form>
+  </div>
+  <h3>Fichero de Parámetros en la CCR: </h3>
+  <table>
+      <thead><tr><th>Nombre</th><th>Tamaño</th><th>Timestamp</th><th>Acción</th></tr></thead>
+      <tbody id="parmTableBody"></tbody>
+  </table>
+  <h3>Fichero de Backup en la CCR:</h3>
+  <table>
+      <thead><tr><th>Nombre</th><th>Tamaño</th><th>Timestamp</th><th>Acción</th></tr></thead>
+      <tbody id="backupTableBody"></tbody>
+  </table>
     
 <script src="funciones.js"></script>
 <script>
 // Variables de configuración
-const PARM_FILE_TYPES = ['.json']; // Solo se acepta la extensión .json
+const PARM_FILE_TYPES = ['.json'];
 let currentParmFile = "";
 let currentBackupFile = "";
-let MAX_PARMFILE = 4 * 1024; // // Tamaño máximo para un JSON de parámetros 4KB
+let MAX_PARMFILE = 4096;
 
 window.addEventListener("load", async () => {
   // Comprobar si hay reinicio pendiente
@@ -75,7 +64,7 @@ window.addEventListener("load", async () => {
   try {
     // 1. Obtener nombres de ficheros desde el servidor
     const config = await getServerConfig();
-    if (!config.parmFile || !config.backupFile) throw new Error("Faltan parámetros de configuración para esta página.");
+    if (!config.parmFile || !config.backupFile) throw new Error(MSG_ERR_CONFIG);
     currentParmFile = config.parmFile;
     currentBackupFile = config.backupFile;
     MAX_PARMFILE = config.maxFileSize || MAX_PARMFILE; // Actualizar tamaño máximo desde el servidor si se proporciona
@@ -89,22 +78,22 @@ window.addEventListener("load", async () => {
   } catch (error) {alert(error.message); console.error("Error:", error);}
 });
 
-// * Utility para leer un archivo como texto usando Promesas
+// Utility para leer un archivo como texto usando Promesas
 const leerArchivoAsText = (file) => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => resolve(e.target.result);
-        reader.onerror = (e) => reject(new Error("Error al leer el archivo"));
+        reader.onerror = () => reject(new Error("Error al leer el archivo"));
         reader.readAsText(file);
     });
 };
 
-// * Sube fichero de parámetros al servidor con validaciones
+// Sube fichero de parámetros al servidor con validaciones
 async function handleImportClick() {
     const fileInput = document.getElementById('fileInput');
     const file = fileInput.files[0];
     if (!file) return alert("Seleccione un archivo.");
-    if (!validFileType(file, PARM_FILE_TYPES)) return alert(`Error: Tipo de fichero no válido. Debe ser ${PARM_FILE_TYPES.join(', ')}.`);
+    if (!validFileType(file, PARM_FILE_TYPES)) return alert(`Error: Tipo no válido. Debe ser ${PARM_FILE_TYPES.join(', ')}.`);
     if (file.size > MAX_PARMFILE) return alert(`Error: El fichero excede el tamaño máximo permitido (${returnFileSize(MAX_PARMFILE)}).`);
     try {
         const jsonString = await leerArchivoAsText(file);
@@ -114,27 +103,22 @@ async function handleImportClick() {
         let mensajeConfirmacion = `¡Los parámetros actuales serán sustituidos por los de "${file.name}"!\n¿Desea continuar?`;
         // 1. Control de archivos con cabecera
         if (jsonImportado.fileType !== undefined) {
-            if (jsonImportado.fileType !== CLIENT_FILE_TYPE || 
-                parseInt(jsonImportado.version) !== CLIENT_VERSION || 
-                jsonImportado.SCDtype !== CLIENT_SCD_TYPE) 
-                return alert(`❌ IMPORTACIÓN RECHAZADA:\nEl archivo no es compatible con este sistema.\n\n` +
+            if (jsonImportado.fileType != CLIENT_FILE_TYPE || jsonImportado.version != CLIENT_VERSION || jsonImportado.SCDtype != CLIENT_SCD_TYPE)
+                return alert(`❌ IMPORTACIÓN RECHAZADA:\nEl archivo no es compatible.\n\n` +
                              `Esperado: ${CLIENT_FILE_TYPE} V:${CLIENT_VERSION} (${CLIENT_SCD_TYPE})\n` +
                              `Recibido: ${jsonImportado.fileType} V:${jsonImportado.version} (${jsonImportado.SCDtype})`);
         } 
         // 2. Control de archivos antiguos sin cabecera (Migración)
         else {
             requiereRestart = false;
-            mensajeConfirmacion = `⚠️ ADVERTENCIA: Has seleccionado un archivo antiguo sin cabecera.\n\n` +
-                                  `Se aceptará para migración, pero NO se aplicará al sistema hasta que lo edites y guardes de nuevo.\n\n` +
-                                  `¿Desea subirlo de todas formas?`;
+            mensajeConfirmacion = `⚠️ MIGRACIÓN: Fichero antiguo sin cabecera.\n\n` +
+                                  `Se aceptará para migración, pero NO se aplicará hasta que lo edites y guardes de nuevo.\n\n` +
+                                  `¿Desea subirlo?`;
         }
         if (confirm(mensajeConfirmacion)) {
             await apiUploadParmFile(file, requiereRestart);
         }
-    } catch (error) {
-        alert("Error: " + error.message);
-        console.error("Fallo en el proceso:", error);
-    }
+    } catch (error) { alert("Error: " + error.message); }
 }
 
 async function apiUploadParmFile(file, requiereRestart) {
@@ -144,10 +128,7 @@ async function apiUploadParmFile(file, requiereRestart) {
     btn.disabled = true; 
     try {
         const response = await fetch('/', { method: 'POST', body: formData });
-        if (!response.ok) {
-            const errorText = await response.text();
-            return alert("Error al subir: " + errorText);
-        }
+        if (!response.ok) return alert("Error al subir: " + await response.text());
         // Caso 1: Archivo correcto que requiere reiniciar el ESP32
         if (requiereRestart) {
             await fetch('/api/setrestart'); 
@@ -162,12 +143,11 @@ async function apiUploadParmFile(file, requiereRestart) {
         // Caso 2: Archivo sin cabecera (Migración limpia)
         else {
             sessionStorage.removeItem('needsRestart'); 
-            alert("Archivo de migración guardado.\n\nRecuerde pulsar 'Editar' en la tabla inferior para firmarlo con la cabecera correcta.");
+            alert("Archivo de migración guardado.\n\nRecuerde pulsar 'Editar' en la tabla inferior para firmarlo.");
         }
-        location.reload(); // Recarga común para actualizar las tablas de archivos
+        location.reload();
     } catch (error) {
         alert("Ocurrió un error de red al subir el archivo.");
-        console.error("Error al subir el archivo:", error);
     } finally {
         btn.disabled = false;
     }

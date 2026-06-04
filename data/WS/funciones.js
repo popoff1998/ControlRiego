@@ -63,7 +63,6 @@ function createTableRow(file, tableId, config) {
     const nameCell = document.createElement("td");
     nameCell.className = isDir ? "dirclass" : "filename";
     nameCell.dataset.label = 'Filename';
-
     if (tableId === "logsTableBody") {
         nameCell.textContent = "📜 " + nameOnly;
     } else {
@@ -73,7 +72,6 @@ function createTableRow(file, tableId, config) {
         else link.href = file.name;
         if (tableId === "parmTableBody" || tableId === "backupTableBody") link.textContent = nameOnly;
         else link.textContent = (isDir ? "📁 " : "📄 ") + file.name;
-        
         nameCell.appendChild(link);
     }
     row.appendChild(nameCell);
@@ -89,7 +87,6 @@ function createTableRow(file, tableId, config) {
     actionCell.dataset.label = 'Acciones';
     const btnGrp = document.createElement("div");
     btnGrp.className = "button-group";
-
     if (tableId === "parmTableBody") {
         btnGrp.append(
             createButton("Export", () => downloadFile(file.name)),
@@ -112,7 +109,6 @@ function createTableRow(file, tableId, config) {
             if (confirm(isErr ? "¿Vaciar historial?" : "¿Eliminar archivo?")) handleFileDelete(file.name);
         }, isErr ? "" : "button-delete"));
     }
-
     actionCell.appendChild(btnGrp);
     row.appendChild(actionCell);
     return row;
@@ -127,7 +123,6 @@ function createButton(label, onClick, cls = "") {
     return b;
 }
 
-
 async function loadSimpleTable(data, tableId, isEditable = false, templateSection = {}) {
     const body = document.getElementById(tableId);
     if (!body) return;
@@ -136,7 +131,7 @@ async function loadSimpleTable(data, tableId, isEditable = false, templateSectio
             .map(([k, v]) => `<tr><td>${k}</td><td>${v || ''}</td></tr>`) .join('');
         return;
     }
-    // Solo si es editable cargamos reglas y procesamos inputs
+    // Solo si es editable cargamos reglas y preparamos los inputs
     const config = await getServerConfig();
     const rules = config.rules || {};
     body.innerHTML = Object.entries(data).map(([key, value]) => {
@@ -144,12 +139,11 @@ async function loadSimpleTable(data, tableId, isEditable = false, templateSectio
         const ruleKey = Object.keys(rules).find(rk => lowerKey.includes(rk));
         const validationAttrs = ruleKey ? rules[ruleKey] : "";
         const placeholder = templateSection[key] || "";
-        return `<tr><td>${key}</td><td><input type="text" value="${value || ''}" data-field="${key}" 
+        const inputType = (validationAttrs.includes("type='number'") || validationAttrs.includes('type="number"')) ? "number" : "text";
+        return `<tr><td>${key}</td><td><input type="${inputType}" value="${value || ''}" data-field="${key}" 
             placeholder="${placeholder}" ${validationAttrs}></td></tr>`;
     }).join('');
 }
-
-
 
 /** Operaciones de Archivo */
 const getFileName = p => p.includes('/') ? p.substring(p.lastIndexOf('/') + 1) : p;
@@ -213,19 +207,15 @@ function validFileType(file, extArray) {
     return extArray.some(ext => name.endsWith(ext.toLowerCase()));
 }
 
-/** Validaciones de Guardado */
-function validarSintaxisJson(str) {
-    try { return JSON.parse(str); } catch (e) { throw new Error("Error de sintaxis JSON: " + e.message); }
-}
-
 /**
  * Validación de sintaxis y estructura del JSON.
  * @param {string} str - El contenido JSON en formato texto.
  */
 function validarJsonCompleto(str) {
-    const data = validarSintaxisJson(str);
+    const data = JSON.parse(str);
     if (!data.botones || !Array.isArray(data.botones)) throw new Error("Falta clave 'botones'.");
     if (!data.botones.some(item => item && 'zona' in item)) throw new Error("Debe haber al menos una 'zona' en botones.");
+    console.log("JSON validado correctamente.");
     return data; // Devuelve el objeto validado
 }
 
@@ -233,15 +223,10 @@ function validarJsonCompleto(str) {
  * Envía la configuración al servidor y gestiona la respuesta.
  * @param {Object|string} data - Datos a guardar.
  * @param {boolean} askRestart - Si se debe preguntar por reiniciar.
- * @param {boolean} isRaw - Si es true, aplica validaciones de estructura JSON.
  */
-async function apiSaveConfig(data, askRestart = false, isRaw = false) {
+async function apiSaveConfig(data, askRestart = false) {
     try {
         let contentToSend = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
-        if (isRaw) {
-            validarJsonCompleto(contentToSend);
-            console.log("JSON validado correctamente.");
-        }
         const response = await fetch('/api/save_config', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: contentToSend
         });
@@ -284,3 +269,6 @@ function UI_actualizarEspacioLibre(config, id, isIcon = false) {
         el.style.color = esBajo ? "#d9534f" : "#135a8a";
     }
 }
+
+// Mensajes globales del sistema
+const MSG_ERR_CONFIG = "Faltan parámetros de configuración para esta página.";

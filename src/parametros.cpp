@@ -13,7 +13,7 @@ bool abrirYDeserializarJson(const char* filename, JsonDocument& doc, size_t maxS
     size_t fileSize = file.size();
     if (fileSize == 0 || fileSize > maxSize) {
         file.close();
-        LOG_ERROR("ERROR: Tamaño de", filename, "no válido:", fileSize, "bytes");
+        LOG_ERROR("ERROR: Tamaño de", filename, "no válido:", fileSize, "bytes (cero o >", maxSize, ")");
         return false;
     }
     LOG_DEBUG("\t tamaño de", filename, "-->", fileSize, "bytes");
@@ -161,9 +161,9 @@ bool loadConfigFromFile(const char *p_filename)
     config.seconds = getJsonParamRange(doc["tiempo"]["segundos"], 5, 59, minSecons, "tiempo.segundos");
   } else config.seconds = 0; // si minutos es >0, entonces segundos tiene que ser 0
   //---  procesa parametros individuales con rango controlado (Todos enteros) ---
-  config.warnESP32temp = getJsonParamRange(doc["warnESP32temp"], 40, 99, DFLT_MAX_ESP32_TEMP, "warnESP32temp"); 
   config.maxledlevel   = getJsonParamRange(doc["ledRGB"]["maxledlevel"], 10, 255, DFLT_MAXLEDLEVEL, "ledRGB.maxledlevel"); 
   config.dimmlevel     = getJsonParamRange(doc["ledRGB"]["dimmlevel"], 10, config.maxledlevel, DFLT_DIMMLEVEL, "ledRGB.dimmlevel"); 
+  config.warnESP32temp = getJsonParamRange(doc["warnESP32temp"], 40, 99, DFLT_MAX_ESP32_TEMP, "warnESP32temp"); 
   config.tempOffset    = getJsonParamRange(doc["tempOffset"], -5, 5, DFLT_TEMP_OFFSET, "tempOffset"); 
   config.msgdisplaymillis = getJsonParamRange(doc["msgdisplaymillis"], 1000, 4000, DFLT_MSGDISPLAYMS, "msgdisplaymillis"); 
   config.volume           = getJsonParamRange(doc["volume"], 1, 10, DFLT_VOLUME, "volume"); 
@@ -216,9 +216,9 @@ bool writeConfigToFile(const char *p_filename)
   doc["domoticz"]["password"] = config.SCD_password;
   doc["time"]["ntpServer"]  = config.ntpServer;
   doc["time"]["timeZone"]   = config.TZ;
-  doc["warnESP32temp"]      = config.warnESP32temp; 
   doc["ledRGB"]["maxledlevel"]  = config.maxledlevel; 
   doc["ledRGB"]["dimmlevel"]    = config.dimmlevel; 
+  doc["warnESP32temp"]      = config.warnESP32temp; 
   doc["tempOffset"]         = config.tempOffset;
   doc["tempRemote"]         = config.tempRemote!=0; // guardamos como bool (false si 0, true si cualquier otro valor)
   doc["tempRemoteIdx"]      = config.tempRemoteIdx; 
