@@ -2148,20 +2148,21 @@ const char* getTimestamp() {
 void gestionarTamanoLog() {
   #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
   static const size_t totalFS = LittleFS.totalBytes();
-  static const size_t MAXLOGFILESIZE = (totalFS * 4) / 100; // maximo tamaño del log en bytes antes de rotar (4% del total FS)
-  static const size_t MINFSSPACE = (totalFS * 8) / 100; // espacio libre minimo en LittleFS en bytes (8% del total FS)
   size_t freeSpace = totalFS - LittleFS.usedBytes();
+  static const size_t maxLogRaw = (totalFS * 4) / 100; // maximo tamaño del log en bytes antes de rotar (4% del total FS)
+  static const size_t limiteBloque4K = (maxLogRaw / 4096) * 4096; // redondeo por defecto al limite  múltiplo de 4096 bytes
+  static const size_t MAXLOGFILESIZE = limiteBloque4K - 256; // aseguramos espacio para el msg de rotacion
+  static const size_t MINFSSPACE = (totalFS * 8) / 100; // espacio libre minimo en LittleFS en bytes (8% del total FS)
   LOG_DEBUG("Espacio libre FS:", freeSpace, "bytes");
-    // 1. Limpieza por espacio crítico
+    // 1. Limpieza por espacio crítico: borramos log_prev si el espacio libre es inferior al 8%
     if (freeSpace < MINFSSPACE) {
         if (LittleFS.exists(logErrorFilePrev)) {
             LittleFS.remove(logErrorFilePrev);
-            File f = LittleFS.open(logErrorFilePrev, "w");
-            if (f) { f.println("--- LOG_PREV ELIMINADO PARA LIBERAR ESPACIO (Limite 8% alcanzado) ---"); f.close(); }
-            LOG_INFO("Espacio libre (%u bytes). log_prev eliminado y reseteado.\n", freeSpace);
+            logStatus("--- LOG_PREV ELIMINADO PARA LIBERAR ESPACIO (Limite <8% alcanzado) ---");
+            LOG_INFO("Espacio libre (%u bytes). log_prev eliminado.\n", freeSpace);
         }
     }
-    // 2. Rotación por tamaño
+    // 2. Rotación por tamaño: rotamos el log actual si supera el tamaño máximo definido (4% del total FS)
     if (LittleFS.exists(logErrorFile)) {
         File f = LittleFS.open(logErrorFile, "r");
         if (f) {
