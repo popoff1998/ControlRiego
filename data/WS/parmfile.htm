@@ -19,6 +19,7 @@
     form { display: flex; flex-wrap: wrap; gap: 25px; justify-content: center; width: 100%; max-width: 600px; }
     input[type="file"] { flex: 1 1 300px; max-width: 450px; min-width: 300px; }
     .form-actions { display: flex; gap: 30px; flex: 0 0 auto; }
+    td.col-actions { width: 40%; }
 </style>
 
 <body>
@@ -39,12 +40,12 @@
   </div>
   <h3>Fichero de Parámetros en la CCR: </h3>
   <table>
-      <thead><tr><th>Nombre</th><th>Tamaño</th><th>Timestamp</th><th>Acción</th></tr></thead>
+      <thead><tr><th>Nombre</th><th>Tamaño</th><th>Fecha</th><th>Acción</th></tr></thead>
       <tbody id="parmTableBody"></tbody>
   </table>
   <h3>Fichero de Backup en la CCR:</h3>
   <table>
-      <thead><tr><th>Nombre</th><th>Tamaño</th><th>Timestamp</th><th>Acción</th></tr></thead>
+      <thead><tr><th>Nombre</th><th>Tamaño</th><th>Fecha</th><th>Acción</th></tr></thead>
       <tbody id="backupTableBody"></tbody>
   </table>
     

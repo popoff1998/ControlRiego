@@ -1,30 +1,51 @@
-/* style_tableFiles.css - Optimizado para ESP32 */
+/* style_tableFiles.css - Optimizado para reducir tamaño ficheros y con Estilo Moderno */
 table {
     font-family: arial, sans-serif;
     border-collapse: collapse;
     width: var(--table-base-width);
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    border-radius: 6px;
+    overflow: hidden;
     margin: 0 auto;
 }
+
+td {border: 1px solid #e2e8f0;}
+
 th, td {
-    border: 0.06em solid #898787;
     text-align: left;
     padding: 0.3em;
+    vertical-align: middle;
 }
-th { background-color: #ebebeb; padding: 0.6em; border-bottom: 0.1em solid #8a8a8a; }
-tr:nth-child(even) { background-color: #f3f3f3; }
+
+th { 
+    background-color: var(--theme-light-2); 
+    color: var(--theme-dark-1); 
+    font-size: 0.9em; 
+    font-weight: 600; 
+    letter-spacing: 0.5px; 
+    padding: 0.6em;
+    border-bottom: 2px solid var(--theme-light-1);
+}
+
+/* Filas alternas y alineación nativa */
+tr:nth-child(even) { background-color: #f8fafc; } /* Gris ligeramente azulado */
 th:nth-child(n+2) { text-align: center; }
 
-/* Selectores de columnas por etiqueta */
-td[data-label='Size'], td[data-label='Timestamp'], .fileclass, .dirclass { text-align: center; }
-td[data-label='Size'] { width: 15%; }
-td[data-label='Timestamp'] { width: 20%; }
-td[data-label='Acciones'] { width: 40%; text-align: center; white-space: nowrap; padding: 8px 3px; }
-#filesTableBody td[data-label='Acciones'] { width: 30%; }
-
-/* Inputs y utilidades de texto */
-input[type="text"] { width: 100%; padding: 10px; margin: 5px 0 20px 0; border: 1px solid #ccc; border-radius: 3px; }
+/* Estilos específicos para columnas de tablas de ficheros*/
+.col-size, .col-time, .col-actions { text-align: center; }
+.col-size { width: 15%; }
+.col-time { width: 20%; }
+.col-actions { width: 30%; white-space: nowrap; padding: 8px 3px; }
 .dirclass { color: red; font-weight: bold; }
+
+/* Inputs dentro de tablas y utilidades de texto */
+table input,
+  input[type="text"], input[type="number"] {
+    width: 95%; padding: 6px 10px; margin: 0; vertical-align: middle;
+    box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.95em;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
 .force-wrap, td.filename, td.filename a { white-space: normal; word-break: break-all; overflow-wrap: anywhere; }
 
 /* Adaptación móvil */

@@ -1,83 +1,78 @@
-/* ==================== BUTTON STYLES ==================== */
+/* ==================== BUTTON STYLES (REFACTORIZADO) ==================== */
 
-/* Estilo base: Todo botón hereda esto por defecto */
+/* Estilo base: Aplica a TODOS los botones de la aplicación */
 button {
+  /* Por defecto, todo botón usa el color de tema */
+  --btn-color: var(--theme-color);
+  /* Derivamos los estados dinámicamente usando la misma lógica para todos los botones y colores */
+  --btn-hover: color-mix(in oklch, var(--btn-color) 80%, white); /* color mas claro - misma tonalidad */
+  --btn-active: color-mix(in oklch, var(--btn-color) 80%, black); /* color mas oscuro - misma tonalidad */
+
+  background-color: var(--btn-color);
+  color: white;
   border: none;
   border-radius: 5px;
   padding: 10px 20px;
+  font-size: 16px;
   cursor: pointer;
   transition: all 0.2s ease-in-out; 
   text-align: center;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 1px rgba(0, 0, 0, 0.05);
-  background-color: var(--theme-color);
-  color: white;
-  font-size: 16px;
 }
 
 button:hover {
+  background-color: var(--btn-hover);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15), 0 0 2px rgba(0, 0, 0, 0.1);
-  background-color: var(--hover-color);
 }
 
 button:active {
+  background-color: var(--btn-active);
   box-shadow: none;
   transform: translateY(1px);
 }
 
-/* Modificadores específicos: SOLO cambian lo que es estrictamente diferente */
+/* Modificadores específicos: SOLO cambian la semilla (--btn-color) o tamaño */
 
 .save-button {
-  background-color: #007BFF;
+  --btn-color: #007BFF; /* Azul estándar de acción */
   font-weight: 600;
-}
-.save-button:hover {
-  background-color: #0056b3;
 }
 
 .secondary-button {
-  background-color: #d1caca;
+  --btn-color: #d1caca;
   color: black;
 }
-.secondary-button:hover {
-  background-color: #a8a2a2;
-  color: white;
+/* Corrección para el texto del secundario en hover/active debido a su fondo claro */
+.secondary-button:hover,
+.secondary-button:active {
+  color: black; 
 }
 
 .btn-log {
-  padding: 8px 12px; /* Padding más compacto para tablas */
-  background-color: #2e8e95;
-}
-.btn-log:hover {
-  background-color: #236d72;
+  /* No necesita cambiar --btn-color porque usa el de por defecto (var(--theme-color)) */
+  padding: 8px 12px; /* Más compacto para tablas */
 }
 
 .button-delete {
-  background-color: #9d072c;
-}
-.button-delete:hover {
-  background-color: #b60c38;
-}
-
-.button-import {
-  background-color: #1e9a31;
-  font-size: 18px;
-  padding: 12px 17px;
-}
-.button-import:hover {
-  background-color: #156b22;
-}
-
-.button-new {
-  font-size: 18px;
-  padding: 12px 17px;
+  --btn-color: #9d072c; /* Rojo destructivo */
 }
 
 .button-restore {
-  background-color: #780320;
+  --btn-color: #780320; /* Rojo oscuro de recuperación */
 }
-.button-restore:hover {
-  background-color: #930628;
+
+.button-import {
+  --btn-color: #1e9a31; /* Verde de éxito/importación */
+  font-size: 18px;
+  padding: 12px 17px;
 }
+
+.button-new {
+  /* No necesita cambiar --btn-color porque usa el de por defecto (var(--theme-color)) */
+  font-size: 18px;
+  padding: 12px 17px;
+}
+
 
 /* Contenedores de diseño */
 .button-group {
@@ -93,6 +88,7 @@ button:active {
   flex: 1 1 auto; /* Cambiado a 1 1 auto para que estire en móviles si es necesario, máx/mín se controla en página */
 }
 
+/* pancartas para mensajes info-warning-critical */
 .banner { padding: 10px; margin: 15px auto; width: 90%; max-width: 800px; border-radius: 6px; font-family: sans-serif; box-sizing: border-box; text-align: center; }
 .banner button { margin-left: 15px; padding: 5px 10px; background-color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: 700; }
 .banner-info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }

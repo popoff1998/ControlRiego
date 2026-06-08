@@ -1,7 +1,10 @@
 /* variables de estilo globales */
 :root {
     --theme-color: #0a9aaf;
-    --hover-color: #07778b;
+    --theme-dark-1: color-mix(in oklch, var(--theme-color) 80%, black);
+    --theme-dark-2: color-mix(in oklch, var(--theme-color) 30%, black);
+    --theme-light-1: color-mix(in oklch, var(--theme-color) 70%, white);
+    --theme-light-2: color-mix(in oklch, var(--theme-color) 15%, white);
     --max-body-width: 1050px;
     --table-base-width: 85%;
 }
@@ -9,6 +12,14 @@
 html { font-family: Arial, Helvetica, sans-serif; }
 body { margin:0 auto; font-size:100%; background-color:#fdfdfd; padding:0.5em 0.5em;
        max-width: var(--max-body-width); min-height: 100vh; }
+h1 { color:white; border-radius:0.5em; font-size:1.5em; padding: 0.3em; padding-left: 1em;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 1px rgba(0, 0, 0, 0.05);
+    background-image: linear-gradient(to right, #3dc0c5, var(--theme-color) 30%, var(--theme-color) 100%); }
+h2 { font-size:1.2em; }
+h3 { color:#555; font-size:0.9em; }
+a { text-decoration: none; /* Elimina el subrayado */
+    font-size: 1.2em; color: #0174ee; /* Color del enlace */ }
+a:hover { color: rgb(26, 7, 240); }
 
 *{box-sizing:border-box;}
 
@@ -17,18 +28,9 @@ body { margin:0 auto; font-size:100%; background-color:#fdfdfd; padding:0.5em 0.
 .containerbase ul li { margin-bottom: 8px; transition: margin-bottom 0.3s ease; }
 .containerbase.no-testing ul li { margin-bottom: 22px; /* Espacio extra de separación vertical */ }
 @media (max-width: 1050px) {.containerbase {width: 100% !important;}}
-
-h1 { color:white; border-radius:0.5em; font-size:1.5em; padding: 0.3em; padding-left: 1em;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 1px rgba(0, 0, 0, 0.05);
-    background-image: linear-gradient(to right, #3dc0c5, var(--theme-color) 30%, var(--theme-color) 100%); }
-h2 { font-size:1.2em; }
-h3 { color:#555; font-size:0.9em; }
-
-a { text-decoration: none; /* Elimina el subrayado */
-    font-size: 1.2em; color: #0174ee; /* Color del enlace */ }
-a:hover { color: rgb(26, 7, 240); }
 .back { text-decoration:none;font-size:14px;color:var(--theme-color) }
 .muted { color:#828282; font-size:0.9em }
+.nota { color: #666; font-size: 0.85em; font-style: italic; margin-bottom: 8px; }
 input::placeholder { color: #a9a9a9; font-style: italic; opacity: 0.7; }
 .menu-big { padding-left: 4em; padding-top: 2em; font-size: 1.2em; }
 .menu { padding-left: 2em; font-size: 1.2em; }
@@ -36,14 +38,8 @@ input::placeholder { color: #a9a9a9; font-style: italic; opacity: 0.7; }
         filter: drop-shadow(8px 8px 10px rgba(0, 0, 0, 0.3));} /* sombra debajo */
 .lista-alineada { padding-left: 0; list-style: none; }
 .lista-alineada li {
-    /* 1. Habilita CSS Grid en cada fila (<li>) */
-    display: grid; 
-    /* 2. DEFINE LAS COLUMNAS: 
-    - nnnpx para los enlaces (columna fija)
-    - 1fr para la descripción (ocupa el resto del espacio) */
-    grid-template-columns: 200px 1fr;
-    align-items: center; 
-    padding: 8px 15px; 
+    display: grid; grid-template-columns: 200px 1fr;
+    align-items: center; padding: 8px 15px; 
 }
 .lista-alineada a { /* Asegura que el texto se corte si es más largo que 180px */
     overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }

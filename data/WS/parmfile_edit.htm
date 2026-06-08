@@ -5,41 +5,47 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="stylesheet" href="style_base.css">
+    <link rel="stylesheet" href="style_tableFiles.css">
     <link rel="stylesheet" href="style_botones.css">
     <title>Edicion parámetros</title>
-    <style>
-        body {display: flex; flex-direction: column; max-width: 768px;}
-        table {width: 90%; border-collapse: collapse; margin: 20px auto; box-shadow: 2px 2px 5px rgba(0,0,0,0.1);}
-        th, td {border: 1px solid #ddd; padding: 8px; text-align: center;}
-        th {background-color: #f4f4f4;}
-        input {width: 90%; padding: 5px; box-sizing: border-box; border: 1px solid #ccc;}
-        p {margin: 0; padding: 0; font-size: 0.9em;}
-        .highlight-zero {background-color: #ffcccc !important;}
-    </style>
-</head>
+  <style>
+    body { display: flex; flex-direction: column; max-width: 768px; margin: 0 auto; padding: 10px; font-family: sans-serif; }
+    h2 { margin: 20px 0 5px 5%; font-size: 1.3em; color: #2c3e50; }
+    .nota { margin: 0 0 8px 5%; padding: 0; }
+    table { width: 90%; margin-bottom: 30px; }
+    td { text-align: center; }
+    input:focus { border-color: #3498db; box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2); outline: none; }
+    .highlight-zero { background-color: #fee2e2 !important; }
+    .save-button { width: 100%; max-width: 400px; }
+    .secondary-button { max-width: 192px; }
+</style>
+  </head>
 <body>
+    <div id="versionBanner" class="banner banner-critical" style="display: none;">
+      ⚠️ ADVERTENCIA: Versión del servidor incompatible.
+    </div>
     <h1>Editar parámetros BÁSICOS</h1>
     <a href="/" class="back">← Home</a>
     <h2>Botones</h2>
-    <p>Nombre: max. 9 caracteres. Idx=0 no asignada.</p>
+    <p class="nota"><span style="white-space: nowrap;">Idx=0 o vacio: zona no asignada. </span><wbr><span style="white-space: nowrap;">Nombre: max. 9 caracteres.</span></p>    
     <table>
         <thead><tr><th>Zona</th><th>Idx</th><th>Nombre</th></tr></thead>
         <tbody id="botonesTableBody"></tbody>
     </table>
     <h2>Grupos</h2>
-    <p>Desc: max. 9 caracteres. Zonas sep. por coma.</p>
+    <p class="nota"><span style="white-space: nowrap;">Desc: max. 9 caracteres. </span><wbr><span style="white-space: nowrap;">Zonas max. 9 separadas por coma.</span></p>    
     <table>
         <thead><tr><th>Grupo</th><th>Descripción</th><th>Zonas</th></tr></thead>
         <tbody id="gruposTableBody"></tbody>
     </table>
     <h2>Domoticz</h2>
-    <p>Solo IP requerida</p>
+    <p class="nota">Solo IP obligatoria</p>
     <table>
         <thead><tr><th>Campo</th><th>Valor</th></tr></thead>
         <tbody id="domoticzTableBody"></tbody>
     </table>
     <h2>NTP Server y TimeZone</h2>
-    <p>Timezone en formato TZ posix.</p>
+    <p class="nota">Timezone en formato TZ posix.</p>
     <table>
         <thead><tr><th>Campo</th><th>Valor</th></tr></thead>
         <tbody id="timeTableBody"></tbody>
@@ -61,11 +67,7 @@ window.addEventListener("load", async () => {
     try {
         const config = await getServerConfig().catch(() => ({}));
         if (config.versionFile !== undefined && (parseInt(config.versionFile) !== CLIENT_VERSION || config.SCDtype !== CLIENT_SCD_TYPE)) {
-            const div = document.createElement('div');
-            div.style = "background:#ffe6e6;color:#cc0000;padding:10px;border:2px solid #cc0000;margin:15px auto;width:90%;text-align:center;font-weight:bold;border-radius:4px;";
-            div.innerHTML = `⚠️ ADVERTENCIA: Versión del servidor incompatible.`;
-            document.body.insertBefore(div, document.body.firstChild);
-        }
+            document.getElementById('versionBanner').style.display = 'block'; }
         const fileParam = urlParams.get('file');
         fileName = (fileParam && fileParam !== "null") ? fileParam : (config.parmFile || "");
         if (!fileName) return (alert("Error: Sin archivo."), window.location.href = 'parmfile.htm');

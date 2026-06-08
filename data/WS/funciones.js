@@ -58,11 +58,17 @@ function createTableRow(file, tableId, config) {
     const row = document.createElement("tr");
     const isDir = file.type === "dir";
     const nameOnly = getFileName(file.name);
+
+    // DETECCIÓN DE IDIOMA: Determina las etiquetas según la tabla
+    const esEng = (tableId === "filesTableBody");
+    const lblName = esEng ? 'Filepath' : 'Nombre';
+    const lblSize = esEng ? 'Size' : 'Tamaño';
+    const lblTime = esEng ? 'Timestamp' : 'Fecha';
     
     // 1. Celda Nombre y Enlace
     const nameCell = document.createElement("td");
-    nameCell.className = isDir ? "dirclass" : "filename";
-    nameCell.dataset.label = 'Filename';
+    nameCell.className = isDir ? "filename dirclass" : "filename";
+    nameCell.dataset.label = lblName;
     if (tableId === "logsTableBody") {
         nameCell.textContent = "📜 " + nameOnly;
     } else {
@@ -78,12 +84,12 @@ function createTableRow(file, tableId, config) {
 
     // 2 y 3. Tamaño y Fecha (Uso de template para ahorrar líneas)
     row.insertAdjacentHTML('beforeend', `
-        <td class="${isDir ? 'dirclass' : 'fileclass'}" data-label="Size">${isDir ? 'directory' : file.size}</td>
-        <td data-label="Timestamp">${new Date(file.time * 1000).toLocaleString()}</td>
-    `);
+        <td class="col-size ${isDir ? 'dirclass' : ''}" data-label="${lblSize}">${isDir ? 'directory' : file.size}</td>
+        <td class="col-time" data-label="${lblTime}">${new Date(file.time * 1000).toLocaleString()}</td>
+              `);
     // 4. Celda de Acciones
     const actionCell = document.createElement("td");
-    actionCell.className = "buttoncolumn";
+    actionCell.className = "col-actions";
     actionCell.dataset.label = 'Acciones';
     const btnGrp = document.createElement("div");
     btnGrp.className = "button-group";
