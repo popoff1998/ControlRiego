@@ -4,52 +4,84 @@
   <title>Files</title>
   <meta charset="UTF-8">
   <meta name='viewport' content='user-scalable=yes,initial-scale=1.0,width=device-width'>
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="icon" href="favicon.ico">
   <link rel="stylesheet" href="style_base.css">
   <link rel="stylesheet" href="style_botones.css">
   <link rel="stylesheet" href="style_tableFiles.css">
   <link rel="stylesheet" href="style_datacard.css">
   <style>
-    /* Oculta el encabezado temporalmente para evitar destello al mostrarlo si usa cards */
-    @media (max-width: 600px) {thead { display: none !important; }}
+    .flex-sb { display: flex; justify-content: space-between; align-items: baseline; margin: 20px 0; }
+    .txt-sub { font-size: 12px; color: #666; }
+    .c-theme { color: var(--theme-dark-2); }
+    .fw-b { font-weight: bold; }
+    thead th:not(:last-child) { cursor: pointer; user-select: none; }
+    thead th:not(:last-child):hover { background-color: var(--theme-light-1); color: white; letter-spacing: 1px; }
+    .mobile-only-block { display: none; margin-bottom: 15px; }
+    @media (max-width: 600px) {thead{display: none !important;} .mobile-only-block{display: block;} #mobileSort{width: 100%; max-width: 200px;}}
   </style>
 </head>
-
 <body>
-  <h1 style="margin-top: 20px;">Files on server</h1>
-  <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 20px; margin-bottom: 20px;">
-    <h3 style="margin: 0;">Files on <span id="currentDir" style="color: #135a8a;">/</span></h3>
-    <div style="font-size: 12px; color: #666;">
-      Free space: <span id="freeSp" style="font-weight: bold; color: #135a8a;">--</span>
-    </div>
+<h1 style="margin-top:20px;">Files on server</h1>
+<div class="flex-sb">
+  <h3 style="margin:0;">Files on <span id="currentDir" class="c-theme">/</span></h3>
+  <div class="txt-sub">Free space: <span id="freeSp" class="fw-b c-theme">--</span></div>
+</div>
+<div id="mobileSortContainer" class="mobile-only-block">
+  <label for="mobileSort" style="font-size:14px;color:#666;margin-right:8px;">Ordenar por:</label>
+  <div style="display:flex;gap:8px;max-width:260px;">
+    <select id="mobileSort" onchange="ordenarPor(this.value)" style="flex-grow:1;padding:6px;font-size:14px;border-radius:4px;border:1px solid #ccc;background:#fff;">
+      <option value="name">Filepath</option>
+      <option value="size">Size</option>
+      <option value="time">Timestamp</option>
+    </select>
+    <button type="button" onclick="ordenarPor(mobileSort.value,true)" style="padding:6px 12px;font-size:14px;border-radius:4px;cursor:pointer;">↕</button>
   </div>
-  <table>
-      <thead><tr><th>Filepath</th><th>Size</th><th>Timestamp</th><th>Action</th></tr></thead>
-        <tbody id="filesTableBody">
-        <!-- Rows will be dynamically added here -->
-        </tbody>
-  </table>
-
+</div>  
+<table>
+  <thead><tr>
+    <th onclick="ordenarPor('name',true)">Filepath ↕</th>
+    <th onclick="ordenarPor('size',true)">Size ↕</th>
+    <th onclick="ordenarPor('time',true)">Timestamp ↕</th>
+    <th>Action</th>
+  </tr></thead>      
+  <tbody id="filesTableBody"></tbody>
+</table>
 <script src="funciones.js"></script>
 <script>
-// Fetch and display the data when the page loads
+let currentFiles = [], serverConfig = null, ordenAscendente = true, ultimaPropiedad = '';
+
 window.addEventListener("load", async () => {
-  const queryParams = new URLSearchParams(window.location.search);
-  const dir = queryParams.get("dir") || "/";
+  const dir = new URLSearchParams(window.location.search).get("dir") || "/";
   document.getElementById("currentDir").textContent = dir;
   try {
-      const [data, config] = await Promise.all([
+      [currentFiles, serverConfig] = await Promise.all([
           apiGetJson(`/api/list?dir=${encodeURIComponent(dir)}`),
-          getServerConfig(true) // con refresh
+          getServerConfig(true)
       ]);
-      populateTable(data, "filesTableBody");
-      UI_actualizarEspacioLibre(config, 'freeSp');
-
+      populateTable(currentFiles, "filesTableBody");
+      UI_actualizarEspacioLibre(serverConfig, 'freeSp');
   } catch (error) {
-      console.error("Error cargando datos de archivos:", error);
+      console.error("Error:", error);
   }
 });
-  </script>
-</body>
 
+function ordenarPor(prop, forzar = false) {
+  if (!currentFiles?.length) return;
+  if (prop !== ultimaPropiedad) {
+      ordenAscendente = true;
+      ultimaPropiedad = prop;
+  } else if (!forzar) return;
+  if (forzar) ordenAscendente = !ordenAscendente;
+  currentFiles.sort((a, b) => {
+      if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
+      let vA = a[prop], vB = b[prop];
+      if (prop === 'size' || prop === 'time') return ordenAscendente ? vA - vB : vB - vA;
+      return ordenAscendente ? String(vA).localeCompare(String(vB)) : String(vB).localeCompare(String(vA));
+  });
+  const tbody = document.getElementById("filesTableBody");
+  tbody.innerHTML = "";
+  currentFiles.forEach(f => tbody.appendChild(createTableRow(f, "filesTableBody", serverConfig)));
+}
+</script>
+</body>
 </html>

@@ -85,7 +85,7 @@ function createTableRow(file, tableId, config) {
     // 2 y 3. Tamaño y Fecha (Uso de template para ahorrar líneas)
     row.insertAdjacentHTML('beforeend', `
         <td class="col-size ${isDir ? 'dirclass' : ''}" data-label="${lblSize}">${isDir ? 'directory' : file.size}</td>
-        <td class="col-time" data-label="${lblTime}">${new Date(file.time * 1000).toLocaleString()}</td>
+        <td class="col-time" data-label="${lblTime}">${formatDateLocal(file.time)}</td>
               `);
     // 4. Celda de Acciones
     const actionCell = document.createElement("td");
