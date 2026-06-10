@@ -14,36 +14,31 @@
     @media (max-width: 600px) {thead { display: none !important; }}
   </style>
 </head>
-
 <body>
-  <h1 style="margin-top: 20px;">Logs de errores</h1>
-  <div style="text-align: center; margin-bottom: 20px;">
-    <button id="btn-update" onclick="window.location.href='errores.htm'" class="save-button">
+  <h1 style="margin-top:20px;margin-bottom:5px;">Logs de errores</h1>
+  <div class="fs-container">Espacio libre: <span id="freeSp" class="fs-val">--</span></div>
+  <div style="text-align:center;margin-bottom:20px;">
+    <button id="btn-update" onclick="window.location.reload()" class="save-button">
       🔄 Actualizar y Sincronizar
     </button>
   </div>
-  <div id="banner-warn" class="banner banner-warning" style="display: none;">
+  <div id="banner-warn" class="banner banner-warning" style="display:none;">
       ⚠️ <strong>Aviso:</strong> La grabación de mensajes <em>Warning</em> está activa. Úsela solo para depuración temporal.
   </div>
-  <div id="banner-off" class="banner banner-info" style="display: none;">
+  <div id="banner-off" class="banner banner-info" style="display:none;">
       ℹ️ El sistema de registro en fichero está <strong>desactivado</strong>. No se están generando nuevos registros de errores.
   </div>
-
   <table>
         <thead><tr><th>Nombre</th><th>Tamaño</th><th>Fecha</th><th>Acción</th></tr></thead>
-        <tbody id="logsTableBody">
-        <!-- Rows will be dynamically added here -->
-        </tbody>
+        <tbody id="logsTableBody"></tbody>
     </table>
 
 <script src="funciones.js"></script>
 <script>
-    // lógica para mostrar o no los banners de aviso y boton de refresh:
     function updateUI(config) {
       const bannerWarn = document.getElementById('banner-warn');
       const bannerOff = document.getElementById('banner-off');
       const updateBtn = document.getElementById('btn-update');
-      // ArduinoJson envía true/false (booleanos reales), no strings
       bannerWarn.style.display = config.logWarnFile ? 'block' : 'none';
       if (!config.logEnabled) {
         bannerOff.style.display = 'block';
@@ -54,21 +49,17 @@
       }
     }
 
-    // 2. lógica de carga de la página
     window.addEventListener("load", async () => {
       try {
-        // A. Pedimos la configuración general
-        const config = await getServerConfig();
+        const config = await getServerConfig(true);
         if (!config.errorFile) throw new Error(MSG_ERR_CONFIG);
-        // B. Actualizamos la interfaz
         updateUI(config);
-        // C. Procesamos el path del fichero de errores para la tabla
+        UI_actualizarEspacioLibre(config, 'freeSp');
         const fullPath = config.errorFile;
         const lastSlash = fullPath.lastIndexOf('/');
         const dir = fullPath.substring(0, lastSlash) || "/";
         const fileNameWithExt = fullPath.substring(lastSlash + 1);
         const filter = fileNameWithExt.split('.').slice(0, -1).join('.') || fileNameWithExt;
-        // D. Pedimos la lista de archivos usando el filtro obtenido
         const fileData = await fetchTableData(
           `/api/list?dir=${encodeURIComponent(dir)}&file=${encodeURIComponent(filter)}`, 
           "logsTableBody", 4, "Error cargando logs", "-- No existen archivos de log --" );

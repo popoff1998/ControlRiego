@@ -94,4 +94,6 @@
 - Fecha de ultimo riego: muestra tiempo pasado desde que se produjo si no hay fecha valida (no se salva) V3.3
 - Sustitucion de libreria Timelib.h por funciones locales V3.3
 - Nueva clase Encoder optimizada y corregidos los bugs de AiEspRotaryEncoder V3.3
+- Cabecera del fichero de parametros y su tratamiento en el FW y webserver V3.3
+- Webserver: mejoras visuales, estilos y verificaciones V3.3
 

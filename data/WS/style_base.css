@@ -63,3 +63,6 @@ input::placeholder { color: #a9a9a9; font-style: italic; opacity: 0.7; }
 .clicable:active { transform: scale(0.9); }
 /* Ajuste para pantallas grandes (Escritorio) */
 @media (min-width: 601px) { .orla-v, .orla-a { width: 42px; height: 42px; font-size: 1em; } }
+/* Componente global para el estado del File System */
+.fs-container { text-align: right; margin-bottom: 10px; font-size: 11px; color: #666; }
+.fs-val { font-weight: bold; }

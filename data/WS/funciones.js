@@ -272,7 +272,7 @@ function UI_actualizarEspacioLibre(config, id, isIcon = false) {
     else {
         el.textContent = returnFileSize(config.freeFS) 
         // Cambiar texto a rojo si es bajo, o volver al original si no
-        el.style.color = esBajo ? "#d9534f" : "#135a8a";
+        el.style.color = esBajo ? "#d9534f" : "var(--theme-dark-1)";
     }
 }
 
