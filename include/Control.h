@@ -393,10 +393,10 @@ struct S_ledsParpadeo {
     int  actualIndex = 0;           // variable auxiliar durante el riego: indice en multi.zserie_boton de la zona que se esta regando actualmente
     // campos de configuración del grupo multirriego en curso 
     int  ngrupo = -1;            // numero del grupo al que apunta (no valido por defecto, se asigna al iniciar el riego o la configuracion del grupo)
-    uint16_t zserie_boton[16]= {0}; //contiene los id de las zonas del grupo (bZona_x)
+    S_BOTON* zserie_boton[16] = {nullptr};  //contiene los punteros a la estructura S_BOTON de las zonas del grupo
     uint16_t w_zserie[16]= {0};     //contiene las zonas del grupo (Zona_x)
     int  w_size = 0;                //variable auxiliar durante ConF: numero de zonas configuradas en el grupo (tamaño del grupo)
-    const uint16_t *id= nullptr;    //apuntador al id del boton/selector grupo en Grupos[]. Solo lectura.
+    S_BOTON* id = nullptr;          //apuntador al boton/selector grupo en Boton[]. Solo lectura.
     int *size= nullptr;             //apuntador a config con el tamaño del grupo
     const char *desc= nullptr;      //apuntador a config con la descripcion del grupo. Solo lectura.
   } ;

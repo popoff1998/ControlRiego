@@ -641,7 +641,7 @@ void procesaBotonZona()
  */
 void handleDynamicZoneChange(int znumber) {
   // Si la zona pulsada coincide con la actualmente en riego, se ignora:
-  if (zonaEnCurso.pBoton->bID == boton->bID)
+  if (zonaEnCurso.pBoton == boton)
     {sonido.bipKO(); LOG_DEBUG("zona pulsada:",znumber," es = a zona actual:",zonaEnCurso.znumber);}
   else // si la zona pulsada es distinta a la zona en curso: procesamos el cambio dinamico
   {
@@ -652,7 +652,7 @@ void handleDynamicZoneChange(int znumber) {
       multi.semaforo = false;
       multi.actualIndex=0;
       setMultiTemp(NEWMTEMP);  // completa resto campos estructura multi como grupo temporal nuevo
-      multi.zserie_boton[0] = zonaEnCurso.pBoton->bID;  // bId de la zona actual como primera de la lista
+      multi.zserie_boton[0] = zonaEnCurso.pBoton;  // apuntador de la zona actual como primera de la lista
       multi.w_zserie[0] = zonaEnCurso.znumber;  // numero de la zona actual como primera de la lista
       multi.w_size = 1; // indicamos que hay una zona en la lista 
     }
@@ -690,7 +690,7 @@ bool procesaDynamic(int znumber)
   // 2. ADICIÓN AL FINAL
   if (multi.w_size < ZONASXGRUPO) {
       int index = multi.w_size; // El tamaño actual es el índice del siguiente hueco libre
-      multi.zserie_boton[index] = boton->bID;
+      multi.zserie_boton[index] = boton;
       multi.w_zserie[index] = znumber;
       multi.w_size++; // Incrementamos tamaño
       LOG_DEBUG("[AÑADE] zona:",znumber,"nuevo size:",multi.w_size);
@@ -788,7 +788,7 @@ void procesaEstadoTerminando()
     // pasamos a regar la siguiente zona del grupo si quedan en cola:
     if (multi.actualIndex < *multi.size) {  
       //Simular la pulsacion del siguiente boton de la serie de multirriego
-      boton = &Boton[getBotonIndex(multi.zserie_boton[multi.actualIndex])];
+      boton = multi.zserie_boton[multi.actualIndex];
       multi.semaforo = true;
     }
     // no quedan zonas por regar: señalamos fin del multirriego y actualizamos timestamp de finalizacion
@@ -807,7 +807,7 @@ void procesaEstadoTerminando()
       LOG_INFO("MULTIRRIEGO", multi.desc, "terminado");
       sonido.bipFIN();
       delay(config.msgdisplaymillis*3);
-      if(!multi.temporal) led(Boton[getBotonIndex(*multi.id)].led,OFF);  // apaga led grupo
+      if(!multi.temporal) led(multi.id->led, OFF);  // apaga led grupo
       multi.riegoON = false;  // reseteamos flag de multirriego activo
     }
   }
@@ -2380,17 +2380,6 @@ void scSorpresa() {
 // (es igual, el compilador no las incluye si no son llamadas)
 // **************************************************************************
 #ifdef DEVELOP
-  //imprime contenido actual de la estructura multi
-  void printMulti()
-  {
-      Serial.println(F("TRACE: in printMulti"));
-      if(multi.id == nullptr) return;  // evita guru meditation si no se ha apuntado a ningun grupo
-      Serial.printf("MULTI Boton_id x%04x: size=%d (%s)\n", *multi.id, *multi.size, multi.desc);
-      for(int j = 0; j < *multi.size; j++) {
-        Serial.printf("  Zona  id: x%04x \n", multi.zserie_boton[j]);
-      }
-    Serial.println();
-  }
 
   /**---------------------------------------------------------------
    * lectura del puerto serie para debug

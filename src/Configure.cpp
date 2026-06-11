@@ -168,7 +168,7 @@ void Configure::configureMulti_display()
 
       if(!_configuringMultiTemp) {    // no encendemos leds si grupo TEMPORAL
         displayLedsGrupo(); // mostramos leds de las zonas ya configuradas para el grupo
-        led(Boton[getBotonIndex(*multi.id)].led,ON); // encendemos led del boton del grupo
+        led(multi.id->led, ON); // encendemos led del boton del grupo
       }  
 }              
 
@@ -177,7 +177,7 @@ void Configure::Multi_process_update()
       // LOG_DEBUG("Multi_process_update: boton->bID=", boton->bID, "multi.w_size=",multi.w_size);  
       int zIndex = getZonaIndex(boton->bID);
       if (multi.w_size < ZONASXGRUPO) {  //max. zonas por grupo
-        multi.zserie_boton[multi.w_size] = boton->bID;  // bId de la zona
+        multi.zserie_boton[multi.w_size] = boton;  // apuntador de la zona en Boton[]
         multi.w_zserie[multi.w_size] = zIndex+1 ;  // numero de la zona
         multi.w_size = multi.w_size + 1;
 
@@ -201,8 +201,8 @@ void Configure::Multi_process_end()
           config.group[g-1].zNumber[i] = multi.w_zserie[i];
         }
         LOG_INFO("Config updated : GRUPO",g,"tamaño:",*multi.size,"(",multi.desc,")");
-        #ifdef DEVELOP
-        printMultiGroup( g-1);
+        #ifdef EXTRADEBUGMULTI
+        printMultiGroup(g-1);
         #endif
         snprintf(grupoText, sizeof(grupoText), "Actualizado GRUPO%d", _actualGrupo);
       }
@@ -217,14 +217,13 @@ void Configure::Multi_process_end()
       sonido.bipOK();
       delay(config.msgdisplaymillis);
       ultimosRiegos(HIDE);
-      led(Boton[getBotonIndex(*multi.id)].led,OFF);
+      led(multi.id->led, OFF);
       this->menu(0);  // vuelve a mostrar menu de configuracion, primera linea
 }
 
 // Mostramos en pantalla mensaje para iniciarlo y activamos flag para que al salir de ConF se lance multirriego temporal
 void Configure::MultiTemp_process_end()
 {
-      // LOG_DEBUG("MultiTemp_process_end: multi.w_size=",multi.w_size);
       if (!multi.w_size) return;  // si no se ha definido ninguna zona no hacemos nada  
       _MultiTempReady = true;  // al salir de ConF se lanzará el multirriego temporal con las zonas configuradas
 
@@ -233,6 +232,10 @@ void Configure::MultiTemp_process_end()
       lcd.info("  >> libere STOP <<",1);
       lcd.info("para comenzar riego",2);
       lcd.info("de las zonas:",3);
+
+      #ifdef EXTRADEBUGMULTI
+        printMulti();
+      #endif
 }
 
 void Configure::toggle(bool &value)

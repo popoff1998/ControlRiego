@@ -13,6 +13,7 @@
     #define VERBOSE  // muestra info adicional en el arranque
     // #define EXTRADEBUG
     // #define EXTRADEBUG2
+    #define EXTRADEBUGMULTI
     // #define EXTRATRACE
   #endif
 
