@@ -355,16 +355,20 @@ void simulaPauseIfEncoderSW(bool initialize) {
     } 
 }
 
+void panicNotFound(const char* contexto, uint16_t id) {
+    char msg[64];
+    snprintf(msg, sizeof(msg), "!!! BUG: bID %04X no encontrado en %s[]", id, contexto);
+    stopHW(msg); // El sistema se detiene aquí
+}
+
 // devuelve la posicion en array Boton[] (bIndex) del boton que se le ha pasado (bID)
 int getBotonIndex(uint16_t id)
 {
   for (int i=0;i<NUM_S_BOTON;i++) {
     if (Boton[i].bID == id) return i;
   }
-  char msg[64];
-  snprintf(msg, sizeof(msg), "!!! BUG: bID %04X no encontrado en Boton[]", id);
-  stopHW(msg); // El sistema se detiene aquí
-  return -1;   // Nunca se alcanzará
+panicNotFound("Boton", id);
+return -1;   // Nunca se alcanzará
 }
 
 // devuelve la posicion en array Zonas[] (zona-1) del boton que se le ha pasado (bID)
@@ -374,8 +378,21 @@ int getZonaIndex(uint16_t id)
     if (Zonas[i] == id) return i;
   }
   char msg[64];
-  snprintf(msg, sizeof(msg), "!!! BUG: bID %04X no encontrado en Zonas[]", id);
-  stopHW(msg); // El sistema se detiene aquí
+  panicNotFound("Zonas", id);
+  return -1;   // Nunca se alcanzará
+}
+
+// devuelve la posicion en array Grupos[] (grupo-1) del boton que se le ha pasado (bID)
+int getGroupIndex(uint16_t id)
+{
+  #ifdef M3GRP
+    // en modo M3GRP el id que se recibe es el del boton multirriego, pero el grupo seleccionado se obtiene de la posicion del selector de multirriego
+    id = getMultiStatus(); 
+  #endif
+  for (int i=0;i<NUMGRUPOS;i++) {
+    if (Grupos[i] == id) return i;
+  }
+  panicNotFound("Grupos", id);
   return -1;   // Nunca se alcanzará
 }
 

@@ -13,49 +13,26 @@
 #endif
 
 // Devuelve grupo pulsado/seleccionado y lo apunta en multi.
-int setGrupo() {
-    int n_grupo;
-    #ifdef GRP4
-      n_grupo = setMultibyId(boton->bID);
-    #endif
-    #ifdef M3GRP
-      n_grupo = setMultibyId(getMultiStatus());
-    #endif
-    LOG_DEBUG("Set: Grupo", n_grupo,"(",multi.desc,") multi.size=" , *multi.size);
-    for (int k=0; k < *multi.size; k++) LOG_DEBUG( "       multi.w_zserie: " , multi.w_zserie[k]);
-    return n_grupo;
-}
-
-// Asigna en multi valores o apuntadores de/a config del grupo cuyo bId(boton) se recibe
-// y devuelve el numero del grupo (1...NUMGRUPOS) , -1 en caso de que no exista (antes para el sistema)
-int setMultibyId(uint16_t id)
+int setGrupo()
 {
-  LOG_DEBUG("Recibe id=0x",DebugLogBase::HEX,id);
-
-  for(int i=0; i<NUMGRUPOS; i++)
-  {
-    if(Grupos[i] == id) {
-      multi.id = &Grupos[i];
-      multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
-      multi.size = &config.group[i].size;
-      multi.desc = config.group[i].desc;
-      multi.ngrupo = i+1;
-      for (int j=0; j < *multi.size; j++) {
-        multi.zserie_boton[j] = Zonas[config.group[i].zNumber[j]-1];  //obtiene el id del boton de cada zona (ojo: no viene en el json)
-        multi.w_zserie[j] = config.group[i].zNumber[j];  //copia el numero de cada zona desde config
-        #ifdef EXTRADEBUG2 
-          Serial.printf("  Zona%d   ", config.group[i].zNumber[j]);
-          Serial.printf("bId: x%04x \n",multi.zserie_boton[j]); // bId(boton) asociado a la zona
-        #endif  
-      }
-      LOG_DEBUG(" Devuelve GRUPO", multi.ngrupo,"(",multi.desc,") con",*multi.size,"zonas");
-      return multi.ngrupo;
-    }
+  LOG_DEBUG("Recibe id=0x",DebugLogBase::HEX,boton->bID);
+  int i = getGroupIndex(boton->bID); // busca el id del boton en Grupos[] y devuelve su indice (grupo-1)
+  multi.id = &Grupos[i];
+  multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
+  multi.size = &config.group[i].size;
+  multi.desc = config.group[i].desc;
+  multi.ngrupo = i+1;
+  // para cada zona del grupo: obtiene su bId(boton)
+  for (int j=0; j < *multi.size; j++) {
+    multi.zserie_boton[j] = Zonas[config.group[i].zNumber[j]-1];
+    multi.w_zserie[j] = config.group[i].zNumber[j];  //copia el numero de cada zona desde config
+    #ifdef EXTRADEBUG2 
+      Serial.printf("  Zona%d   ", config.group[i].zNumber[j]);
+      Serial.printf("bId: x%04x \n",multi.zserie_boton[j]); // bId(boton) asociado a la zona
+    #endif  
   }
-  char msg[64];
-  snprintf(msg, sizeof(msg), "!!! BUG: bID %04X no encontrado en Grupos[]", id);
-  stopHW(msg); // El sistema se detiene aquí
-  return -1;   // Nunca se alcanzará
+  LOG_DEBUG("Devuelve GRUPO", multi.ngrupo,"(",multi.desc,") con",*multi.size,"zonas");
+  return multi.ngrupo;
 }
 
 // Asigna en multi valores o apuntadores para multirriego temporal

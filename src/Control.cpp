@@ -554,15 +554,14 @@ void procesaBotonMultirriego()
 {
   if (multi.riegoON)  //ya hay un multirriego en curso,, ignoramos boton
       return;
-  int n_grupo = setGrupo(); //apunta estructura multi al grupo seleccionado
-  // assert(n_grupo > 0 && n_grupo <= NUMGRUPOS); // seguridad en modo desarrollo para asegurar que el indice de grupo es correcto
   if (Estado.estado == STANDBY) {
+    int n_grupo = setGrupo(); //apunta estructura multi al grupo seleccionado
     LOG_DEBUG("en MULTIRRIEGO, encoderSW status  :", encoderSW, "grupo seleccionado:", n_grupo, "multi.desc:", multi.desc, "multi.size:", *multi.size);
     if (encoderSW) handleEncGrupoInStandby(n_grupo);  //muestra info del grupo
               else handleGrupoInStandby(n_grupo);     //inicia el multirriego
   }
-  // En STOP si pulsamos junto con encoderSW tenemos atajos de teclas (si habilitados con SHORTCUTSENABLED)
-  else if (encoderSW && Estado.estado == STOP && SHORTCUTSENABLED) handleEncGrupoInStop(n_grupo);  
+  // atajos de teclas para STOP+ENC+GRUPOn
+  else if (encoderSW && Estado.estado == STOP && SHORTCUTSENABLED) handleEncGrupoInStop(getGroupIndex(boton->bID)+1);
 } //fin de procesaBotonMultiriego
 
 
