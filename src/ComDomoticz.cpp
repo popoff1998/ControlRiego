@@ -263,7 +263,7 @@ int getFactor(uint8_t zona, bool &factorRiegosLeido)
   uint16_t idx = getSCD_ID(zona);
   if(idx == 0) return 100; //si el IDX es 0 devolvemos 100 sin procesarlo (boton no asignado)
   factorRiegosLeido = false;
-  setZonaEnCurso(Zonas[zona-1]); //guardamos zona tratada para encender su led en statusError si se produjera
+  setZonaEnCurso(getBotonPointer(Zonas[zona-1])); //guardamos zona tratada para encender su led en statusError si se produjera
   String response = deviceInfo(idx, "Description");
   if (response.startsWith("Err")) {
       if (isErrorIgnorable(response)) return 999;  //si estamos en modoDEMO devolvemos 999 y no damos error

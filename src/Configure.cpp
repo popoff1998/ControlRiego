@@ -35,7 +35,7 @@ void Configure::Idx_process_start(int zindex)
       snprintf(buff, MAXBUFF, " actual %d", tm.value);
       lcd.info(buff, 3);
       
-      led(Boton[getBotonIndex(Zonas[zindex])].led,ON);
+      led(getBotonPointer(Zonas[zindex])->led,ON);
 }
 
 //  actualizamos en pantalla el nuevo IDX de la zona
@@ -51,13 +51,13 @@ void Configure::Idx_process_end()
 {
       config.zona[_actualZonaIndex].idx = (uint16_t)tm.value;
       saveConfigRequired = true;
-      int bIndex = getBotonIndex(Zonas[_actualZonaIndex]);
+      S_BOTON* pBoton = getBotonPointer(Zonas[_actualZonaIndex]);
       
-      LOG_INFO("Save Zona",_actualZonaIndex+1,"(",Boton[bIndex].desc,") IDX :",tm.value);
+      LOG_INFO("Save Zona",_actualZonaIndex+1,"(",pBoton->desc,") IDX :",tm.value);
       lcd.info(" << GUARDADO >>",3);
       sonido.bipOK();
       delay(config.msgdisplaymillis);  // para que se vea el msg
-      led(Boton[bIndex].led,OFF);
+      led(pBoton->led,OFF);
 
       this->menu(0);  // vuelve a mostrar menu de configuracion, primera linea
 }
@@ -177,7 +177,7 @@ void Configure::Multi_process_update()
       // LOG_DEBUG("Multi_process_update: boton->bID=", boton->bID, "multi.w_size=",multi.w_size);  
       int zIndex = getZonaIndex(boton->bID);
       if (multi.w_size < ZONASXGRUPO) {  //max. zonas por grupo
-        multi.zserie_boton[multi.w_size] = boton;  // apuntador de la zona en Boton[]
+        multi.zserie_pBoton[multi.w_size] = boton;  // apuntador de la zona en Boton[]
         multi.w_zserie[multi.w_size] = zIndex+1 ;  // numero de la zona
         multi.w_size = multi.w_size + 1;
 

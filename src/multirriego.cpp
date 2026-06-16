@@ -17,7 +17,7 @@ int setGrupo()
 {
   LOG_DEBUG("Recibe id=0x",DebugLogBase::HEX,boton->bID);
   int i = getGroupIndex(boton->bID); // busca el id del boton en Grupos[] y devuelve su indice (grupo-1)
-  multi.id = &Boton[getBotonIndex(boton->bID)]; // guarda el apuntador a Boton[] del grupo pulsado/seleccionado
+  multi.id = boton; // guarda el apuntador a Boton[] del grupo pulsado/seleccionado
   multi.w_size = 0 ; // inicializamos contador temporal elementos del grupo
   multi.size = &config.group[i].size;
   multi.desc = config.group[i].desc;
@@ -27,7 +27,7 @@ int setGrupo()
     // Obtenemos el bID numérico de la zona
     uint16_t zonaBid = Zonas[config.group[i].zNumber[j] - 1];
     // Buscamos su índice en Boton[] y guardamos el puntero directo
-    multi.zserie_boton[j] = &Boton[getBotonIndex(zonaBid)];    
+    multi.zserie_pBoton[j] = getBotonPointer(zonaBid);    
     multi.w_zserie[j] = config.group[i].zNumber[j];  //copia el numero de cada zona desde config
   }
   #ifdef EXTRADEBUGMULTI
@@ -63,7 +63,7 @@ bool startMultirriego()
       multi.actualIndex = 0;
       multi.semaforo = true;
       LOG_INFO("MULTIRRIEGO iniciado: ", multi.desc);
-      boton = multi.zserie_boton[multi.actualIndex]; // simula pulsacion boton primera zona del grupo
+      boton = multi.zserie_pBoton[multi.actualIndex]; // simula pulsacion boton primera zona del grupo
       if (multi.temporal) ultimosRiegos(HIDE); // apaga leds zonas seleccionadas en el multirriego temporal
       else led(multi.id->led, ON); // enciende led del grupo pulsado si es normal
       sonido.bip(4);
@@ -85,11 +85,11 @@ void displayLedsGrupo()
   led(multi.id->led, ON); // enciende led del grupo
   if (*multi.size > 0) {  // si el grupo tiene zonas definidas muestra leds de las zonas del grupo
       for (int i = 0; i < *multi.size; i++) {
-          led(multi.zserie_boton[i]->led, ON);
+          led(multi.zserie_pBoton[i]->led, ON);
           delay(300);
           sonido.bip(i + 1);
           delay(100 * (i + 1));
-          led(multi.zserie_boton[i]->led, OFF);
+          led(multi.zserie_pBoton[i]->led, OFF);
           delay(100);
       }
   }    
@@ -144,7 +144,7 @@ void printMulti()
       Serial.printf("MULTI Grupo: %s | Zonas totales: %d\n", multi.desc, *multi.size);
     for(int j = 0; j < *multi.size; j++) {
       // Imprime el ID hexadecimal y el nombre legible de la zona (ej: "ZONA1")
-      Serial.printf("  -> [%d] %s (id: x%04x)\n", j + 1, multi.zserie_boton[j]->desc, multi.zserie_boton[j]->bID);
+      Serial.printf("  -> [%d] %s (id: x%04x)\n", j + 1, multi.zserie_pBoton[j]->desc, multi.zserie_pBoton[j]->bID);
     }
   Serial.println();
 }

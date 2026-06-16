@@ -181,7 +181,7 @@ void setupEstadoFinal()
   
   if (Estado.inSetup) {
     //Deshabilitamos el hold de Pause
-    Boton[getBotonIndex(bPAUSE)].flags.holddisabled = true;
+    getBotonPointer(bPAUSE)->flags.holddisabled = true;
     //Llamo a parseInputs CLEAR para eliminar prepulsaciones antes del bucle loop
     parseInputs(CLEAR);
     //lanzamos supervision periodica estado cada VERIFY_INTERVAL seg.
@@ -350,7 +350,7 @@ void handleEncPauseInRegando() {
   // si estamos en un multirriego y no es la ultima zona y no hemos salvado ya un riego en curso
   // --> salvamos el riego en curso en riegoSaved para poder continuarlo despues del multirriego
   if (multi.riegoON && (multi.actualIndex+1 < *multi.size) && !riegoSaved.znumber) {
-    saveRiego(zonaEnCurso.znumber, zonaEnCurso.pBoton->bID, timer.ShowMinutes(), timer.ShowSeconds());
+    saveRiego(zonaEnCurso.znumber, zonaEnCurso.pBoton, timer.ShowMinutes(), timer.ShowSeconds());
     LOG_DEBUG("salvando riego de zona en curso en riegoSaved multi.actualIndex=", multi.actualIndex, " multi.size=", *multi.size);
   }
 }
@@ -583,9 +583,7 @@ void handleGrupoInStandby(int n_grupo) {
        Realmente estoy simulando la pulsacion del primer boton de riego de la serie
        que sera procesado en el siguiente paso del loop.
        Tambien grabamos el tiempo de inicio del riego de grupo  */
-    char grupoText[7];
-    snprintf(grupoText, sizeof(grupoText), "GRUPO%d", n_grupo);
-    if(startMultirriego()) inicioTimeLastRiego(lastGrupos[n_grupo-1], grupoText, INICIO);
+    if(startMultirriego()) inicioTimeLastRiego(lastGrupos[n_grupo-1], INICIO);
 }
 
 // Atajos combinacion STOP+ENC+GRUPOn
@@ -614,7 +612,7 @@ void procesaBotonZona()
   LOG_DEBUG("zIndex:", zIndex, "encoderSW:", encoderSW, "multi.riegoON:", multi.riegoON);
   if (Estado.estado == STANDBY) {
     if (!encoderSW || multi.riegoON) {  // (1)
-        startZoneWatering();    //iniciamos el riego correspondiente al boton seleccionado
+        startZoneWatering();    //iniciamos el riego correspondiente al boton pulsado
     }
     else {  
         showInfoZona(zIndex);   // mostramos en el display info zona
@@ -652,7 +650,7 @@ void handleDynamicZoneChange(int znumber) {
       multi.semaforo = false;
       multi.actualIndex=0;
       setMultiTemp(NEWMTEMP);  // completa resto campos estructura multi como grupo temporal nuevo
-      multi.zserie_boton[0] = zonaEnCurso.pBoton;  // apuntador de la zona actual como primera de la lista
+      multi.zserie_pBoton[0] = zonaEnCurso.pBoton;  // apuntador de la zona actual como primera de la lista
       multi.w_zserie[0] = zonaEnCurso.znumber;  // numero de la zona actual como primera de la lista
       multi.w_size = 1; // indicamos que hay una zona en la lista 
     }
@@ -678,7 +676,7 @@ bool procesaDynamic(int znumber)
           // Desplazamos elementos hacia la izquierda. 
           for (int j = n; j < (multi.w_size - 1); j++) { // El límite es (multi.w_size - 1) para no leer j+1 fuera del array
               multi.w_zserie[j] = multi.w_zserie[j + 1];
-              multi.zserie_boton[j] = multi.zserie_boton[j + 1];
+              multi.zserie_pBoton[j] = multi.zserie_pBoton[j + 1];
           }
           multi.w_size--; // Decrementamos el tamaño
           LOG_DEBUG("[ELIMINA] zona:",znumber,"posicion",n+1,"nuevo size:",multi.w_size);
@@ -690,7 +688,7 @@ bool procesaDynamic(int znumber)
   // 2. ADICIÓN AL FINAL
   if (multi.w_size < ZONASXGRUPO) {
       int index = multi.w_size; // El tamaño actual es el índice del siguiente hueco libre
-      multi.zserie_boton[index] = boton;
+      multi.zserie_pBoton[index] = boton;
       multi.w_zserie[index] = znumber;
       multi.w_size++; // Incrementamos tamaño
       LOG_DEBUG("[AÑADE] zona:",znumber,"nuevo size:",multi.w_size);
@@ -788,7 +786,7 @@ void procesaEstadoTerminando()
     // pasamos a regar la siguiente zona del grupo si quedan en cola:
     if (multi.actualIndex < *multi.size) {  
       //Simular la pulsacion del siguiente boton de la serie de multirriego
-      boton = multi.zserie_boton[multi.actualIndex];
+      boton = multi.zserie_pBoton[multi.actualIndex];
       multi.semaforo = true;
     }
     // no quedan zonas por regar: señalamos fin del multirriego y actualizamos timestamp de finalizacion
@@ -852,7 +850,7 @@ void procesaEstadoStandby()
 void procesaEstadoStop()
 {
   // En stop activamos el comportamiento hold de pausa
-  Boton[getBotonIndex(bPAUSE)].flags.holddisabled = false;
+  getBotonPointer(bPAUSE)->flags.holddisabled = false;
   // Si se muestra nivel wifi, lo actualizamos cada intervalo de verificaciones
   if (config.showwifilevel && flagV) showWifiLevel(checkWifi(true));
   // Apagamos el display y atenuamos led status pasado 4 x STANDBYSECS
@@ -872,9 +870,7 @@ void procesaEstadoPause() {
       sonido.bip(2);
       LOG_WARN(">>>>>>>>>> procesaEstadoPause zona:", config.zona[zonaEnCurso.zindex].desc,"activada REMOTAMENTE <<<<<<<");
       timer.ResumeTimer();
-      char zonaText[7];
-      snprintf(zonaText, sizeof(zonaText), "ZONA%d", zonaEnCurso.znumber);
-      inicioTimeLastRiego(lastRiegos[zonaEnCurso.zindex], zonaText, RESUME); //actualizamos tiempo de riego de la zona
+      inicioTimeLastRiego(lastRiegos[zonaEnCurso.zindex], RESUME); //actualizamos tiempo de riego de la zona
       setEstado(REGANDO,2,REMOTO,LENTO); //pasamos a REGANDO remoto
     }
     // Si no hemos podido verificar estado, ignoramos el error (posible pause  por mantenimiento de la wifi o del domoticz)
@@ -999,7 +995,7 @@ void setStateMachine(m_estados estado, estado_tipos tipo)
   Estado.failedStopRiego = false;
   Estado.recoverableError = false;
   Estado.errorInformado = false;
-  Boton[getBotonIndex(bPAUSE)].flags.holddisabled = true; //Deshabilitamos el hold de Pause
+  getBotonPointer(bPAUSE)->flags.holddisabled = true; //Deshabilitamos el hold de Pause
   rotaryEncoder.disable();  // para que no cuente pasos salvo que lo habilitemos
   if(Estado.reposo) reposoOFF();     //por si salimos de stop antinenes
   if (estado == STOP || (estado == STANDBY && !multi.riegoON)) resetFlags(); //reset flags riegos en curso
@@ -1197,6 +1193,7 @@ bool loadFactorRiegos()
     // si XNAME: true, leemos la descripcion de la zona del domoticz (si existe) y la guardamos en config
     if (config.xname) updateZoneDescription(i);
   }
+  zonaEnCurso = S_zonaEnCurso{}; // reseteamos zonaEnCurso para evitar que quede apuntando a una zona erronea
   LOG_DEBUG("salida  loadFactorRiegos Estado.error=", Estado.error, "Estado.recoverableError=", Estado.recoverableError, "Estado.noWIFI=", Estado.noWIFI);
   if(Estado.error) return false;
   #ifdef VERBOSE
@@ -1339,7 +1336,7 @@ void ultimosRiegos(int modo) {
   switch(modo) {
     case HIDE:
       setParpadeo(tic_LedZonas24h, PARAR);
-      for(uint i=0; i<NUMZONAS; i++) led(Boton[getBotonIndex(Zonas[i])].led, OFF);
+      for(uint i=0; i<NUMZONAS; i++) led(getBotonPointer(Zonas[i])->led, OFF);
         break;
     case SHOW:
       lcd.infoclear("Hora actual:");
@@ -1362,11 +1359,11 @@ void ultimosRiegos(int modo) {
         for(uint i=0; i<NUMZONAS; i++) {
           if(lastRiegos[i].inicio > midnight) {
               LOG_DEBUG("[ULTIMOSRIEGOS medianoche] zona:", i+1, "time:", lastRiegos[i].inicio);
-              led(Boton[getBotonIndex(Zonas[i])].led, ON);
+              led(getBotonPointer(Zonas[i])->led, ON);
             }
           else if (config.lastr24 && lastRiegos[i].inicio > limit24h) {
               LOG_DEBUG("[ULTIMOSRIEGOS 24h] zona:", i+1, "time:", lastRiegos[i].inicio);
-              ledsParpadeo.leds[ledsParpadeo.cantidad] = Boton[getBotonIndex(Zonas[i])].led;
+              ledsParpadeo.leds[ledsParpadeo.cantidad] = getBotonPointer(Zonas[i])->led;
               ledsParpadeo.cantidad++;
           }
         }
@@ -1378,19 +1375,19 @@ void ultimosRiegos(int modo) {
 }
 
 
-void inicioTimeLastRiego(S_timeRiego &timeRiego, const char* texto, bool resume) 
+void inicioTimeLastRiego(S_timeRiego &timeRiego, bool resume) 
 {
   time_t t = tLoc();
   if (resume)
   {
     // si estamos reanudando un riego, mantenemos el inicio del riego anterior
-    LOG_DEBUG("actualizo lastriegos: reanudando riego ", texto, "timestamp:", t);
+    LOG_DEBUG("actualizo lastriegos: reanudando riego. Timestamp:", t);
     timeRiego.reinicio = t;
   }
   else
   {
     // si estamos iniciando, actualizamos el inicio del riego
-    LOG_DEBUG("actualizo lastriegos: iniciando riego ", texto, "timestamp:", t);
+    LOG_DEBUG("actualizo lastriegos: iniciando riego. Timestamp:", t);
     timeRiego.inicio = t;
     timeRiego.final = 0;
     timeRiego.reinicio = t;
@@ -1468,7 +1465,7 @@ void showTimeLastRiego(S_timeRiego &timeRiego)
  * Prepara temporizadores y comienza riego de la zona pulsada
  */
 void startZoneWatering() {
-    setZonaEnCurso(boton->bID);
+    setZonaEnCurso(boton);
     sonido.bip(2);
     // Si multirriego factorizado, cambia minutes y seconds en funcion del factor de cada zona
     uint8_t fminutes=0,fseconds=0;
@@ -1653,9 +1650,7 @@ bool initRiego(bool resume)
     if (resume) LOG_INFO( "Continuando riego: ", config.zona[zIndex].desc);
     else LOG_INFO( "Iniciando riego: ", config.zona[zIndex].desc);
     if (deviceSwitch(zIndex+1, "On", SWITCH_RETRIES)) { 
-        char zonaText[7];
-        snprintf(zonaText, sizeof(zonaText), "ZONA%d", zIndex+1);
-        inicioTimeLastRiego(lastRiegos[zIndex], zonaText, resume);
+        inicioTimeLastRiego(lastRiegos[zIndex], resume);
         #ifdef EXTRADEBUG
           for(uint i=0;i<NUMZONAS;i++) { LOG_DEBUG("[ULTIMOSRIEGOS] inicio zona:", i+1, "time:",lastRiegos[i].inicio); }
         #endif
@@ -1728,12 +1723,12 @@ bool stopAllRiegos()
 }
 
 //Guarda el estado del riego en curso para una posible reanudacion
-void saveRiego(int znumber, int bID, int minutes, int seconds)
+void saveRiego(int znumber, S_BOTON* boton, int minutes, int seconds)
 {
   if (znumber) LOG_INFO("salvando estado riego zona :",znumber," tiempo restante: ", minutes, "m :", seconds, "s");
   else LOG_DEBUG("reset estado riego salvado");
   riegoSaved.znumber = znumber;
-  riegoSaved.bID = bID;
+  riegoSaved.pBoton = boton;
   riegoSaved.minutes = minutes;
   riegoSaved.seconds = seconds;
 }
@@ -1744,11 +1739,11 @@ void restoreRiego()
     if (riegoSaved.znumber == 0)  //no hay riego salvado
         return;
     LOG_INFO("recuperando riego salvado de zona:", riegoSaved.znumber);
-    setZonaEnCurso(riegoSaved.bID); //actualizamos zona en curso con el boton de la zona salvada
+    setZonaEnCurso(riegoSaved.pBoton); //recuperamos zona en curso
     led(zonaEnCurso.pBoton->led,ON); //encendemos led de la zona
     timer.SetTimer(0,riegoSaved.minutes,riegoSaved.seconds);  //inicializamos el timer de cuenta atras
     lcd.displayTime(timer.ShowMinutes(), timer.ShowSeconds());
-    saveRiego(0,0,0,0); //ya no es valida    
+    riegoSaved = S_Riego_estado{}; // reseteamos estado de riego salvado, ya no es valido
     setEstado(PAUSE); //ponemos en PAUSE para que el usuario confirme el inicio del riego salvado
 }    
 
@@ -1757,13 +1752,13 @@ void resetLeds()
 {
   //Apago los leds de multirriego
   for(unsigned int j=0;j<NUMGRUPOS;j++) {
-    led(Boton[getBotonIndex(Grupos[j])].led,OFF);
+    led(getBotonPointer(Grupos[j])->led,OFF);
   }
   //Apago los leds de riego y posible parpadeo
   setParpadeo(tic_LedZona, PARAR);
   setParpadeo(tic_LedZonas24h, PARAR);
   for(unsigned int i=0;i<NUMZONAS;i++) {
-    led(Boton[getBotonIndex(Zonas[i])].led,OFF);
+    led(getBotonPointer(Zonas[i])->led,OFF);
   }
   //restablece led RGB
   setLedStatus();                   //restablece led RGB a estado actual  
@@ -2071,17 +2066,13 @@ void setupConfig()
 {
   //si en config campo desc de la zona esta vacio se copia el de por defecto de la estructura Boton:
   for(int i=0;i<NUMZONAS;i++) {
-    if(strlen(config.zona[i].desc) == 0) {
-      int bIndex = getBotonIndex(Zonas[i]);
-      strlcpy(config.zona[i].desc, Boton[bIndex].desc, sizeof(config.zona[i].desc));
-    }
+    if(strlen(config.zona[i].desc) == 0)
+      strlcpy(config.zona[i].desc, getBotonPointer(Zonas[i])->desc, sizeof(config.zona[i].desc));
   }
-  //si en config campo desc del grupo esta vacio se copia el de por defecto de la estructura Boton:
-  for(int i=0;i<NUMGRUPOS;i++) {
-    if(strlen(config.group[i].desc) == 0) {
-      int bIndex = getBotonIndex(Grupos[i]);
-      strlcpy(config.group[i].desc, Boton[bIndex].desc, sizeof(config.group[i].desc));
-    }  
+  // si en config campo desc del grupo esta vacio se copia el de por defecto de la estructura Boton:
+  for(int i=0; i<NUMGRUPOS; i++) {
+    if(strlen(config.group[i].desc) == 0)
+      strlcpy(config.group[i].desc, getBotonPointer(Grupos[i])->desc, sizeof(config.group[i].desc));
   }
   //por si la ip del SCD Domoticz incluyera user y pass, los extraemos y los guardamos en los campos correspondientes de config
   // if (config.SCD_user[0] == '\0') parseSCDuri(config.SCD_ip);

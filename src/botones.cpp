@@ -338,20 +338,18 @@ void simulaPauseIfEncoderSW(bool initialize) {
     static bool simulaPausePrev = false;
     // Si nos piden inicializar, actualizamos el estado anterior y salimos
     if (initialize) { simulaPausePrev = encoderSW; return; } 
-    int i = getBotonIndex(bPAUSE);         
+    S_BOTON* pPAUSE = getBotonPointer(bPAUSE);         
     // 1. TRANSICIÓN: PULSO (De false a true)
     if (encoderSW && !simulaPausePrev) {
         simulaPausePrev = true;
-        Boton[i].estado = true; 
-        boton = &Boton[i]; 
+        pPAUSE->estado = true; 
+        boton = pPAUSE; 
         LOG_DEBUG("bPAUSE PULSADO simulado.");
         return;
     }
     // 2. TRANSICIÓN: LIBERACIÓN (De true a false)
     if (!encoderSW && simulaPausePrev) {
         simulaPausePrev = false;
-        // Boton[i].estado = false; // seguramente no es necesario, pero por claridad
-        // LOG_DEBUG("bPAUSE LIBERACIÓN simulada.");
     } 
 }
 
@@ -361,14 +359,14 @@ void panicNotFound(const char* contexto, uint16_t id) {
     stopHW(msg); // El sistema se detiene aquí
 }
 
-// devuelve la posicion en array Boton[] (bIndex) del boton que se le ha pasado (bID)
-int getBotonIndex(uint16_t id)
+// devuelve el puntero directo en memoria de la estructura del boton pasado por bID
+S_BOTON* getBotonPointer(uint16_t id)
 {
-  for (int i=0;i<NUM_S_BOTON;i++) {
-    if (Boton[i].bID == id) return i;
+  for (int i = 0; i < NUM_S_BOTON; i++) {
+    if (Boton[i].bID == id) return &Boton[i]; // Devolvemos la dirección de memoria directa
   }
-panicNotFound("Boton", id);
-return -1;   // Nunca se alcanzará
+  panicNotFound("Boton", id); // Si llega aquí, detiene el HW de forma segura
+  return nullptr;             // Nunca se alcanzará
 }
 
 // devuelve la posicion en array Zonas[] (zona-1) del boton que se le ha pasado (bID)
@@ -396,10 +394,10 @@ int getGroupIndex(uint16_t id)
   return -1;   // Nunca se alcanzará
 }
 
-// salva apuntadores a la zona en curso (a partir de su boton bID)
-void setZonaEnCurso(uint16_t bID) {
-    zonaEnCurso.pBoton  = &Boton[getBotonIndex(bID)];
-    zonaEnCurso.zindex  = getZonaIndex(bID);
+// salva apuntador a la zona en curso y precalcula zindex y znumber para no tener que recalcularlo cada vez que se necesite
+void setZonaEnCurso(S_BOTON* pBoton) {
+    zonaEnCurso.pBoton  = pBoton;
+    zonaEnCurso.zindex  = getZonaIndex(pBoton->bID);
     zonaEnCurso.znumber = zonaEnCurso.zindex + 1;
     LOG_DEBUG("Zona apuntada:", zonaEnCurso.znumber, "(" ,config.zona[zonaEnCurso.zindex].desc, ")");
 }

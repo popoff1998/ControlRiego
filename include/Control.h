@@ -321,11 +321,12 @@
     time_t total; 
   } ;
 
-// Definición de la estructura de control para el Ticker de parpadeo de los leds regados en ultimas 24h
-struct S_ledsParpadeo {
-    int leds[NUMZONAS];
-    uint8_t cantidad;
-};
+  // Definición de la estructura de control para el Ticker de parpadeo de los leds regados en ultimas 24h
+  struct S_ledsParpadeo {
+      int leds[NUMZONAS];
+      uint8_t cantidad;
+  };
+
   // variables contador de tiempo
   struct S_tm {
     uint8_t minutes = 0;
@@ -390,10 +391,10 @@ struct S_ledsParpadeo {
     bool temporal = false;          // grupo multirriego es temporal
     bool noFactorizado  = false;    // grupo multirriego es dinámico (a partir de un riego de zona individual, no factorizado)
     bool semaforo = false;          // procesar siguiente zona del multirriego
-    int  actualIndex = 0;           // variable auxiliar durante el riego: indice en multi.zserie_boton de la zona que se esta regando actualmente
+    int  actualIndex = 0;           // variable auxiliar durante el riego: indice en multi.zserie_pBoton de la zona que se esta regando actualmente
     // campos de configuración del grupo multirriego en curso 
     int  ngrupo = -1;            // numero del grupo al que apunta (no valido por defecto, se asigna al iniciar el riego o la configuracion del grupo)
-    S_BOTON* zserie_boton[16] = {nullptr};  //contiene los punteros a la estructura S_BOTON de las zonas del grupo
+    S_BOTON* zserie_pBoton[16] = {nullptr};  //contiene los punteros a la estructura S_BOTON de las zonas del grupo
     uint16_t w_zserie[16]= {0};     //contiene las zonas del grupo (Zona_x)
     int  w_size = 0;                //variable auxiliar durante ConF: numero de zonas configuradas en el grupo (tamaño del grupo)
     S_BOTON* id = nullptr;          //apuntador al boton/selector grupo en Boton[]. Solo lectura.
@@ -403,15 +404,15 @@ struct S_ledsParpadeo {
 
 // estructura para la zona activa (regando, terminando, parando, a parar...etc)  
   struct S_zonaEnCurso{
-    S_BOTON* pBoton;   // Puntero al hardware (Leds, flags, ID) de Boton[]
-    int zindex;        // Índice de la zona (0 a 8) para config 
-    int znumber;       // Número de zona (1 a 9) para mostrar en el display
+    S_BOTON* pBoton = nullptr; // Puntero al hardware (Leds, flags, ID) de Boton[]
+    int zindex = -1;           // Índice de la zona (0 a 8) para config 
+    int znumber = 0;           // Número de zona (1 a 9) para mostrar en el display
   } ;
 
   // estructura para salvar el estado de un riego en curso
   struct S_Riego_estado {
-    uint16_t bID = 0;            // id del boton de la zona en curso (bZona_x)
-    uint16_t znumber = 0;        // numero de la zona en curso (Zona_x)
+    S_BOTON* pBoton = nullptr;    // puntero al boton de la zona en curso (Boton[])  
+    int      znumber = 0;        // numero de la zona en curso (Zona_x)
     uint8_t  minutes = 0;        // minutos restantes del riego en curso
     uint8_t  seconds = 0;        // segundos restantes del riego en curso
     // CountUpDownTimer timer;         // temporizador del riego en curso ??
@@ -548,7 +549,6 @@ struct S_ledsParpadeo {
  * -------------------------------------------------------------------------------------- */
 
 void apagaLeds(void);
-int  getBotonIndex(uint16_t);
 void blinkDisplay(void);
 void check(void);
 bool checkAndInitFactorRiegos(bool signalError = true);
@@ -578,6 +578,7 @@ void finalTimeGrupo(S_timeRiego&, time_t tZona = 0);
 void finalTimeLastRiego(S_timeRiego&);
 void flagVerificaciones(void);
 void gestionarTamanoLog();
+S_BOTON *getBotonPointer(uint16_t id);
 bool getDiaNoche(char*, char*);
 String getDomoticzSettingsInfo(const char*);
 int  getFactor(uint8_t zona, bool &factorRiegosLeido);
@@ -606,7 +607,7 @@ void handlePauseInStop();
 void handleStopInError();
 void handleStopInRegandoPauseTerm();
 void handleStopInStandby();
-void inicioTimeLastRiego(S_timeRiego&, const char* texto = nullptr, bool resume=false);
+void inicioTimeLastRiego(S_timeRiego&, bool resume=false);
 void initEncoder(void);
 bool loadFactorRiegos(void);
 void initFS();
@@ -679,7 +680,7 @@ void resetLCD(void);
 void resetLeds(void);
 void restoreRiego(void);
 bool saveConfig(void);
-void saveRiego(int znumber, int bID, int minutes, int seconds);
+void saveRiego(int znumber, S_BOTON* boton, int minutes, int seconds);
 void saveRiegosToFile(const char *filename, const char *arrayName, S_timeRiego *tabla, size_t size, bool initialize = false);
 void scSorpresa();
 void scWebserver();
@@ -705,7 +706,7 @@ void setupInit(void);
 void setupParm(void);
 void setupRedWM(S_initFlags&);
 void setupWS();
-void setZonaEnCurso(uint16_t bID);
+void setZonaEnCurso(S_BOTON* pBoton);
 void showInfoZona(int zIndex);
 void showTemp(void);
 void showTimeLastRiego(S_timeRiego&);
