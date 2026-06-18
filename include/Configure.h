@@ -1,6 +1,5 @@
 #ifndef Configure_h
 #define Configure_h
-#include <Control.h>
 
 class Configure
 {
@@ -42,7 +41,7 @@ class Configure
       __ENDLINE__   ,   //  ultimo item fijo 
       NUM_ITEMS         //  (= numero de lineas del menu excluyendo esta)
     };
-    int _actualZonaIndex;
+    int _actualZona;
     int _actualGrupo;
     int _maxItems;
     int _currentItem;
@@ -66,13 +65,13 @@ class Configure
     };
     void configureMulti_display(void);
     void reset(void);
-  
+    void toggle(bool &value);
   
   public:
     Configure();   // constructor
     void menu(int item=-1);
     void exit(void);
-    void Idx_process_start(int);
+    void Idx_process_start(void);
     void Idx_process_update(void);
     void Idx_process_end(void);
     void Time_process_start(void);
@@ -86,7 +85,6 @@ class Configure
     void Multi_process_end(void);
     void MultiTemp_process_start(void);
     void MultiTemp_process_end(void);
-    void toggle(bool &value);
     void procesaSelectMenu(void);
     int  showMenu(int);
     int  get_currentItem() const { return _currentItem; }

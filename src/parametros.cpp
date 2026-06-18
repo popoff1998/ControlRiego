@@ -371,6 +371,7 @@ void printParms() {
   }
   //--------------  imprime parametro conexion   ----------------------------------------
   Serial.printf("\tSCD_ip= %s / SCD_port= %s \n", config.SCD_ip, config.SCD_port);
+  Serial.printf("\tSCD_user= %s / SCD_password= %s \n", config.SCD_user, config.SCD_password);
   Serial.printf("\tntpServer= %s / timezone= %s \n", config.ntpServer, config.TZ);
   //--------------  imprime parametro individuales   ----------------------------------------
   Serial.printf("\tminutes= %d / seconds= %d \n", config.minutes, config.seconds);

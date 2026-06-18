@@ -368,7 +368,7 @@ void handleEncPauseInRegando() {
 // Pausa el riego en curso
 void handlePauseInRegando() {
   setEstado(PAUSE,1);
-  if (stopRiego(zonaEnCurso.pBoton->bID)) timer.PauseTimer();
+  if (stopRiego(zonaEnCurso.pBoton)) timer.PauseTimer();
   else { //error al parar riego (ya puesto por stopRiego)
     LOG_WARN("error al pausar riego ERROR(E",Estado.error, ") (", errorToString(Estado.error), ") zona :",zonaEnCurso.pBoton->desc );
   }  
@@ -517,7 +517,7 @@ void handleStopInRegandoPauseTerm() {
     tic_CountDownTimer.detach(); //detiene actualizacion periodica del temporizador
     bool updateTimeFin = (Estado.estado == PAUSE ? false : true); // si estamos en PAUSE no actualizamos tiempo fin
     // paramos riego en curso primero y todas las zonas despues
-    if (!stopRiego(zonaEnCurso.pBoton->bID, updateTimeFin) || !stopAllRiegos()) {
+    if (!stopRiego(zonaEnCurso.pBoton, updateTimeFin) || !stopAllRiegos()) {
       return;    //error al parar riegos
     }
     saveRiegosToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
@@ -780,7 +780,7 @@ void procesaEstadoTerminando()
   // si veniamos de PAUSE no actualizamos tiempo fin (ya se hizo al entrar en PAUSE)
   bool updateTimeFin = (riegoFromPause? false : true); // por si venimos de cancel desde PAUSE
   riegoFromPause = false;
-  stopRiego(zonaEnCurso.pBoton->bID, updateTimeFin); // paramos riego en curso
+  stopRiego(zonaEnCurso.pBoton, updateTimeFin); // paramos riego en curso
   // no continuamos si se ha producido error al parar el riego 
   if (Estado.estado == ERROR)
       return;
@@ -905,7 +905,7 @@ void procesaEstadoConfigurando()
   // Si hay boton pulsado (con flag ACTION), lo procesamos segun el menu en el que estemos
   if (boton != nullptr) {
     if (boton->flags.action) {
-      if (boton->bID != bSTOP && webServerAct)  //si webserver esta activo solo procesamos boton STOP
+      if (webServerAct && boton->bID != bSTOP)  //si webserver esta activo solo procesamos boton STOP
         return;
       switch(boton->bID) {
         case bPAUSE:
@@ -934,7 +934,7 @@ void procesaEstadoConfigurando()
             break;
         default:  //procesamos boton de ZONAx
             if (configure->inMenu() && configure->get_currentItem()==0) {   //si no estamos configurando nada :
-              configure->Idx_process_start(boton->zNumber() - 1);                          // configuramos el idx del boton
+              configure->Idx_process_start();                          // configuramos el idx del boton de zona pulsado
             }
             if (configure->configuringMulti() || configure->configuringMultiTemp()) { //si estamos configurando grupo multirriego:
               configure->Multi_process_update();                             //añadimos zona al multirriego que estamos definiendo
@@ -1674,14 +1674,15 @@ bool initRiego(bool resume)
     }
 }
 
-// Termina/interrumpe el riego correspondiente al boton de zona (id) pasado
+// Termina/interrumpe el riego correspondiente al boton de zona apuntado por pBoton
 //  update: Si TRUE, actualiza hora de fin de riego (por defecto). 
 //             FALSE en llamadas desde stopAllRiegos o al cancelar riego en pausa).
 //  alertIfFails: Si TRUE y falla, dispara la alerta (por defecto). 
 //                   FALSE en llamada desde stopAllRiegos).
-bool stopRiego(uint16_t id, bool update, bool alertIfFails, int retries)
+bool stopRiego(const S_BOTON* pBoton, bool update, bool alertIfFails, int retries)
 {
-    int zIndex = getBotonPointer(id)->zNumber() - 1;
+    if (pBoton == nullptr) return false; // Control preventivo
+    int zIndex = pBoton->zNumber() - 1;
     LOG_DEBUG( "Terminando riego: ", config.zona[zIndex].desc, "updateTimeFin:", update, "alertIfFails:", alertIfFails);
     if (deviceSwitch(zIndex+1, "Off", retries)) {
         // solo actualizamos hora de fin si no hemos sido llamado desde stopAllRiegos a desde pausa
@@ -1721,8 +1722,9 @@ bool stopAllRiegos()
     resetLeds();
     // Paramos todas las zonas de riego (sin actualizar hora fin de riego)
     // Si falla no se activa la alerta de pendiente de parar riego de zona
-    for(unsigned int i=0;i<NUMZONAS;i++) { 
-        if(!stopRiego(Zonas[i], false, false, retries)) { 
+    for(unsigned int i=0;i<NUMZONAS;i++) {
+        const S_BOTON* pBoton = getBotonPointer(Zonas[i]); 
+        if(!stopRiego(pBoton, false, false, retries)) { 
             allRiegoOK = false; // Marcamos que el lote falló
             // Salimos inmediatamente tras el primer error general
             if (Estado.error == E1 || Estado.error == E2) return false;

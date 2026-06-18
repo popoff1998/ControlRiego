@@ -1,4 +1,4 @@
-#include "Configure.h"
+#include "Control.h"
 
 Configure::Configure()
 {
@@ -14,46 +14,46 @@ Configure::Configure()
 void Configure::reset()
 {
       all_configureflags = 0;
-      _actualZonaIndex = 0;
+      _actualZona = 0;
       _actualGrupo = 0;
 }
 
 
-//  configuramos IDX asociado a la zona
-void Configure::Idx_process_start(int zindex)
+// Configuramos IDX asociado a la zona pasando el puntero al botón
+void Configure::Idx_process_start()
 {
+      if (boton == nullptr) return; // Control preventivo
       this->reset();
       _configuringIdx = true;
-      _actualZonaIndex = zindex;
-      tm.value = config.zona[zindex].idx;
+      _actualZona = boton->zNumber();
+      int zIndex = boton->zNumber() - 1; 
+      tm.value = config.zona[zIndex].idx;
       setEncoderRange(0, 999, tm.value, 100);
 
-      LOG_INFO("[ConF] configurando IDX boton:",config.zona[zindex].desc);
+      LOG_INFO("[ConF] configurando IDX boton:", config.zona[zIndex].desc);
       lcd.infoclear("Configurando");
-      snprintf(buff, MAXBUFF, "IDX de:  %s", config.zona[zindex].desc);
+      snprintf(buff, MAXBUFF, "IDX de:  %s", config.zona[zIndex].desc);
       lcd.info(buff, 2);
       snprintf(buff, MAXBUFF, " actual %d", tm.value);
       lcd.info(buff, 3);
-      
-      led(getBotonPointer(Zonas[zindex])->led,ON);
+      led(boton->led, ON);
 }
 
 //  actualizamos en pantalla el nuevo IDX de la zona
 void Configure::Idx_process_update()
 {     
-      int currentZona = _actualZonaIndex+1;
-      snprintf(buff, MAXBUFF, " nuevo IDX ZONA%d %d", currentZona, tm.value);
+      snprintf(buff, MAXBUFF, " nuevo IDX ZONA%d %d", _actualZona, tm.value);
       lcd.info(buff, 4);
 }  
 
 //  salvamos en config el nuevo IDX de la zona
 void Configure::Idx_process_end()
 {
-      config.zona[_actualZonaIndex].idx = (uint16_t)tm.value;
+      config.zona[_actualZona-1].idx = (uint16_t)tm.value;
       saveConfigRequired = true;
-      S_BOTON* pBoton = getBotonPointer(Zonas[_actualZonaIndex]);
+      S_BOTON* pBoton = getBotonPointer(Zonas[_actualZona-1]);
       
-      LOG_INFO("Save Zona",_actualZonaIndex+1,"(",pBoton->desc,") IDX :",tm.value);
+      LOG_INFO("Save Zona",_actualZona,"(",pBoton->desc,") IDX :",tm.value);
       lcd.info(" << GUARDADO >>",3);
       sonido.bipOK();
       delay(config.msgdisplaymillis);  // para que se vea el msg

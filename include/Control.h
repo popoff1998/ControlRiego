@@ -289,7 +289,7 @@
     };
   } ;
 
-  void panicNotFound(const char*, uint16_t);
+  void panicNotFound(const char*, uint16_t); // solo declaracion, implementacion en botones.cpp
 
   struct S_BOTON {
     const uint16_t bID;     // Fijo: Identificador de bit del boton (bitmask)
@@ -350,7 +350,7 @@
   //estructura para salvar un grupo
   struct Grupo_parm {
     int size = 0;          // cantidad de zonas asociadas al grupo 
-    uint16_t zNumber[ZONASXGRUPO] = {};  // numeros de las zonas del grupo inicializados a 0
+    uint8_t zNumber[ZONASXGRUPO] = {};  // numeros de las zonas del grupo inicializados a 0
     char desc[20] = "";    // descripcion del grupo
   } ;
 
@@ -407,7 +407,7 @@
     // campos de configuración del grupo multirriego en curso 
     int  ngrupo = -1;            // numero del grupo al que apunta (no valido por defecto, se asigna al iniciar el riego o la configuracion del grupo)
     S_BOTON* zserie_pBoton[16] = {nullptr};  //contiene los punteros a la estructura S_BOTON de las zonas del grupo
-    uint16_t w_zserie[16]= {0};     //contiene las zonas del grupo (Zona_x)
+    uint8_t w_zserie[16]= {0};     //contiene las zonas del grupo (Zona_x)
     int  w_size = 0;                //variable auxiliar durante ConF: numero de zonas configuradas en el grupo (tamaño del grupo)
     S_BOTON* id = nullptr;          //apuntador al boton/selector grupo en Boton[]. Solo lectura.
     int *size= nullptr;             //apuntador a config con el tamaño del grupo
@@ -732,7 +732,7 @@ void StaticTimeUpdate(bool);
 void statusError(error_tipos, bool recoverable=false, velocidad_parpadeo zonablink = NULO, velocidad_parpadeo errorblink = NULO);
 bool stopAllRiegos(void);
 void stopHW(const char* msg);
-bool stopRiego(uint16_t id, bool update = true, bool alertIfFails = true, int retries = SWITCH_RETRIES);
+bool stopRiego(const S_BOTON* pBoton, bool update = true, bool alertIfFails = true, int retries = SWITCH_RETRIES);
 String sysInfo(void);
 bool testButton(uint16_t, bool);
 time_t tLoc(void);
