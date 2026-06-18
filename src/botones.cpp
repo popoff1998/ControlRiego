@@ -369,17 +369,6 @@ S_BOTON* getBotonPointer(uint16_t id)
   return nullptr;             // Nunca se alcanzará
 }
 
-// devuelve la posicion en array Zonas[] (zona-1) del boton que se le ha pasado (bID)
-int getZonaIndex(uint16_t id)
-{
-  for (int i=0;i<NUMZONAS;i++) {
-    if (Zonas[i] == id) return i;
-  }
-  char msg[64];
-  panicNotFound("Zonas", id);
-  return -1;   // Nunca se alcanzará
-}
-
 // devuelve la posicion en array Grupos[] (grupo-1) del boton que se le ha pasado (bID)
 int getGroupIndex(uint16_t id)
 {
@@ -394,11 +383,11 @@ int getGroupIndex(uint16_t id)
   return -1;   // Nunca se alcanzará
 }
 
-// salva apuntador a la zona en curso y precalcula zindex y znumber para no tener que recalcularlo cada vez que se necesite
+// salva apuntador a la zona en curso y precalcula zindex y znumber para evitar recalcularlo cada vez que se necesite
 void setZonaEnCurso(S_BOTON* pBoton) {
     zonaEnCurso.pBoton  = pBoton;
-    zonaEnCurso.zindex  = getZonaIndex(pBoton->bID);
-    zonaEnCurso.znumber = zonaEnCurso.zindex + 1;
+    zonaEnCurso.znumber = pBoton->zNumber();
+    zonaEnCurso.zindex  = pBoton->zNumber() - 1;
     LOG_DEBUG("Zona apuntada:", zonaEnCurso.znumber, "(" ,config.zona[zonaEnCurso.zindex].desc, ")");
 }
 

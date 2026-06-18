@@ -175,13 +175,13 @@ void Configure::configureMulti_display()
 void Configure::Multi_process_update()
 {
       // LOG_DEBUG("Multi_process_update: boton->bID=", boton->bID, "multi.w_size=",multi.w_size);  
-      int zIndex = getZonaIndex(boton->bID);
+      int zNumber = boton->zNumber();
       if (multi.w_size < ZONASXGRUPO) {  //max. zonas por grupo
         multi.zserie_pBoton[multi.w_size] = boton;  // apuntador de la zona en Boton[]
-        multi.w_zserie[multi.w_size] = zIndex+1 ;  // numero de la zona
+        multi.w_zserie[multi.w_size] = zNumber ;  // numero de la zona
         multi.w_size = multi.w_size + 1;
 
-        LOG_INFO("[ConF] añadiendo ZONA",zIndex+1,"(",config.zona[zIndex].desc,") multi.w_size=",multi.w_size);
+        LOG_INFO("[ConF] añadiendo ZONA",zNumber,"(",config.zona[zNumber-1].desc,") multi.w_size=",multi.w_size);
         led(boton->led,ON);
         displayLCDGrupo(WORKING, 4);
       }

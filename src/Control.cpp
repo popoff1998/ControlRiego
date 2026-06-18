@@ -226,6 +226,14 @@ void setupEstadoFinal()
   }
 }  //fin de setupEstadoFinal
 
+void setupBoton()
+{
+  // Trasladamos numero de zona de Zonas[] a zNumber de Boton[] para facilidad de acceso a todos los datos de la zona desde el puntero al boton correspondiente
+  for(uint i=0;i<NUMZONAS;i++) {
+    getBotonPointer(Zonas[i])->_zNumber = i+1;
+  }
+}
+
 #ifdef GRP4
   /**---------------------------------------------------------------
    * Verificamos si STOP y encoderSW esta pulsado (estado OFF) en el arranque,
@@ -240,6 +248,7 @@ void setupEstadoFinal()
       dht.begin();
     #endif
 
+    setupBoton();
     if (!digitalRead(ENCBOTON) && testButton(bSTOP,ON)) {
       LOG_TRACE("en opciones setupInit");
       lcd.infoclear("       Pulse:");
@@ -289,6 +298,7 @@ void setupEstadoFinal()
    */
   void setupInit() {
     LOG_TRACE("");
+    setupBoton();
     if (!digitalRead(ENCBOTON)) {
       if (testButton(bGRUPO1,ON)) {
         initFlags.initParm = true;
@@ -608,21 +618,21 @@ void handleEncGrupoInStop(int n_grupo) {
 
 void procesaBotonZona()
 {
-  int zIndex = getZonaIndex(boton->bID);
-  LOG_DEBUG("zIndex:", zIndex, "encoderSW:", encoderSW, "multi.riegoON:", multi.riegoON);
+  int zNumber = boton->zNumber();  // numero de zona pulsada (1..NUMZONAS)
+  LOG_DEBUG("zona:", zNumber, "encoderSW:", encoderSW, "multi.riegoON:", multi.riegoON);
   if (Estado.estado == STANDBY) {
     if (!encoderSW || multi.riegoON) {  // (1)
         startZoneWatering();    //iniciamos el riego correspondiente al boton pulsado
     }
     else {  
-        showInfoZona(zIndex);   // mostramos en el display info zona
+        showInfoZona(zNumber);   // mostramos en el display info zona
     }
     return;
   }
   /* Si config.dynamic=true se permite añadir/eliminar zonas durante un riego individual o de grupo. 
      Para ello el riego debe estar en PAUSE  */
   if ((Estado.estado==PAUSE) && config.dynamic) {
-        handleDynamicZoneChange(zIndex+1);
+        handleDynamicZoneChange(zNumber);
   }
   /* (1) la comprobacion de multi.riegoON es necesaria para evitar que al cancelar el riego de una zona en multirriego
   salte a mostrar info de la siguiente al detectar el enc pulsado  */
@@ -664,7 +674,7 @@ void handleDynamicZoneChange(int znumber) {
 
 /**------------------------------------------------------------------------------------------
  * Procesa el cambio dinamico de zonas pendientes de riego en un multirriego temporal.
- * Si la zona existe en la cola se elimina, si no está ese añade al final.
+ * Si la zona existe en la cola se elimina, si no está se añade al final.
  * NOTA: en un multirriego temporal *multi.size apunta a multi.w_size */
 bool procesaDynamic(int znumber)
 {
@@ -679,8 +689,8 @@ bool procesaDynamic(int znumber)
               multi.zserie_pBoton[j] = multi.zserie_pBoton[j + 1];
           }
           multi.w_size--; // Decrementamos el tamaño
-          LOG_DEBUG("[ELIMINA] zona:",znumber,"posicion",n+1,"nuevo size:",multi.w_size);
           LOG_INFO("DYNAMIC [ELIMINA] Zona:",znumber);
+          LOG_DEBUG("\t posicion",n+1,"nuevo size:",multi.w_size);
           sonido.bip(2); 
           return true; // zona encontrada y eliminada, salimos
       }
@@ -691,8 +701,8 @@ bool procesaDynamic(int znumber)
       multi.zserie_pBoton[index] = boton;
       multi.w_zserie[index] = znumber;
       multi.w_size++; // Incrementamos tamaño
-      LOG_DEBUG("[AÑADE] zona:",znumber,"nuevo size:",multi.w_size);
       LOG_INFO("DYNAMIC [AÑADE] Zona:", znumber);
+      LOG_DEBUG("\t nuevo size:",multi.w_size);
       sonido.bip(1); 
       return true; // zona añadida, salimos
   }
@@ -754,7 +764,8 @@ void procesaEstadoRegando()
         LOG_WARN("** SE HA DEVUELTO ERROR al verificar estado riego");
         return;
     }
-    // Escenario 2: El riego se ha parado remotamente
+    // Escenario 2: El riego se ha parado remotamente,
+    // paramos el temporizador y pasamos a estado PAUSE señalando con parpadeo lento led zona
     timer.PauseTimer();
     finalTimeLastRiego(lastRiegos[zonaEnCurso.zindex]);
     LOG_WARN(">>>>>>>>>> procesaEstadoRegando zona:", config.zona[zonaEnCurso.zindex].desc, "en PAUSA remota <<<<<<<<");
@@ -769,8 +780,7 @@ void procesaEstadoTerminando()
   // si veniamos de PAUSE no actualizamos tiempo fin (ya se hizo al entrar en PAUSE)
   bool updateTimeFin = (riegoFromPause? false : true); // por si venimos de cancel desde PAUSE
   riegoFromPause = false;
-  // paramos riego en curso
-  stopRiego(zonaEnCurso.pBoton->bID, updateTimeFin);
+  stopRiego(zonaEnCurso.pBoton->bID, updateTimeFin); // paramos riego en curso
   // no continuamos si se ha producido error al parar el riego 
   if (Estado.estado == ERROR)
       return;
@@ -919,12 +929,12 @@ void procesaEstadoConfigurando()
             break;
         case MULTIRRIEGO:
             if (configure->inMenu() && configure->get_currentItem()==0) { //si no estamos configurando nada:
-              handleGroupConfig();                                            // configuramos el grupo seleccionado
+              handleGroupConfig();                                        // configuramos el grupo seleccionado
             }  
             break;
         default:  //procesamos boton de ZONAx
             if (configure->inMenu() && configure->get_currentItem()==0) {   //si no estamos configurando nada :
-              configure->Idx_process_start(getZonaIndex(boton->bID));             // configuramos el idx del boton
+              configure->Idx_process_start(boton->zNumber() - 1);                          // configuramos el idx del boton
             }
             if (configure->configuringMulti() || configure->configuringMultiTemp()) { //si estamos configurando grupo multirriego:
               configure->Multi_process_update();                             //añadimos zona al multirriego que estamos definiendo
@@ -1495,7 +1505,8 @@ void startZoneWatering() {
 }
 
 // Muestra en el display info zona (idx, factor de riego, fecha y tiempo ultimo riego)
-void showInfoZona(int zIndex) {
+void showInfoZona(int zNumber) {
+    int zIndex = zNumber - 1;
     led(boton->led,ON);
     LOG_DEBUG("display de zona ", config.zona[zIndex].desc, "idx:", config.zona[zIndex].idx, "factorRiego:", factorRiegos[zIndex]); 
     lcd.clear();
@@ -1670,7 +1681,7 @@ bool initRiego(bool resume)
 //                   FALSE en llamada desde stopAllRiegos).
 bool stopRiego(uint16_t id, bool update, bool alertIfFails, int retries)
 {
-    int zIndex = getZonaIndex(id);
+    int zIndex = getBotonPointer(id)->zNumber() - 1;
     LOG_DEBUG( "Terminando riego: ", config.zona[zIndex].desc, "updateTimeFin:", update, "alertIfFails:", alertIfFails);
     if (deviceSwitch(zIndex+1, "Off", retries)) {
         // solo actualizamos hora de fin si no hemos sido llamado desde stopAllRiegos a desde pausa
