@@ -1726,9 +1726,12 @@ bool stopAllRiegos()
         const S_BOTON* pBoton = getBotonPointer(Zonas[i]); 
         if(!stopRiego(pBoton, false, false, retries)) { 
             allRiegoOK = false; // Marcamos que el lote falló
-            // Salimos inmediatamente tras el primer error general
-            if (Estado.error == E1 || Estado.error == E2) return false;
-            retries = (retries > 1) ? retries - 1 : 1; // Decrementamos el número de reintentos para las siguientes zonas
+            if (Estado.error == E1) return false; // Si no hay WiFi, abortamos del todo inmediatamente
+            // Si es un error de comunicación (E2 o E3), asumimos que el SCD está comprometido.
+            // No abortamos para intentar cerrar el resto, pero reducimos los intentos a 1 
+            if (Estado.error == E2 || Estado.error == E3) retries = 1; 
+            // Si E3/4/5 decrementamos el número de intentos para las siguientes zonas
+            else retries = (retries > 1) ? retries - 1 : 1;
             lcd.info(config.zona[i].desc,2); // Mostramos en pantalla la zona que ha fallado
         }
     }

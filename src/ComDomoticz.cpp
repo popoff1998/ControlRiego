@@ -104,9 +104,9 @@ bool isErrorIgnorable(const String &response) {
     return false;
 }
 
-/**------------------------------------------------------------------------------------------------
+/**-----------------------------------------------------------------------------------------------------------
  * @brief Realiza una petición GET HTTP a la API de Domoticz.
- * * Construye la URL dinámicamente incluyendo IP, puerto y parámetros (pudiendo incluir user:password@). 
+ * * Construye la URL dinámicamente incluyendo IP, puerto y parámetros. 
  * * @param message String con el endpoint y parámetros (ej: "/json.htm?type=command...").
  * @return String JSON con la respuesta o código de error interno:
  * - "Err2": Fallo de conexión o Timeout de red.
@@ -114,8 +114,20 @@ bool isErrorIgnorable(const String &response) {
  * - "ErrX": Domoticz respondió, pero el JSON contiene un error interno en Domoticz.
  * - "{}":   Valor inicial por defecto.
  * * @note Basado en HTTPClient. Usa HTTPCLIENTCONNECTTIMEOUT y HTTPCLIENTRESPONSETIMEOUT.
- *   Al ser conexión local, se reducen estos tiempos para evitar retardos en la UI.
- *---------------------------------------------------------------------------------------------------*/
+ *   Al ser conexión local, se reducen estos tiempos (el defecto es 5 seg) para evitar retardos en la UI.
+ * En el caso de que el mandato sea de tipo "switchlight" y falle, el Domoticz reintenta 2 veces 
+ * antes de devolver error en el JSON que se traduce en ErrX.
+ * Por lo tanto dejo los tiempos así en Control.h:
+ *   #define HTTPCLIENTCONNECTTIMEOUT  1000  // timeout (ms) para establecer conexion con el servidor Domoticz
+ *   #define HTTPCLIENTRESPONSETIMEOUT 3500  // timeout (ms) para recibir respuesta del servidor Domoticz
+ * Con estos valores:
+ *  - Si el Domoticz no recibe el ACK del nodo, este reintenta 2 veces (2.4 s) y finalmente devuelve ErrX.
+ *  - deviceSwitch recibe ErrX e intenta hasta SWITCH_RETRIES veces con DELAYRETRY seg. entre intentos.
+ * TODO: Mejorar la gestión de errores y reintentos, especialmente para fallos de red intermitentes.
+ *   - Averiguar la causa raiz de que el Domoticz no reciba esporadicamente el ACK del arduino EXT
+ *     (interferencias por el pico al abrir/cerrar la EV? -> revisar cableado, EV, condensadores, etc.)
+ *     -> Ver log del EXT cuando ocurra
+ *----------------------------------------------------------------------------------------------------------*/
 String httpGetDomoticz(const String &message) {
   LOG_TRACE("");
   lcd.displayON(); 
@@ -213,8 +225,12 @@ String deviceInfo(int idx, const char *campo)
 
 /**---------------------------------------------------------------
  * Envia a domoticz orden de on/off de la zona (idx correspondiente).
- * Devuelve el código de error específico a través de Estado.error. 
- * En caso de error no lo activa ni genera alertas visuales o sonoras (lo hara la funcion llamante)
+ * En caso de error devuelve el código de error específico a través de Estado.error, 
+ * pero no lo activa ni genera alertas visuales o sonoras (lo hara la funcion llamante)
+ * Ver comentarios en la cabecera de la función httpGetDomoticz() sobre los reintentos y tiempos de espera.
+ * Se reintenta en caso de ErrX y tambien para Err2/Err3 (fallo de comunicación o fallo de Domoticz) hasta SWITCH_RETRIES veces con DELAYRETRY entre intentos.
+ *  - El peaje a pagar es que si realmente el Domoticz no responde, la CCR tarda (2+3.5)*2+2 = 13 s en informar al usuario del fallo 
+ *  - Pero E2/E3 podrian ser recuperables si se producen por una sobracarga temporal del SCD o de la red. 
  */
 bool deviceSwitch(uint8_t zona, const char *msg, int retries)
 {
@@ -231,10 +247,12 @@ bool deviceSwitch(uint8_t zona, const char *msg, int retries)
     for (int i = 0; i < retries; i++) { 
         if ((simular.ErrorON && strcmp(msg, "On") == 0) || (simular.ErrorOFF && strcmp(msg, "Off") == 0)) response = "ErrX";
         else if (!Estado.modoDEMO) response = cmdtoSCD(message); // en modo DEMO no se envia mandato On/Off
-        if (response == "ErrX") {  // solo reintentamos si Domoticz informa del estado de la zona
+        if (response == "ErrX" || response == "Err2" || response == "Err3") {  // reintentamos si Domoticz no responde o responde con error
+          LOG_WARN("IDX:", idx, "fallo en", msg, "(intento", i+1, "de", retries, ")");
+          if (i < (retries - 1)) { 
+            delay(DELAYRETRY);
             sonido.bip(1); // bip de "reintento"
-            LOG_WARN("IDX:", idx, "fallo en", msg, "(intento", i+1, "de", retries, ")");
-            if (i < (retries - 1)) delay(DELAYRETRY);
+            }  
         } 
         else break;  // salimos por reintentos agotados o respuesta recibida correcta
     }

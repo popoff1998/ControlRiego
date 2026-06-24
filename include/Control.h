@@ -98,10 +98,10 @@
   #define MAXCONNECTRETRY     10      // numero maximo de reintentos de reconexion a la wifi tras el fallo en inicio
   #define VERIFY_INTERVAL     15      // intervalo en segundos entre verificaciones periodicas
   #define HTTPCLIENTCONNECTTIMEOUT  1000  // timeout (ms) para establecer conexion con el servidor Domoticz
-  #define HTTPCLIENTRESPONSETIMEOUT 1000  // timeout (ms) para recibir respuesta del servidor Domoticz
-  #define MAX_UPLOAD_KBYTES   30      // tamaño maximo del fichero para hacer upload en KB
+  #define HTTPCLIENTRESPONSETIMEOUT 3500  // timeout (ms) para recibir respuesta del servidor Domoticz
   #define SWITCH_RETRIES      3       // numero de reintentos para parar o encender una zona de riego en el Domoticz
-  #define DELAYRETRY          1500    // mseg de retardo entre reintentos
+  #define DELAYRETRY          2000    // mseg de retardo entre reintentos
+  #define MAX_UPLOAD_KBYTES   30      // tamaño maximo del fichero para hacer upload en KB
   #define I2C_CLOCK_SPEED     400000  // frecuencia del bus I2C en Hz (default 100000)
   #define LCD2004_address     0x27    // direccion bus I2C de la pantalla LCD
   #define ROTARY_ENCODER_STEPS 4      // TODO documentar
