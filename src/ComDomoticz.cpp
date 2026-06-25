@@ -99,8 +99,8 @@ bool isErrorIgnorable(const String &response) {
         return true; 
     }
     // Si no es DEMO, el error es real -> se informa
-    if (response == "Err2") { Estado.error = E2; LOG_WARN("Fallo de comunicación: ", response.c_str()); }
-    else { Estado.error = E3; LOG_WARN("Domoticz devuelve error: ", response.c_str()); }
+    if (response == "Err2") { Estado.error = E2; LOG_DEBUG("Fallo de comunicación: ", response.c_str()); }
+    else { Estado.error = E3; LOG_DEBUG("Domoticz devuelve error: ", response.c_str()); }
     return false;
 }
 
@@ -156,7 +156,8 @@ String httpGetDomoticz(const String &message) {
       #endif
       // Valida si el JSON reporta un error de ejecución en Domoticz
       if (response.indexOf("\"status\" : \"ERR") != -1) {
-          LOG_ERROR("Domoticz reportó error interno:", response.c_str());
+          if (!Estado.errorInformado) LOG_WARN("Domoticz informó error interno:", response.c_str());
+          Estado.errorInformado = true;  // para no repetir logs del mismo error
           response = "ErrX";
       }
   } 
@@ -166,7 +167,7 @@ String httpGetDomoticz(const String &message) {
       } 
       else {  //  httpCode<0 fallo en la conexion
           if (Estado.estado != ERROR) {  // para no repetir mensajes de error
-              LOG_ERROR("Fallo conexión con Domoticz:", httpclient.errorToString(httpCode).c_str());
+              LOG_WARN("Fallo conexión con Domoticz:", httpclient.errorToString(httpCode).c_str());
           }
           response = "Err2";
       }

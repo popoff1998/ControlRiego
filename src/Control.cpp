@@ -512,7 +512,7 @@ void procesaBotonStop()
 
 // Paramos el riego en curso primero y todas las zonas de riego, y pasamos a estado STOP
 void handleStopInRegandoPauseTerm() {
-    if (!Estado.modoDEMO) lcd.infoclear("Parando riegos", 1, BIP, 6);
+    if (!Estado.modoDEMO) lcd.infoclear("Parando riegos", NOBLINK, BIP, 6);
     timer.StopTimer();
     tic_CountDownTimer.detach(); //detiene actualizacion periodica del temporizador
     bool updateTimeFin = (Estado.estado == PAUSE ? false : true); // si estamos en PAUSE no actualizamos tiempo fin
@@ -1495,10 +1495,13 @@ void startZoneWatering() {
       lcd.info("IDX/factor:     -00-",4);
       return;
     }
+    lcd.clear(BORRA2H);
+    lcd.infoEstado("Iniciando", config.zona[zonaEnCurso.zindex].desc);
     if(initRiego(INICIO)) { //comenzamos el riego de la zona
-      setEstado(REGANDO,1);
       //inicializamos el timer de cuenta atras
       timer.SetTimer(0,fminutes,fseconds);
+      setEstado(REGANDO,1);
+      delay(300); //esperamos a que se refresque el display antes de iniciar el timer
       timer.StartTimer();
       tic_CountDownTimer.attach_ms(10, timerTick); // Llama a timerTick() cada 10 ms
     }  
@@ -1667,7 +1670,7 @@ bool initRiego(bool resume)
         #endif
         return true; 
     } else {
-        // Error al iniciar: generamos la alerta con el código recibido
+        // Error al iniciar: generamos la alerta con el código recibido de deviceSwitch y el mensaje de error correspondiente
         statusError(Estado.error);
         LOG_ERROR( "Error al iniciar riego de: ", config.zona[zIndex].desc );
         return false; // error al iniciar el riego   
@@ -1856,7 +1859,7 @@ void tmvalue()
 // Verifica la conexion con Domoticz
 bool checkSCD()
 {
-  if (!Estado.inSetup) setParpadeo(tic_LedRecon, RAPIDO, parpadeoLedPWM, LEDB);
+  if (!Estado.inSetup) {setParpadeo(tic_LedRecon, RAPIDO, parpadeoLedPWM, LEDB); sonido.bip(1);} //parpadeo led recon y bip de aviso
   LOG_INFO("----  VERIFICANDO CONEXION DOMOTICZ  ----");
   bool SCD_OK = getDiaNoche(amanecer, anochecer); //enviamos mandato a Domoticz para comprobar que hay conexion
   setLed(tic_LedRecon, APAGA, LEDB); //paramos parpadeo led recon y lo dejamos apagado
