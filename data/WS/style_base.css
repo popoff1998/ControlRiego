@@ -12,7 +12,7 @@
 html { font-family: Arial, Helvetica, sans-serif; }
 body { margin:0 auto; font-size:100%; background-color:#fdfdfd; padding:0.5em 0.5em;
        max-width: var(--max-body-width); min-height: 100vh; }
-h1 { color:white; border-radius:0.5em; font-size:1.5em; padding: 0.3em; padding-left: 1em;
+h1 { margin-top:20px; color:white; border-radius:0.5em; font-size:1.5em; padding: 0.3em; padding-left: 1em;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 1px rgba(0, 0, 0, 0.05);
     background-image: linear-gradient(to right, #3dc0c5, var(--theme-color) 30%, var(--theme-color) 100%); }
 h2 { font-size:1.2em; }
@@ -62,7 +62,8 @@ input::placeholder { color: #a9a9a9; font-style: italic; opacity: 0.7; }
 .clicable { cursor: help; transition: transform 0.1s; }
 .clicable:active { transform: scale(0.9); }
 /* Ajuste para pantallas grandes (Escritorio) */
-@media (min-width: 601px) { .orla-v, .orla-a { width: 42px; height: 42px; font-size: 1em; } }
+@media (min-width: 601px) { .orla-v, .orla-a { width: 40px; height: 40px; font-size: 1em; } }
 /* Componente global para el estado del File System */
 .fs-container { text-align: right; margin-bottom: 10px; font-size: 11px; color: #666; }
 .fs-val { font-weight: bold; }
+.flex-sb { display: flex; justify-content: space-between; align-items: baseline; margin: 20px 0; }

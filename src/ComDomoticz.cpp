@@ -302,15 +302,15 @@ int getFactor(uint8_t zona, bool &factorRiegosLeido)
  * Obtiene del Domoticz el log de la zona en formato JSON
  * (ultimos 15 dias, es un parametro ajustable en el Domoticz -> log historico de luces/interruptores)
  */ 
-String readSCDLogFile(int zona)
-{
-  int idx = getSCD_ID(zona);
-  LOG_DEBUG("zona:", zona, "idx:", idx);
-  if(idx == 0) return "No asignado";
-  char message[150];
-  sprintf(message, GETSWITCHLOG,idx);
-  return cmdtoSCD(message);
-}
+// String readSCDLogFile(int zona)
+// {
+//   int idx = getSCD_ID(zona);
+//   LOG_DEBUG("zona:", zona, "idx:", idx);
+//   if(idx == 0) return "No asignado";
+//   char message[150];
+//   sprintf(message, GETSWITCHLOG,idx);
+//   return cmdtoSCD(message);
+// }
 
 //lee info amanecer/anochecer del Domoticz
 bool getDiaNoche(char* amanecer, char* anochecer)

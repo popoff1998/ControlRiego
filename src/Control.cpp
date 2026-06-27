@@ -195,8 +195,7 @@ void setupEstadoFinal()
   }
   // Si estamos en modoDEMO pasamos a STANDBY (o STOP si esta pulsado) aunque no exista conexión wifi o estemos en ERROR
   if (Estado.modoDEMO) {
-    if (testButton(bSTOP,ON))  setEstado(STOP,1);
-    else setEstado(STANDBY,2);
+  testButton(bSTOP,ON) ? setEstado(STOP,1) : setEstado(STANDBY,2);
     LOG_DEBUG("Salida por modoDEMO");
     return;
   }
@@ -209,8 +208,7 @@ void setupEstadoFinal()
   }
   // Si estamos conectados a la red pasamos a STANDBY (o STOP si esta pulsado)
   if (Estado.connected) {  
-      if (testButton(bSTOP,ON))  setEstado(STOP,1);
-      else setEstado(STANDBY,1);
+      testButton(bSTOP,ON) ? setEstado(STOP,1) : setEstado(STANDBY,1);
       if (Estado.inSetup) {
           sonido.bipOK();
           logStatusF(" <<<<<  Setup ended OK  >>>> MS: %lu", millis());
@@ -455,8 +453,7 @@ void handlePauseInError() {
     LOG_INFO("estado en ERROR y PAUSA pulsada pasamos a modoDEMO y reset del error");
     Estado.modoDEMO = true;
     sonido.bip(2);
-    if (testButton(bSTOP,ON))  setEstado(STOP,1);
-    else setEstado(STANDBY,2);
+    testButton(bSTOP,ON) ? setEstado(STOP,1) : setEstado(STANDBY,2);
 }
 
 // Detecta si se mantiene pulsado el boton PAUSE
@@ -2112,10 +2109,11 @@ void setupConfig()
 
 
 void resetESP32() {
-    LOG_WARN("REINICIANDO ESP32...");
     sonido.lowbip(1);
+    #ifndef NODISPLAY
     lcd.infoclear(">>  REINICIANDO  <<", 3);
     delay(config.msgdisplaymillis);
+    #endif
     ESP.restart();  // reset ESP32
 }
 
@@ -2280,7 +2278,7 @@ String registrarArranqueSistema() {
     }
     lastUptime = 0; // Reseteamos para el ciclo actual
     snprintf(msgArranque, sizeof(msgArranque), 
-             "\t\t <<<<< CCR Started (Boot #%d | Reason: %s | Last Uptime: %lu s) >>>>>", 
+             "\t\t\t <<<<<<    CCR STARTED    >>>>>>       (Boot #%d | Reason: %s | Last Uptime: %lu s)", 
              bootCount, razonTexto, uptimePrevio);    
     return String(msgArranque);
 }

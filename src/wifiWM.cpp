@@ -60,7 +60,7 @@ static const char* MSG_WIFI_CONN = "conectando WIFI";
 const char* wifiOKmsg(bool compact = false) {
   static char buffer[70]; // Un poco más de margen por si el SSID es largo
   if (compact) snprintf(buffer, MAXBUFF, "wifi OK: %s", WiFi.SSID().c_str());
-  else snprintf(buffer, sizeof(buffer), "<<<<--- WiFi conectada (%s) --->>>>", WiFi.SSID().c_str());
+  else snprintf(buffer, sizeof(buffer), "<<<<     WiFi conectada a %s     >>>>", WiFi.SSID().c_str());
   return buffer;
 }
 

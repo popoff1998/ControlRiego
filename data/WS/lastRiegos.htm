@@ -3,28 +3,29 @@
 <head>
   <meta charset="UTF-8">
   <title>Histórico de Riegos y Grupos</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="icon" href="favicon.ico">
   <link rel="stylesheet" href="style_base.css">
   <link rel="stylesheet" href="style_botones.css">
   <link rel="stylesheet" href="style_tableFiles.css">
 <style>
-  .table-container { max-width: 900px; margin: auto; }
-  h2 { margin-top: 2em; margin-bottom: 0.5em; }
-  .ft th, .ft td { text-align: center; }
+  .table-container {max-width: 900px;margin: auto;}
+  h2 {margin-top: 1em;margin-bottom: 0.5em;}
+  .ft th, .ft td {text-align: center;}
   .info-flotante { 
     position: absolute; background: #333; color: #fff; padding: 8px; border-radius: 6px; 
     font-size: .85em; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,.4); pointer-events: none; 
     line-height: 1.4; transition: opacity .4s ease; opacity: 0; visibility: hidden;}
-  .info-flotante.show { opacity: 1; visibility: visible;}    
-  .info-flotante b { color: #2ecc71; }
+  .info-flotante.show {opacity: 1;visibility: visible;}    
+  .info-flotante b {color: #2ecc71;}
   @media (max-width: 600px) {
-    .table-container { max-width: 100%; } table { font-size: 0.95em; } th, td { padding: 4px; } h2 { margin-top: 1em; }
+    .table-container {max-width: 100%;} table {font-size: 0.95em;} th,td {padding: 4px;} h2 {margin-top: 1em;}
   }
 </style>
 </head>
 <body>
-  <h1 style="margin-top: 20px;">Últimos riegos registrados</h1>
+  <h1>Últimos riegos registrados</h1>
+  <a href="/" class="back">← Home</a>
   <div class="table-container">
     <h2>Zonas</h2>
     <table class="ft">
@@ -50,7 +51,7 @@ window.addEventListener("load", async () => {
     clearTimeout(infoBox.timer);
     infoBox.innerHTML = isZona 
       ? `<b>${params.botones[pos]?.nombre || 'Zona'}</b>`
-      : `<b>${params.grupos[pos]?.desc || 'Grupo'}</b><br>Zonas: ${params.grupos[pos]?.zonas?.join(", ") || ''}`;
+      : `<b>${params.grupos[pos]?.desc || 'Grupo'}</b><br>Zonas: ${params.grupos[pos]?.zonas?.join(", ")}`;
     infoBox.style.left = `${e.pageX + 20}px`;
     infoBox.style.top = `${e.pageY - 45}px`;
     infoBox.classList.add("show");
@@ -72,14 +73,19 @@ window.addEventListener("load", async () => {
 
     const renderTable = (idBody, list, type) => {
       const isZona = type === 'zona';
-      document.getElementById(idBody).innerHTML = list.map((item, pos) => `
-        <tr>
-          <td><span class="${isZona ? 'orla-v' : 'orla-a'} clicable" onclick="showInfo(event, ${pos}, ${isZona})">${pos + 1}</span></td>
+      document.getElementById(idBody).innerHTML = list.map((item, pos) => {
+        const btn = params.botones?.[pos];
+        const idx = btn?.idx || 0;
+        const nombre = btn?.nombre || `N/A`;
+        const zona = `Zona ${pos + 1}`;
+        return `<tr>
+          <td><span class="${isZona ? 'orla-v' : 'orla-a'} clicable" onclick="showInfo(event,${pos},${isZona})">${pos + 1}</span></td>
           <td>${formatDateLocal(item.inicio)}</td>
           <td>${formatDateLocal(item.final)}</td>
-          <td>${formatMinutes(item.total)}</td>
-          ${isZona ? `<td><button class="btn-log" onclick="location.href='showLog.htm?zona=${pos + 1}'">LOG</button></td>` : ''}
-        </tr>`).join('');
+          <td>${item.total > 0 ? formatMinutes(item.total) : ""}</td>
+          ${isZona ? `<td><button class="btn-log" onclick="location.href='showLog.htm?idx=${idx}&name=${encodeURIComponent(nombre)}&zona=${encodeURIComponent(zona)}'">LOG</button></td>` : ''}
+        </tr>`;
+      }).join('');
     };
 
     if (riegosRes?.lastRiegos) renderTable('tablaRiegos', riegosRes.lastRiegos, 'zona');

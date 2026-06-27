@@ -1,6 +1,6 @@
-/* =============================================
- * FUNCIONES AUXILIARES PARA INTERFAZ WEB ESP32
- * ============================================= */
+/* ========================================
+ * FUNCIONES AUXILIARES INTERFAZ WEB ESP32
+ * ======================================== */
 
 /** Constantes de firma del fichero de parametros */
 const CLIENT_FILE_TYPE = "CCR_config";
@@ -17,28 +17,23 @@ async function getServerConfig(forceRefresh = false) {
         sessionStorage.setItem('serverConfig', JSON.stringify(config));
         return config;
     } catch (e) {
-        console.error("Error obteniendo configuración del servidor:", e);
+        console.error("Err config servidor:", e);
         return {}; }
 }
 
 function renderTableMessage(tableId, message, colspan) {
     const body = document.getElementById(tableId);
-    if (body) {
-        body.innerHTML = `<tr><td colspan="${colspan}" style="text-align: center;">${message}</td></tr>`;
-    }
+    if (body) body.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;">${message}</td></tr>`;
 }
 
-// Solicita datos a una API. Si falla o está vacío, muestra un mensaje en la tabla y devuelve null.
-async function fetchTableData(apiUrl, tableId, colspan = 2, errorMsg = "Error cargando datos" , emptyMsg = "-- Sin datos --") {
+async function fetchTableData(apiUrl, tableId, colspan = 2, errorMsg = "Error cargando datos", emptyMsg = "-- Sin datos --") {
     try {
         const data = await apiGetJson(apiUrl);
-        // Verificación de vacíos (soporta {}, [] y null/undefined)
-        const isEmpty = !data || (Array.isArray(data) && data.length === 0) || 
-                        (!Array.isArray(data) && Object.keys(data).length === 0);
+        const isEmpty = !data || (Array.isArray(data) && data.length === 0) || (!Array.isArray(data) && Object.keys(data).length === 0);
         if (isEmpty) { renderTableMessage(tableId, emptyMsg, colspan); return null; }
         return data;
     } catch (error) {
-        console.error(`Error en API ${apiUrl}:`, error);
+        console.error(`Err API ${apiUrl}:`, error);
         renderTableMessage(tableId, errorMsg, colspan);
         return null;
     }
@@ -69,20 +64,19 @@ function createTableRow(file, tableId, config) {
     const nameCell = document.createElement("td");
     nameCell.className = isDir ? "filename dirclass" : "filename";
     nameCell.dataset.label = lblName;
+    
     if (tableId === "logsTableBody") {
         nameCell.textContent = "📜 " + nameOnly;
     } else {
         const link = document.createElement("a");
         link.target = "_blank";
-        if (tableId === "filesTableBody") link.href = isDir ? 'files.htm?dir=' + file.name : file.name;
-        else link.href = file.name;
-        if (tableId === "parmTableBody" || tableId === "backupTableBody") link.textContent = nameOnly;
-        else link.textContent = (isDir ? "📁 " : "📄 ") + file.name;
+        link.href = (tableId === "filesTableBody" && isDir) ? 'files.htm?dir=' + file.name : file.name;
+        link.textContent = (tableId === "parmTableBody" || tableId === "backupTableBody") ? nameOnly : (isDir ? "📁 " : "📄 ") + file.name;
         nameCell.appendChild(link);
     }
     row.appendChild(nameCell);
 
-    // 2 y 3. Tamaño y Fecha (Uso de template para ahorrar líneas)
+    // 2 y 3. Tamaño y Fecha
     row.insertAdjacentHTML('beforeend', `
         <td class="col-size ${isDir ? 'dirclass' : ''}" data-label="${lblSize}">${isDir ? 'directory' : file.size}</td>
         <td class="col-time" data-label="${lblTime}">${formatDateLocal(file.time)}</td>
@@ -93,6 +87,7 @@ function createTableRow(file, tableId, config) {
     actionCell.dataset.label = 'Acciones';
     const btnGrp = document.createElement("div");
     btnGrp.className = "button-group";
+
     if (tableId === "parmTableBody") {
         btnGrp.append(
             createButton("Export", () => downloadFile(file.name)),
@@ -120,7 +115,6 @@ function createTableRow(file, tableId, config) {
     return row;
 }
 
-/** Helpers de UI */
 function createButton(label, onClick, cls = "") {
     const b = document.createElement("button");
     b.textContent = label;
@@ -133,8 +127,7 @@ async function loadSimpleTable(data, tableId, isEditable = false, templateSectio
     const body = document.getElementById(tableId);
     if (!body) return;
     if (!isEditable) {
-        body.innerHTML = Object.entries(data)
-            .map(([k, v]) => `<tr><td>${k}</td><td>${v || ''}</td></tr>`) .join('');
+        body.innerHTML = Object.entries(data).map(([k, v]) => `<tr><td>${k}</td><td>${v || ''}</td></tr>`).join('');
         return;
     }
     // Solo si es editable cargamos reglas y preparamos los inputs
@@ -145,13 +138,11 @@ async function loadSimpleTable(data, tableId, isEditable = false, templateSectio
         const ruleKey = Object.keys(rules).find(rk => lowerKey.includes(rk));
         const validationAttrs = ruleKey ? rules[ruleKey] : "";
         const placeholder = templateSection[key] || "";
-        const inputType = (validationAttrs.includes("type='number'") || validationAttrs.includes('type="number"')) ? "number" : "text";
-        return `<tr><td>${key}</td><td><input type="${inputType}" value="${value || ''}" data-field="${key}" 
-            placeholder="${placeholder}" ${validationAttrs}></td></tr>`;
+        const inputType = validationAttrs.includes("type='number'") || validationAttrs.includes('type="number"') ? "number" : "text";
+        return `<tr><td>${key}</td><td><input type="${inputType}" value="${value || ''}" data-field="${key}" placeholder="${placeholder}" ${validationAttrs}></td></tr>`;
     }).join('');
 }
 
-/** Operaciones de Archivo */
 const getFileName = p => p.includes('/') ? p.substring(p.lastIndexOf('/') + 1) : p;
 
 function downloadFile(f) {
@@ -162,8 +153,14 @@ function downloadFile(f) {
 }
 
 function viewLogFile(f) {
-    const path = f.startsWith('/') ? f : '/' + f;
-    window.open(`${path}?v=${Date.now()}`, '_blank');
+    const p = `${f.startsWith('/')?'':'/'}${f}?v=${Date.now()}`;
+    fetch(p).then(r => { if (!r.ok) throw 0; return r.text(); }).then(t => {
+        const h = `<!DOCTYPE html><html><head>
+        <meta name="viewport" content="width=device-width,initial-scale=1"><title>${f}</title>
+        <style>body{font:14px/1.5 monospace;padding:8px;white-space:pre-wrap;overflow-wrap:break-word}</style>
+        </head><body>${t.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</body></html>`;
+        window.open(URL.createObjectURL(new Blob([h], {type:'text/html;charset=utf-8'})), '_blank');
+    }).catch(() => window.open(p, '_blank')); // Fallback si el ESP32 da error o no responde
 }
 
 async function handleFileAction(action, f) {
@@ -190,14 +187,13 @@ function handleFileDelete(f) {
     fetch(f, { method: 'DELETE' }).then(r => r.ok ? location.reload() : alert("Error al eliminar"));
 }
 
-/** Formateo y Utilidades de Datos */
 const apiGetJson = p => fetch(p).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
 
 function formatDateLocal(ts) {
     if (!ts) return "-";
     const d = new Date(ts * 1000);
     const f = n => n.toString().padStart(2, '0');
-    return `${f(d.getUTCDate())}/${f(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} - ${f(d.getUTCHours())}:${f(d.getUTCMinutes())}`;
+    return `${f(d.getUTCDate())}/${f(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}\u2003${f(d.getUTCHours())}:${f(d.getUTCMinutes())}`;
 }
 
 const formatMinutes = s => s > 0 && s < 60 ? (s / 60).toFixed(1) : Math.round(s / 60);
@@ -208,9 +204,7 @@ function returnFileSize(n) {
 }
 
 function validFileType(file, extArray) {
-    if (!file?.name) return false;
-    const name = file.name.toLowerCase();
-    return extArray.some(ext => name.endsWith(ext.toLowerCase()));
+    return file?.name ? extArray.some(ext => file.name.toLowerCase().endsWith(ext.toLowerCase())) : false;
 }
 
 /**
@@ -221,27 +215,18 @@ function validarJsonCompleto(str) {
     const data = JSON.parse(str);
     if (!data.botones || !Array.isArray(data.botones)) throw new Error("Falta clave 'botones'.");
     if (!data.botones.some(item => item && 'zona' in item)) throw new Error("Debe haber al menos una 'zona' en botones.");
-    console.log("JSON validado correctamente.");
     return data; // Devuelve el objeto validado
 }
 
-/**
- * Envía la configuración al servidor y gestiona la respuesta.
- * @param {Object|string} data - Datos a guardar.
- * @param {boolean} askRestart - Si se debe preguntar por reiniciar.
- */
 async function apiSaveConfig(data, askRestart = false) {
     try {
         let contentToSend = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
         const response = await fetch('/api/save_config', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: contentToSend
         });
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(errorText || `Error del servidor: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(await response.text() || `Error: ${response.status}`);
         sessionStorage.removeItem('tempRawData');
-        hasChanges = false
+        hasChanges = false;
         if (askRestart) {
             if (confirm("Cambios guardados. ¿Desea reiniciar para aplicarlos?")) {
                 sessionStorage.removeItem('serverConfig');
@@ -250,31 +235,20 @@ async function apiSaveConfig(data, askRestart = false) {
                 return;
             }
             sessionStorage.setItem('needsRestart', 'true');
-            window.location.href = 'parmfile.htm';
-        } else {
-            alert("Archivo guardado correctamente.");
-            window.location.href = 'parmfile.htm';
-        }
+        } else { alert("Archivo guardado correctamente."); }
+        window.location.href = 'parmfile.htm';
     } catch (error) { alert(error.message); throw error; }
 }
 
-/**
- * Gestiona la visualización del espacio libre del FS en la UI.
- * @param {Object} config - Objeto de configuración del servidor.
- * @param {string} id - ID del elemento HTML (el icono o el span de texto).
- * @param {boolean} isIcon - true si es el ⚠️, false si es el texto del tamaño.
- */
 function UI_actualizarEspacioLibre(config, id, isIcon = false) {
     const el = document.getElementById(id);
     if (!el || config.freeFS === undefined) return;
     const esBajo = config.freeFS < (config.maxFS * 0.1);
-    if (isIcon) {el.style.display = esBajo ? "inline" : "none";} 
+    if (isIcon) { el.style.display = esBajo ? "inline" : "none"; } 
     else {
-        el.textContent = returnFileSize(config.freeFS) 
-        // Cambiar texto a rojo si es bajo, o volver al original si no
+        el.textContent = returnFileSize(config.freeFS);
         el.style.color = esBajo ? "#d9534f" : "var(--theme-dark-1)";
     }
 }
 
-// Mensajes globales del sistema
 const MSG_ERR_CONFIG = "Faltan parámetros de configuración para esta página.";

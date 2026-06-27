@@ -13,7 +13,7 @@
     h2 { margin-top: 1em; margin-bottom: 0; } 
     .header-and-info-container {
       display: flex;justify-content: space-between;align-items: baseline;
-      margin: 2em auto 0.5em auto;max-width: 900px;}
+      margin: 0 auto 0.5em auto;max-width: 900px;}
     .table-info {color: gray; }
     table.files-table th, table.files-table td {text-align: center;}
     @media (max-width: 600px) {
@@ -24,7 +24,7 @@
 </head>
 <body>
   <div class="table-container">
-    <h1 style="margin-top: 20px;">Log de riegos en Domoticz</h1>
+    <h1>Log de riegos en Domoticz</h1>
     <a href="/" class="back">← Home</a>
     <div class="header-and-info-container">
       <h2 id="titulo">Log de Zona</h2>
@@ -39,38 +39,46 @@
 <script>
 function getParam(name) {
     const url = new URL(window.location.href);
-    return url.searchParams.get(name);
-}
-// Obtener la zona y actualizar el título
-const zona = getParam('zona');
-document.getElementById('titulo').textContent = `ZONA ${zona}`;
+    return url.searchParams.get(name); }
+
+// Capturamos el idx y el nombre de la zona desde la URL
+const idx = getParam('idx');
+const nombreZona = getParam('name') || 'N/A';
+const numZona = getParam('zona') || 'N/A';
+document.getElementById('titulo').textContent = nombreZona.toUpperCase() + `  (${numZona})`;
 
 window.addEventListener("load", async () => {
   const tbody = document.querySelector('#tablaLog tbody');
   try {
-      // 1. Obtener configuración (para mostrar numero de dias en el log)
+      // 1. Obtener configuración global (para IP, Puerto y días)
       const config = await getServerConfig();
       document.getElementById('infoDias').textContent = `(*últimos ${config.logDays || 15} días)`;
-      // 2. Cargar datos del log usando la ruta de la API
-      const data = await apiGetJson(`/api/showZONElog?zona=${zona}`);
-      if (!data.result || !Array.isArray(data.result)) {
-          tbody.innerHTML = '<tr><td colspan="3">No hay datos de log</td></tr>';
+      if (!config.domoticzIP || !config.domoticzPort || !idx) {
+          tbody.innerHTML = '<tr><td colspan="3">Faltan parámetros de configuración</td></tr>';
           return;
       }
+      // 2. Ataque directo desde el navegador a la API de Domoticz para ese dispositivo específico
+      const url = `http://${config.domoticzIP}:${config.domoticzPort}/json.htm?type=command&param=getlightlog&idx=${idx}`;
+      const data = await apiGetJson(url);
+      if (!data.result || !Array.isArray(data.result)) {
+          tbody.innerHTML = '<tr><td colspan="3">No hay datos de log para este dispositivo</td></tr>';
+          return;
+      }
+      tbody.innerHTML = "";
       data.result.forEach(entry => {
           const tr = document.createElement('tr');
-          // Estado con color
-          let estadoClass = entry.Status === "On" ? "status-on" : "status-off";
+          const colorTiempo = entry.Status === "On" ? "#1b5e20" : "#b71c1c";
+          const estadoClass = entry.Status === "On" ? "status-on" : "status-off";
           tr.innerHTML = `
-              <td data-label="Fecha">${entry.Date || "-"}</td>
+              <td data-label="Fecha" style="color:${colorTiempo}; font-weight:500;">${entry.Date || "-"}</td>
               <td data-label="Estado" class="${estadoClass}">${entry.Status || "-"}</td>
               <td data-label="Usuario" class="force-wrap">${entry.User || "-"}</td>
           `;
           tbody.appendChild(tr);
       });
   } catch (error) {
-      console.error("Error al cargar el log de zona:", error);
-      tbody.innerHTML = '<tr><td colspan="3">No se pudo cargar el log.</td></tr>';
+      console.error("Error al cargar el log desde Domoticz:", error);
+      tbody.innerHTML = '<tr><td colspan="3">No se pudo conectar con Domoticz.</td></tr>';
   }
 });
 </script>

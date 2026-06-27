@@ -329,10 +329,16 @@ void handleListFiles() {
 
 // restart device
 void handleRestart() {
-  LOG_DEBUG("Restarting ESP32... / restartRequired flag is", restartRequired);
   wserver.send(200, "text/plain", "Restarting ESP32...");
-  displayRestar();
-  ESP.restart();
+  #ifndef NODISPLAY
+  lcd.clear();
+  if (restartRequired) lcd.info("Parm updated:", 1);
+  lcd.info(">> RESET en 2 seg <<",3);
+  sonido.longbip(1);
+  delay(config.msgdisplaymillis);
+  #endif
+  LOG_WARN("Restarting ESP32... / restartRequired flag is", restartRequired);
+  resetESP32();
 }
 
 // end webserver
@@ -341,6 +347,7 @@ void handleEndWS() {
   wserver.send(200, "text/plain", "Ending WebServer...");
   delay(500);
   endWS();
+  testButton(bSTOP,ON) ? setEstado(STOP,1) : setEstado(STANDBY,1);
 }
 
 // system info
@@ -411,12 +418,12 @@ void handleEditRawPage() {
 }
 
 // show zone log (reads log file / obtains Domoticz data)
-void handleShowZonelog() {
-  int zona = wserver.arg("zona").toInt();
-  LOG_DEBUG("Zona recibida:", zona);
-  String json = readSCDLogFile(zona); // obtiene del Domoticz el log de riegos de la zona
-  sendNoCacheJSON(json);
-}
+// void handleShowZonelog() {
+//   int zona = wserver.arg("zona").toInt();
+//   LOG_DEBUG("Zona recibida:", zona);
+//   String json = readSCDLogFile(zona); // obtiene del Domoticz el log de riegos de la zona
+//   sendNoCacheJSON(json);
+// }
 
 // download endpoint wrapper
 void handleDownload() {
@@ -450,7 +457,6 @@ void handleServerVars() {
     uint32_t maxFirmwareSize = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000; //0x1000 (margen de seguridad) y alineado a 4KB
     uint32_t maxFSSize = LittleFS.totalBytes();
     uint32_t freeFSSize = maxFSSize - LittleFS.usedBytes();
-
     JsonDocument doc;
     doc["parmFile"]      = parmFile;
     doc["backupFile"]    = backupParmFile;
@@ -468,6 +474,8 @@ void handleServerVars() {
     doc["maxFW"]         = maxFirmwareSize;
     doc["maxFS"]         = maxFSSize;
     doc["freeFS"]        = freeFSSize;
+    doc["domoticzIP"]    = config.SCD_ip;
+    doc["domoticzPort"]  = config.SCD_port;
     JsonObject rules = doc["rules"].to<JsonObject>();
     rules["ip"]          = IP_ATTRS;   // "pattern='...' title='...' required"
     rules["port"]        = PORT_ATTRS; // "pattern='...' title='...' placeholder='...'"
@@ -692,8 +700,8 @@ void defWebpagesHandles() {
     // apis que devuelven un JSON
     wserver.on("/api/list",        HTTP_GET,  handleListFiles);
     wserver.on("/api/sysinfo",     HTTP_GET,  handleSysInfo);
-    wserver.on("/api/showZONElog", HTTP_GET,  handleShowZonelog);
     wserver.on("/api/serverVars",  HTTP_GET,  handleServerVars); // devuelve JSON con variables de interés para el cliente (ej. logDays)
+    // wserver.on("/api/showZONElog", HTTP_GET,  handleShowZonelog);
     // otras apis
     wserver.on("/api/download",    HTTP_GET,  handleDownload);
     wserver.on("/api/save_config", HTTP_POST, handleSaveConfig);
@@ -720,15 +728,6 @@ void displayWSinfo() {
   lcd.info(buff, 3);
   int msgl = snprintf(buff, MAXBUFF, "%s:%d" , WiFi.localIP().toString().c_str(), WSPORT);
   lcd.info(buff, 4, msgl);
-  #endif
-}
-
-void displayRestar() {
-  #ifndef NODISPLAY
-  lcd.infoclear("RESTARTING...", 3);
-  if (restartRequired) lcd.info("Parm updated:", 1);
-  sonido.longbip(1);
-  delay(config.msgdisplaymillis);
   #endif
 }
 

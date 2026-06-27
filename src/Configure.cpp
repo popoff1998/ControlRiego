@@ -382,11 +382,11 @@ void Configure::procesaSelectMenu()
         #endif 
         case LOAD_BACKUP :   // carga parametros de backup y reinicia
                 if (copyFile(backupParmFile, parmFile)) {    // backupParmFile --> parmFile
-                  LOG_WARN("carga parametros de backup OK, RESET ESP32");
                   lcd.infoclear("load BACKUP OK", BLINKDISPLAY, BIPOK);
                   lcd.info(">> RESET en 2 seg <<",3);
-                  delay(2000);
-                  ESP.restart();  // reset ESP32
+                  delay(config.msgdisplaymillis);
+                  LOG_WARN("carga parametros de backup OK, RESET ESP32");
+                  resetESP32();  // reset ESP32
                 }
                 else sonido.bipKO();  
                 this->menu();  // vuelve a mostrar menu de configuracion

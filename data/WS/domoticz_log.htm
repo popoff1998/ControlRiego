@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="stylesheet" href="style_base.css">
+    <link rel="stylesheet" href="style_botones.css">
+    <link rel="stylesheet" href="style_tableFiles.css">
+    <title>Domoticz log</title>
+    <style>
+        table { margin: 20px auto; background-color: #fff; table-layout: fixed; }
+    </style>
+</head>
+<body>
+<h1>Domoticz log ( Status + Error )</h1>
+<a href="/" class="back">← Home</a>
+<div style="text-align:center;margin-bottom:20px;">
+    <button onclick="window.location.reload()" class="save-button">
+      🔄 Actualizar Log
+    </button>
+</div>
+<table id="domoticzLogTable">
+    <thead><tr><th>Mensaje</th></tr></thead>
+    <tbody id="domoticzLogTableBody"></tbody>
+</table>
+<script src="funciones.js"></script>
+<script>
+window.addEventListener("load", async () => {
+  try {
+      const config = await getServerConfig();
+      if (!config.domoticzIP || !config.domoticzPort) {
+          renderTableMessage("domoticzLogTableBody", "Falta IP/Puerto de Domoticz en configuración", 1);
+          return;
+      }
+
+      const baseUri = `http://${config.domoticzIP}:${config.domoticzPort}/json.htm?type=command&param=getlog&lastlogtime=0`;
+
+      // Lanzamos ambas peticiones en paralelo para ahorrar tiempo de red
+      const [resStatus, resError] = await Promise.all([
+          fetch(`${baseUri}&loglevel=2`).then(r => r.json()),
+          fetch(`${baseUri}&loglevel=4`).then(r => r.json())
+      ]);
+
+      // Extraemos los arrays (o array vacío si no hay datos)
+      const statusLogs = resStatus.result || [];
+      const errorLogs = resError.result || [];
+
+      // Fusionamos ambos arrays en uno solo
+      const mixedLogs = [...statusLogs, ...errorLogs];
+
+      if (!mixedLogs.length) {
+          renderTableMessage("domoticzLogTableBody", "-- No hay registros en Domoticz --", 1);
+          return;
+      }
+
+      // Ordenamos cronológicamente de forma ascendente aprovechando el formato "YYYY-MM-DD HH:mm:ss"
+      mixedLogs.sort((a, b) => a.message.localeCompare(b.message));
+
+      const tbody = document.getElementById("domoticzLogTableBody");
+      tbody.innerHTML = "";
+      
+      mixedLogs.forEach(log => {
+          const row = document.createElement("tr");
+          // Si el texto contiene "Error:", rojo; si no, cian nativo
+          const color = log.message.includes("Error:") ? "#d9534f" : "#00a1b1";
+          
+          row.innerHTML = `<td style="font-family:monospace;font-size:12px;color:${color};">${log.message}</td>`;
+          tbody.appendChild(row);
+      });
+  } catch (error) {
+      console.error("Error:", error);
+      renderTableMessage("domoticzLogTableBody", "No se pudo conectar con Domoticz.", 1);
+  }
+});
+</script>
+</body>
+</html>
