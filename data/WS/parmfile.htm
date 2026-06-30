@@ -29,7 +29,9 @@
       <button onclick="sessionStorage.removeItem('needsRestart'); window.location.href='/api/restart'">Reiniciar ahora</button>
   </div>
   <div class="container">
-    <h2>Carga de parámetros a la CCR:</h2>
+    <h2>Carga de parámetros a la CCR:
+      <span class="tooltip" style="font-size:14px;font-weight:normal;vertical-align:middle;" data-ayuda="Carga fichero desde el PC (Import) o lo crea nuevo (New).">ℹ️</span>
+    </h2>
     <form id="uploadForm" enctype="multipart/form-data" style="white-space: nowrap" >
       <input type="file" id="fileInput" name="file" accept=".json" required>
       <div class="form-actions">

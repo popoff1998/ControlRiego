@@ -24,7 +24,9 @@ void setup()
   #endif
 
   Serial.begin(115200);
-  PRINTLN("\n\n CONTROL RIEGO V" + String(FW_VERSION) + "    Built on " __DATE__ " at " __TIME__  "\n");
+  char versionFW[80];
+  snprintf(versionFW, sizeof(versionFW), "CONTROL RIEGO V%s    Built on " __DATE__ " at " __TIME__, FW_VERSION);
+  PRINTLN("\n\n", versionFW, "\n");
   #ifdef RELEASE
       if (!serialDetect()) LOG_SET_LEVEL(DebugLogLevel::LVL_ERROR);
   #endif
@@ -39,6 +41,7 @@ void setup()
   // inicializacion del sistema de ficheros
   initFS();
   logStatus(bootmessage.c_str());
+  logStatus(versionFW);
   //preparo indicadores de inicializaciones opcionales
   setupInit();
   //setup parametros configuracion
@@ -2209,7 +2212,7 @@ void setLogToFile() {
 // Fuerza el refresco del fichero de log
 void refreshLogFile() {
       #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
-      logStatus("-----------  log  refresh  ----------");
+      // logStatus("-----------  log  refresh  ----------");
       LOG_FILE_CLOSE(); // Fuerza el volcado y cierre del log
       LOG_ATTACH_FS_AUTO(LittleFS, logErrorFile, FILE_APPEND); // Reabre el log
       #endif
@@ -2278,8 +2281,8 @@ String registrarArranqueSistema() {
     }
     lastUptime = 0; // Reseteamos para el ciclo actual
     snprintf(msgArranque, sizeof(msgArranque), 
-             "\t\t\t <<<<<<    CCR STARTED    >>>>>>       (Boot #%d | Reason: %s | Last Uptime: %lu s)", 
-             bootCount, razonTexto, uptimePrevio);    
+             "\t\t\t <<<<<<    CCR STARTED    >>>>>>       (Boot #%d | Reason: %s (%d) | Last Uptime: %lu s)", 
+             bootCount, razonTexto, reason, uptimePrevio);    
     return String(msgArranque);
 }
 

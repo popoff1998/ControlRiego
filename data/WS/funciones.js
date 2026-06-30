@@ -1,6 +1,4 @@
-/* ========================================
- * FUNCIONES AUXILIARES INTERFAZ WEB ESP32
- * ======================================== */
+/* FUNCIONES AUXILIARES INTERFAZ WEB ESP32 */
 
 /** Constantes de firma del fichero de parametros */
 const CLIENT_FILE_TYPE = "CCR_config";
@@ -13,12 +11,10 @@ async function getServerConfig(forceRefresh = false) {
     if (!forceRefresh && cached) return JSON.parse(cached);
     try {
         const config = await apiGetJson("/api/serverVars");
-        if (!config || Object.keys(config).length === 0) throw new Error("JSON vacío");
+        if (!config || Object.keys(config).length === 0) throw 'vacio';
         sessionStorage.setItem('serverConfig', JSON.stringify(config));
         return config;
-    } catch (e) {
-        console.error("Err config servidor:", e);
-        return {}; }
+    } catch (e) { console.error("Err config servidor:", e); return {}; }
 }
 
 function renderTableMessage(tableId, message, colspan) {
@@ -29,17 +25,16 @@ function renderTableMessage(tableId, message, colspan) {
 async function fetchTableData(apiUrl, tableId, colspan = 2, errorMsg = "Error cargando datos", emptyMsg = "-- Sin datos --") {
     try {
         const data = await apiGetJson(apiUrl);
-        const isEmpty = !data || (Array.isArray(data) && data.length === 0) || (!Array.isArray(data) && Object.keys(data).length === 0);
-        if (isEmpty) { renderTableMessage(tableId, emptyMsg, colspan); return null; }
+        if (!data || (Array.isArray(data) && data.length === 0) || (!Array.isArray(data) && Object.keys(data).length === 0)) {
+            renderTableMessage(tableId, emptyMsg, colspan); return null;
+        }
         return data;
     } catch (error) {
         console.error(`Err API ${apiUrl}:`, error);
-        renderTableMessage(tableId, errorMsg, colspan);
-        return null;
+        renderTableMessage(tableId, errorMsg, colspan); return null;
     }
 }
 
-/** Población de tablas dinámicas */
 async function populateTable(data, tableId) {
     const tableBody = document.getElementById(tableId);
     if (!tableBody) return;
@@ -48,79 +43,57 @@ async function populateTable(data, tableId) {
     data.forEach(file => tableBody.appendChild(createTableRow(file, tableId, config)));
 }
 
-/** Crear filas de tabla con toda la lógica original */
+/** Crear filas de tabla preparando el html de cada celda según el tipo de tabla y archivo */
 function createTableRow(file, tableId, config) {
-    const row = document.createElement("tr");
-    const isDir = file.type === "dir";
-    const nameOnly = getFileName(file.name);
-
-    // DETECCIÓN DE IDIOMA: Determina las etiquetas según la tabla
-    const esEng = (tableId === "filesTableBody");
-    const lblName = esEng ? 'Filepath' : 'Nombre';
-    const lblSize = esEng ? 'Size' : 'Tamaño';
-    const lblTime = esEng ? 'Timestamp' : 'Fecha';
-    
-    // 1. Celda Nombre y Enlace
-    const nameCell = document.createElement("td");
-    nameCell.className = isDir ? "filename dirclass" : "filename";
-    nameCell.dataset.label = lblName;
-    
+    const row = document.createElement("tr"), isDir = file.type === "dir", nameOnly = getFileName(file.name), esEng = tableId === "filesTableBody";
+    let nameHtml = "", btnsHtml = "";
+    // html Celda 1: Nombre y Enlace
     if (tableId === "logsTableBody") {
-        nameCell.textContent = "📜 " + nameOnly;
+        nameHtml = "📜 " + nameOnly;
     } else {
-        const link = document.createElement("a");
-        link.target = "_blank";
-        link.href = (tableId === "filesTableBody" && isDir) ? 'files.htm?dir=' + file.name : file.name;
-        link.textContent = (tableId === "parmTableBody" || tableId === "backupTableBody") ? nameOnly : (isDir ? "📁 " : "📄 ") + file.name;
-        nameCell.appendChild(link);
+        const href = (esEng && isDir) ? 'files.htm?dir=' + file.name : file.name;
+        const text = (tableId === "parmTableBody" || tableId === "backupTableBody") ? nameOnly : (isDir ? "📁 " : "📄 ") + file.name;
+        nameHtml = `<a href="${href}" target="_blank">${text}</a>`;
     }
-    row.appendChild(nameCell);
-
-    // 2 y 3. Tamaño y Fecha
-    row.insertAdjacentHTML('beforeend', `
-        <td class="col-size ${isDir ? 'dirclass' : ''}" data-label="${lblSize}">${isDir ? 'directory' : file.size}</td>
-        <td class="col-time" data-label="${lblTime}">${formatDateLocal(file.time)}</td>
-              `);
-    // 4. Celda de Acciones
-    const actionCell = document.createElement("td");
-    actionCell.className = "col-actions";
-    actionCell.dataset.label = 'Acciones';
-    const btnGrp = document.createElement("div");
-    btnGrp.className = "button-group";
-
+    // html Celda 4: Acciones
     if (tableId === "parmTableBody") {
-        btnGrp.append(
-            createButton("Export", () => downloadFile(file.name)),
-            createButton("Backup", () => handleFileAction("BACKUP", file.name)),
-            createButton("Edit", () => window.open(`parmfile_edit.htm?file=${file.name}`, '_self'))
-        );
+        btnsHtml = `
+            <button onclick="downloadFile('${file.name}')">Export</button>
+            <button onclick="handleFileAction('BACKUP','${file.name}')">Backup</button>
+            <button onclick="window.open('parmfile_edit.htm?file=${file.name}','_self')">Edit</button>
+        `;
     } else if (tableId === "backupTableBody") {
-        btnGrp.appendChild(createButton("Restore", () => {
-            if (confirm(`¿Restaurar ${nameOnly} sobre ${getFileName(config.parmFile)}?`)) handleFileAction("RESTORE", file.name);
-        }, "button-restore"));
+        btnsHtml = `
+            <button class="button-restore" onclick="restaurarBackup('${file.name}', '${nameOnly}', '${getFileName(config.parmFile)}')">Restore</button>
+        `;
     } else if (tableId === "filesTableBody" && !isDir) {
-        btnGrp.append(
-            createButton("Download", () => downloadFile(file.name)),
-            createButton("Delete", () => confirm(`Delete ${file.name}?`) && handleFileDelete(file.name), "button-delete")
-        );
+        btnsHtml = `
+            <button onclick="downloadFile('${file.name}')">Download</button>
+            <button class="button-delete" onclick="confirmarYBorrar('${file.name}', 'Delete ${file.name}?')">Delete</button>
+        `;
     } else if (tableId === "logsTableBody" && !isDir) {
-        btnGrp.appendChild(createButton("👁️ Ver", () => viewLogFile(file.name)));
-        const isErr = file.name === config.errorFile;
-        btnGrp.appendChild(createButton(isErr ? "🧹 Limpiar" : "🗑️ Eliminar", () => {
-            if (confirm(isErr ? "¿Vaciar historial?" : "¿Eliminar archivo?")) handleFileDelete(file.name);
-        }, isErr ? "" : "button-delete"));
-    }
-    actionCell.appendChild(btnGrp);
-    row.appendChild(actionCell);
+        const isPrim = file.name === config.errorFile;
+        const msg = isPrim ? '¿Vaciar historial?' : '¿Eliminar archivo?';
+        btnsHtml = `
+            <button onclick="viewLogFile('${file.name}')">👁️ Ver</button>
+            <button class="button-delete" onclick="confirmarYBorrar('${file.name}', '${msg}')">${isPrim ? '🧹 Limpiar' : '🗑️ Eliminar'}</button>
+        `;
+    }    
+    // las celdas 2 (tamaño) y 3 (fecha) se rellenan directamente en el innerHTML
+    row.innerHTML = `
+        <td class="filename ${isDir?'dirclass':''}" data-label="${esEng?'Filepath':'Nombre'}">${nameHtml}</td>
+        <td class="col-size ${isDir?'dirclass':''}" data-label="${esEng?'Size':'Tamaño'}">${isDir?'directory':file.size}</td>
+        <td class="col-time" data-label="${esEng?'Timestamp':'Fecha'}">${formatDateLocal(file.time, true)}</td>
+        <td class="col-actions" data-label="Acciones"><div class="button-group">${btnsHtml}</div></td>`;
     return row;
 }
 
-function createButton(label, onClick, cls = "") {
-    const b = document.createElement("button");
-    b.textContent = label;
-    if (cls) b.className = cls;
-    b.onclick = onClick;
-    return b;
+function confirmarYBorrar(file, mensaje) {
+    if (confirm(mensaje)) handleFileDelete(file);
+}
+
+function restaurarBackup(file, nameOnly, parmFile) {
+    if (confirm(`¿Restaurar ${nameOnly} sobre ${parmFile}?`)) handleFileAction("RESTORE", file);
 }
 
 async function loadSimpleTable(data, tableId, isEditable = false, templateSection = {}) {
@@ -131,15 +104,12 @@ async function loadSimpleTable(data, tableId, isEditable = false, templateSectio
         return;
     }
     // Solo si es editable cargamos reglas y preparamos los inputs
-    const config = await getServerConfig();
-    const rules = config.rules || {};
+    const config = await getServerConfig(), rules = config.rules || {};
     body.innerHTML = Object.entries(data).map(([key, value]) => {
-        const lowerKey = key.toLowerCase();
-        const ruleKey = Object.keys(rules).find(rk => lowerKey.includes(rk));
-        const validationAttrs = ruleKey ? rules[ruleKey] : "";
-        const placeholder = templateSection[key] || "";
-        const inputType = validationAttrs.includes("type='number'") || validationAttrs.includes('type="number"') ? "number" : "text";
-        return `<tr><td>${key}</td><td><input type="${inputType}" value="${value || ''}" data-field="${key}" placeholder="${placeholder}" ${validationAttrs}></td></tr>`;
+        const rk = Object.keys(rules).find(rk => key.toLowerCase().includes(rk)) || "";
+        const vAttrs = rk ? rules[rk] : "";
+        const type = vAttrs.includes("type='number'") || vAttrs.includes('type="number"') ? "number" : "text";
+        return `<tr><td>${key}</td><td><input type="${type}" value="${value || ''}" data-field="${key}" placeholder="${templateSection[key] || ''}" ${vAttrs}></td></tr>`;
     }).join('');
 }
 
@@ -148,19 +118,27 @@ const getFileName = p => p.includes('/') ? p.substring(p.lastIndexOf('/') + 1) :
 function downloadFile(f) {
     const a = document.createElement("a");
     a.href = `/api/download?file=${encodeURIComponent(f)}`;
-    a.download = f;
-    a.click();
+    a.download = f; a.click();
 }
 
 function viewLogFile(f) {
     const p = `${f.startsWith('/')?'':'/'}${f}?v=${Date.now()}`;
     fetch(p).then(r => { if (!r.ok) throw 0; return r.text(); }).then(t => {
-        const h = `<!DOCTYPE html><html><head>
-        <meta name="viewport" content="width=device-width,initial-scale=1"><title>${f}</title>
-        <style>body{font:14px/1.5 monospace;padding:8px;white-space:pre-wrap;overflow-wrap:break-word}</style>
-        </head><body>${t.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</body></html>`;
+        const rows = t.split('\n').map(line => {
+            if (!line.trim()) return '';
+            let c = '';
+            if (line.toUpperCase().includes('CCR STARTED')) c = 'background:#dcfce7;color:#166534;font-weight:bold';
+            else if (line.includes('[ERROR]')) c = 'background:#fee2e2;color:#991b1b;font-weight:bold';
+            else if (line.includes('[WARN]')) c = 'background:#ffedd5;color:#9a3412';
+            return `<tr${c?` style="${c}"`:''}><td>${line.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</td></tr>`;
+        }).join('');
+        const h = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>${f}</title>
+        <style>body{font:14px/1.4 monospace;padding:8px;margin:0}
+        table{width:100%;max-width:1200px;margin:0 auto;border-collapse:collapse}
+        td{padding:4px 8px;border-bottom:1px solid #eee;overflow-wrap:break-word}</style>
+        </head><body><table>${rows}</table></body></html>`;
         window.open(URL.createObjectURL(new Blob([h], {type:'text/html;charset=utf-8'})), '_blank');
-    }).catch(() => window.open(p, '_blank')); // Fallback si el ESP32 da error o no responde
+    }).catch(() => window.open(p, '_blank'));
 }
 
 async function handleFileAction(action, f) {
@@ -170,16 +148,12 @@ async function handleFileAction(action, f) {
         if (action === "RESTORE") {
             await fetch('/api/setrestart');
             if (confirm("¡Restauración completada! ¿Desea reiniciar el sistema ahora?")) {
-                sessionStorage.removeItem('serverConfig');
-                sessionStorage.removeItem('needsRestart');
+                sessionStorage.removeItem('serverConfig'); sessionStorage.removeItem('needsRestart');
                 window.location.href = '/api/restart';
-            } else {
-                sessionStorage.setItem('needsRestart', 'true');
-                location.reload(); }
+            } else { sessionStorage.setItem('needsRestart', 'true'); location.reload(); }
             return;
         }
-        alert(`${action} OK!`);
-        location.reload();
+        alert(`${action} OK!`); location.reload();
     } catch (e) { alert(`Error: ${e.message}`); }
 }
 
@@ -189,11 +163,11 @@ function handleFileDelete(f) {
 
 const apiGetJson = p => fetch(p).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
 
-function formatDateLocal(ts) {
+// isUtc=true: ts en UTC, mostrar en hora local. isUtc=false: ts ya en local, no reconvertir.
+function formatDateLocal(ts, isUtc = false) {
     if (!ts) return "-";
-    const d = new Date(ts * 1000);
-    const f = n => n.toString().padStart(2, '0');
-    return `${f(d.getUTCDate())}/${f(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}\u2003${f(d.getUTCHours())}:${f(d.getUTCMinutes())}`;
+    const d = new Date(ts * 1000), f = n => n.toString().padStart(2, '0'), u = isUtc ? 'get' : 'getUTC';
+    return `${f(d[u+'Date']())}/${f(d[u+'Month']()+1)}/${d[u+'FullYear']()}\u2003${f(d[u+'Hours']())}:${f(d[u+'Minutes']())}`;
 }
 
 const formatMinutes = s => s > 0 && s < 60 ? (s / 60).toFixed(1) : Math.round(s / 60);
@@ -203,9 +177,7 @@ function returnFileSize(n) {
     return (n / (n < 1048576 ? 1024 : 1048576)).toFixed(1) + (n < 1048576 ? " KB" : " MB");
 }
 
-function validFileType(file, extArray) {
-    return file?.name ? extArray.some(ext => file.name.toLowerCase().endsWith(ext.toLowerCase())) : false;
-}
+const validFileType = (file, extArray) => file?.name ? extArray.some(ext => file.name.toLowerCase().endsWith(ext.toLowerCase())) : false;
 
 /**
  * Validación de sintaxis y estructura del JSON.
@@ -220,22 +192,17 @@ function validarJsonCompleto(str) {
 
 async function apiSaveConfig(data, askRestart = false) {
     try {
-        let contentToSend = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
         const response = await fetch('/api/save_config', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: contentToSend
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: typeof data === 'string' ? data : JSON.stringify(data, null, 2)
         });
         if (!response.ok) throw new Error(await response.text() || `Error: ${response.status}`);
-        sessionStorage.removeItem('tempRawData');
-        hasChanges = false;
-        if (askRestart) {
-            if (confirm("Cambios guardados. ¿Desea reiniciar para aplicarlos?")) {
-                sessionStorage.removeItem('serverConfig');
-                sessionStorage.removeItem('needsRestart');
-                window.location.href = '/api/restart';
-                return;
-            }
-            sessionStorage.setItem('needsRestart', 'true');
-        } else { alert("Archivo guardado correctamente."); }
+        sessionStorage.removeItem('tempRawData'); hasChanges = false;
+        if (askRestart && confirm("Cambios guardados. ¿Desea reiniciar para aplicarlos?")) {
+            sessionStorage.removeItem('serverConfig'); sessionStorage.removeItem('needsRestart');
+            window.location.href = '/api/restart'; return;
+        }
+        if (askRestart) sessionStorage.setItem('needsRestart', 'true');
+        else alert("Archivo guardado correctamente.");
         window.location.href = 'parmfile.htm';
     } catch (error) { alert(error.message); throw error; }
 }
