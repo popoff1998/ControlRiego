@@ -5,13 +5,21 @@ const CLIENT_FILE_TYPE = "CCR_config";
 const CLIENT_VERSION   = 1;
 const CLIENT_SCD_TYPE  = "DOMOTICZ";
 
-/** Obtencion de variables del servidor con caché */
+/** Obtencion de variables del servidor con caché y verificacion reinicio pendiente sincronizado */
 async function getServerConfig(forceRefresh = false) {
     const cached = sessionStorage.getItem('serverConfig');
-    if (!forceRefresh && cached) return JSON.parse(cached);
+    const keyRestart = 'needsRestart';
     try {
+        const status = await fetch('/api/status').then(r => r.text());
+        const serverStatusStr = (status.trim() === '1') ? 'true' : 'false';
+        // Si la caché coincide con el servidor, la servimos de inmediato
+        if (!forceRefresh && cached && serverStatusStr === sessionStorage.getItem(keyRestart)) {
+            return JSON.parse(cached);
+        }
+        sessionStorage.setItem(keyRestart, serverStatusStr);
+        // Si no coincide o se fuerza, descargamos el JSON completo
         const config = await apiGetJson("/api/serverVars");
-        if (!config || Object.keys(config).length === 0) throw 'vacio';
+        if (!config || !Object.keys(config).length) throw 'vacio';
         sessionStorage.setItem('serverConfig', JSON.stringify(config));
         return config;
     } catch (e) { console.error("Err config servidor:", e); return {}; }
@@ -147,13 +155,9 @@ async function handleFileAction(action, f) {
         if (!r.ok) throw new Error(await r.text());
         if (action === "RESTORE") {
             await fetch('/api/setrestart');
-            if (confirm("¡Restauración completada! ¿Desea reiniciar el sistema ahora?")) {
-                sessionStorage.removeItem('serverConfig'); sessionStorage.removeItem('needsRestart');
-                window.location.href = '/api/restart';
-            } else { sessionStorage.setItem('needsRestart', 'true'); location.reload(); }
-            return;
-        }
-        alert(`${action} OK!`); location.reload();
+            dispositivoRestart(true, "¡Restauración completada! ¿Desea reiniciar el sistema ahora?");
+        } else alert(`${action} OK!`); 
+        location.reload();
     } catch (e) { alert(`Error: ${e.message}`); }
 }
 
@@ -197,12 +201,12 @@ async function apiSaveConfig(data, askRestart = false) {
         });
         if (!response.ok) throw new Error(await response.text() || `Error: ${response.status}`);
         sessionStorage.removeItem('tempRawData'); hasChanges = false;
-        if (askRestart && confirm("Cambios guardados. ¿Desea reiniciar para aplicarlos?")) {
-            sessionStorage.removeItem('serverConfig'); sessionStorage.removeItem('needsRestart');
-            window.location.href = '/api/restart'; return;
+        if (askRestart) {
+            const resultado = dispositivoRestart();
+            if (resultado === "cancelado") window.location.href = 'parmfile.htm'; 
+            return;
         }
-        if (askRestart) sessionStorage.setItem('needsRestart', 'true');
-        else alert("Archivo guardado correctamente.");
+        alert("Archivo guardado correctamente.");
         window.location.href = 'parmfile.htm';
     } catch (error) { alert(error.message); throw error; }
 }
@@ -216,6 +220,18 @@ function UI_actualizarEspacioLibre(config, id, isIcon = false) {
         el.textContent = returnFileSize(config.freeFS);
         el.style.color = esBajo ? "#d9534f" : "var(--theme-dark-1)";
     }
+}
+
+// Función única y centralizada para confirmar e invocar el reinicio del ESP32
+function dispositivoRestart(activarFlagAlCancelar = true, preguntar = "¿Desea reiniciar el sistema ahora?") {
+    if (preguntar && !confirm(preguntar)) {
+        if (activarFlagAlCancelar) sessionStorage.setItem('needsRestart', 'true');
+        return "cancelado";
+    }
+    sessionStorage.removeItem('serverConfig');
+    sessionStorage.removeItem('needsRestart');
+    window.location.href = '/api/restart';
+    return "reiniciando";
 }
 
 const MSG_ERR_CONFIG = "Faltan parámetros de configuración para esta página.";

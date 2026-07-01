@@ -95,7 +95,7 @@
 - Sustitucion de libreria Timelib.h por funciones locales V3.3
 - Nueva clase Encoder optimizada y corregidos los bugs de AiEspRotaryEncoder V3.3
 - Cabecera del fichero de parametros y su tratamiento en el FW y webserver V3.3
-- Webserver: mejoras visuales, estilos y verificaciones V3.3
+- Webserver: mejoras visuales, de estilos y verificaciones. Reduccion tamaños ficheros V3.3
 - Webserver: tabla de ficheros ordenable por nombre, tamaño o fecha V3.3
 - Log del Domoticz consultable desde el webserver V3.3
 

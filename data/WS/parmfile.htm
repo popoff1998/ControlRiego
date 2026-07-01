@@ -26,7 +26,7 @@
   <h1>Gestión fichero de parámetros</h1>
   <a href="/" class="back">← Home</a>
   <div id="restartBanner" class="banner banner-warning" style="display: none;"><strong>⚠️ Hay cambios guardados pendientes de aplicar.</strong> 
-      <button onclick="sessionStorage.removeItem('needsRestart'); window.location.href='/api/restart'">Reiniciar ahora</button>
+      <button onclick="dispositivoRestart(false, '')">Reiniciar ahora</button> <!-- no se pregunta, se reinicia directamente -->
   </div>
   <div class="container">
     <h2>Carga de parámetros a la CCR:
@@ -60,13 +60,11 @@ let currentBackupFile = "";
 let MAX_PARMFILE = 4096;
 
 window.addEventListener("load", async () => {
-  // Comprobar si hay reinicio pendiente
-  if (sessionStorage.getItem('needsRestart') === 'true') {
-      document.getElementById('restartBanner').style.display = 'block';
-  }
   try {
     // 1. Obtener nombres de ficheros desde el servidor
     const config = await getServerConfig();
+    // Comprobar si hay reinicio pendiente
+    document.getElementById('restartBanner').style.display = (sessionStorage.getItem('needsRestart') === 'true') ? 'block' : 'none';
     if (!config.parmFile || !config.backupFile) throw new Error(MSG_ERR_CONFIG);
     currentParmFile = config.parmFile;
     currentBackupFile = config.backupFile;
@@ -135,13 +133,7 @@ async function apiUploadParmFile(file, requiereRestart) {
         // Caso 1: Archivo correcto que requiere reiniciar el ESP32
         if (requiereRestart) {
             await fetch('/api/setrestart'); 
-            if (confirm("Archivo subido con éxito. ¿Desea reiniciar el sistema ahora?")) {
-                sessionStorage.removeItem('serverConfig');
-                sessionStorage.removeItem('needsRestart');
-                window.location.href = '/api/restart'; 
-                return;
-            }
-            sessionStorage.setItem('needsRestart', 'true');
+            dispositivoRestart(true, "¡Archivo de parámetros guardado! ¿Desea reiniciar el sistema ahora?");
         } 
         // Caso 2: Archivo sin cabecera (Migración limpia)
         else {

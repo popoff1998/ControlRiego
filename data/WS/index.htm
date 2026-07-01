@@ -18,13 +18,10 @@
   <div class="menu-big">
       <ul class="lista-alineada">
         <li><a href="parmfile.htm">PARÁMETROS</a> <span class="descripcion">- Gestionar el fichero de configuración</span></li>
-        <br>
         <li><a href="lastRiegos.htm">RIEGOS</a> <span class="descripcion">- Histórico de Riegos y Grupos</span></li>
-        <br>
         <li><a href="errores.htm">ERRORES</a> <span class="descripcion">- Logs de errores</span></li>
-        <br>
         <li>
-          <a href="#" onclick="return handleRestart();">RESTART</a> 
+          <a href="#" onclick="return dispositivoRestart(false);">RESTART</a> <!-- si se cancela, no se activa el flag de reinicio pendiente -->
           <span id="warnRestart" class="warn-icon" title="Reinicio requerido.Se forzará al cerrar el webserver">⚠️</span>
           <span class="descripcion">- Reiniciar dispositivo para aplicar cambios</span>
         </li>
@@ -49,16 +46,6 @@
       })
       .catch(err => console.error("Error en precarga:", err));
     });
-    // Función específica para limpiar la caché al reiniciar desde el menú
-    function handleRestart() {
-        if (confirm('¿Está seguro de que desea reiniciar el dispositivo?')) {
-            sessionStorage.removeItem('serverConfig'); // Limpiamos para que al volver cargue lo nuevo
-            sessionStorage.removeItem('needsRestart');
-            window.location.href = '/api/restart';
-        }
-        return false;
-    }
   </script>
 </body>
 </html>
-

@@ -179,7 +179,14 @@ async function saveChanges() {
     for (let input of document.querySelectorAll("input")) {
         if (!input.checkValidity()) return input.reportValidity();
     }
-    try { await apiSaveConfig(collectChanges(), hasChanges); } catch (e) {}
+    try { 
+        const finalData = collectChanges();
+        const huboCambiosReales = JSON.stringify(finalData) !== JSON.stringify({
+            fileType: CLIENT_FILE_TYPE, version: CLIENT_VERSION, SCDtype: CLIENT_SCD_TYPE, ...originalJsonData
+        });
+        hasChanges = false; // Evita el salto del onbeforeunload si no hay cambios reales
+        await apiSaveConfig(finalData, huboCambiosReales); 
+    } catch (e) {}
 }
 
 function processCancel() {

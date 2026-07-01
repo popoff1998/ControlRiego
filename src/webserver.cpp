@@ -176,7 +176,6 @@ static bool checkAndSendCacheHeaders(const String &path, File &file, bool notInm
     // ETag por defecto: combinamos el LastWrite y el tamaño del archivo para detectar cambios.
     String etagValue = String(file.getLastWrite()) + "-" + String(file.size());
     #ifdef RELEASE
-        // if (notInmutable) etagValue = String(FW_VERSION) + "-FW";
         if (path.startsWith("/datos/") || notInmutable) {
             // Documentos que queremos que el navegador REVALIDE siempre
             wserver.sendHeader("Cache-Control", "no-cache");
@@ -184,19 +183,21 @@ static bool checkAndSendCacheHeaders(const String &path, File &file, bool notInm
             // Activos estáticos puros: se debe enviar el fichero, pero el navegador no volverá a preguntar durante un año
             wserver.sendHeader("Cache-Control", "public, max-age=31536000, immutable"); 
         }
+        // Enviamos siempre el ETag, incluso para los inmutables
+        wserver.sendHeader("ETag", etagValue);
+        // Lógica de comprobación 304 (Si el navegador ya lo tiene)
+        String receivedEtag = wserver.header("If-None-Match");
+        if (receivedEtag.length() > 0 && receivedEtag == etagValue) { 
+            wserver.send(304);
+            LOG_DEBUG("Sent 304 Not Modified for path:", path, "ETag:", etagValue); 
+            return true; // se ha enviado el 304, se debe cortar el procesamiento (no enviar el fichero)
+        }
     #else
-        // En modo desarrollo, siempre forzamos revalidación de todos los recursos para facilitar pruebas
-        wserver.sendHeader("Cache-Control", "no-cache");
+        // En modo DESARROLLO: prohibimos taxativamente cualquier tipo de caché.
+        // "no-store" le dice al navegador que no guarde el archivo ni en disco ni en memoria.
+        wserver.sendHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+        wserver.sendHeader("Pragma", "no-cache"); // Compatibilidad con navegadores antiguos
     #endif
-    // Enviamos siempre el ETag, incluso para los inmutables
-    wserver.sendHeader("ETag", etagValue);
-    // Lógica de comprobación 304 (Si el navegador ya lo tiene)
-    String receivedEtag = wserver.header("If-None-Match");
-    if (receivedEtag.length() > 0 && receivedEtag == etagValue) { 
-        wserver.send(304);
-        LOG_DEBUG("Sent 304 Not Modified for path:", path, "ETag:", etagValue); 
-        return true; // se ha enviado el 304, se debe cortar el procesamiento (no enviar el fichero)
-    }
     return false; // Hay que enviar el archivo + (200 OK)
 }
 
@@ -484,6 +485,10 @@ void handleServerVars() {
     wserver.send(200, "application/json", response);    
 }
 
+void handleStatus() {
+  LOG_DEBUG("handleStatus called, restartRequired:", restartRequired);
+  wserver.send(200, "text/plain", restartRequired ? "1" : "0");
+}
 
 // ------------------------------------------------------------------------
 // FileServerHandler 
@@ -701,7 +706,7 @@ void defWebpagesHandles() {
     wserver.on("/api/list",        HTTP_GET,  handleListFiles);
     wserver.on("/api/sysinfo",     HTTP_GET,  handleSysInfo);
     wserver.on("/api/serverVars",  HTTP_GET,  handleServerVars); // devuelve JSON con variables de interés para el cliente (ej. logDays)
-    // wserver.on("/api/showZONElog", HTTP_GET,  handleShowZonelog);
+    wserver.on("/api/status",      HTTP_GET,  handleStatus);     // devuelve 1 si restartRequired=true, 0 si false
     // otras apis
     wserver.on("/api/download",    HTTP_GET,  handleDownload);
     wserver.on("/api/save_config", HTTP_POST, handleSaveConfig);
