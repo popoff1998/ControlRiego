@@ -30,7 +30,7 @@ R"rawup(
     <a href="/">← Home</a>
     <div style="margin-top:15px">
         <label style="font-size:13px">Destino:</label>
-        <select id="s"><option value="WS">Webserver (/WS)</option><option value="datos">Datos (/datos)</option></select>
+        <select id="s" class="r"><option value="WS">Webserver (/WS)</option><option value="datos">Datos (/datos)</option></select>
     </div>
     <div id="z"><p>Arrastra archivos aquí<br>o haz clic</p></div>
     <input type="file" multiple id="i" style="display:none">
@@ -39,7 +39,6 @@ R"rawup(
     </div>
     <script>
         const z=document.getElementById('z'), i=document.getElementById('i'), s=document.getElementById('s');
-        s.onchange=()=>{s.className=s.value?"r":""};
         ['dragenter','dragover'].forEach(e=>z.addEventListener(e,x=>{x.preventDefault();z.className='v'}));
         ['dragleave','drop'].forEach(e=>z.addEventListener(e,x=>{x.preventDefault();z.className=''}));
         z.onclick=()=>i.click();

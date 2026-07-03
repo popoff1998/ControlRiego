@@ -18,8 +18,11 @@
   <div class="menu-big">
       <ul class="lista-alineada">
         <li><a href="parmfile.htm">PARÁMETROS</a> <span class="descripcion">- Gestionar el fichero de configuración</span></li>
+        <br>
         <li><a href="lastRiegos.htm">RIEGOS</a> <span class="descripcion">- Histórico de Riegos y Grupos</span></li>
+        <br>
         <li><a href="errores.htm">ERRORES</a> <span class="descripcion">- Logs de errores</span></li>
+        <br>
         <li>
           <a href="#" onclick="return dispositivoRestart(false);">RESTART</a> <!-- si se cancela, no se activa el flag de reinicio pendiente -->
           <span id="warnRestart" class="warn-icon" title="Reinicio requerido.Se forzará al cerrar el webserver">⚠️</span>
@@ -34,18 +37,19 @@
   </div>
 
  <script src="funciones.js"></script>
-  <script>
-    window.addEventListener("load", () => {
-      // Mostrar advertencia si hay cambios pendientes
-      if (sessionStorage.getItem('needsRestart') === 'true') {document.getElementById('warnRestart').style.display = 'inline';}
-      // Precargamos la configuración para que las siguientes páginas sean instantáneas
-      getServerConfig()
-      .then(config => {
-        if (config && Object.keys(config).length > 0) { console.log("Configuración precargada y lista.");
-        } else { alert("No se pudo obtener la configuración del servidor. Algunas paginas no funcionaran."); }
-      })
-      .catch(err => console.error("Error en precarga:", err));
-    });
-  </script>
+<script>
+  window.addEventListener("load", () => {
+    // Precargamos la configuración para que las siguientes páginas sean instantáneas
+    getServerConfig()
+    .then(config => {
+      // Mostrar advertencia si hay cambios pendientes de reinicio (basado en la verdad del hardware)
+      document.getElementById('warnRestart').style.display = (sessionStorage.getItem('needsRestart') === 'true') ? 'inline' : 'none';
+      // Validamos si el JSON pesado llegó correctamente
+      if (config && Object.keys(config).length) { console.log("Configuración precargada y lista.");
+      } else { alert("No se pudo obtener la configuración del servidor. Algunas paginas no funcionaran."); }
+    })
+    .catch(err => console.error("Error en precarga:", err));
+  });
+</script>  
 </body>
 </html>

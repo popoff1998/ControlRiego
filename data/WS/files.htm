@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="style_datacard.css">
   <style>
     thead th:not(:last-child) { cursor: pointer; user-select: none; }
-    thead th:not(:last-child):hover { background-color: var(--theme-light-1); color: white; letter-spacing: 1px; }
+    thead th:not(:last-child):hover { background-color: var(--theme-light); color: white; letter-spacing: 1px; }
     .mobile-only-block { display: none; margin-bottom: 15px; }
     @media (max-width: 600px) {thead{display: none !important;} .mobile-only-block{display: block;} #mobileSort{width: 100%; max-width: 200px;}}
   </style>
@@ -19,7 +19,7 @@
 <body>
 <h1>Files on server</h1>
 <div class="flex-sb">
-  <h3 style="margin:0;">Files on <span id="currentDir" style="color:var(--theme-dark-1);">/</span></h3>
+  <h3 style="margin:0;">Files on <span id="currentDir" style="color:var(--theme-dark);">/</span></h3>
   <div class="fs-container" style="margin:0;">Free space: <span id="freeSp" class="fs-val">--</span></div>
 </div>
 <div id="mobileSortContainer" class="mobile-only-block">

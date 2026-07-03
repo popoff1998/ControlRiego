@@ -33,7 +33,7 @@
   tbody tr td::before {
     content: attr(data-label);
     font-weight: 700;
-    color: var(--theme-dark-1);
+    color: var(--theme-dark);
     flex: 0 0 95px; 
     margin-right: 12px;
     text-align: left;
@@ -45,11 +45,12 @@
   /* 2. ESTILOS ESPECÍFICOS BASADOS EN CLASES (Contenido en modo tarjeta) */
   /* Separar nombre a la derecha */
   .filename { justify-content: space-between; font-size: 1.1em; }
+  /* Fuerza al enlace a heredar el 1.1em del padre, anulando el 1.2em del estilo base */
+  .filename a { font-size: inherit; }
   /* Asegurar que la etiqueta (data-label) no se muestre en la celda de Acciones */
   .col-actions::before { content: none; }
   /* Aplicar estilos flex específicos a Acciones para que no se apilen en la tarjeta */
   .col-actions { flex-wrap: nowrap !important; justify-content: center; }
-
   /* reduce margen vertical en botones  Upload y New en móvil */
   .container {margin: 10px auto 25px !important;}
   .button-group button { min-width: 100px !important;}

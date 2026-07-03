@@ -1,10 +1,10 @@
 /* variables de estilo globales */
 :root {
     --theme-color: #0a9aaf;
-    --theme-dark-1: color-mix(in oklch, var(--theme-color) 80%, black);
-    --theme-dark-2: color-mix(in oklch, var(--theme-color) 30%, black);
-    --theme-light-1: color-mix(in oklch, var(--theme-color) 70%, white);
-    --theme-light-2: color-mix(in oklch, var(--theme-color) 15%, white);
+    --theme-dark: color-mix(in oklch, var(--theme-color) 80%, black);
+    --theme-darker: color-mix(in oklch, var(--theme-color) 30%, black);
+    --theme-light: color-mix(in oklch, var(--theme-color) 70%, white);
+    --theme-lighter: color-mix(in oklch, var(--theme-color) 15%, white);
     --max-body-width: 1050px;
     --table-base-width: 85%;
 }

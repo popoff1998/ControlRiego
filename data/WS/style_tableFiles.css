@@ -1,6 +1,5 @@
 /* style_tableFiles.css - Optimizado para reducir tamaño ficheros y con Estilo Moderno */
 table {
-    font-family: arial, sans-serif;
     border-collapse: collapse;
     width: var(--table-base-width);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
@@ -18,13 +17,13 @@ th, td {
 }
 
 th { 
-    background-color: var(--theme-light-2); 
-    color: var(--theme-dark-1); 
+    background-color: var(--theme-lighter); 
+    color: var(--theme-dark); 
     font-size: 0.9em; 
     font-weight: 600; 
     letter-spacing: 0.5px; 
     padding: 0.6em;
-    border-bottom: 2px solid var(--theme-light-1);
+    border-bottom: 2px solid var(--theme-light);
 }
 
 /* Filas alternas y alineación nativa */

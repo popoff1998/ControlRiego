@@ -98,5 +98,6 @@
 - Webserver: mejoras visuales, de estilos y verificaciones. Reduccion tamaños ficheros V3.3
 - Webserver: tabla de ficheros ordenable por nombre, tamaño o fecha V3.3
 - Log del Domoticz consultable desde el webserver V3.3
+- Webserver: opcion de seleccionar una carpeta en el PC para subir todos sus ficheros V3.3
 
 

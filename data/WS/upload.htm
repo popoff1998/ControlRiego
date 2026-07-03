@@ -1,71 +1,92 @@
 <!doctype html>
 <html lang='es'>
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Upload</title>
-    <link rel="icon" href="favicon.ico">
-    <link rel="stylesheet" href="style_base.css">
-    <style>
-        body{font-family:sans-serif;max-width:320px;margin:10px auto;padding:0 12px;color:#333}
-        a{text-decoration:none;font-size:14px;color:#135a8a}
-        select, #z{width:100%;box-sizing:border-box;border-radius:5px;transition:.2s}
-        select{padding:8px;margin:5px 0 15px;border:1px solid #ccc}
-        .r{border-color:#d9534f;color:#d9534f;font-weight:700}
-        #z{height:300px;border:2px dashed #3da3aa;background:#f9f9f9;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;text-align:center}
-        #z.v{background:#3da3aa;color:#fff}
-        .f{margin-top:15px;padding-top:10px;border-top:1px solid #eee}
-        .l{color:#d9534f;font-weight:700;margin-left:5px}
-    </style>
+  <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">
+  <title>Upload</title>
+  <link rel="icon" href="favicon.ico">
+  <link rel="stylesheet" href="style_base.css">
+  <link rel="stylesheet" href="style_botones.css">
+  <style>
+    body{max-width:320px}
+    select{width:100%;padding:8px;margin:5px 0 15px;border:1px solid #ccc;border-radius:5px}
+    .r{border-color:#d9534f;color:#d9534f;font-weight:700}
+    #z{width:100%;height:300px;border:2px dashed #3da3aa;background:#f9f9f9;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;text-align:center;border-radius:5px;transition:.2s}
+    #z.v{background:#3da3aa;color:#fff}
+    .f{margin-top:15px;padding-top:10px;border-top:1px solid #eee}
+    .l{color:#d9534f;font-weight:700;margin-left:5px}
+  </style>
 </head>
 <body>
-    <h1>Upload Files</h1>
-    <a href="/">← Home</a>
-    <div style="margin-top:15px">
-        <label style="font-size:13px">Destino:</label>
-        <select id="s"><option value="WS">Webserver (/WS)</option><option value="datos">Datos (/datos)</option></select>
-        <div class="fs-container">Espacio libre: <span id="freeSp" class="fs-val">--</span></div>
-    </div>
-    <div id="z"><p>Arrastra archivos aquí<br>o haz clic</p></div>
-    <input type="file" multiple id="i" style="display:none">
-    <div class="f">
-        <a href="/$update?page=custom">OTA</a> | <a href="#" id="logLink" class="l">LOG</a>
-    </div>
+  <h1>Upload Files</h1>
+  <a href="/" class="back">← Home</a>
+  <div style="margin-top:15px">
+    <label style="font-size:13px">Destino:</label>
+    <select id="s" class="r"><option value="WS">Webserver (/WS)</option><option value="datos">Datos (/datos)</option></select>
+    <div class="fs-container">Espacio libre: <span id="freeSp" class="fs-val">--</span></div>
+  </div>
+  <div id="z"><p>Arrastra archivos aquí<br>o haz clic para seleccionarlos</p></div>
+  
+  <div class="button-group">
+    <button type="button" id="btnFolder">o seleccionar carpeta completa</button>
+  </div>
+
+  <input type="file" multiple id="iFiles" style="display:none">
+  <input type="file" webkitdirectory directory id="iFolder" style="display:none">
+  <div class="f">
+    <a href="/$update?page=custom">OTA</a> | <a href="#" id="logLink" class="l">LOG</a>
+  </div>
 <script src="funciones.js"></script>    
 <script>
-let maxTotalSize = 0; // Se llenará desde el servidor
-const z=document.getElementById('z'), i=document.getElementById('i'), 
-        s=document.getElementById('s'), freeEl=document.getElementById('freeSp');
+let maxTotalSize = 0;
+const $ = id => document.getElementById(id), z = $('z'), iFiles = $('iFiles'), iFolder = $('iFolder'), btnFolder = $('btnFolder'), s = $('s');
+
 window.addEventListener("load", async () => {
-    try {
-        const config = await getServerConfig(true); // con refresh
-        maxTotalSize = (config.maxFS * 0.8) || (204800);
-        console.log("Max total upload size set to:", returnFileSize(maxTotalSize));
-        UI_actualizarEspacioLibre(config, "freeSp");
-        document.getElementById("logLink").href = config.errorFile || "#";
-    } catch (e) {maxTotalSize = 204800;console.error("No se pudo obtener configuración:",e);}
+  try {
+      const config = await getServerConfig(true);
+      maxTotalSize = (config.maxFS * 0.8) || 204800;
+      UI_actualizarEspacioLibre(config, "freeSp");
+      $('logLink').href = config.errorFile || "#";
+  } catch (e) { maxTotalSize = 204800; console.error(e); }
 });
-s.onchange=()=>{s.className=s.value?"r":""};
-['dragenter','dragover'].forEach(e=>z.addEventListener(e,x=>{x.preventDefault();z.className='v'}));
-['dragleave','drop'].forEach(e=>z.addEventListener(e,x=>{x.preventDefault();z.className=''}));
-z.onclick=()=>i.click();
-i.onchange=()=>up(i.files);
-z.ondrop=(e)=>up(e.dataTransfer.files);
-function up(f){
-    if(!f.length)return;
-    // Verificación previa del tamaño total
-    let totalSize = 0;
-    for (let file of f) totalSize += file.size;
-    if (totalSize > maxTotalSize) {
-        alert(`Archivos demasiado grandes. Tamaño total: ${returnFileSize(totalSize)} Límite: ${returnFileSize(maxTotalSize)}`);
+
+['dragenter','dragover'].forEach(e => z.addEventListener(e, x => { x.preventDefault(); z.className = 'v' }));
+['dragleave','drop'].forEach(e => z.addEventListener(e, x => { x.preventDefault(); z.className = '' }));
+
+z.onclick = () => iFiles.click();
+iFiles.onchange = () => up(iFiles.files);
+
+z.ondrop = (e) => {
+    if (e.dataTransfer.items?.[0]?.webkitGetAsEntry()?.isDirectory) {
+        alert("No se permite arrastrar carpetas. Usa el botón.");
         return;
     }
-    let d=new FormData(), p=s.value.replace(/^\/+|\/+$/g,'');
-    for(let x of f) d.append('file',x,'/'+(p?p+'/':'')+x.name);
-    z.innerHTML="<p>Subiendo...</p>";
-    fetch('/',{method:'POST',body:d})
-        .then(async r=>{alert(r.ok?'OK':await r.text());location.reload()})
-        .catch(()=>alert('Error Red'));
+    up(e.dataTransfer.files);
+};
+
+btnFolder.onclick = () => iFolder.click();
+iFolder.onchange = () => up(iFolder.files);
+
+async function up(f){
+  if(!f.length) return;
+  let totalSize = 0;
+  for (let file of f) totalSize += file.size;
+  if (totalSize > maxTotalSize) {
+    alert(`Excede límite. Total: ${returnFileSize(totalSize)} Máx: ${returnFileSize(maxTotalSize)}`);
+    return;}
+  let p = s.value.replace(/^\/+|\/+$/g,''), err = false;
+  z.style.pointerEvents = "none";
+  btnFolder.disabled = true;
+  for (let index = 0; index < f.length; index++) {
+    let x = f[index];
+    z.innerHTML = `<p>Subiendo ${index + 1}/${f.length}<br><small style="font-size:11px;color:#666">${x.name}</small></p>`;
+    let d = new FormData();
+    d.append('file', x, '/' + (p ? p + '/' : '') + x.name);
+    try {
+        let r = await fetch('/', {method: 'POST', body: d});
+        if (!r.ok) { alert(`Error en ${x.name}: ${await r.text()}`); err = true; break; }
+    } catch (e) { alert(`Error de red en ${x.name}`); err = true; break; }
+  }
+  location.reload();
 }
 </script>
 </body>

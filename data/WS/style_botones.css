@@ -2,10 +2,10 @@
 
 /* Estilo base: Aplica a TODOS los botones de la aplicación */
 button {
-  /* Por defecto, todo botón usa el color de tema */
-  --btn-color: var(--theme-color);
+  /* Por defecto, todo botón usa el color de tema un poco mas oscuro */
+  --btn-color: color-mix(in oklch, var(--theme-color) 90%, black);
   /* Derivamos los estados dinámicamente usando la misma lógica para todos los botones y colores */
-  --btn-hover: color-mix(in oklch, var(--btn-color) 80%, white); /* color mas claro - misma tonalidad */
+  --btn-hover: color-mix(in oklch, var(--btn-color) 85%, white); /* color mas claro - misma tonalidad */
   --btn-active: color-mix(in oklch, var(--btn-color) 80%, black); /* color mas oscuro - misma tonalidad */
 
   background-color: var(--btn-color);

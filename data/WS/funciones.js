@@ -218,7 +218,7 @@ function UI_actualizarEspacioLibre(config, id, isIcon = false) {
     if (isIcon) { el.style.display = esBajo ? "inline" : "none"; } 
     else {
         el.textContent = returnFileSize(config.freeFS);
-        el.style.color = esBajo ? "#d9534f" : "var(--theme-dark-1)";
+        el.style.color = esBajo ? "#d9534f" : "var(--theme-dark)";
     }
 }
 
