@@ -40,7 +40,7 @@
 <script>
   window.addEventListener("load", () => {
     // Precargamos la configuración para que las siguientes páginas sean instantáneas
-    getServerConfig()
+    Promise.all([getServerConfig(), checkServerRestartStatus()])
     .then(config => {
       // Mostrar advertencia si hay cambios pendientes de reinicio (basado en la verdad del hardware)
       document.getElementById('warnRestart').style.display = (sessionStorage.getItem('needsRestart') === 'true') ? 'inline' : 'none';

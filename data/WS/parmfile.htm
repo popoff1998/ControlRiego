@@ -14,7 +14,6 @@
 <style>
     .container { display: flex; flex-direction: column; align-items: center; gap: 20px; margin: 25px auto 50px; }
     /* Limidadores de tamaño específicos para la botonera de esta página */
-    .button-group button { max-width: 120px; min-width: 80px; }
     .button-import, .button-new { min-width: 100px; flex: 1 1 auto; }
     form { display: flex; flex-wrap: wrap; gap: 25px; justify-content: center; width: 100%; max-width: 600px; }
     input[type="file"] { flex: 1 1 300px; max-width: 450px; min-width: 300px; }
@@ -61,8 +60,8 @@ let MAX_PARMFILE = 4096;
 
 window.addEventListener("load", async () => {
   try {
-    // 1. Obtener nombres de ficheros desde el servidor
-    const config = await getServerConfig();
+    // 1. Obtener nombres de ficheros y estado reinicio pendiente desde el servidor
+    const [config] = await Promise.all([getServerConfig(), checkServerRestartStatus()]);
     // Comprobar si hay reinicio pendiente
     document.getElementById('restartBanner').style.display = (sessionStorage.getItem('needsRestart') === 'true') ? 'block' : 'none';
     if (!config.parmFile || !config.backupFile) throw new Error(MSG_ERR_CONFIG);

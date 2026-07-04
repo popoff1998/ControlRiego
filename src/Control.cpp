@@ -2203,7 +2203,15 @@ void gestionarTamanoLog() {
 // Configura el nivel de grabacion en fichero segun parametro config.logWarnToFile
 void setLogToFile() {
     #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
-    if (config.logWarnToFile) {
+    if (config.logWarnToFile) setWarnToFile(true); 
+    else setWarnToFile(false);
+    #endif
+}
+
+// Configura el nivel de grabacion en fichero de msg WARNING segun true/false del parametro pasado
+void setWarnToFile(bool activar) {
+    #ifdef DEBUGLOG_ENABLE_FILE_LOGGER
+    if (activar) {
         LOG_FILE_SET_LEVEL(DebugLogLevel::LVL_WARN);
         LOG_WARN("LOG_WARN messages will also be logged to file as per configuration");
     } else {

@@ -8,7 +8,7 @@
 @media (max-width: 600px) {
   
   /* 1. ESTRUCTURA BÁSICA DE DATACARD (Bloque y Ocultar Encabezado) */
-  table, thead, tbody, th, td, tr { display: block; width: 100% !important; }
+  table, tbody, td, tr { display: block; width: 100% !important; }
   thead { display: none; } /* ocultar encabezado */
 
   /* Estilo de la "Tarjeta" (Fila) */
@@ -46,11 +46,11 @@
   /* Separar nombre a la derecha */
   .filename { justify-content: space-between; font-size: 1.1em; }
   /* Fuerza al enlace a heredar el 1.1em del padre, anulando el 1.2em del estilo base */
-  .filename a { font-size: inherit; }
+  .filename a { font-size: inherit; font-weight: 700;}
   /* Asegurar que la etiqueta (data-label) no se muestre en la celda de Acciones */
-  .col-actions::before { content: none; }
+  .col-actions::before { display: none; }
   /* Aplicar estilos flex específicos a Acciones para que no se apilen en la tarjeta */
-  .col-actions { flex-wrap: nowrap !important; justify-content: center; }
+  .col-actions { flex-wrap: nowrap !important; justify-content: center;}
   /* reduce margen vertical en botones  Upload y New en móvil */
   .container {margin: 10px auto 25px !important;}
   .button-group button { min-width: 100px !important;}

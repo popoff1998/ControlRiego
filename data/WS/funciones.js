@@ -5,25 +5,24 @@ const CLIENT_FILE_TYPE = "CCR_config";
 const CLIENT_VERSION   = 1;
 const CLIENT_SCD_TYPE  = "DOMOTICZ";
 
-/** Obtencion de variables del servidor con caché y verificacion reinicio pendiente sincronizado */
+/** Obtencion de variables del servidor con caché */
 async function getServerConfig(forceRefresh = false) {
-    const cached = sessionStorage.getItem('serverConfig');
-    const keyRestart = 'needsRestart';
-    try {
-        const status = await fetch('/api/status').then(r => r.text());
-        const serverStatusStr = (status.trim() === '1') ? 'true' : 'false';
-        // Si la caché coincide con el servidor, la servimos de inmediato
-        if (!forceRefresh && cached && serverStatusStr === sessionStorage.getItem(keyRestart)) {
-            return JSON.parse(cached);
-        }
-        sessionStorage.setItem(keyRestart, serverStatusStr);
-        // Si no coincide o se fuerza, descargamos el JSON completo
-        const config = await apiGetJson("/api/serverVars");
-        if (!config || !Object.keys(config).length) throw 'vacio';
-        sessionStorage.setItem('serverConfig', JSON.stringify(config));
-        return config;
-    } catch (e) { console.error("Err config servidor:", e); return {}; }
+  const cached = sessionStorage.getItem('serverConfig');
+  // Si la caché existe y no se fuerza el refresco, la servimos inmediatamente sin tocar la red
+  if (!forceRefresh && cached) return JSON.parse(cached);
+  try {
+      const config = await apiGetJson("/api/serverVars");
+      if (!config || !Object.keys(config).length) throw 'vacio';
+      sessionStorage.setItem('serverConfig', JSON.stringify(config));
+      return config;        
+  } catch (e) { console.error("Err config servidor:", e); return {}; }
 }
+
+/** Verifica si el servidor tiene un reinicio pendiente y lo guarda en caché */
+async function checkServerRestartStatus(){
+  try{
+    sessionStorage.setItem('needsRestart',(await fetch('/api/status').then(r=>r.text())).trim()==='1'?'true':'false')
+  }catch{}}
 
 function renderTableMessage(tableId, message, colspan) {
     const body = document.getElementById(tableId);
@@ -60,7 +59,7 @@ function createTableRow(file, tableId, config) {
         nameHtml = "📜 " + nameOnly;
     } else {
         const href = (esEng && isDir) ? 'files.htm?dir=' + file.name : file.name;
-        const text = (tableId === "parmTableBody" || tableId === "backupTableBody") ? nameOnly : (isDir ? "📁 " : "📄 ") + file.name;
+        const text = (tableId === "parmTableBody" || tableId === "backupTableBody") ? nameOnly : (isDir ? "📁 " : " ") + file.name;
         nameHtml = `<a href="${href}" target="_blank">${text}</a>`;
     }
     // html Celda 4: Acciones

@@ -394,6 +394,12 @@ void handleSetRestartRequired() {
   wserver.send(200, "text/plain", "OK"); // 200 OK
 }
 
+void handleSetWarnToLog() {
+  bool activate = wserver.hasArg("Warn") ? (wserver.arg("Warn") == "1") : false;
+  setWarnToFile(activate);
+  wserver.send(200, "text/plain", "OK");
+}
+
 // advanced page (requires auth)
 void handleAdvancedPage() {
   if (!wserver.authenticate(update_username, update_password)) {
@@ -417,14 +423,6 @@ void handleEditRawPage() {
   }
   serveFile(WEBROOT "/parmfile_editRaw.htm", "text/html");
 }
-
-// show zone log (reads log file / obtains Domoticz data)
-// void handleShowZonelog() {
-//   int zona = wserver.arg("zona").toInt();
-//   LOG_DEBUG("Zona recibida:", zona);
-//   String json = readSCDLogFile(zona); // obtiene del Domoticz el log de riegos de la zona
-//   sendNoCacheJSON(json);
-// }
 
 // download endpoint wrapper
 void handleDownload() {
@@ -469,8 +467,7 @@ void handleServerVars() {
     doc["maxFileSize"]   = MAX_FILE_SIZE;
     doc["version"]       = FW_VERSION;
     doc["logDays"]       = logDays;
-    doc["logEnabled"]    = (LOG_FILE_GET_LEVEL() != DebugLogLevel::LVL_NONE);
-    doc["logWarnFile"]   = config.logWarnToFile;
+    doc["logFileLevel"]  = (int)LOG_FILE_GET_LEVEL();
     doc["showTest"]      = showtest_section;
     doc["maxFW"]         = maxFirmwareSize;
     doc["maxFS"]         = maxFSSize;
@@ -710,6 +707,7 @@ void defWebpagesHandles() {
     // otras apis
     wserver.on("/api/download",    HTTP_GET,  handleDownload);
     wserver.on("/api/save_config", HTTP_POST, handleSaveConfig);
+    wserver.on("/api/setWarnToLog", HTTP_GET, handleSetWarnToLog); // activa/desactiva logWarnToFile
     wserver.on("/api/endWS",       HTTP_GET,  handleEndWS);
     wserver.on("/api/setrestart",  HTTP_GET,  handleSetRestartRequired);
     wserver.on("/api/restart",     HTTP_GET,  handleRestart); // mas facil de manejar GET que POST (y borra pagina)

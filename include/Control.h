@@ -720,6 +720,7 @@ void setupInit(void);
 void setupParm(void);
 void setupRedWM(S_initFlags&);
 void setupWS();
+void setWarnToFile(bool activar);
 void setZonaEnCurso(S_BOTON* pBoton);
 void showInfoZona(int);
 void showTemp(void);

@@ -3,80 +3,76 @@
 <head>
   <title>Logs de Errores</title>
   <meta charset="UTF-8">
-  <meta name='viewport' content='user-scalable=yes,initial-scale=1.0,width=device-width'>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link rel="stylesheet" href="style_base.css">
   <link rel="stylesheet" href="style_botones.css">
   <link rel="stylesheet" href="style_tableFiles.css">
   <link rel="stylesheet" href="style_datacard.css">
-  <style>
-    /* Oculta el encabezado temporalmente para evitar destello al mostrarlo si usa cards */
-    @media (max-width: 600px) {thead { display: none !important; }}
-  </style>
 </head>
 <body>
   <h1>Logs de errores</h1>
   <div class="flex-sb">
     <a href="/" class="back">← Home</a>
     <div class="fs-container">Espacio libre: <span id="freeSp" class="fs-val">--</span></div>
-</div>
-
+  </div>
   
   <div style="text-align:center;margin-bottom:20px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap;">
-    <button id="btn-update" onclick="window.location.reload()" class="save-button">
-      🔄 Actualizar
-    </button>
-    <button onclick="window.location.href='domoticz_log.htm'" class="save-button" style="background-color:var(--theme-color,#0a9aaf);">
-      📊 Log Domoticz
-    </button>
+    <button id="btn-update" onclick="window.location.reload()" class="save-button">🔄 Actualizar</button>
+    <button onclick="window.location.href='domoticz_log.htm'">📊 Log Domoticz</button>
   </div>
 
   <div id="banner-warn" class="banner banner-warning" style="display:none;">
-      ⚠️ <strong>Aviso:</strong> La grabación de mensajes <em>Warning</em> está activa. Úsela solo para depuración temporal.
-      <span class="tooltip" data-ayuda="Escribir constantemente mensajes 'Warning' en la memoria flash acorta su vida útil.">❓</span>
+    ⚠️ <strong>Aviso:</strong> La grabación de mensajes <em>Warning</em> está activa. Úsela solo para depuración temporal.
+    <span class="tooltip" data-ayuda="Escribir constantemente mensajes 'Warning' en la memoria flash acorta su vida útil.">❓</span>
+    <button onclick="toggleWarnLog(0)" style="display:block;margin:8px auto 0;font-weight:normal;">Desactivar temporalmente</button>
   </div>
+
   <div id="banner-off" class="banner banner-info" style="display:none;">
-      <span class="tooltip" data-ayuda="No se estan grabando mensajes en el fichero de log">ℹ️</span>
-      El sistema de registro en fichero está <strong>desactivado</strong>. No se están generando nuevos registros de errores.
+    <span class="tooltip" data-ayuda="No se estan grabando mensajes en el fichero de log">ℹ️</span>
+    El sistema de registro en fichero está <strong>desactivado</strong>. No se están generando nuevos registros de errores.
   </div>
+
   <table>
-        <thead><tr><th>Nombre</th><th>Tamaño</th><th>Fecha</th><th>Acción</th></tr></thead>
-        <tbody id="logsTableBody"></tbody>
-    </table>
+    <thead><tr><th>Nombre</th><th>Tamaño</th><th>Fecha</th><th>Acción</th></tr></thead>
+    <tbody id="logsTableBody"></tbody>
+  </table>
+  
+  <div id="bt-actW" class="button-group" style="display:none;margin-top:20px;">
+    <button onclick="toggleWarnLog(1)" class="secondary-button" >Activar log warning temporalmente</button>
+  </div>
 
 <script src="funciones.js"></script>
 <script>
-    function updateUI(config) {
-      const bannerWarn = document.getElementById('banner-warn');
-      const bannerOff = document.getElementById('banner-off');
-      const updateBtn = document.getElementById('btn-update');
-      bannerWarn.style.display = config.logWarnFile ? 'block' : 'none';
-      if (!config.logEnabled) {
-        bannerOff.style.display = 'block';
-        if (updateBtn) updateBtn.style.display = 'none';
-      } else {
-        bannerOff.style.display = 'none';
-        if (updateBtn) updateBtn.style.display = 'inline-block';
-      }
-    }
+  function updateUI(config) {
+    const isWarn = (config.logFileLevel==2), isEnabled = (config.logFileLevel>0);
+    document.getElementById('banner-warn').style.display = isWarn ? 'block' : 'none';
+    document.getElementById('bt-actW').style.display = (!isWarn && isEnabled) ? 'block' : 'none';
+    document.getElementById('banner-off').style.display = isEnabled ? 'none' : 'block';
+    const btnUp = document.getElementById('btn-update');
+    if (btnUp) btnUp.style.display = isEnabled ? 'inline-block' : 'none';
+  }
 
-    window.addEventListener("load", async () => {
-      try {
-        const config = await getServerConfig(true);
-        if (!config.errorFile) throw new Error(MSG_ERR_CONFIG);
-        updateUI(config);
-        UI_actualizarEspacioLibre(config, 'freeSp');
-        const fullPath = config.errorFile;
-        const lastSlash = fullPath.lastIndexOf('/');
-        const dir = fullPath.substring(0, lastSlash) || "/";
-        const fileNameWithExt = fullPath.substring(lastSlash + 1);
-        const filter = fileNameWithExt.split('.').slice(0, -1).join('.') || fileNameWithExt;
-        const fileData = await fetchTableData(
-          `/api/list?dir=${encodeURIComponent(dir)}&file=${encodeURIComponent(filter)}`, 
-          "logsTableBody", 4, "Error cargando logs", "-- No existen archivos de log --" );
-        if (fileData) populateTable(fileData, "logsTableBody");
-      } catch (error) {alert(error.message); console.error("Error:", error);}
-    });
+  async function toggleWarnLog(status) {
+    try {
+      if ((await fetch(`/api/setWarnToLog?Warn=${status}`)).ok) location.reload();
+      else throw new Error();
+    } catch { alert("Error al cambiar estado"); }
+  }
+
+  window.addEventListener("load", async () => {
+    try {
+      const c = await getServerConfig(true);
+      if (!c.errorFile) throw new Error(MSG_ERR_CONFIG);
+      updateUI(c);
+      UI_actualizarEspacioLibre(c, 'freeSp');
+      const path = c.errorFile, idx = path.lastIndexOf('/');
+      const dir = path.substring(0, idx) || "/";
+      const file = path.substring(idx + 1).split('.').slice(0, -1).join('.') || path.substring(idx + 1);
+      const data = await fetchTableData(`/api/list?dir=${encodeURIComponent(dir)}&file=${encodeURIComponent(file)}`, "logsTableBody", 4, "Error cargando logs", "-- No existen archivos de log --");
+      if (data) populateTable(data, "logsTableBody");
+    } catch (e) { if(e.message) alert(e.message); }
+  });
 </script>
 </body>
 </html>
