@@ -198,7 +198,7 @@ void setupEstadoFinal()
   }
   // Si estamos en modoDEMO pasamos a STANDBY (o STOP si esta pulsado) aunque no exista conexión wifi o estemos en ERROR
   if (Estado.modoDEMO) {
-  testButton(bSTOP,ON) ? setEstado(STOP,1) : setEstado(STANDBY,2);
+    setEstado(STANDBY);
     LOG_DEBUG("Salida por modoDEMO");
     return;
   }
@@ -211,7 +211,7 @@ void setupEstadoFinal()
   }
   // Si estamos conectados a la red pasamos a STANDBY (o STOP si esta pulsado)
   if (Estado.connected) {  
-      testButton(bSTOP,ON) ? setEstado(STOP,1) : setEstado(STANDBY,1);
+      setEstado(STANDBY);
       if (Estado.inSetup) {
           sonido.bipOK();
           logStatusF(" <<<<<  Setup ended OK  >>>> MS: %lu", millis());
@@ -456,7 +456,7 @@ void handlePauseInError() {
     LOG_INFO("estado en ERROR y PAUSA pulsada pasamos a modoDEMO y reset del error");
     Estado.modoDEMO = true;
     sonido.bip(2);
-    testButton(bSTOP,ON) ? setEstado(STOP,1) : setEstado(STANDBY,2);
+    setEstado(STANDBY);
 }
 
 // Detecta si se mantiene pulsado el boton PAUSE
@@ -1030,6 +1030,10 @@ void setEstado(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parp
         [STOP]         = "STOP",
         [ERROR]        = "ERROR"
     };
+
+    // si pedimos STANDBY y el boton STOP esta pulsado, pasamos a STOP en su lugar
+    if (estado == STANDBY && testButton(bSTOP,ON)) estado = STOP; 
+
     // Verificación en tiempo de compilación de que la cantidad de estados definida en el enum y en el array coinciden
     static_assert(ELEMENTCOUNT(nEstado) == NUM_ESTADOS, "Desincronización en nEstado");    
     // Seguridad: verificamos que el estado recibido esté dentro del rango del array
@@ -1521,7 +1525,7 @@ void showInfoZona(int zNumber) {
     lcd.info(buff,2);
     showTimeLastRiego(lastRiegos[zIndex]);
     delay(config.msgdisplaymillis*4);
-    led(boton->led,OFF);
+    // led(boton->led,OFF);
     setEstado(STANDBY);
 }
 

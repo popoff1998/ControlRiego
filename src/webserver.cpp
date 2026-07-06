@@ -348,7 +348,7 @@ void handleEndWS() {
   wserver.send(200, "text/plain", "Ending WebServer...");
   delay(500);
   endWS();
-  testButton(bSTOP,ON) ? setEstado(STOP,1) : setEstado(STANDBY,1);
+  setEstado(STANDBY);
 }
 
 // system info

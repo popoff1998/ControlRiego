@@ -122,6 +122,7 @@
   #define ENCSWASPAUSE        true    // encoderSW simula PAUSE en estado CONFIGURANDO
   #define ZONASXGRUPO         9       // maximo de zonas en un grupo multirriego (9 para que coja en pantalla)
   #define DFLT_SCD_PORT       "8080"  // * puerto por defecto para conexión con Domoticz
+  #define DATA_DIR            "/datos/" // directorio raiz donde se guardan los ficheros de datos (logs, riegos, errores, etc.)
                                       // [*] = configurables
 
  //----------------  dependientes del HW   (no modificar) ---------------------------
@@ -240,12 +241,12 @@
   constexpr uint16_t Grupos[]  = {_GRUPOS}; // array de todos los botones de grupos disponibles
   constexpr int NUMZONAS = ELEMENTCOUNT(Zonas); // numero de zonas (botones riego individual)
   constexpr int NUMGRUPOS = ELEMENTCOUNT(Grupos); // numero de grupos multirriego
-  constexpr const char *parmFile         = "/datos/config_parm.json";   // fichero de parametros activos
-  constexpr const char *backupParmFile   = "/datos/config_backup.json"; // fichero de respaldo de los parametros
-  constexpr const char *lastRiegosFile   = "/datos/lastRiegos.json";    // fichero de ultimos riegos de zonas
-  constexpr const char *lastGruposFile   = "/datos/lastGrupos.json";    // fichero de ultimos riegos de grupos
-  constexpr const char *logErrorFile     = "/datos/logError.txt";       // fichero de log de errores
-  constexpr const char *logErrorFilePrev = "/datos/logError_prev.txt";  // fichero de log de errores previo (renombrado al superar tamano maximo)
+  constexpr const char *parmFile         = DATA_DIR "config_parm.json";   // fichero de parametros activos
+  constexpr const char *backupParmFile   = DATA_DIR "config_backup.json"; // fichero de respaldo de los parametros
+  constexpr const char *lastRiegosFile   = DATA_DIR "lastRiegos.json";    // fichero de ultimos riegos de zonas
+  constexpr const char *lastGruposFile   = DATA_DIR "lastGrupos.json";    // fichero de ultimos riegos de grupos
+  constexpr const char *logErrorFile     = DATA_DIR "logError.txt";       // fichero de log de errores
+  constexpr const char *logErrorFilePrev = DATA_DIR "logError_prev.txt";  // fichero de log de errores previo (renombrado al superar tamano maximo)
 
 
 /* --------------------------------------------------------------------------------------
