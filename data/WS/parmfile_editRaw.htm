@@ -8,79 +8,78 @@
   <link rel="stylesheet" href="style_base.css">
   <link rel="stylesheet" href="style_botones.css">
   <style>
-    fieldset {width: 90%; max-width: 800px; margin: 1em auto; background-color: #f7f7f7;padding: 20px;}
+    fieldset {width: 90%; max-width: 800px; margin: 1em auto; background:#f7f7f7; padding: 20px;}
     textarea {width: 100%; height: 700px; padding: 12px 20px; box-sizing: border-box; border: 2px solid #ccc; border-radius: 4px; margin-top: 15px;}
-    dialog {border: 2px solid #3498db;border-radius: 8px;padding: 20px;box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);text-align: center;}
-    dialog::backdrop {background-color: rgba(44, 62, 80, 0.8);}
     .button-group { margin-top: 20px; }
     @media (max-width: 768px) {textarea {height: 480px;} }
   </style>
 </head>
 <body>
-  <h1>Edicion libre del fichero de parametros</h1>
+  <h1>Edición libre del fichero de parámetros</h1>
   <a href="/" class="back">← Home</a>
   <fieldset>
-    <legend style="color:red;">ATENCION! no se realiza ninguna verificacion</legend>
-    <form name="edit_file" id="edit_form_id"><textarea name="edit_textarea"></textarea></form>
+    <legend style="color:red;">⚠️ ¡ATENCIÓN! Edición sin verificaciones lógicas</legend>
+    <form id="edit_form_id"><textarea name="edit_textarea"></textarea></form>
     <div class="button-group">
-      <button type="submit" form="edit_form_id" id="submit" class="save-button">Salvar y salir</button>
+      <button type="submit" form="edit_form_id" class="save-button">Salvar y salir</button>
       <button type="button" id="cancel" class="secondary-button">Descartar y volver</button>
     </div>
   </fieldset>
   <dialog id="Warning">
-    <p>⚠️ <b>¡ATENCIÓN! EDICIÓN LIBRE SIN VERIFICACIONES LÓGICAS</b> ⚠️</p>
+    <p>⚠️ <b>EDICIÓN LIBRE</b> ⚠️</p>
     <p>Solo se verifica la sintaxis JSON, NO la validez de los parámetros.</p>
     <p>Se recomienda usar el menú de configuración asistido.</p>        
     <button id="cerrarBtn">Entendido</button>
   </dialog>
   <script src="funciones.js"></script>
   <script>
-  const form = document.querySelector('form[name="edit_file"]');
-  const textarea = document.querySelector('textarea[name="edit_textarea"]');
+  const textarea = document.getElementsByName('edit_textarea')[0];
   const urlParams = new URLSearchParams(window.location.search);
   const fileName = urlParams.get('file');
   let originalContent = "", hasChanges = false;
 
   window.addEventListener("load", () => {
-    // Recuperación exclusiva desde el búfer de sesión
     const sessionData = sessionStorage.getItem('tempRawData');
     if (!sessionData) {
       alert("Error: Acceso denegado. No hay sesión de edición activa.");
-      window.location.href = `parmfile_edit.htm?file=${fileName}`;
-      return;
+      return window.location.href = `/`;
     }
     textarea.value = JSON.stringify(JSON.parse(sessionData), null, 2);
     originalContent = textarea.value;
     const dialogo = document.getElementById('Warning');
-    if (dialogo) {
-      dialogo.showModal();
-      document.getElementById('cerrarBtn').addEventListener('click', () => dialogo.close());
-    }
-    textarea.addEventListener('input', () => hasChanges = (textarea.value !== originalContent));
+    dialogo.showModal();
+    document.getElementById('cerrarBtn').onclick = () => dialogo.close();
+    textarea.oninput = () => hasChanges = (textarea.value !== originalContent);
   });
 
-  window.onbeforeunload = () => hasChanges ? "¿Tiene cambios sin guardar?" : null;
-  
-  document.getElementById('cancel').addEventListener('click', () => {
-    if (textarea.value === originalContent || confirm("¿Descartar cambios de edición libre y volver?")) {
-        hasChanges = false;
-        window.location.href = `parmfile_edit.htm?file=${fileName}&source=tempRawData`;
+  window.onbeforeunload = () => hasChanges ? "¿Cambios sin guardar?" : null;
+
+  document.getElementById('cancel').onclick = () => {
+    if (textarea.value === originalContent || confirm("¿Descartar cambios y volver?")) {
+      hasChanges = false;
+      // Volvemos a parmfile_edit pasando el estado heredado de la URL
+      const inheritedChanges = urlParams.get('hadChanges') === 'true';
+      window.location.href = `parmfile_edit.htm?file=${fileName}&source=tempRawData&hasChanges=${inheritedChanges}`;      
     }
-  });
-  
-  form.addEventListener('submit', async (e) => {
+  };
+
+  document.getElementById('edit_form_id').onsubmit = async (e) => {
     e.preventDefault();
-    let structuredOutput = { fileType: CLIENT_FILE_TYPE, version: CLIENT_VERSION, SCDtype: CLIENT_SCD_TYPE };
-    let jsonValido = false;
     try {
-        const userRawJson = validarJsonCompleto(textarea.value);
-        // Limpieza rápida de metadatos accidentales escritos por el usuario
-        delete userRawJson.fileType; delete userRawJson.version; delete userRawJson.SCDtype;
-        Object.assign(structuredOutput, userRawJson);
-        jsonValido = true;
-      } catch (err) {alert("ERROR de validación:\n" + err.message);}
-    if (jsonValido)  await apiSaveConfig(structuredOutput, hasChanges);
-  });
-</script>
+      const userRawJson = validarJsonParametros(textarea.value);
+      const huboCambios = textarea.value !== originalContent;
+      const veniaConCambios = urlParams.get('hadChanges') === 'true';
+      const requiereEscritura = huboCambios || veniaConCambios;
+      if (!requiereEscritura) {
+        alert("Sin cambios que guardar.");
+        return clearSessionAndLeave();
+      }
+      let out = { fileType: CLIENT_FILE_TYPE, version: CLIENT_VERSION, SCDtype: CLIENT_SCD_TYPE };
+      delete userRawJson.fileType; delete userRawJson.version; delete userRawJson.SCDtype;
+      hasChanges = false; 
+      await apiSaveConfig(Object.assign(out, userRawJson));
+    } catch (err) { alert("ERROR:\n" + err.message); }
+  };
+  </script>
 </body>
 </html>

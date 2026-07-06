@@ -63,47 +63,47 @@
 let fileName = "", originalJsonData = {}, rawTemplate = {}, hasChanges = false;
 
 window.addEventListener("load", async () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    try {
-        const config = await getServerConfig().catch(() => ({}));
-        if (config.versionFile !== undefined && (parseInt(config.versionFile) !== CLIENT_VERSION || config.SCDtype !== CLIENT_SCD_TYPE)) {
-            document.getElementById('versionBanner').style.display = 'block'; }
-        const fileParam = urlParams.get('file');
-        fileName = (fileParam && fileParam !== "null") ? fileParam : (config.parmFile || "");
-        if (!fileName) return (alert("Error: Sin archivo."), window.location.href = 'parmfile.htm');
-        const sessionData = sessionStorage.getItem('tempRawData');
-        let template, dataServidor;
-        if (urlParams.get('source') === 'tempRawData' && sessionData) {
-            // CASO A: Volvemos de editRaw. Cargamos del búfer y NO comprobamos cabecera.
-            template = await apiGetJson('templateParm.json').catch(() => ({}));
-            dataServidor = JSON.parse(sessionData);
-            hasChanges = true; 
-        } else {
-            // CASO B: Entrada directa (Carga inicial de un fichero desde el servidor) comprobamos cabecera.
-            [template, dataServidor] = await Promise.all([
-                apiGetJson('templateParm.json').catch(() => ({})),
-                apiGetJson(fileName).catch(() => ({}))
-            ]);
-            hasChanges = false;
-            if (dataServidor.fileType !== undefined && 
-                (dataServidor.fileType !== CLIENT_FILE_TYPE || parseInt(dataServidor.version) !== CLIENT_VERSION || dataServidor.SCDtype !== CLIENT_SCD_TYPE)) {
-                alert("ERROR CRÍTICO: Cabecera incompatible.");
-                return window.location.href = 'parmfile.htm';
-            }
-            if (dataServidor.fileType === undefined) {alert("⚠️ ADVERTENCIA: Archivo antiguo sin cabecera. Se añadirá al guardar.");}
-        }
-        rawTemplate = template;
-        originalJsonData = mergeWithTemplate(dataServidor, template);
-        await loadTables(originalJsonData, rawTemplate);
-        document.body.addEventListener("input", (e) => {
-            if (e.target.tagName === "INPUT") {
-                hasChanges = true;
-                if (e.target.dataset.field === "idx") validateIdx(e.target);
-                if (e.target.dataset.field === "zonas") validateZonas(e.target);
-            }
-        });
-    } catch (e) { alert("Error: " + e.message); }
-    window.onbeforeunload = () => hasChanges ? "¿Perder cambios?" : null;
+  const urlParams = new URLSearchParams(window.location.search);
+  try {
+    const config = await getServerConfig().catch(() => ({}));
+    if (config.versionFile !== undefined && (parseInt(config.versionFile) !== CLIENT_VERSION || config.SCDtype !== CLIENT_SCD_TYPE)) {
+      document.getElementById('versionBanner').style.display = 'block'; }
+    const fileParam = urlParams.get('file');
+    fileName = (fileParam && fileParam !== "null") ? fileParam : (config.parmFile || "");
+    if (!fileName) return (alert("Error: Sin archivo."), window.location.href = 'parmfile.htm');
+    const sessionData = sessionStorage.getItem('tempRawData');
+    let template, dataServidor;
+    if (sessionData) {
+      // CASO A: Volvemos de editRaw. Cargamos del búfer y NO comprobamos cabecera.
+      template = await apiGetJson('templateParm.json').catch(() => ({}));
+      dataServidor = JSON.parse(sessionData);
+      hasChanges = urlParams.get('hasChanges') === 'true'; // Se hereda con total fidelidad
+    } else {
+      // CASO B: Entrada directa (Carga inicial de un fichero desde el servidor) comprobamos cabecera.
+      [template, dataServidor] = await Promise.all([
+        apiGetJson('templateParm.json').catch(() => ({})),
+        apiGetJson(fileName).catch(() => ({}))
+      ]);
+      hasChanges = false;
+      if (fileName !== 'templateParm.json') { // EXCEPCIÓN PARA NUEVO ARCHIVO (New): Si estamos abriendo la plantilla, no validamos cabecera
+        if (dataServidor.fileType !== CLIENT_FILE_TYPE || parseInt(dataServidor.version) !== CLIENT_VERSION || dataServidor.SCDtype !== CLIENT_SCD_TYPE) {
+          alert("ERROR CRÍTICO: Cabecera incompatible o ausente.");
+          return window.location.href = 'parmfile.htm';
+        }    
+      }
+    }
+    rawTemplate = template;
+    originalJsonData = mergeWithTemplate(dataServidor, template);
+    await loadTables(originalJsonData, rawTemplate);
+    document.body.addEventListener("input", (e) => {
+      if (e.target.tagName === "INPUT") {
+        hasChanges = true;
+        if (e.target.dataset.field === "idx") validateIdx(e.target);
+        if (e.target.dataset.field === "zonas") validateZonas(e.target);
+      }
+    });
+  } catch (e) { alert("Error: " + e.message); }
+  window.onbeforeunload = () => hasChanges ? "¿Perder cambios?" : null;
 });
 
 function validateIdx(el) {
@@ -132,15 +132,15 @@ function mergeWithTemplate(data, template) {
 }
 
 const loadArrayTable = (list, id) => {
-    const isZ = id.includes("botones");
-    document.getElementById(id).innerHTML = list.map(item => `
-        <tr>
-            <td><span class="${isZ ? 'orla-v' : 'orla-a'}">${isZ ? item.zona : item.grupo}</span></td>
-            ${isZ ? `<td class="${!item.idx ? 'highlight-zero' : ''}"><input type="text" inputmode="numeric" value="${item.idx || 0}" data-field="idx"></td>
-                     <td><input type="text" value="${item.nombre || ''}" maxlength="9" data-field="nombre"></td>` 
-                 : `<td><input type="text" value="${item.desc || ''}" maxlength="9" data-field="desc"></td>
-                    <td><input type="text" value="${Array.isArray(item.zonas) ? item.zonas.join(",") : ''}" data-field="zonas" maxlength="17"></td>`}
-        </tr>`).join('');
+  const isZ = id.includes("botones");
+  document.getElementById(id).innerHTML = list.map(item => `
+    <tr>
+      <td><span class="${isZ ? 'orla-v' : 'orla-a'}">${isZ ? item.zona : item.grupo}</span></td>
+      ${isZ ? `<td class="${!item.idx ? 'highlight-zero' : ''}"><input type="text" inputmode="numeric" value="${item.idx || 0}" data-field="idx"></td>
+               <td><input type="text" value="${item.nombre || ''}" maxlength="9" data-field="nombre"></td>` 
+            : `<td><input type="text" value="${item.desc || ''}" maxlength="9" data-field="desc"></td>
+               <td><input type="text" value="${Array.isArray(item.zonas) ? item.zonas.join(",") : ''}" data-field="zonas" maxlength="17"></td>`}
+    </tr>`).join('');
 };
 
 async function loadTables(d, tmp) {
@@ -151,57 +151,62 @@ async function loadTables(d, tmp) {
 }
 
 function collectChanges() {
-    const ordenado = { fileType: CLIENT_FILE_TYPE, version: CLIENT_VERSION, SCDtype: CLIENT_SCD_TYPE, ...JSON.parse(JSON.stringify(originalJsonData)) };
-    // Mapeo de arrays complejos (botones y grupos)
-    [["botones", "idx", "nombre"], ["grupos", "desc", "zonas"]].forEach(([key, f1, f2]) => {
-        document.querySelectorAll(`#${key}TableBody tr`).forEach((tr, i) => {
-            const ins = tr.querySelectorAll("input");
-            if (ins.length >= 2) {
-                ordenado[key][i][f1] = f1 === "idx" ? (parseInt(ins[0].value) || 0) : ins[0].value;
-                ordenado[key][i][f2] = f2 === "zonas" ? ins[1].value.split(",").map(Number).filter(n => n > 0) : ins[1].value;
-            }
-        });
+  const ordenado = { fileType: CLIENT_FILE_TYPE, version: CLIENT_VERSION, SCDtype: CLIENT_SCD_TYPE, ...JSON.parse(JSON.stringify(originalJsonData)) };
+  // Mapeo de arrays complejos (botones y grupos)
+  [["botones", "idx", "nombre"], ["grupos", "desc", "zonas"]].forEach(([key, f1, f2]) => {
+    document.querySelectorAll(`#${key}TableBody tr`).forEach((tr, i) => {
+      const ins = tr.querySelectorAll("input");
+      if (ins.length >= 2) {
+        ordenado[key][i][f1] = f1 === "idx" ? (parseInt(ins[0].value) || 0) : ins[0].value;
+        ordenado[key][i][f2] = f2 === "zonas" ? ins[1].value.split(",").map(Number).filter(n => n > 0) : ins[1].value;
+      }
     });
-    ["domoticz", "time"].forEach(key => {
-        ordenado[key] = ordenado[key] || {};
-        document.querySelectorAll(`#${key}TableBody tr`).forEach(tr => {
-            const input = tr.querySelector("input");
-            if (input) {
-                const f = input.dataset.field;
-                ordenado[key][f] = input.value.trim() !== "" ? input.value.trim() : (rawTemplate[key]?.[f] || "");
-            }
-        });
+  });
+  ["domoticz", "time"].forEach(key => {
+    ordenado[key] = ordenado[key] || {};
+    document.querySelectorAll(`#${key}TableBody tr`).forEach(tr => {
+      const input = tr.querySelector("input");
+      if (input) {
+        const f = input.dataset.field;
+        ordenado[key][f] = input.value.trim() !== "" ? input.value.trim() : (rawTemplate[key]?.[f] || "");
+      }
     });
+  });
     return ordenado;
 }
 
+// Función auxiliar reutilizable para obtener los cambios reales netos
+function checkRealChanges(finalData) {
+    const controlData = { fileType: CLIENT_FILE_TYPE, version: CLIENT_VERSION, SCDtype: CLIENT_SCD_TYPE, ...originalJsonData };
+    return JSON.stringify(finalData) !== JSON.stringify(controlData);
+}
+
 async function saveChanges() {
-    for (let input of document.querySelectorAll("input")) {
-        if (!input.checkValidity()) return input.reportValidity();
+  for (let input of document.querySelectorAll("input")) {
+    if (!input.checkValidity()) return input.reportValidity();
+  }
+  try { 
+    const finalData = collectChanges();
+    if (!checkRealChanges(finalData)) {
+      alert("Sin cambios que guardar.");
+      return clearSessionAndLeave();
     }
-    try { 
-        const finalData = collectChanges();
-        const huboCambiosReales = JSON.stringify(finalData) !== JSON.stringify({
-            fileType: CLIENT_FILE_TYPE, version: CLIENT_VERSION, SCDtype: CLIENT_SCD_TYPE, ...originalJsonData
-        });
-        hasChanges = false; // Evita el salto del onbeforeunload si no hay cambios reales
-        await apiSaveConfig(finalData, huboCambiosReales); 
-    } catch (e) {}
+    await apiSaveConfig(finalData); 
+  } catch (e) {}
 }
 
 function processCancel() {
-    if (hasChanges && !confirm("¿Perder cambios?")) return;
-    hasChanges = false;
-    sessionStorage.removeItem('tempRawData');
-    window.location.href = 'parmfile.htm';
+    if (checkRealChanges(collectChanges()) && !confirm("¿Descartar modificaciones y volver?")) return;
+    clearSessionAndLeave();
 }
 
 function editRaw() {
     const cleanData = collectChanges();
     delete cleanData.fileType; delete cleanData.version; delete cleanData.SCDtype;
     sessionStorage.setItem('tempRawData', JSON.stringify(cleanData));
-    hasChanges = false; 
-    window.location.href = `parmfile_editRaw.htm?file=${fileName}&source=tempRawData`;
+    const cambiosReales = checkRealChanges(collectChanges());
+    hasChanges = false; // Desarmamos temporalmente para evitar el alert nativo del navegador
+    window.location.href = `parmfile_editRaw.htm?file=${fileName}&hadChanges=${cambiosReales}`;
 }
 </script>
 </body>

@@ -129,35 +129,36 @@ function downloadFile(f) {
 }
 
 function viewLogFile(f) {
-    const p = `${f.startsWith('/')?'':'/'}${f}?v=${Date.now()}`;
-    fetch(p).then(r => { if (!r.ok) throw 0; return r.text(); }).then(t => {
-        const rows = t.split('\n').map(line => {
-            if (!line.trim()) return '';
-            let c = '';
-            if (line.toUpperCase().includes('CCR STARTED')) c = 'background:#dcfce7;color:#166534;font-weight:bold';
-            else if (line.includes('[ERROR]')) c = 'background:#fee2e2;color:#991b1b;font-weight:bold';
-            else if (line.includes('[WARN]')) c = 'background:#ffedd5;color:#9a3412';
-            return `<tr${c?` style="${c}"`:''}><td>${line.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</td></tr>`;
-        }).join('');
-        const h = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>${f}</title>
-        <style>body{font:14px/1.4 monospace;padding:8px;margin:0}
-        table{width:100%;max-width:1200px;margin:0 auto;border-collapse:collapse}
-        td{padding:4px 8px;border-bottom:1px solid #eee;overflow-wrap:break-word}</style>
-        </head><body><table>${rows}</table></body></html>`;
-        window.open(URL.createObjectURL(new Blob([h], {type:'text/html;charset=utf-8'})), '_blank');
-    }).catch(() => window.open(p, '_blank'));
+  const p = `${f.startsWith('/')?'':'/'}${f}?v=${Date.now()}`;
+  fetch(p).then(r => { if (!r.ok) throw 0; return r.text(); }).then(t => {
+    const rows = t.split('\n').map(line => {
+      if (!line.trim()) return '';
+      let c = '';
+      if (line.toUpperCase().includes('CCR STARTED')) c = 'background:#dcfce7;color:#166534;font-weight:bold';
+      else if (line.includes('[ERROR]')) c = 'background:#fee2e2;color:#991b1b;font-weight:bold';
+      else if (line.includes('[WARN]')) c = 'background:#ffedd5;color:#9a3412';
+      return `<tr${c?` style="${c}"`:''}><td>${line.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</td></tr>`;
+    }).join('');
+    const h = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>${f}</title>
+    <style>body{font:14px/1.4 monospace;padding:8px;margin:0}
+    table{width:100%;max-width:1200px;margin:0 auto;border-collapse:collapse}
+    td{padding:4px 8px;border-bottom:1px solid #eee;overflow-wrap:break-word}</style>
+    </head><body><table>${rows}</table></body></html>`;
+    window.open(URL.createObjectURL(new Blob([h], {type:'text/html;charset=utf-8'})), '_blank');
+  }).catch(() => window.open(p, '_blank'));
 }
 
 async function handleFileAction(action, f) {
-    try {
-        const r = await fetch('/' + action, { method: 'COPY' });
-        if (!r.ok) throw new Error(await r.text());
-        if (action === "RESTORE") {
-            await fetch('/api/setrestart');
-            dispositivoRestart(true, "¡Restauración completada! ¿Desea reiniciar el sistema ahora?");
-        } else alert(`${action} OK!`); 
-        location.reload();
-    } catch (e) { alert(`Error: ${e.message}`); }
+  try {
+    const r = await fetch('/' + action, { method: 'COPY' });
+    if (!r.ok) throw new Error(await r.text());
+    if (action === "RESTORE") {
+      await fetch('/api/setrestart');
+      if (dispositivoRestart(true, "¡Restauración completada! ¿Desea reiniciar el sistema ahora?") === "cancelado") {
+          location.reload();
+      }
+    } else { alert(`${action} OK!`); location.reload(); }
+  } catch (e) { alert(`Error: ${e.message}`); }
 }
 
 function handleFileDelete(f) {
@@ -185,28 +186,24 @@ const validFileType = (file, extArray) => file?.name ? extArray.some(ext => file
 /**
  * Validación de sintaxis y estructura del JSON.
  * @param {string} str - El contenido JSON en formato texto.
+ * @returns {Object} El objeto JSON ya analizado (parsed).
  */
-function validarJsonCompleto(str) {
+function validarJsonParametros(str) {
     const data = JSON.parse(str);
     if (!data.botones || !Array.isArray(data.botones)) throw new Error("Falta clave 'botones'.");
     if (!data.botones.some(item => item && 'zona' in item)) throw new Error("Debe haber al menos una 'zona' en botones.");
-    return data; // Devuelve el objeto validado
+    return data;
 }
 
-async function apiSaveConfig(data, askRestart = false) {
+async function apiSaveConfig(data) {
     try {
         const response = await fetch('/api/save_config', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: typeof data === 'string' ? data : JSON.stringify(data, null, 2)
         });
         if (!response.ok) throw new Error(await response.text() || `Error: ${response.status}`);
         sessionStorage.removeItem('tempRawData'); hasChanges = false;
-        if (askRestart) {
-            const resultado = dispositivoRestart();
-            if (resultado === "cancelado") window.location.href = 'parmfile.htm'; 
-            return;
-        }
-        alert("Archivo guardado correctamente.");
-        window.location.href = 'parmfile.htm';
+        const resultado = dispositivoRestart(true, "¡Guardado! ¿Reiniciar sistema ahora?");
+        if (resultado === "cancelado") window.location.href = 'parmfile.htm'; 
     } catch (error) { alert(error.message); throw error; }
 }
 
@@ -232,5 +229,11 @@ function dispositivoRestart(activarFlagAlCancelar = true, preguntar = "¿Desea r
     window.location.href = '/api/restart';
     return "reiniciando";
 }
+
+  function clearSessionAndLeave() {
+    hasChanges = false;
+    sessionStorage.removeItem('tempRawData');
+    window.location.href = 'parmfile.htm';
+  }
 
 const MSG_ERR_CONFIG = "Faltan parámetros de configuración para esta página.";

@@ -101,12 +101,10 @@ function handleFile(type, skipReset = false) {
     const c = getComp(type), file = c.input.files[0];
     if (!skipReset) {
         const other = getComp(type === 'firmware' ? 'filesystem' : 'firmware');
-        // Reset nativo del formulario contrario y limpieza visual
         other.form.reset();
         if (other.wrap) other.wrap.style.display = 'none';
         UI.updateStatus(other.msg, 'No seleccionado');
         other.btn.disabled = true;
-        // Limpiar progreso de la sección actual
         if (c.wrap) { c.wrap.style.display = 'none'; c.status.textContent = ''; }
     }
     if (!file) { UI.updateStatus(c.msg, 'No seleccionado'); c.btn.disabled = true; return; }
@@ -139,7 +137,7 @@ function processUpload(type) {
             const ok = xhr.status >= 200 && xhr.status < 300;
             c.status.style.color = ok ? 'green' : 'crimson';
             c.status.textContent = xhr.responseText || (ok ? 'Éxito' : 'Error: ' + xhr.status);
-            if (!ok) UI.lockUI(false); //desbloqueamos para reintentar
+            if (!ok) UI.lockUI(false);
         }
     };
     xhr.onerror = () => {
@@ -159,11 +157,12 @@ function processUpload(type) {
         document.getElementById('fwVersion').textContent = cfg.version || "---";
     } catch (e) { console.error("Config error"); }
     UI.setupInputs(OTA_CONFIG); 
-    document.getElementById('firmware').onchange = () => handleFile('firmware');
-    document.getElementById('filesystem').onchange = () => handleFile('filesystem');
-    document.getElementById('btnFirmware').onclick = () => processUpload('firmware');
-    document.getElementById('btnFS').onclick = () => processUpload('filesystem');
-    ['firmware','filesystem'].forEach(t => handleFile(t, true));
+    ['firmware', 'filesystem'].forEach(t => {
+        const c = getComp(t);
+        c.input.onchange = () => handleFile(t);
+        c.btn.onclick = () => processUpload(t);
+        handleFile(t, true);
+    });
 })();
 </script>
 </body>
