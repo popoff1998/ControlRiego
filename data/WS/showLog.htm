@@ -32,7 +32,7 @@
     </div>
     <table class="files-table" id="tablaLog">
       <thead><tr><th>Fecha</th><th>Estado</th><th>Usuario</th></tr></thead>
-      <tbody><!-- Rows will be dynamically added here --></tbody>
+      <tbody id="tablaLogBody">
     </table>
   </div>
 <script src="funciones.js"></script>
@@ -46,41 +46,43 @@ const idx = getParam('idx');
 const nombreZona = getParam('name') || 'N/A';
 const numZona = getParam('zona') || 'N/A';
 document.getElementById('titulo').textContent = nombreZona.toUpperCase() + `  (${numZona})`;
-
 window.addEventListener("load", async () => {
-  const tbody = document.querySelector('#tablaLog tbody');
+  const tbodyId = "tablaLogBody";
+  renderTableMessage(tbodyId, "⏳ Cargando registros desde Domoticz...", 3);
   try {
-      // 1. Obtener configuración global (para IP, Puerto y días)
-      const config = await getServerConfig();
-      document.getElementById('infoDias').textContent = `(*últimos ${config.logDays || 15} días)`;
-      if (!config.domoticzIP || !config.domoticzPort || !idx) {
-          tbody.innerHTML = '<tr><td colspan="3">Faltan parámetros de configuración</td></tr>';
-          return;
-      }
-      // 2. Ataque directo desde el navegador a la API de Domoticz para ese dispositivo específico
-      const url = `http://${config.domoticzIP}:${config.domoticzPort}/json.htm?type=command&param=getlightlog&idx=${idx}`;
-      const data = await apiGetJson(url);
-      if (!data.result || !Array.isArray(data.result)) {
-          tbody.innerHTML = '<tr><td colspan="3">No hay datos de log para este dispositivo</td></tr>';
-          return;
-      }
-      tbody.innerHTML = "";
-      data.result.forEach(entry => {
-          const tr = document.createElement('tr');
-          const colorTiempo = entry.Status === "On" ? "#1b5e20" : "#b71c1c";
-          const estadoClass = entry.Status === "On" ? "status-on" : "status-off";
-          tr.innerHTML = `
-              <td data-label="Fecha" style="color:${colorTiempo}; font-weight:500;">${entry.Date || "-"}</td>
-              <td data-label="Estado" class="${estadoClass}">${entry.Status || "-"}</td>
-              <td data-label="Usuario" class="force-wrap">${entry.User || "-"}</td>
-          `;
-          tbody.appendChild(tr);
-      });
+    // 1. Obtener configuración global (para IP, Puerto y días)
+    const config = await getServerConfig();
+    document.getElementById('infoDias').textContent = `(*últimos ${config.logDays || 15} días)`;
+    if (!config.domoticzIP || !config.domoticzPort || !idx) {
+        renderTableMessage(tbodyId, "Faltan parámetros de configuración", 3);
+        return;
+    }
+    // 2. Peticion directa desde el navegador a la API de Domoticz para ese dispositivo específico
+    const url = `http://${config.domoticzIP}:${config.domoticzPort}/json.htm?type=command&param=getlightlog&idx=${idx}`;
+    const data = await apiGetJson(url);
+    if (!data.result || !Array.isArray(data.result)) {
+        renderTableMessage(tbodyId, "No hay datos de log para este dispositivo", 3);
+        return;
+    }
+    const tbody = document.getElementById(tbodyId);
+    tbody.innerHTML = "";
+    data.result.forEach(entry => {
+      const tr = document.createElement('tr');
+      const colorTiempo = entry.Status === "On" ? "#1b5e20" : "#b71c1c";
+      const estadoClass = entry.Status === "On" ? "status-on" : "status-off";
+      tr.innerHTML = `
+        <td data-label="Fecha" style="color:${colorTiempo}; font-weight:500;">${entry.Date || "-"}</td>
+        <td data-label="Estado" class="${estadoClass}">${entry.Status || "-"}</td>
+        <td data-label="Usuario" class="force-wrap">${entry.User || "-"}</td>
+      `;
+      tbody.appendChild(tr);
+     });
   } catch (error) {
       console.error("Error al cargar el log desde Domoticz:", error);
-      tbody.innerHTML = '<tr><td colspan="3">No se pudo conectar con Domoticz.</td></tr>';
+      renderTableMessage(tbodyId, "No se pudo conectar con Domoticz.", 3);
   }
 });
+
 </script>
 </body>
 </html>

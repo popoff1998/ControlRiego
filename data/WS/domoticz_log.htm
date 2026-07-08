@@ -27,16 +27,21 @@
 <script src="funciones.js"></script>
 <script>
 window.addEventListener("load", async () => {
+  const tbodyId = "domoticzLogTableBody";
+  
+  // 1. Feedback inmediato al usuario
+  renderTableMessage(tbodyId, "⏳ Cargando registros desde Domoticz...", 1);
+
   try {
       const config = await getServerConfig();
       if (!config.domoticzIP || !config.domoticzPort) {
-          renderTableMessage("domoticzLogTableBody", "Falta IP/Puerto de Domoticz en configuración", 1);
+          renderTableMessage(tbodyId, "Falta IP/Puerto de Domoticz en configuración", 1);
           return;
       }
 
       const baseUri = `http://${config.domoticzIP}:${config.domoticzPort}/json.htm?type=command&param=getlog&lastlogtime=0`;
 
-      // Lanzamos ambas peticiones en paralelo para ahorrar tiempo de red
+      // Lanzamos ambas peticiones en paralelo
       const [resStatus, resError] = await Promise.all([
           fetch(`${baseUri}&loglevel=2`).then(r => r.json()),
           fetch(`${baseUri}&loglevel=4`).then(r => r.json())
@@ -50,14 +55,14 @@ window.addEventListener("load", async () => {
       const mixedLogs = [...statusLogs, ...errorLogs];
 
       if (!mixedLogs.length) {
-          renderTableMessage("domoticzLogTableBody", "-- No hay registros en Domoticz --", 1);
+          renderTableMessage(tbodyId, "-- No hay registros en Domoticz --", 1);
           return;
       }
 
-      // Ordenamos cronológicamente de forma ascendente aprovechando el formato "YYYY-MM-DD HH:mm:ss"
+      // Ordenamos cronológicamente de forma ascendente
       mixedLogs.sort((a, b) => a.message.localeCompare(b.message));
 
-      const tbody = document.getElementById("domoticzLogTableBody");
+      const tbody = document.getElementById(tbodyId);
       tbody.innerHTML = "";
       
       mixedLogs.forEach(log => {
@@ -70,7 +75,7 @@ window.addEventListener("load", async () => {
       });
   } catch (error) {
       console.error("Error:", error);
-      renderTableMessage("domoticzLogTableBody", "No se pudo conectar con Domoticz.", 1);
+      renderTableMessage(tbodyId, "No se pudo conectar con Domoticz.", 1);
   }
 });
 </script>

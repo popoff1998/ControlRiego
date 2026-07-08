@@ -66,8 +66,8 @@ window.addEventListener("load", async () => {
     
     let riegosRes, gruposRes;
     [riegosRes, gruposRes, params] = await Promise.all([
-      fetchTableData(config.lastRiegos, 'tablaRiegos', 5, '-- Sin datos --'),
-      fetchTableData(config.lastGrupos, 'tablaGrupos', 4, '-- Sin datos --'),
+      fetchTableData(config.lastRiegos, 'tablaRiegos', 5),
+      fetchTableData(config.lastGrupos, 'tablaGrupos', 4),
       apiGetJson(config.parmFile).catch(() => ({}))
     ]);
 

@@ -29,7 +29,7 @@ function renderTableMessage(tableId, message, colspan) {
     if (body) body.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;">${message}</td></tr>`;
 }
 
-async function fetchTableData(apiUrl, tableId, colspan = 2, errorMsg = "Error cargando datos", emptyMsg = "-- Sin datos --") {
+async function fetchTableData(apiUrl, tableId, colspan = 2, emptyMsg = "-- Sin datos --", errorMsg = "Error cargando datos") {
     try {
         const data = await apiGetJson(apiUrl);
         if (!data || (Array.isArray(data) && data.length === 0) || (!Array.isArray(data) && Object.keys(data).length === 0)) {

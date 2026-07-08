@@ -49,7 +49,7 @@ let currentFiles = [], serverConfig = null, ordenAscendente = true, ultimaPropie
 window.addEventListener("load", async () => {
     const dir = new URLSearchParams(window.location.search).get("dir") || "/";
     document.getElementById("currentDir").textContent = dir;
-    currentFiles = await fetchTableData(`/api/list?dir=${encodeURIComponent(dir)}`, "filesTableBody", 4, "Error cargando archivos", "-- No files --");
+    currentFiles = await fetchTableData(`/api/list?dir=${encodeURIComponent(dir)}`, "filesTableBody", 4, "-- No files --");
     if (currentFiles) { populateTable(currentFiles, "filesTableBody"); }
     serverConfig = await getServerConfig(true);
     UI_actualizarEspacioLibre(serverConfig, 'freeSp');

@@ -66,8 +66,8 @@ window.addEventListener("load", async () => {
     MAX_PARMFILE = config.maxFileSize || MAX_PARMFILE;
     // 2. Cargar listas de archivos en las tablas
     const [parmData, backupData] = await Promise.all([
-        fetchTableData('/api/list?file=' + encodeURIComponent(currentParmFile), "parmTableBody", 4, "Error", "-- No existe fichero --"),
-        fetchTableData('/api/list?file=' + encodeURIComponent(currentBackupFile), "backupTableBody", 4, "Error", "-- No existe fichero --")
+        fetchTableData('/api/list?file=' + encodeURIComponent(currentParmFile), "parmTableBody", 4, "-- No existe fichero --"),
+        fetchTableData('/api/list?file=' + encodeURIComponent(currentBackupFile), "backupTableBody", 4, "-- No existe fichero --")
     ]);
     if (parmData) populateTable(parmData, "parmTableBody");
     if (backupData) populateTable(backupData, "backupTableBody");    

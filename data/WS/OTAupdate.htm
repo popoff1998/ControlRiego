@@ -83,6 +83,7 @@ const getComp = (t) => {
 const UI = {
     updateStatus: (el, txt, type = 'default') => { el.textContent = txt; el.setAttribute('data-status', type); },
     lockUI: (lock) => {
+        document.body.style.cursor = lock ? 'wait' : 'default';
         document.querySelectorAll('form label').forEach(l => l.className = lock ? 'disabled-label' : '');
         if (!lock) { ['firmware', 'filesystem'].forEach(t => handleFile(t, true)); } 
         else { document.querySelectorAll('.btn').forEach(b => b.disabled = true); }

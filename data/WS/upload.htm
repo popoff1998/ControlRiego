@@ -73,20 +73,23 @@ async function up(f){
   if (totalSize > maxTotalSize) {
     alert(`Excede límite. Total: ${returnFileSize(totalSize)} Máx: ${returnFileSize(maxTotalSize)}`);
     return;}
-  let p = s.value.replace(/^\/+|\/+$/g,''), err = false;
+  let p = s.value.replace(/^\/+|\/+$/g,'');
   z.style.pointerEvents = "none";
   btnFolder.disabled = true;
-  for (let index = 0; index < f.length; index++) {
-    let x = f[index];
-    z.innerHTML = `<p>Subiendo ${index + 1}/${f.length}<br><small style="font-size:11px;color:#666">${x.name}</small></p>`;
-    let d = new FormData();
-    d.append('file', x, '/' + (p ? p + '/' : '') + x.name);
-    try {
-        let r = await fetch('/', {method: 'POST', body: d});
-        if (!r.ok) { alert(`Error en ${x.name}: ${await r.text()}`); err = true; break; }
-    } catch (e) { alert(`Error de red en ${x.name}`); err = true; break; }
-  }
-  location.reload();
+  document.documentElement.classList.add("esperando");
+  setTimeout(async () => {
+    for (let index = 0; index < f.length; index++) {
+      let x = f[index];
+      z.innerHTML = `<p>Subiendo ${index + 1}/${f.length}<br><small style="font-size:11px;color:#666">${x.name}</small></p>`;
+      let d = new FormData();
+      d.append('file', x, '/' + (p ? p + '/' : '') + x.name);
+      try {
+          let r = await fetch('/', {method: 'POST', body: d});
+          if (!r.ok) { alert(`Error en ${x.name}: ${await r.text()}`); break; }
+      } catch (e) { alert(`Error de red en ${x.name}`); break; }
+    }
+    location.reload();
+  }, 0);
 }
 </script>
 </body>

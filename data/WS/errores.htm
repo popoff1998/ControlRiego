@@ -69,7 +69,7 @@
       const path = c.errorFile, idx = path.lastIndexOf('/');
       const dir = path.substring(0, idx) || "/";
       const file = path.substring(idx + 1).split('.').slice(0, -1).join('.') || path.substring(idx + 1);
-      const data = await fetchTableData(`/api/list?dir=${encodeURIComponent(dir)}&file=${encodeURIComponent(file)}`, "logsTableBody", 4, "Error cargando logs", "-- No existen archivos de log --");
+      const data = await fetchTableData(`/api/list?dir=${encodeURIComponent(dir)}&file=${encodeURIComponent(file)}`, "logsTableBody", 4, "-- No existen archivos de log --");
       if (data) populateTable(data, "logsTableBody");
     } catch (e) { if(e.message) alert(e.message); }
   });
