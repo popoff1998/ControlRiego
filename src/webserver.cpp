@@ -624,7 +624,7 @@ class FileServerHandler : public RequestHandler {
           if (lastSlash > 0) {
             String dirPath = fName.substring(0, lastSlash);
             if (!LittleFS.exists(dirPath)) {
-              LOG_DEBUG("Creating upload directory:", dirPath);
+              LOG_WARN("Creating upload directory:", dirPath);
               // LittleFS::mkdir puede devolver false si falla; no siempre necesario en algunas implementaciones
               LittleFS.mkdir(dirPath);
             }

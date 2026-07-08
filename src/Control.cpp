@@ -2323,7 +2323,7 @@ void initFS() {
     LOG_ATTACH_FS_AUTO(LittleFS, logErrorFile, FILE_APPEND); // open/close automatico, se añaden mensajes al final del fichero
     LOG_FILE_SET_LEVEL(DebugLogLevel::LVL_WARN); // hasta leer config para ajustar a LVL_ERROR si config.logWarnToFile es false
     gestionarTamanoLog(); // Borra/rota fichero de log de errores si su tamano es excesivo
-    if (dirCreated) logStatus("--- Directorio /datos creado ---");
+    if (dirCreated) logStatus("[WARN] --- Directorio /datos creado ---");
   #endif
 }
 

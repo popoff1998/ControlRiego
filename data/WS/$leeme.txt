@@ -1,8 +1,0 @@
-En este directorio /WS del webserver se encuentran los elementos de este (paginas, imagenes , css y js)
-En el directorio /datos los ficheros variables creados por la CCR de parametros y ultimos riegos.
-
-Dado el tamaño limitado reservado para el file system, se ha intentado reducir al máximo el tamaño real ocupado por cada fichero
-en multiplos de bloques de 4KB. Con un minimo de 4KB y evitando pasar si es posible al siguiente multiplo.
-Para ello se han limitado los comentarios, indentaciones, lineas en blanco, nombres de variables largos etc, sobre
-todo en aquellos ficheros cercanos a ese límite. Intentando no perder legibilidad y usando funciones compactas reusables y
-estilos css centralizados.
