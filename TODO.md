@@ -99,5 +99,6 @@
 - Webserver: tabla de ficheros ordenable por nombre, tamaño o fecha V3.3
 - Log del Domoticz consultable desde el webserver V3.3
 - Webserver: opcion de seleccionar una carpeta en el PC para subir todos sus ficheros V3.3
+- Riego diferido: se puede ajustar el comienzo del riego de una zona o grupo despues de un tiempo hh:mm V3.3
 
 

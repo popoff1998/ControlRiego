@@ -32,7 +32,8 @@
       void displayOFF(void);     // oculta texto del display
       void displayTemp(int);
       void displayTime(uint8_t minute, uint8_t second, uint8_t col=LCDBIGCOL, uint8_t line=LCDBIGROW);
-      void infoclear(const char *info, int line=1);
+      void displayTime(uint8_t hour, uint8_t minute, uint8_t second, uint8_t col, uint8_t line);
+      void infoclear(const char *info, int line = 1);
       void infoclear(const char *info, int dnum, sonido_bips btype, int bnum=0);
       void infoEstado(const char* estado, const char* zona, int bnum=0);
       void info(const char* info, int line);

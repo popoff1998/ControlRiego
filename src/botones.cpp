@@ -150,6 +150,12 @@ void parpadeoLedZonas(S_ledsParpadeo* datos)
     }
 }
 
+// Hace parpadear el led RGB con color blanco (R+G+B) segun su estado actual
+void parpadeoLedWhite()
+{
+  ledWhite(!sLEDB);
+}
+
 
 // Versión para parpadeo RAPIDO, NORMAL y LENTO de leds PWM (RGB) o de zonas
 void setParpadeo(Ticker &t, velocidad_parpadeo vel, void (*f)(int), int id) {
@@ -173,6 +179,13 @@ void setLed(Ticker &t, estado_led estado, int ledid) {
 void ledYellow(int estado)
 {
   if(estado == ON)  ledRGB(ON,ON,OFF);     //  LED AMARILLO
+  if(estado == OFF) ledRGB(OFF,OFF,OFF);  //  los apaga para parpadeo
+}
+
+//activa o desactiva el led RGB con color blanco (R+G+B=W)
+void ledWhite(int estado)
+{
+  if(estado == ON)  ledRGB(ON,ON,ON);     //  LED blanco
   if(estado == OFF) ledRGB(OFF,OFF,OFF);  //  los apaga para parpadeo
 }
 

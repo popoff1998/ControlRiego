@@ -28,6 +28,7 @@
     PAUSE         ,
     STOP          ,
     ERROR         ,
+    DIFERIDO      ,
     NUM_ESTADOS // numero de estados definidos en el enum
   };
   
@@ -42,8 +43,11 @@
   };
 
   enum estado_tipos {
-    LOCAL       = 1,
-    REMOTO      = 2,
+    LOCAL       = 1,  // estado consecuencia de evento local (CCR)
+    REMOTO      = 2,  // estado consecuencia de evento remoto (SCD)
+    SETDEFER    = 3,  // en proceso de definir tiempo de retardo para riego DIFERIDO
+    WAITING     = 4,  // esperando final de cuenta atras (DIFERIDO) o comienzo de riego (STANDBY)
+    IMMED       = 5,  // estado DIFERIDO: ultimos segundos de la cuenta atras
   };
 
   enum boton_flags {

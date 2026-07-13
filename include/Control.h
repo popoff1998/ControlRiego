@@ -75,12 +75,16 @@
     #define DEFAULTSECONDS      0     // * tiempo de riego por defecto (segundos)
     #define RECONNECTINTERVAL   2     // tiempo en minutos para intentar reconexion a la wifi
     #define LONGINTERVAL        15    // tiempo en minutos para verificaciones largo plazo 
+    #define COUNTDOWNBIP        30    // segundos restantes inicio diferido para avisar con bip de cuenta atras
+    #define COUNTDOWNSHOW       10    // minutos restantes inicio diferido para mostrar en pantalla cuenta atras
   #endif
   #ifdef DEVELOP
     #define DEFAULTMINUTES      0
     #define DEFAULTSECONDS      10
     #define RECONNECTINTERVAL   1      // tiempo en minutos para intentar reconexion a la wifi
-    #define LONGINTERVAL        2      // tiempo en minutos para verificaciones largo plazo 
+    #define LONGINTERVAL        2      // tiempo en minutos para verificaciones largo plazo
+    #define COUNTDOWNBIP        10     // segundos restantes inicio diferido para avisar con bip de cuenta atras
+    #define COUNTDOWNSHOW       1      // minutos restantes inicio diferido para mostrar en pantalla cuenta atras 
   #endif
   // Validación en tiempo de compilación: uno de los dos DEBE ser 0, pero no ambos a la vez
   static_assert((DEFAULTMINUTES == 0 && DEFAULTSECONDS > 0) || (DEFAULTMINUTES > 0 && DEFAULTSECONDS == 0),
@@ -92,6 +96,7 @@
   #define BLINKDISPLAY        3       // numero de parpadeos de la pantalla
   #define BLINKMILLIS         500     // mseg entre parpadeo de la pantalla
   #define DFLT_MSGDISPLAYMS   1000    // * mseg se mantienen mensajes informativos
+  #define MAXHOURS            12      // maximo de horas ajustables en el temporizador (para tiempo de retardo)
   #define MAXMINUTES          59      // corte automatico de seguridad a los 60 min. en los arduinos
   #define MINSECONDS          5       // minimo de segundos ajustables en el temporizador
   #define HOLDTIME            3000    // mseg que hay que mantener PAUSE pulsado para ciertas acciones
@@ -340,13 +345,12 @@
       uint8_t cantidad;
   };
 
-  // variables contador de tiempo
+  // variables ajuste de tiempo
   struct S_tm {
-    uint8_t minutes = 0;
-    uint8_t seconds = 0;
-    int  value = 0;
-  } ;
-
+    uint8_t major = 0; // Representará Minutos (en riego) o Horas (en retardo)
+    uint8_t minor = 0; // Representará Segundos (en riego) o Minutos (en retardo)
+    int value = 0;     // Solo usada cuando no configuramos tiempo (rangos, idxs...)
+  };
 
   //estructura para salvar un grupo
   struct Grupo_parm {
@@ -492,8 +496,10 @@
     
     S_MULTI multi;     //estructura con variables del grupo de multirriego activo
     S_BOTON  *boton;   // apuntador al boton en curso en la matriz Boton[]
+    S_BOTON  *botonDefer;   // apuntador al boton que se ha diferido su comienzo (zona o grupo) en la matriz Boton[]
     S_Estado Estado;   // estructura con el estado actual de la maquina de estados
     S_tm tm;           // variables contador de tiempo
+    S_tm tm_saved;     // variables contador de tiempo salvado
     DisplayLCD lcd(LCD2004_address, 20, 4);  // 20 caracteres x 4 lineas
     Config_parm config; //estructura parametros configurables y runtime
     Sonidos sonido;     // clase para gestionar sonidos con buzzer
@@ -505,6 +511,7 @@
     Ticker tic_CountDownTimer;       //para llamar a la funcion de cuenta atras del temporizador
     Ticker tic_LedRecon;     //para parpadeo led LEDB con LEDR activo (morado)
     Ticker tic_LedError;     //para parpadeo led ERROR (LEDR)
+    Ticker tic_LedWhite;     //para parpadeo led status blanco (R+G+B)
     Ticker tic_LedZona;      //para parpadeo led zona de riego
     Ticker tic_LedZonas24h;  //para parpadeo led zonas regadas ultimas 24h
     Ticker tic_verificaciones;       //para verificaciones periodicas
@@ -556,13 +563,15 @@
     extern bool encoderSW;
     extern bool timeOK;
     extern char buff[];
-  #endif
-
-
-/* --------------------------------------------------------------------------------------
- *                     Declaracion de Funciones (prototipos)
- * -------------------------------------------------------------------------------------- */
-
+    #endif
+    
+    
+    /* --------------------------------------------------------------------------------------
+    *                     Declaracion de Funciones (prototipos)
+    * -------------------------------------------------------------------------------------- */
+   
+bool ajustaDuplaTiempo(int encvalue, uint8_t maxMayor, uint8_t minMenor);
+bool ajustaTiempoProgresivo(int encvalue, uint8_t maxHours);
 void apagaLeds(void);
 void blinkDisplay(void);
 void check(void);
@@ -618,6 +627,7 @@ void handlePauseInPause();
 void handlePauseInRegando();
 void handlePauseInStandby();
 void handlePauseInStop();
+void handleStopInDiferido();
 void handleStopInError();
 void handleStopInRegandoPauseTerm();
 void handleStopInStandby();
@@ -640,6 +650,7 @@ void ledPWM(uint8_t, int);
 void ledRGB(int,int,int);
 bool estadoLedId(int);
 void ledYellow(int);
+void ledWhite(int estado);
 void leerEncoderSW();
 void leeSerial(void);
 void listDir(fs::FS &fs, const char * dirname, uint8_t levels, uint8_t depth = 0);
@@ -654,6 +665,7 @@ void pararLedsWifiAP();
 void parpadeoLedPWM(int id);
 void parpadeoLedZona(int);
 void parpadeoLedZonas(S_ledsParpadeo*);
+void parpadeoLedWhite(void);
 S_BOTON *parseInputs(bool);
 bool parseSCDuri(const String &uri);
 void printCharArray(char*, size_t);
@@ -667,10 +679,12 @@ void procesaBotonMultirriego(void);
 void procesaBotonPause(void);
 void procesaBotonStop(void);
 void procesaBotonZona(void);
+void procesaCuentaAtras();
 bool procesaDynamic(int znumber);
-void procesaEncoderTime(void);
 void procesaEncoderConfig(void);
+void procesaEncoderTime(void);
 void procesaEstadoConfigurando(void);
+void procesaEstadoDiferido();
 void procesaEstadoError(void);
 void procesaEstadoPause(void);
 void procesaEstadoRegando(void);
@@ -684,7 +698,7 @@ bool queryStatus(uint8_t, const char *);
 float readTemp();
 String readSCDLogFile(int zona);
 void refreshLogFile();
-void refreshTime(void);
+void refreshTime(bool hour = false);
 String registrarArranqueSistema();
 void reposoOFF(void);
 void reposoON(void);
@@ -702,6 +716,7 @@ void scWifiLevel();
 bool serialDetect(void);
 void setClock(void);
 void setConnected(bool);
+void setDiferido();
 void setEncoderMenu(int menuitems, int currentitem = 0);
 void setEncoderRange(int , int , int , int);
 void setEncoderTime(void);
@@ -729,6 +744,7 @@ void showWifiLevel(int wifilevel);
 void simulaPauseIfEncoderSW(bool initialize = false);
 void startConfigPortal();
 bool startMultirriego();
+void startRiegoDiferido(const char* desc);
 void startZoneWatering();
 void StaticTimeUpdate(bool);
 void statusError(error_tipos, bool recoverable=false, velocidad_parpadeo zonablink = NULO, velocidad_parpadeo errorblink = NULO);
@@ -740,7 +756,6 @@ bool testButton(uint16_t, bool);
 time_t tLoc(void);
 void timeByFactor(int,uint8_t *,uint8_t *);
 void timerTick(void);
-void  tmvalue(void);
 void ultimosRiegos(int);
 void updateZoneDescription(int i);
 bool validaBoton();

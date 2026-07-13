@@ -127,7 +127,6 @@ void DisplayLCD::setBacklight(bool value)				// alias for backlight() and noback
 void DisplayLCD::blinkLCD(int veces) //parpadea contenido actual de la pantalla n veces
 {
   if(veces) {                       
-    // parpadea pantalla n veces
       LOG_TRACE("[LCD]blink LCD  x",veces);
       for (int i=0; i<veces; i++) {
         displayOFF();
@@ -233,6 +232,15 @@ void DisplayLCD::displayTime(uint8_t minute, uint8_t second, uint8_t col, uint8_
   printTwoNumber(minute, col, line);
   printColons(col+6, line);
   printTwoNumber(second, col+7, line);
+}
+
+void DisplayLCD::displayTime(uint8_t hour, uint8_t minute, uint8_t second, uint8_t col, uint8_t line) 
+{
+  printTwoNumber(hour, col, line);
+  printColons(col+6, line);
+  printTwoNumber(minute, col+7, line);
+  printColons(col+13, line);
+  printTwoNumber(second, col+14, line);
 }
 
 // Funciones auxiliares:

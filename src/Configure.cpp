@@ -67,8 +67,8 @@ void Configure::Time_process_start()
 {
       this->reset();
       _configuringTime = true;
-      tm.minutes = config.minutes;
-      tm.seconds = config.seconds;
+      tm.major = config.minutes;
+      tm.minor = config.seconds;
       setEncoderTime();
 
       lcd.setCursorBlink(_data_pos[_currentItem],1);
@@ -78,8 +78,8 @@ void Configure::Time_process_start()
 //  actualizamos en menu tiempo por defecto modificado
 void Configure::Time_process_update()
 {
-      LOG_TRACE("DEFAULT TIME, minutes:",tm.minutes," secons:",tm.seconds);
-      sprintf(buff, "%02d:%02d",tm.minutes,tm.seconds); 
+      LOG_TRACE("DEFAULT TIME, minutes:",tm.major," secons:",tm.minor);
+      sprintf(buff, "%02d:%02d",tm.major,tm.minor); 
       lcd.print(buff);
       lcd.setCursorBlink(_data_pos[_currentItem],1);
 }
@@ -87,11 +87,11 @@ void Configure::Time_process_update()
 //  salvamos en config el nuevo tiempo por defecto
 void Configure::Time_process_end()
 {
-      config.minutes = tm.minutes;
-      config.seconds = tm.seconds;
+      config.minutes = tm.major;
+      config.seconds = tm.minor;
       saveConfigRequired = true;
 
-      LOG_INFO("Save DEFAULT TIME, minutes:",tm.minutes," secons:",tm.seconds);
+      LOG_INFO("Save DEFAULT TIME, minutes:",tm.major," secons:",tm.minor);
       lcd.setCursor(0,0);  // solo para anular visibilidad y parpadeo del cursor
       sonido.bipOK();
 

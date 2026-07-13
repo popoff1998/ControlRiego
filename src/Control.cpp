@@ -65,8 +65,8 @@ void setup()
   //Estado final en funcion de la conexion
   setupEstadoFinal();
   #ifdef DEVELOP
-    filesInfo();
-    printFile(logErrorFile);
+    // filesInfo();
+    // printFile(logErrorFile);
   #endif
   Estado.inSetup = false;
   PRINTLN("   *** Setup finalizado *** MS:", millis() , "\n\n");
@@ -150,6 +150,7 @@ void procesaEstados()
     case REGANDO:       procesaEstadoRegando(); break;
     case TERMINANDO:    procesaEstadoTerminando(); break;
     case STANDBY:       procesaEstadoStandby(); break;
+    case DIFERIDO:      procesaEstadoDiferido(); if(Estado.tipo == WAITING) blinkDisplay();break;
     case STOP:          procesaEstadoStop(); break;
     case PAUSE:         procesaEstadoPause(); if(Estado.estado == PAUSE) blinkDisplay(); break;
   }
@@ -497,6 +498,10 @@ void procesaBotonStop()
       else handleStopInStandby();               // seguro antinenes
       return;
     }
+    if (Estado.estado == DIFERIDO) {
+      handleStopInDiferido();                  // cancela proceso riego diferido y pasa a STOP
+      return;
+    }
     if (Estado.estado == ERROR) {
       handleStopInError();                      // resetea el ESP32 (o activa webserver si E0)
       return;
@@ -523,6 +528,13 @@ void handleStopInRegandoPauseTerm() {
     saveRiegosToFile(lastRiegosFile, "lastRiegos", lastRiegos, NUMZONAS);  //guardamos en fichero tabla de ultimos riegos de zonas
     if (!Estado.modoDEMO) lcd.infoclear("STOP riegos OK", BLINKDISPLAY, BIP, 0);
     else lcd.infoclear("STOP riegos SIMULADO", BLINKDISPLAY, BIP, 0);
+    setEstado(STOP,1);
+}
+
+void handleStopInDiferido() {
+    timer.StopTimer();
+    tic_CountDownTimer.detach(); //detiene actualizacion periodica del temporizador
+    tm = tm_saved; // restauramos tiempo de riego original (antes de la cuenta atras)
     setEstado(STOP,1);
 }
 
@@ -570,8 +582,10 @@ void procesaBotonMultirriego()
     if (encoderSW) handleEncGrupoInStandby(n_grupo);  //muestra info del grupo
               else handleGrupoInStandby(n_grupo);     //inicia el multirriego
   }
+  // Si estamos ajustando el retardo del riego, procedemos al proceso de cuenta atras para iniciarlo.
+  if (Estado.estado == DIFERIDO && Estado.tipo == SETDEFER) startRiegoDiferido(config.group[getGroupIndex(boton->bID)].desc); 
   // atajos de teclas para STOP+ENC+GRUPOn
-  else if (encoderSW && Estado.estado == STOP && SHORTCUTSENABLED) handleEncGrupoInStop(getGroupIndex(boton->bID)+1);
+  if (encoderSW && Estado.estado == STOP && SHORTCUTSENABLED) handleEncGrupoInStop(getGroupIndex(boton->bID)+1);
 } //fin de procesaBotonMultiriego
 
 
@@ -629,6 +643,8 @@ void procesaBotonZona()
     }
     return;
   }
+  // Si estamos ajustando el retardo del riego, procedemos al proceso de cuenta atras para iniciarlo.
+  if (Estado.estado == DIFERIDO && Estado.tipo == SETDEFER) startRiegoDiferido(config.zona[zNumber-1].desc);
   /* Si config.dynamic=true se permite añadir/eliminar zonas durante un riego individual o de grupo. 
      Para ello el riego debe estar en PAUSE  */
   if ((Estado.estado==PAUSE) && config.dynamic) {
@@ -856,6 +872,13 @@ void procesaEstadoStandby()
   }
 }; //fin de procesaEstadoStandby
 
+void procesaEstadoDiferido() 
+{
+  // ajuste del tiempo de riego diferido con el encoder
+  if (Estado.tipo == SETDEFER) procesaEncoderTime();
+  // tratamiento de la cuenta atras del riego diferido
+  else procesaCuentaAtras();
+}
 
 void procesaEstadoStop()
 {
@@ -1008,7 +1031,7 @@ void setStateMachine(m_estados estado, estado_tipos tipo)
   getBotonPointer(bPAUSE)->flags.holddisabled = true; //Deshabilitamos el hold de Pause
   rotaryEncoder.disable();  // para que no cuente pasos salvo que lo habilitemos
   if(Estado.reposo) reposoOFF();     //por si salimos de stop antinenes
-  if (estado == STOP || (estado == STANDBY && !multi.riegoON)) resetFlags(); //reset flags riegos en curso
+  if (estado == STOP || (estado == STANDBY && !multi.riegoON && tipo != WAITING)) resetFlags(); //reset flags riegos en curso
   if (estado == CONFIGURANDO) simulaPauseIfEncoderSW(INITIALIZE); // para evitar que al entrar en configuracion se simule un pause por el encoderSW pulsado
 
   standbyTime = millis(); //reseteamos tiempo de inactividad    
@@ -1028,7 +1051,8 @@ void setEstado(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parp
         [TERMINANDO]   = "TERMINANDO",
         [PAUSE]        = "PAUSA:",
         [STOP]         = "STOP",
-        [ERROR]        = "ERROR"
+        [ERROR]        = "ERROR",
+        [DIFERIDO]     = "DIFERIDO"
     };
 
     // si pedimos STANDBY y el boton STOP esta pulsado, pasamos a STOP en su lugar
@@ -1096,6 +1120,17 @@ void setEstado(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parp
             resetLeds();
             sonido.lowbip(bipcount);
             break;
+
+        case DIFERIDO:
+            resetLeds();
+            lcd.infoclear("Ajuste HH:MM espera",NOBLINK,BIP,bipcount);
+            lcd.info("para inicio DIFERIDO",2);
+            delay(200);
+            lcd.blinkLCD(2);
+            StaticTimeUpdate(REFRESH);
+            setEncoderTime();
+            break;
+    
     }
     // (POST) setup elementos de interfaz (UI) comunes a la mayoria de los estados:
     if ( Estado.modoDEMO && Estado.estado != CONFIGURANDO ) displayDemo();
@@ -1219,7 +1254,7 @@ bool loadFactorRiegos()
 //Aqui convertimos minutes y seconds por el factorRiegos
 void timeByFactor(int factor,uint8_t *fminutes, uint8_t *fseconds)
 {
-  uint tseconds = (60*tm.minutes) + tm.seconds;
+  uint tseconds = (60*tm.major) + tm.minor;
   //factorizamos
   tseconds = (tseconds*factor)/100;
   if (tseconds > 59*60) tseconds = 59*60; //limitamos tiempo maximo factorizado a 59 minutos
@@ -1281,28 +1316,6 @@ time_t tLoc()
 }
 
 
-// time_t tLoc()
-// {
-//     if (!timeOK) return (millis() / 1000); //no tenemos time, devolvemos segundos transcurridos desde el arranque
-//     // if (!timeOK) return 0; //no tenemos time, devolvemos 0
-//     time_t t = time(NULL); // time() devuelve el tiempo UTC actual (epoch time en segundos desde 00:00 1/1/1970)
-//     struct tm tm_utc, tm_loc;
-//     gmtime_r(&t, &tm_utc);    // Obtener estructura en UTC
-//     localtime_r(&t, &tm_loc); // Obtener estructura en Local
-//     // SOLUCIÓN AL FALLO: Forzamos a mktime a ignorar el 0 automático de UTC
-//     // y a calcular el Horario de Verano real según las reglas de la zona horaria.
-//     tm_utc.tm_isdst = -1; 
-//     tm_loc.tm_isdst = -1;
-//     // NOTA DE DISEÑO: mktime() asume que las estructuras son locales y les restará el TZ (a ambas),
-//     // pero al restarlos (t_loc - t_utc), ambas restas se anulan y nos queda la diferencia real entre UTC y Local 
-//     time_t t_utc = mktime(&tm_utc);
-//     time_t t_loc = mktime(&tm_loc);
-//     LOG_DEBUG("t UTC:", t_utc, "t Local:", t_loc, "Diferencia (t_loc - t_utc):", (t_loc - t_utc), "segundos");
-//     // Calculamos la diferencia entre ambas estructuras, que nos da el desfase de la zona horaria en segundos 
-//     // (incluyendo DST si aplica), y se lo sumamos al timestamp UTC para obtener el timestamp local correcto.
-//     return t + (t_loc - t_utc);
-// }
-
 // Devuelve el timestamp del último inicio de día (00:00:00) para un timestamp dado
 time_t previousMidnight(time_t tLocal) {
     struct tm tm_s = getTimeStruct(tLocal);
@@ -1325,7 +1338,7 @@ void setEncoderTime() {
     rotaryEncoder.setEncoderValue(0);
     rotaryEncoder.setAcceleration(50); // set the value - larger number = more accelearation; 0 or 1 means disabled acceleration
     rotaryEncoder.enable();
-    tmvalue(); //set valor tm.value para ajustar tiempo con procesaencoder
+    tm.value = ((tm.minor == 0) ? tm.major : tm.minor); //set valor tm.value para ajustar tiempo con procesaencoder
     }
 
 void setEncoderRange(int min, int max, int current, int aceleracion) {
@@ -1487,10 +1500,10 @@ void startZoneWatering() {
       timeByFactor(factorRiegos[zonaEnCurso.zindex],&fminutes,&fseconds);
     }
     else {
-      fminutes = tm.minutes;
-      fseconds = tm.seconds;
+      fminutes = tm.major;
+      fseconds = tm.minor;
     }
-    LOG_DEBUG("Minutos:",tm.minutes,"Segundos:",tm.seconds,"FMinutos:",fminutes,"FSegundos:",fseconds);
+    LOG_DEBUG("Minutos:",tm.major,"Segundos:",tm.minor,"FMinutos:",fminutes,"FSegundos:",fseconds);
     // si tiempo factorizado de riego es 0 o IDX=0, nos saltamos este riego
     // TODO: dependiente idx?
     if ((fminutes == 0 && fseconds == 0) || config.zona[zonaEnCurso.zindex].idx == 0) {
@@ -1509,6 +1522,29 @@ void startZoneWatering() {
       timer.StartTimer();
       tic_CountDownTimer.attach_ms(10, timerTick); // Llama a timerTick() cada 10 ms
     }  
+}
+
+/*---------------------------------------------------------------------------------------
+ * Prepara temporizadores y comienza cuenta atras para el riego de la zona o grupo pulsado
+ */
+void startRiegoDiferido(const char* desc) {
+    botonDefer = boton; //guardamos boton pulsado para iniciar riego tras tiempo diferido
+    int rhours = tm.major;
+    int rminutes = tm.minor;
+    LOG_INFO("Esperando: ", rhours, "h", rminutes, "minutos para iniciar riego de",botonDefer->desc,"(",desc,")");
+    // UI setup
+    led(botonDefer->led,ON);
+    sonido.bip(2);
+    lcd.clear(BORRA2H);
+    lcd.infoEstado("Esperando", desc);
+    lcd.info("riego comienza en:",2);
+    //inicializamos el timer de cuenta atras
+    timer.SetTimer(rhours,rminutes,0);
+    setStateMachine(DIFERIDO,WAITING);
+    refreshTime(true);
+    delay(1000); //esperamos a que se refresque el display antes de iniciar el timer
+    timer.StartTimer();
+    tic_CountDownTimer.attach_ms(10, timerTick);
 }
 
 // Muestra en el display info zona (idx, factor de riego, fecha y tiempo ultimo riego)
@@ -1537,26 +1573,28 @@ void printFactoresRiego() {
     }
 }
 
+void setReposo(bool status) {
+  Estado.reposo = status;
+  dimmerLeds(status);
+  lcd.setBacklight(!status);
+}
+
 void reposoOFF()
 {
   // setCpuFrequencyMhz(240); // volvemos frecuencia CPU a 240Mhz
   // WiFi.setSleep(WIFI_PS_MIN_MODEM); // ponemos wifi en modo ahorro energia minimo (default)
   LOG_INFO(" salimos de reposo");
-  Estado.reposo = false;
-  dimmerLeds(OFF);
-  lcd.setBacklight(ON);
+  setReposo(false);
   standbyTime = millis();
-}
+}  
 
 void reposoON()
 {
   LOG_INFO(" entramos en reposo");
-  Estado.reposo = true;
-  dimmerLeds(ON);
-  lcd.setBacklight(OFF);
+  setReposo(true);
   // WiFi.setSleep(WIFI_PS_MAX_MODEM); // ponemos wifi en modo ahorro energia maximo
   // setCpuFrequencyMhz(80); // bajamos frecuencia CPU a 80Mhz para ahorrar energia
-}
+}  
 
 
 //lee encoder para actualizar parametro configuracion
@@ -1592,46 +1630,125 @@ void procesaEncoderConfig()
   if (configure->configuringTime()) procesaEncoderTime(); //encoder ajusta tiempo de riego por defecto
 }
   
-//lee encoder para actualizar el tiempo de riego
+//lee encoder para actualizar el tiempo de riego (minutos:segundos) o el tiempo de retardo (horas:minutos) 
 void procesaEncoderTime()
 {
-  // Ajuste de tiempo de riego, en estado STANDBY o CONFIGURANDO tiempo de riego por defecto,
-  // encoder ajusta tiempo (mm:ss) de MINSECONDS a MAXMINUTES
-  // en segundos hasta 59 y a partir de ahí en minutos enteros.
-  // Por lo tanto uno de los dos (mm o ss) debe ser 0.
-  // tm.value recoge el valor del campo distinto de 00 que se ajusta  
-  int encvalue = rotaryEncoder.encoderChanged();  //devuelve cuanto y en que sentido se ha movido el encoder
-  if(!encvalue) return; 
-  LOG_DEBUG("rotaryEncoder.encoderChanged() devuelve encvalue =", encvalue);
-   //si estabamos en reposo, salimos de el y no procesamos el encoder:
-  if(Estado.reposo) { reposoOFF(); return; }
-  
-  tm.value = tm.value + encvalue;
-
-  if(tm.seconds == 0 && tm.value>0) {   //Estamos en el rango de minutos
-    if (tm.value > MAXMINUTES) tm.value = MAXMINUTES;
-    if (tm.value != tm.minutes) {
-      tm.minutes = tm.value;
-    } else return;
-  } else {    //o bien estamos en el rango de segundos o acabamos de entrar en el
-      if(tm.value<60 && tm.value>=MINSECONDS) {
-        if (tm.value != tm.seconds) {
-          tm.seconds = tm.value;
-        } else return;
-      } else if (tm.value >=60) {
-          tm.value = tm.minutes = 1;
-          tm.seconds = 0;
-        } else if(tm.minutes == 1) {
-            tm.value = tm.seconds = 59;
-            tm.minutes = 0;
-          } else {
-              tm.value = tm.seconds = MINSECONDS;
-              tm.minutes = 0;
-            }
-    }
-  configure->configuringTime() ? configure->Time_process_update() : StaticTimeUpdate(UPDATE);
-  standbyTime = millis();
+  int encvalue = rotaryEncoder.encoderChanged();
+  if (!encvalue) return;
+  if (Estado.reposo) { reposoOFF(); return; }
+  bool tiempoCambiado = false;
+  // Girar el encoder manteniendolo pulsado activa el estado DIFERIDO para definir tiempo retardo
+  if (encoderSW && Estado.estado == STANDBY) { setDiferido(); return; }
+  LOG_DEBUG("ENTRADA: encvalue=", encvalue, "tm.major=", tm.major, "tm.minor=", tm.minor);
+  tiempoCambiado = (Estado.tipo == SETDEFER ?
+                    ajustaTiempoProgresivo(encvalue, MAXHOURS) :
+                    ajustaDuplaTiempo(encvalue, MAXMINUTES, MINSECONDS) );
+  LOG_DEBUG("SALIDA: \t\t tm.major=", tm.major, "tm.minor=", tm.minor);
+  if (tiempoCambiado) {
+    configure->configuringTime() ? configure->Time_process_update() : StaticTimeUpdate(UPDATE);
+    standbyTime = millis();
+  }
 }
+
+// Ajuste en estado STANDBY o CONFIGURANDO tiempo de riego por defecto,
+// encoder ajusta tiempo (MM:SS) de MINSECONDS a MAXMINUTES.
+// En segundos hasta 59 y a partir de ahí en minutos enteros.
+// Por lo tanto uno de los dos (mm o ss) debe ser 0.
+bool ajustaDuplaTiempo(int encvalue, uint8_t maxMayor, uint8_t minMenor)
+// NOTA tecnica: este metodo de ajuste (basado en estados: o configurando minutos o segundos)
+// procesa bien los saltos de bloque aunque el valor absoluto de encvalue sea mayor que 1
+// (evento que se da por la aceleracion que definimos en el encoder).
+{
+  uint8_t minAnterior = tm.major;
+  uint8_t segAnterior = tm.minor;
+  int pasos = abs(encvalue); // para claridad de las operaciones: pasos siempre sera un valor positivo
+  // --- RAMA CRECIENTE: encvalue POSITIVO ---
+  if (encvalue > 0) {
+    if (tm.minor == 0 && tm.major > 0) { // Rango de minutos enteros
+      tm.major += pasos;
+    } 
+    else { // Rango de segundos (tm.major = 0)
+      tm.minor += pasos;
+      if (tm.minor >= 60) { // La aceleración nos hace saltar a minutos enteros
+        tm.major = tm.minor - 59; // contamos los pasos restantes como minutos
+        tm.minor = 0;
+      }
+    }
+    if (tm.major > maxMayor) tm.major = maxMayor; // ajuste limite superior tm.major
+  } 
+  // --- RAMA DECRECIENTE: encvalue es NEGATIVO --- (pasos positivos)
+  else { 
+    if (tm.minor == 0 && tm.major > 0) { // Rango de minutos enteros
+      if (tm.major > pasos) tm.major -= pasos; 
+      else { // La aceleración consume todos los minutos. Restamos los pasos restantes como segundos
+        tm.major = 0;
+        int minorCalculado = 59 + minAnterior - pasos;
+        tm.minor = (minorCalculado > minMenor) ? minorCalculado : minMenor;
+      }
+    } 
+    else  // Rango de segundos (tm.major = 0)
+      tm.minor = (tm.minor > pasos + minMenor) ? (tm.minor - pasos) : minMenor;
+  }
+  return (tm.major != minAnterior || tm.minor != segAnterior); // True si ha cambiado
+}
+
+
+// Ajusta el tiempo HH:MM con incrementos progresivos según el valor actual y el sentido de giro:
+// - Hasta 10 min: pasos de 1 min.
+// - De 10 min a 1 hora: pasos de 10 min.
+// - A partir de 1 hora: pasos de 30 min.
+bool ajustaTiempoProgresivo(int encvalue, uint8_t maxHours)
+{
+  // NOTA tecnica: este metodo de ajuste (basado en ajustar el Tiempo Lineal del elemento menor)
+  // no procesa bien los saltos de bloque cuando el valor absoluto de encvalue sea mayor que 1.
+  // Esto obliga a procesar los pasos recibidos uno a uno en el while.
+  // Sin embargo si se adapta mejor a multiples niveles de salto de bloque como es el caso.
+  const uint16_t MAX_MINUTOS = maxHours * 60;
+  const uint16_t MIN_MINUTOS = 1;
+  // Calculamos los minutos totales actuales
+  uint16_t minutosTotales = (tm.major * 60) + tm.minor;
+  uint16_t minutosAnteriores = minutosTotales;
+  // Procesamos el movimiento paso a paso virtual (con aceleración encvalue puede ser diferente a +/-1)
+  int direccion = (encvalue > 0) ? 1 : -1;
+  int pasosRestantes = abs(encvalue);
+  while (pasosRestantes > 0) {
+    uint8_t pasoMinutos = 1; // Por defecto rango < 10
+    // Evaluamos el rango actual en este sub-paso
+    if (direccion > 0) {
+      // Lógica creciente paso a paso
+      if (minutosTotales >= 60)      pasoMinutos = 30;
+      else if (minutosTotales >= 10) pasoMinutos = 10;
+    } 
+    else {
+      // Lógica decreciente paso a paso
+      if (minutosTotales > 60)                              pasoMinutos = 30;
+      else if (minutosTotales == 60 || minutosTotales > 10) pasoMinutos = 10;
+    }
+    LOG_DEBUG("encvalue", encvalue, "minutosTotales", minutosTotales, " pasoMinutos=", pasoMinutos);
+    // Aplicamos la variación de este paso individual
+    int16_t cambioUnitario = direccion * pasoMinutos;
+    // Control de límites por cada iteración
+    if (cambioUnitario > 0) {
+      if (minutosTotales + cambioUnitario > MAX_MINUTOS) {
+        minutosTotales = MAX_MINUTOS; break; } // Alcanzado el máximo absoluto, paramos el bucle
+      minutosTotales += cambioUnitario;
+    } 
+    else {
+      if ((minutosTotales + cambioUnitario) < MIN_MINUTOS) {
+        minutosTotales = MIN_MINUTOS; break; } // Alcanzado el mínimo absoluto, paramos el bucle
+      minutosTotales += cambioUnitario;
+    }
+    LOG_DEBUG("minutosTotales ajustados", minutosTotales, "minutosAnteriores", minutosAnteriores, "cambio", cambioUnitario);
+    pasosRestantes--;
+  }
+  // Descomponemos nuevo tiempo ajustado a la estructura global tm
+  tm.major = minutosTotales / 60;
+  tm.minor = minutosTotales % 60;
+  LOG_DEBUG("Tiempo ajustado: ", tm.major, "h", tm.minor, "minutos");
+  return (minutosTotales != minutosAnteriores); // True si ha cambiado
+}
+
+
 
 // Carga la estructura de ultimos riegos de zonas desde el archivo correspondiente o inicializa a ceros
 void initLastRiegos()
@@ -1780,6 +1897,7 @@ void resetLeds()
   //Apago los leds de riego y posible parpadeo
   setParpadeo(tic_LedZona, PARAR);
   setParpadeo(tic_LedZonas24h, PARAR);
+  setParpadeo(tic_LedWhite, PARAR);
   for(unsigned int i=0;i<NUMZONAS;i++) {
     led(getBotonPointer(Zonas[i])->led,OFF);
   }
@@ -1817,6 +1935,7 @@ void blinkDisplay()
       lastBlinkPause = millis();
       lcd.displayOFF();
       if(Estado.estado == PAUSE) ledYellow(OFF);
+      if(Estado.estado == DIFERIDO) ledWhite(OFF);
     }
   }
   else {
@@ -1824,6 +1943,7 @@ void blinkDisplay()
       lastBlinkPause = millis();
       lcd.displayON();
       if(Estado.estado == PAUSE) ledYellow(ON);
+      if(Estado.estado == DIFERIDO) ledWhite(ON);
     }
   }
 }
@@ -1833,20 +1953,20 @@ void blinkDisplay()
 // @param refresh si true actualiza incondicionalmente, en caso contrario solo si ha cambiado
 void StaticTimeUpdate(bool refresh)
 {
-  static uint8_t prevseconds = 255; // Inicialización de seguridad para forzar primera actualizacion
-  static uint8_t prevminutes = 255; 
+  static uint8_t prev_minor = 255; // Inicialización de seguridad
+  static uint8_t prev_major = 255; 
   if (refresh) lcd.clear(BORRA2H);
-  if(prevseconds != tm.seconds || prevminutes != tm.minutes || refresh) {
-    lcd.displayTime(tm.minutes, tm.seconds); 
-    prevseconds = tm.seconds;
-    prevminutes = tm.minutes;
+  if (prev_minor != tm.minor || prev_major != tm.major || refresh) {
+    lcd.displayTime(tm.major, tm.minor); 
+    prev_minor = tm.minor;
+    prev_major = tm.major;
   }
 }
 
-void refreshTime()   // Actualiza la cuenta atrás en pantalla
+void refreshTime(bool hour)   // Actualiza la cuenta atrás en pantalla
 {
-  lcd.displayTime(timer.ShowMinutes(), timer.ShowSeconds());
-
+  if(hour) lcd.displayTime(timer.ShowHours(), timer.ShowMinutes(), timer.ShowSeconds(), 0, LCDBIGROW);
+  else lcd.displayTime(timer.ShowMinutes(), timer.ShowSeconds());
 }
 
 // Para actualizar el temporizador de cuenta atrás
@@ -1854,10 +1974,53 @@ void timerTick() {
     timer.Timer();
 }
 
-// set valor de tiempo de riego a configurar con el encoder (minutos o segundos)
-void tmvalue()
+// Actualiza UI: alertas sonoras y modo reposo según el tiempo restante de la cuenta atrás
+void actualizarAlertasYReposo()
+{ 
+  uint8_t minRestantes = timer.ShowMinutes();
+  uint8_t segRestantes = timer.ShowSeconds();
+  // Alerta visual y sonora: al llegar a COUNTDOWNBIP segundos fija pantalla y parpadeo rapido led white
+  if (!minRestantes && segRestantes == COUNTDOWNBIP+2) {
+    Estado.tipo = IMMED;
+    lcd.displayON();
+    tic_LedWhite.attach(RAPIDO/10.0, parpadeoLedWhite);
+    sonido.longbip(2);
+    LOG_DEBUG(minRestantes,":",segRestantes,"restantes, Estado.tipo",Estado.tipo);
+  }
+  // Alerta sonora: ultimos COUNTDOWNBIP segundos
+  if (!minRestantes && segRestantes <= COUNTDOWNBIP) {
+    sonido.bip(1);
+  }
+  // Gestión del modo reposo (Entrar en reposo si se cumple el tiempo de inactividad)
+  if (!Estado.reposo && (minRestantes >= COUNTDOWNSHOW) && (millis() - standbyTime >= (1000UL * STANDBYSECS))) {
+    LOG_DEBUG("Entrando en reposo tras ", STANDBYSECS, " segundos de inactividad");
+    reposoON();
+  } 
+  // Salir de reposo si queda poco tiempo de cuenta atrás
+  else if (Estado.reposo && (minRestantes < COUNTDOWNSHOW)) {
+    LOG_DEBUG("Saliendo de reposo por cuenta atras menor que ", COUNTDOWNSHOW, " minutos (minRestantes=", minRestantes, ")");
+    reposoOFF();
+    sonido.longbip(1);
+  }
+}
+
+void procesaCuentaAtras() 
 {
-  tm.value = ((tm.seconds==0)?tm.minutes:tm.seconds);
+  // Cuenta atras activa: actualiza display y alertas si ha cambiado el tiempo
+  bool timerActivo = timer.Timer();
+  if (timer.TimeHasChanged()) {
+    refreshTime(true); // muestra HH:MM:SS en pantalla
+    actualizarAlertasYReposo();
+  }  
+  // Fin de la cuenta atrás: preparar el inicio del riego
+  if (!timerActivo) {
+    tm = tm_saved;  // restauramos el tiempo de riego original
+    boton = botonDefer;  // restauramos el apuntador al boton de la zona o grupo que se habia pulsado
+    multi.semaforo = true;  // set semaforo para que se procese el boton en el siguiente paso del loop
+    setParpadeo(tic_LedWhite, PARAR);
+    setStateMachine(STANDBY,WAITING);  // pasamos a STANDBY para que se procese el boton y se inicie el riego
+    lcd.clear();
+  }
 }
 
 // Verifica la conexion con Domoticz
@@ -2107,9 +2270,8 @@ void setupConfig()
   #ifdef MUTESOUND
     config.mute = true;   // arranque con sonidos silenciados
   #endif
-  tm.minutes = config.minutes;
-  tm.seconds = config.seconds;
-  tmvalue();
+  tm.major = config.minutes;
+  tm.minor = config.seconds;
   LOG_TRACE("Inicializando clase Configure");
   configure = new Configure();
 } //fin setupConfig
@@ -2395,7 +2557,15 @@ void scSorpresa() {
     setEstado(STOP);
 }
 
-
+void setDiferido() {
+    // si estamos en Standby, pasamos a set del tiempo diferido y mostramos mensaje en LCD
+    if (Estado.estado == STANDBY) {
+        tm_saved = tm; // guardamos tiempo de riego actual
+        tm.major = 0;
+        tm.minor = 30; // inicializamos a 30 minutos
+        setEstado(DIFERIDO, 3, SETDEFER);
+    };
+}
 
 
 // **************************************************************************
