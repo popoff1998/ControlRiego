@@ -109,7 +109,7 @@ void procesaBotones()
     default:           procesaBotonZona();
   }
   //limpiamos el boton procesado (evitando borrar zona apuntada si multirriego) 
-  if (!multi.semaforo)  boton = nullptr;
+  if (!Estado.botonSemaforo)  boton = nullptr;
 }
 
 /**---------------------------------------------------------------
@@ -119,7 +119,7 @@ bool validaBoton() {
   // almacenamos estado pulsador del encoder (para modificar comportamiento de otros botones)
   leerEncoderSW();
   //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multirriego
-  if (multi.semaforo) multi.semaforo = false;  // si multisemaforo, no leemos botones: ya los pasa multirriego
+  if (Estado.botonSemaforo) Estado.botonSemaforo = false;  // si botonSemaforo, no leemos botones: ya lo ha apuntado multirriego u otro
   else  boton = parseInputs(READ);  // si no, vemos si algun boton ha cambiado de estado
   //En modo configuracion pulsar encoderSW equivale a pause (enter)
   if (Estado.estado == CONFIGURANDO && boton == nullptr && ENCSWASPAUSE) {
@@ -378,7 +378,7 @@ void handlePauseInRegando() {
 
 // Si pulsamos junto con encoderSW terminamos el riego (pasaria al siguiente en caso de multirriego)
 void handleEncPauseInPause() {
-  riegoFromPause = true; // para que no actualize tiempo final riego en procesaEstadoTerminando
+  cancelFromPause = true; // para que no actualize tiempo final riego en procesaEstadoTerminando
   handleEncPauseInRegando();
 }
 
@@ -456,8 +456,7 @@ void handlePauseInStop() {
 void handlePauseInError() {
     LOG_INFO("estado en ERROR y PAUSA pulsada pasamos a modoDEMO y reset del error");
     Estado.modoDEMO = true;
-    sonido.bip(2);
-    setEstado(STANDBY);
+    setEstado(STANDBY,2);
 }
 
 // Detecta si se mantiene pulsado el boton PAUSE
@@ -673,7 +672,6 @@ void handleDynamicZoneChange(int znumber) {
     if (!multi.riegoON) {
       multi.riegoON = true;
       multi.noFactorizado  = true;  // marcamos como no factorizado
-      multi.semaforo = false;
       multi.actualIndex=0;
       setMultiTemp(NEWMTEMP);  // completa resto campos estructura multi como grupo temporal nuevo
       multi.zserie_pBoton[0] = zonaEnCurso.pBoton;  // apuntador de la zona actual como primera de la lista
@@ -794,8 +792,8 @@ void procesaEstadoTerminando()
   sonido.bip(5);
   tic_CountDownTimer.detach(); //detiene actualizacion periodica del temporizador
   // si veniamos de PAUSE no actualizamos tiempo fin (ya se hizo al entrar en PAUSE)
-  bool updateTimeFin = (riegoFromPause? false : true); // por si venimos de cancel desde PAUSE
-  riegoFromPause = false;
+  bool updateTimeFin = (cancelFromPause? false : true); // por si venimos de cancel desde PAUSE
+  cancelFromPause = false;
   stopRiego(zonaEnCurso.pBoton, updateTimeFin); // paramos riego en curso
   // no continuamos si se ha producido error al parar el riego 
   if (Estado.estado == ERROR)
@@ -813,7 +811,7 @@ void procesaEstadoTerminando()
     if (multi.actualIndex < *multi.size) {  
       //Simular la pulsacion del siguiente boton de la serie de multirriego
       boton = multi.zserie_pBoton[multi.actualIndex];
-      multi.semaforo = true;
+      Estado.botonSemaforo = true;
     }
     // no quedan zonas por regar: señalamos fin del multirriego y actualizamos timestamp de finalizacion
     else {         
@@ -965,7 +963,7 @@ void procesaEstadoConfigurando()
       }
     }
     //limpiamos el boton procesado (evitando borrar zona apuntada caso de multirriego temporal) 
-    if (!multi.semaforo)  boton = nullptr;
+    if (!Estado.botonSemaforo)  boton = nullptr;
     // Si no se ha pulsado boton procesamos el webserver si esta activado o el encoder en caso contrario
   } else webServerAct ? procesaIfWebServer() : procesaEncoderConfig();
 }; //fin de procesaEstadoConfigurando
@@ -1016,8 +1014,23 @@ void handleParameterConsolidation()
       ----------------------------------------------------------------*/
 
 
+/**--------------------------------------------------------------------------------------------------
+ * Activa estado pasado en la maquina de estados y en la interfaz de usuario (leds, display, sonidos)
+ * (salvo el caso de estado ERROR que se gestiona en statusError)
+ */
+void setEstado(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parpadeo ledblink)
+{
+  LOG_DEBUG( "recibido estado", estado, "bipcount=", bipcount, " tipo=", tipo, " ledblink=", ledblink);
+  // si pedimos STANDBY y el boton STOP esta pulsado, pasamos a STOP en su lugar
+  if (estado == STANDBY && testButton(bSTOP,ON)) estado = STOP; 
+  // setup maquina de estados
+  setStateMachine(estado, tipo);
+  // setup interfaz de usuario
+  setUI(estado, bipcount, tipo, ledblink);
+} //fin setEstado
+
 /**----------------------------------------------------------------------------
- * Inicializa estado pasado y flags asociados
+ * Maquina de estados: Inicializa estado pasado y flags asociados
  */
 void setStateMachine(m_estados estado, estado_tipos tipo)
 {
@@ -1033,15 +1046,14 @@ void setStateMachine(m_estados estado, estado_tipos tipo)
   if(Estado.reposo) reposoOFF();     //por si salimos de stop antinenes
   if (estado == STOP || (estado == STANDBY && !multi.riegoON && tipo != WAITING)) resetFlags(); //reset flags riegos en curso
   if (estado == CONFIGURANDO) simulaPauseIfEncoderSW(INITIALIZE); // para evitar que al entrar en configuracion se simule un pause por el encoderSW pulsado
-
   standbyTime = millis(); //reseteamos tiempo de inactividad    
 }
 
-/**--------------------------------------------------------------------------------------------------
- * Activa estado pasado en la maquina de estados y en la interfaz de usuario (leds, display, sonidos)
- * (salvo el caso de estado ERROR que se gestiona en statusError)
+/**----------------------------------------------------------------------------
+ * Ajusta la interfaz de usuario UI al estado pasado
+ * (display, leds y sonidos)
  */
-void setEstado(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parpadeo ledblink)
+void setUI(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parpadeo ledblink)
 {
     // literales para los estados en el display (Definición estática y vinculada por índice de Enum m_estados)
     static const char* const nEstado[] = {
@@ -1054,18 +1066,11 @@ void setEstado(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parp
         [ERROR]        = "ERROR",
         [DIFERIDO]     = "DIFERIDO"
     };
-
-    // si pedimos STANDBY y el boton STOP esta pulsado, pasamos a STOP en su lugar
-    if (estado == STANDBY && testButton(bSTOP,ON)) estado = STOP; 
-
     // Verificación en tiempo de compilación de que la cantidad de estados definida en el enum y en el array coinciden
     static_assert(ELEMENTCOUNT(nEstado) == NUM_ESTADOS, "Desincronización en nEstado");    
     // Seguridad: verificamos que el estado recibido esté dentro del rango del array
     const char* textoEstado = (estado >= 0 && estado < NUM_ESTADOS) ? nEstado[estado] : "UNKNOWN";
-    LOG_DEBUG( "recibido ", textoEstado, "bipcount=", bipcount, " tipo=", tipo, " ledblink=", ledblink);
-    
-    // setup estado y reseteos varios
-    setStateMachine(estado, tipo);
+
     // (PRE) setup elementos de interfaz (UI) comunes a TODOS los estados:
     resetLCD();   // enciende display
     setLedStatus(); // led RGB segun status wifi, modoDEMO, configurando
@@ -1134,8 +1139,7 @@ void setEstado(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parp
     }
     // (POST) setup elementos de interfaz (UI) comunes a la mayoria de los estados:
     if ( Estado.modoDEMO && Estado.estado != CONFIGURANDO ) displayDemo();
-} //fin setEstado
-
+}  
 
 /**---------------------------------------------------------------
  * pasa FSM a estado ERROR
@@ -1428,7 +1432,7 @@ void finalTimeLastRiego(S_timeRiego &timeRiego)
   LOG_DEBUG("actualizo lastriegos fin Zona", zonaEnCurso.znumber, "timestamp:", t);
   timeRiego.final = t;
   timeRiego.total = timeRiego.total + (timeRiego.final - timeRiego.reinicio); //acumulado = acumulado + (intervalo regado)
-  LOG_DEBUG("regado hasta ahora Zona", zonaEnCurso.znumber, "total:", timeRiego.total / 60.0, "minutos");
+  LOG_DEBUG("regado hasta ahora Zona", zonaEnCurso.znumber, "tiempo",timeRiego.total / 60, "m :", timeRiego.total % 60, "s");
 }  
 
 void finalTimeGrupo(S_timeRiego &timeRiego, time_t tZona) 
@@ -1905,13 +1909,15 @@ void resetLeds()
   setLedStatus();                   //restablece led RGB a estado actual  
 }
 
-//Reset diversos flags de estado
+//Reset diversos flags de estado a valores por defecto
 void resetFlags()
 {
   LOG_TRACE("");
-  multi = S_MULTI{}; // reseteamos estado de multirriego a valores iniciales
-  riegoSaved = S_Riego_estado{}; // reseteamos estado de riego salvado a valores iniciales
-  riegoFromPause = false;
+  multi = S_MULTI{}; // reset estado de multirriego
+  riegoSaved = S_Riego_estado{}; // reset estado de riego salvado
+  zonaEnCurso = S_zonaEnCurso{}; // reset zona en curso
+  Estado.botonSemaforo = false; 
+  cancelFromPause = false;
   webServerAct = false;
   simular.all_simFlags = false;
 }
@@ -2016,7 +2022,7 @@ void procesaCuentaAtras()
   if (!timerActivo) {
     tm = tm_saved;  // restauramos el tiempo de riego original
     boton = botonDefer;  // restauramos el apuntador al boton de la zona o grupo que se habia pulsado
-    multi.semaforo = true;  // set semaforo para que se procese el boton en el siguiente paso del loop
+    Estado.botonSemaforo = true;  // set semaforo para que se procese el boton en el siguiente paso del loop
     setParpadeo(tic_LedWhite, PARAR);
     setStateMachine(STANDBY,WAITING);  // pasamos a STANDBY para que se procese el boton y se inicie el riego
     lcd.clear();

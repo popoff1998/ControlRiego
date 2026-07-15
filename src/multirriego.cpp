@@ -61,9 +61,9 @@ bool startMultirriego()
       multi.riegoON = true;
       multi.noFactorizado  = false;
       multi.actualIndex = 0;
-      multi.semaforo = true;
       LOG_INFO("MULTIRRIEGO iniciado: ", multi.desc);
       boton = multi.zserie_pBoton[multi.actualIndex]; // simula pulsacion boton primera zona del grupo
+      Estado.botonSemaforo = true; // y lo indica para no leer botones
       if (multi.temporal) ultimosRiegos(HIDE); // apaga leds zonas seleccionadas en el multirriego temporal
       else led(multi.id->led, ON); // enciende led del grupo pulsado si es normal
       sonido.bip(4);

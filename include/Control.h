@@ -322,6 +322,7 @@
     estado_tipos tipo   = LOCAL;
     error_tipos error  = NOERROR;
     // Campos de flags/modos de operación
+    bool botonSemaforo = false; // flag para procesar boton apuntado en lugar de leerlo.
     bool inSetup = true;
     bool connected = false;
     bool modoDEMO = false;
@@ -407,7 +408,6 @@
     bool riegoON  = false;          // multirriego activo
     bool temporal = false;          // grupo multirriego es temporal
     bool noFactorizado  = false;    // grupo multirriego es dinámico (a partir de un riego de zona individual, no factorizado)
-    bool semaforo = false;          // procesar siguiente zona del multirriego
     int  actualIndex = 0;           // variable auxiliar durante el riego: indice en multi.zserie_pBoton de la zona que se esta regando actualmente
     // campos de configuración del grupo multirriego en curso 
     int  ngrupo = -1;            // numero del grupo al que apunta (no valido por defecto, se asigna al iniciar el riego o la configuracion del grupo)
@@ -530,7 +530,7 @@
     bool encoderSW = false;
     bool webServerAct = false;
     bool saveConfigRequired = false;
-    bool riegoFromPause = false;
+    bool cancelFromPause = false; // indica si se ha cancelado un riego que estaba en pausa
     bool fsOK = false;  // filesystem ok
     unsigned long standbyTime;
     int numloops = 0;
@@ -729,6 +729,7 @@ void setMultiTemp(bool newTemp = false);
 void setParpadeo(Ticker &t, velocidad_parpadeo vel, void (*f_callback)(int), int ledid);
 void setParpadeo(Ticker &t, velocidad_parpadeo vel);
 void setStateMachine(m_estados estado, estado_tipos tipo = LOCAL);
+void setUI(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parpadeo ledblink);
 void setupConfig(void);
 void setupEstadoFinal(void);
 void setupInit(void);
@@ -747,7 +748,7 @@ bool startMultirriego();
 void startRiegoDiferido(const char* desc);
 void startZoneWatering();
 void StaticTimeUpdate(bool);
-void statusError(error_tipos, bool recoverable=false, velocidad_parpadeo zonablink = NULO, velocidad_parpadeo errorblink = NULO);
+void statusError(error_tipos, bool recoverable = false, velocidad_parpadeo zonablink = NULO, velocidad_parpadeo errorblink = NULO);
 bool stopAllRiegos(void);
 void stopHW(const char* msg);
 bool stopRiego(const S_BOTON* pBoton, bool update = true, bool alertIfFails = true, int retries = SWITCH_RETRIES);
