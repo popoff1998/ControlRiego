@@ -198,11 +198,21 @@ void setLedStatus()
   setParpadeo(tic_APLed, PARAR);
   setParpadeo(tic_WifiLed, PARAR);
   setParpadeo(tic_LedError, PARAR);
-  if (Estado.estado == ERROR) ledRGB(ON,OFF,OFF);            // rojo fijo
-  else if (Estado.estado == CONFIGURANDO) ledRGB(ON,ON,OFF); // amarillo fijo
+  if (Estado.estado == ERROR) ledRGB(ON,OFF,OFF);            // rojo
+  else if (Estado.estado == CONFIGURANDO || Estado.estado == PAUSE) ledRGB(ON,ON,OFF); // amarillo
   else ledRGB(OFF,Estado.connected,Estado.modoDEMO);         // verde si wifi + azul si demo                
 }  
 
+// Enciende los leds del riego en curso
+void setLedsRiego(velocidad_parpadeo ledblink)
+{
+  extern Ticker tic_LedZona;
+// Enciende led zona (fijo o parpadeando)  
+if (ledblink) {setParpadeo(tic_LedZona, ledblink, parpadeoLedZona, zonaEnCurso.pBoton->led);} 
+else {setLed(tic_LedZona, ENCIENDE, zonaEnCurso.pBoton->led);}
+// Enciende led grupo (si riego de grupo no temporal) 
+if (multi.riegoON && !multi.temporal) led(getBotonPointer(Grupos[multi.ngrupo-1])->led,ON);  
+}
 
 // enciende o apaga un led controlado por PWM
 void ledPWM(uint8_t id,int estado)

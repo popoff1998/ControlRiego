@@ -118,8 +118,8 @@ void procesaBotones()
 bool validaBoton() {
   // almacenamos estado pulsador del encoder (para modificar comportamiento de otros botones)
   leerEncoderSW();
-  //Nos tenemos que asegurar de no leer botones al menos una vez si venimos de un multirriego
-  if (Estado.botonSemaforo) Estado.botonSemaforo = false;  // si botonSemaforo, no leemos botones: ya lo ha apuntado multirriego u otro
+  // si botonSemaforo, no leemos botones: ya lo ha apuntado multirriego u otro
+  if (Estado.botonSemaforo) Estado.botonSemaforo = false;
   else  boton = parseInputs(READ);  // si no, vemos si algun boton ha cambiado de estado
   //En modo configuracion pulsar encoderSW equivale a pause (enter)
   if (Estado.estado == CONFIGURANDO && boton == nullptr && ENCSWASPAUSE) {
@@ -192,8 +192,21 @@ void setupEstadoFinal()
     tic_verificaciones.attach(VERIFY_INTERVAL, flagVerificaciones);
   }
   // Si no se ha podido cargar parámetros desde ficheros -> señalamos el error 
-  if(!config.initialized) { 
-    statusError(E0);  
+  if(!config.initialized) {
+    statusError(E0); 
+    // Si STOP pulsado: modo DEMO y activamos webserver para cargar parámetros
+    #ifdef WEBSERVER
+    if (testButton(bSTOP,ON) && Estado.connected) {
+        setWarnToFile(true); // activamos grabacion msg warning
+        LOG_WARN("Err0 + STOP -> modo DEMO y activamos webserver");
+        Estado.modoDEMO = true;
+        delay(config.msgdisplaymillis);
+        setEstado(CONFIGURANDO);
+        setupWS();
+        return;
+    }
+    #endif  
+    // En caso contrario salimos con el Error 0
     LOG_ERROR("Salida por NO config.initialized"); 
     return;
   }
@@ -578,7 +591,7 @@ void procesaBotonMultirriego()
   if (Estado.estado == STANDBY) {
     int n_grupo = setGrupo(); //apunta estructura multi al grupo seleccionado
     LOG_DEBUG("en MULTIRRIEGO, encoderSW status  :", encoderSW, "grupo seleccionado:", n_grupo, "multi.desc:", multi.desc, "multi.size:", *multi.size);
-    if (encoderSW) handleEncGrupoInStandby(n_grupo);  //muestra info del grupo
+    if (encoderSW) showInfoGrupo(n_grupo);  //muestra info del grupo
               else handleGrupoInStandby(n_grupo);     //inicia el multirriego
   }
   // Si estamos ajustando el retardo del riego, procedemos al proceso de cuenta atras para iniciarlo.
@@ -586,19 +599,6 @@ void procesaBotonMultirriego()
   // atajos de teclas para STOP+ENC+GRUPOn
   if (encoderSW && Estado.estado == STOP && SHORTCUTSENABLED) handleEncGrupoInStop(getGroupIndex(boton->bID)+1);
 } //fin de procesaBotonMultiriego
-
-
-// Hacemos encendido de los leds del grupo y mostramos en el display info de este
-void handleEncGrupoInStandby(int n_grupo) {
-    LOG_DEBUG("display de grupo:", n_grupo, "(", multi.desc,") tamaño:", *multi.size );
-    snprintf(buff, MAXBUFF, "grupo: %s", multi.desc);
-    lcd.infoclear(buff, 1);
-    displayLCDGrupo(FULL, 2);
-    showTimeLastRiego(lastGrupos[n_grupo-1]);
-    displayLedsGrupo();
-    delay(config.msgdisplaymillis*3);
-    setEstado(STANDBY);   //para que restaure pantalla
-}
 
 // Iniciamos el MULTIRRIEGO
 void handleGrupoInStandby(int n_grupo) {
@@ -643,7 +643,9 @@ void procesaBotonZona()
     return;
   }
   // Si estamos ajustando el retardo del riego, procedemos al proceso de cuenta atras para iniciarlo.
-  if (Estado.estado == DIFERIDO && Estado.tipo == SETDEFER) startRiegoDiferido(config.zona[zNumber-1].desc);
+  if (Estado.estado == DIFERIDO && Estado.tipo == SETDEFER) {
+      startRiegoDiferido(config.zona[zNumber-1].desc);
+  }    
   /* Si config.dynamic=true se permite añadir/eliminar zonas durante un riego individual o de grupo. 
      Para ello el riego debe estar en PAUSE  */
   if ((Estado.estado==PAUSE) && config.dynamic) {
@@ -1023,9 +1025,9 @@ void setEstado(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parp
   LOG_DEBUG( "recibido estado", estado, "bipcount=", bipcount, " tipo=", tipo, " ledblink=", ledblink);
   // si pedimos STANDBY y el boton STOP esta pulsado, pasamos a STOP en su lugar
   if (estado == STANDBY && testButton(bSTOP,ON)) estado = STOP; 
-  // setup maquina de estados
+  // 1.setup maquina de estados
   setStateMachine(estado, tipo);
-  // setup interfaz de usuario
+  // 2.setup interfaz de usuario
   setUI(estado, bipcount, tipo, ledblink);
 } //fin setEstado
 
@@ -1034,6 +1036,8 @@ void setEstado(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parp
  */
 void setStateMachine(m_estados estado, estado_tipos tipo)
 {
+  if (estado == Estado.estado && tipo == Estado.tipo) 
+      LOG_WARN("llamada SIN cambio de estado/tipo, actual:", Estado.estado, Estado.tipo, "pedido:", estado, tipo);
   // set state (FSM):
   Estado.estado = estado;
   Estado.error = NOERROR;
@@ -1066,14 +1070,17 @@ void setUI(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parpadeo
         [ERROR]        = "ERROR",
         [DIFERIDO]     = "DIFERIDO"
     };
+    const char* textoEstado = (estado >= 0 && estado < NUM_ESTADOS) ? nEstado[estado] : "UNKNOWN";
     // Verificación en tiempo de compilación de que la cantidad de estados definida en el enum y en el array coinciden
     static_assert(ELEMENTCOUNT(nEstado) == NUM_ESTADOS, "Desincronización en nEstado");    
-    // Seguridad: verificamos que el estado recibido esté dentro del rango del array
-    const char* textoEstado = (estado >= 0 && estado < NUM_ESTADOS) ? nEstado[estado] : "UNKNOWN";
+    // Seguridad: no debe llamarse directamente para cambiar estado
+    if (estado != Estado.estado) LOG_WARN("llamada directa CON cambio de estado, actual", Estado.estado, "nuevo", estado);
 
-    // (PRE) setup elementos de interfaz (UI) comunes a TODOS los estados:
-    resetLCD();   // enciende display
-    setLedStatus(); // led RGB segun status wifi, modoDEMO, configurando
+    // (PRE) setup elementos de interfaz (UI) comunes a la mayoria de los estados:
+    resetLCD();  // enciende display
+    if (estado == STANDBY || estado == STOP || estado == CONFIGURANDO || estado == DIFERIDO) resetLeds();
+    else setLedStatus();
+
     // setup elementos de interfaz (visual y sonora) propios de cada estado
     switch (estado) {
         
@@ -1086,14 +1093,13 @@ void setUI(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parpadeo
                 displayLCDGrupo(RESTO, 2, riegoSaved.znumber);
                 displayTipoGrupo();
             }
-            refreshTime(); //actualizamos tiempo de cuenta atras en pantalla 
-            if (ledblink) {setParpadeo(tic_LedZona, ledblink, parpadeoLedZona, zonaEnCurso.pBoton->led);} 
-             else {setLed(tic_LedZona, ENCIENDE, zonaEnCurso.pBoton->led);}  
+            refreshTime(); //actualizamos tiempo de cuenta atras en pantalla
+            setLedsRiego(ledblink); //enciende los leds del riego en curso 
             break;
             
         case TERMINANDO:
             lcd.infoEstado(textoEstado, config.zona[zonaEnCurso.zindex].desc, bipcount);
-            setLed(tic_LedZona, ENCIENDE, zonaEnCurso.pBoton->led); //aseguramos led zona detenido parpadeo y encendido
+            setLedsRiego(ledblink); //enciende los leds del riego en curso
             break;
             
         case PAUSE:
@@ -1102,12 +1108,10 @@ void setUI(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parpadeo
             lcd.clear(BORRA2H); //borra posible msgs de error
             if(multi.riegoON) displayTipoGrupo();
             refreshTime(); //actualizamos tiempo de cuenta atras en pantalla
-            if (ledblink) {setParpadeo(tic_LedZona, ledblink, parpadeoLedZona, zonaEnCurso.pBoton->led);}
-              else {setLed(tic_LedZona, ENCIENDE, zonaEnCurso.pBoton->led);} 
+            setLedsRiego(ledblink); //enciende los leds del riego en curso
             break;
             
         case STANDBY:
-            resetLeds();
             lcd.infoclear("STANDBY",NOBLINK,BIP,bipcount);
             showTemp();
             StaticTimeUpdate(REFRESH);
@@ -1116,18 +1120,15 @@ void setUI(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parpadeo
             break;
             
         case STOP:
-            resetLeds();
             lcd.infoclear("STOP", NOBLINK, LOWBIP, bipcount);
             showWifiLevel(checkWifi(config.showwifilevel));
             break;
             
         case CONFIGURANDO:
-            resetLeds();
             sonido.lowbip(bipcount);
             break;
 
         case DIFERIDO:
-            resetLeds();
             lcd.infoclear("Ajuste HH:MM espera",NOBLINK,BIP,bipcount);
             lcd.info("para inicio DIFERIDO",2);
             delay(200);
@@ -1291,9 +1292,8 @@ void setClock()
   timeOK = true;
   if (Estado.inSetup) {
     // Creamos el mensaje para el LCD (ej: "clock OK 14:30")
-    char lcdMsg[20]; 
-    strftime(lcdMsg, sizeof(lcdMsg), "clock OK  %H:%M", &timeinfo);
-    lcd.info(lcdMsg, 2); // Mostramos la hora en la línea 2
+    strftime(buff, MAXBUFF, "clock OK  %H:%M", &timeinfo);
+    lcd.info(buff, 2); // Mostramos la hora en la línea 2
     delay(config.msgdisplaymillis);
   }
   // Creamos el mensaje para el log
@@ -1342,7 +1342,7 @@ void setEncoderTime() {
     rotaryEncoder.setEncoderValue(0);
     rotaryEncoder.setAcceleration(50); // set the value - larger number = more accelearation; 0 or 1 means disabled acceleration
     rotaryEncoder.enable();
-    tm.value = ((tm.minor == 0) ? tm.major : tm.minor); //set valor tm.value para ajustar tiempo con procesaencoder
+    // tm.value = ((tm.minor == 0) ? tm.major : tm.minor); //set valor tm.value para ajustar tiempo con procesaencoder
     }
 
 void setEncoderRange(int min, int max, int current, int aceleracion) {
@@ -1539,7 +1539,7 @@ void startRiegoDiferido(const char* desc) {
     // UI setup
     led(botonDefer->led,ON);
     sonido.bip(2);
-    lcd.clear(BORRA2H);
+    lcd.clear();
     lcd.infoEstado("Esperando", desc);
     lcd.info("riego comienza en:",2);
     //inicializamos el timer de cuenta atras
@@ -1567,6 +1567,18 @@ void showInfoZona(int zNumber) {
     delay(config.msgdisplaymillis*4);
     // led(boton->led,OFF);
     setEstado(STANDBY);
+}
+
+// Hacemos encendido de los leds del grupo y mostramos en el display info de este
+void showInfoGrupo(int n_grupo) {
+    LOG_DEBUG("display de grupo:", n_grupo, "(", multi.desc,") tamaño:", *multi.size );
+    snprintf(buff, MAXBUFF, "grupo: %s", multi.desc);
+    lcd.infoclear(buff, 1);
+    displayLCDGrupo(FULL, 2);
+    showTimeLastRiego(lastGrupos[n_grupo-1]);
+    displayLedsGrupo();
+    delay(config.msgdisplaymillis*3);
+    setEstado(STANDBY);   //para que restaure pantalla
 }
 
 void printFactoresRiego() {
@@ -1654,14 +1666,15 @@ void procesaEncoderTime()
   }
 }
 
-// Ajuste en estado STANDBY o CONFIGURANDO tiempo de riego por defecto,
-// encoder ajusta tiempo (MM:SS) de MINSECONDS a MAXMINUTES.
-// En segundos hasta 59 y a partir de ahí en minutos enteros.
-// Por lo tanto uno de los dos (mm o ss) debe ser 0.
+/* Ajuste en estado STANDBY o CONFIGURANDO tiempo de riego por defecto,
+*  encoder ajusta tiempo (MM:SS) de MINSECONDS a MAXMINUTES.
+*  En segundos hasta 59 y a partir de ahí en minutos enteros.
+*  Por lo tanto uno de los dos (mm o ss) debe ser 0.
+*  NOTA tecnica: este metodo de ajuste (basado en estados: o configurando minutos o segundos)
+*  procesa bien los saltos de bloque aunque el valor absoluto de encvalue sea mayor que 1
+*  (evento que se da por la aceleracion que definimos en el encoder).
+*/
 bool ajustaDuplaTiempo(int encvalue, uint8_t maxMayor, uint8_t minMenor)
-// NOTA tecnica: este metodo de ajuste (basado en estados: o configurando minutos o segundos)
-// procesa bien los saltos de bloque aunque el valor absoluto de encvalue sea mayor que 1
-// (evento que se da por la aceleracion que definimos en el encoder).
 {
   uint8_t minAnterior = tm.major;
   uint8_t segAnterior = tm.minor;
@@ -1697,16 +1710,17 @@ bool ajustaDuplaTiempo(int encvalue, uint8_t maxMayor, uint8_t minMenor)
 }
 
 
-// Ajusta el tiempo HH:MM con incrementos progresivos según el valor actual y el sentido de giro:
-// - Hasta 10 min: pasos de 1 min.
-// - De 10 min a 1 hora: pasos de 10 min.
-// - A partir de 1 hora: pasos de 30 min.
+/* Ajusta el tiempo HH:MM con incrementos progresivos según el valor actual y el sentido de giro:
+*  - Hasta 10 min: pasos de 1 min.
+*  - De 10 min a 1 hora: pasos de 10 min.
+*  - A partir de 1 hora: pasos de 30 min.
+*  NOTA tecnica: este metodo de ajuste (basado en ajustar el Tiempo Lineal del elemento menor)
+*  no procesa bien los saltos de bloque cuando el valor absoluto de encvalue sea mayor que 1.
+*  Esto obliga a procesar los pasos recibidos uno a uno en el while.
+*  Sin embargo si se adapta mejor a multiples niveles de salto de bloque como es el caso.
+*/
 bool ajustaTiempoProgresivo(int encvalue, uint8_t maxHours)
 {
-  // NOTA tecnica: este metodo de ajuste (basado en ajustar el Tiempo Lineal del elemento menor)
-  // no procesa bien los saltos de bloque cuando el valor absoluto de encvalue sea mayor que 1.
-  // Esto obliga a procesar los pasos recibidos uno a uno en el while.
-  // Sin embargo si se adapta mejor a multiples niveles de salto de bloque como es el caso.
   const uint16_t MAX_MINUTOS = maxHours * 60;
   const uint16_t MIN_MINUTOS = 1;
   // Calculamos los minutos totales actuales
@@ -1884,7 +1898,7 @@ void restoreRiego()
         return;
     LOG_INFO("recuperando riego salvado de zona:", riegoSaved.znumber);
     setZonaEnCurso(riegoSaved.pBoton); //recuperamos zona en curso
-    led(zonaEnCurso.pBoton->led,ON); //encendemos led de la zona
+    // led(zonaEnCurso.pBoton->led,ON); //encendemos led de la zona
     timer.SetTimer(0,riegoSaved.minutes,riegoSaved.seconds);  //inicializamos el timer de cuenta atras
     lcd.displayTime(timer.ShowMinutes(), timer.ShowSeconds());
     riegoSaved = S_Riego_estado{}; // reseteamos estado de riego salvado, ya no es valido
@@ -1906,7 +1920,7 @@ void resetLeds()
     led(getBotonPointer(Zonas[i])->led,OFF);
   }
   //restablece led RGB
-  setLedStatus();                   //restablece led RGB a estado actual  
+  setLedStatus();  //restablece led RGB a estado actual  
 }
 
 //Reset diversos flags de estado a valores por defecto
@@ -2038,7 +2052,7 @@ bool checkSCD()
   setLed(tic_LedRecon, APAGA, LEDB); //paramos parpadeo led recon y lo dejamos apagado
   if(!SCD_OK) { 
     return false; }
-  setStateMachine(STANDBY); // pasa a STANDBY sin mostrar mensajes en LCD para borrar estado previo de error de conexion
+  if (Estado.estado == ERROR) setStateMachine(STANDBY); // pasa a STANDBY sin mostrar mensajes en LCD para borrar estado previo de error de conexion
   return true;
 }
 
