@@ -291,14 +291,13 @@ void setConnected(bool state) {
   LOG_DEBUG("setConnected: ", state, "Estado:", Estado.estado);
   Estado.connected = state;
   // Ajusta la UI (led status)
-  if (Estado.estado != PAUSE) 
-      setLedStatus();
+  setLedStatus();
   // Ajusta la UI (display) si no estamos en el Setup en caso de conexion
   if (state && !Estado.inSetup) {
       if (Estado.estado == STANDBY) {
           lcd.info(wifiOKmsg(SHORT),2);
           delay(config.msgdisplaymillis);
-          lcd.info("",2);  //restaura pantalla (borra msg de reconexion)
+          setUI(STANDBY);  //restaura pantalla (borra msg de reconexion)
       }
       else lcd.infoclear(wifiOKmsg(SHORT), 1); // borra pantalla y muestra wifi OK en display primera linea
       if (!timeOK) setClock(); // sincronizamos reloj al conectar wifi (si no se ha sincronizado ya en el Setup)

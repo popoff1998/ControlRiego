@@ -730,7 +730,7 @@ void setMultiTemp(bool newTemp = false);
 void setParpadeo(Ticker &t, velocidad_parpadeo vel, void (*f_callback)(int), int ledid);
 void setParpadeo(Ticker &t, velocidad_parpadeo vel);
 void setStateMachine(m_estados estado, estado_tipos tipo = LOCAL);
-void setUI(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parpadeo ledblink);
+void setUI(m_estados estado, int bipcount = 0, estado_tipos tipo = LOCAL, velocidad_parpadeo ledblink = NULO);
 void setupConfig(void);
 void setupEstadoFinal(void);
 void setupInit(void);

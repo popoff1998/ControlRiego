@@ -93,7 +93,6 @@ void displayLedsGrupo()
           delay(100);
       }
   }    
-  led(multi.id->led, OFF); // apaga led del grupo
 }
 
 /**

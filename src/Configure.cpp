@@ -168,7 +168,6 @@ void Configure::configureMulti_display()
 
       if(!_configuringMultiTemp) {    // no encendemos leds si grupo TEMPORAL
         displayLedsGrupo(); // mostramos leds de las zonas ya configuradas para el grupo
-        led(multi.id->led, ON); // encendemos led del boton del grupo
       }  
 }              
 

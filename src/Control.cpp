@@ -436,7 +436,7 @@ void handleEncPauseInStandby() {
     else {
       Estado.modoDEMO = true;
       LOG_INFO("encoderSW+PAUSE pasamos a modoDEMO (DEMO)");
-      setEstado(STANDBY,2);
+      setUI(STANDBY,2);
     }
 }
       
@@ -445,8 +445,7 @@ void handlePauseInStandby() {
     ultimosRiegos(SHOW);
     delay(config.msgdisplaymillis*3);
     ultimosRiegos(HIDE);
-    LOG_TRACE("[poniendo estado STANDBY]");
-    setEstado(STANDBY);  // para restaurar pantalla
+    setUI(STANDBY);  // para restaurar pantalla
 }  
       
 // En estado STOP si ENC + hold del boton pause reseteamos el ESP32  
@@ -1074,8 +1073,10 @@ void setUI(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parpadeo
     // Verificación en tiempo de compilación de que la cantidad de estados definida en el enum y en el array coinciden
     static_assert(ELEMENTCOUNT(nEstado) == NUM_ESTADOS, "Desincronización en nEstado");    
     // Seguridad: no debe llamarse directamente para cambiar estado
-    if (estado != Estado.estado) LOG_WARN("llamada directa CON cambio de estado, actual", Estado.estado, "nuevo", estado);
-
+    if (estado != Estado.estado) {
+      LOG_ERROR("llamada directa CON cambio de estado, actual", Estado.estado, "nuevo", estado);
+      return;
+    }  
     // (PRE) setup elementos de interfaz (UI) comunes a la mayoria de los estados:
     resetLCD();  // enciende display
     if (estado == STANDBY || estado == STOP || estado == CONFIGURANDO || estado == DIFERIDO) resetLeds();
@@ -1139,7 +1140,7 @@ void setUI(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parpadeo
     
     }
     // (POST) setup elementos de interfaz (UI) comunes a la mayoria de los estados:
-    if ( Estado.modoDEMO && Estado.estado != CONFIGURANDO ) displayDemo();
+    if ( Estado.modoDEMO && estado != CONFIGURANDO ) displayDemo();
 }  
 
 /**---------------------------------------------------------------
@@ -1535,18 +1536,19 @@ void startRiegoDiferido(const char* desc) {
     botonDefer = boton; //guardamos boton pulsado para iniciar riego tras tiempo diferido
     int rhours = tm.major;
     int rminutes = tm.minor;
+    //inicializamos el timer de cuenta atras
+    timer.SetTimer(rhours,rminutes,0);
     LOG_INFO("Esperando: ", rhours, "h", rminutes, "minutos para iniciar riego de",botonDefer->desc,"(",desc,")");
+    setStateMachine(DIFERIDO,WAITING);
     // UI setup
     led(botonDefer->led,ON);
     sonido.bip(2);
     lcd.clear();
     lcd.infoEstado("Esperando", desc);
     lcd.info("riego comienza en:",2);
-    //inicializamos el timer de cuenta atras
-    timer.SetTimer(rhours,rminutes,0);
-    setStateMachine(DIFERIDO,WAITING);
     refreshTime(true);
-    delay(1000); //esperamos a que se refresque el display antes de iniciar el timer
+    //esperamos a que se refresque el display antes de iniciar el timer
+    delay(1000);
     timer.StartTimer();
     tic_CountDownTimer.attach_ms(10, timerTick);
 }
@@ -1565,8 +1567,7 @@ void showInfoZona(int zNumber) {
     lcd.info(buff,2);
     showTimeLastRiego(lastRiegos[zIndex]);
     delay(config.msgdisplaymillis*4);
-    // led(boton->led,OFF);
-    setEstado(STANDBY);
+    setUI(STANDBY); // restaurar pantalla STANDBY
 }
 
 // Hacemos encendido de los leds del grupo y mostramos en el display info de este
@@ -1578,7 +1579,7 @@ void showInfoGrupo(int n_grupo) {
     showTimeLastRiego(lastGrupos[n_grupo-1]);
     displayLedsGrupo();
     delay(config.msgdisplaymillis*3);
-    setEstado(STANDBY);   //para que restaure pantalla
+    setUI(STANDBY); //restaurar pantalla STANDBY
 }
 
 void printFactoresRiego() {
