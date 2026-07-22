@@ -66,7 +66,7 @@ void setup()
   setupEstadoFinal();
   #ifdef DEVELOP
     // filesInfo();
-    // printFile(logErrorFile);
+    printFile(logErrorFile);
   #endif
   Estado.inSetup = false;
   PRINTLN("   *** Setup finalizado *** MS:", millis() , "\n\n");
@@ -736,6 +736,12 @@ bool procesaDynamic(int znumber)
 
 void procesaEstadoError()
 {
+  // Si se ha recuperado la conexion wifi, iniciamos el recovery sin experar el VERIFY_INTERVAL
+  if (Estado.showWifiOK) {
+    LOG_DEBUG("showWiFiOK"); 
+    showWifiOK(); //muestra en pantalla wifi recuperada
+    VerifyRecoveryWifi(false); //inicia proceso de recuperacion
+  }  
   // gestion del tamano del fichero de log de errores cada LONGINTERVAL minutos
   if (checkLogSize) {
     gestionarTamanoLog(); // Borra/rota fichero de log de errores si su tamano es excesivo
@@ -850,6 +856,7 @@ void procesaEstadoStandby()
 {
   if (multi.riegoON)  //no se hacen verificaciones/acciones con multirriego en curso
       return;
+  if (Estado.showWifiOK) showWifiOK(); //muestra en pantalla wifi recuperada    
   //Apagamos el display y atenuamos led status si ha pasado el lapso STANDBYSECS sin actividad
   if (!Estado.reposo && (millis() - standbyTime >= (1000UL * STANDBYSECS))) reposoON();
   // leemos encoder
@@ -1044,6 +1051,7 @@ void setStateMachine(m_estados estado, estado_tipos tipo)
   Estado.failedStopRiego = false;
   Estado.recoverableError = false;
   Estado.errorInformado = false;
+  Estado.showWifiOK = false;
   getBotonPointer(bPAUSE)->flags.holddisabled = true; //Deshabilitamos el hold de Pause
   rotaryEncoder.disable();  // para que no cuente pasos salvo que lo habilitemos
   if(Estado.reposo) reposoOFF();     //por si salimos de stop antinenes
@@ -1226,6 +1234,7 @@ bool checkAndInitFactorRiegos(bool signalError) {
     return false;
   }
   lcd.info("Domoticz OK", 2);
+  lcd.clear(BORRA2H);
   // si hemos sido llamados por un error previo grabamos que ya se ha recuperado el error de conexion con SCD
   if (!signalError) logStatus("Conectado a Domoticz, leyendo factores de riego...");
   return loadFactorRiegos();
@@ -1281,7 +1290,7 @@ void setClock()
   // sntp_set_time_sync_notification_cb(cbSyncTime);  // set a Callback function for time synchronization notification
   // sntp_set_sync_interval(60 * 60 * 1000UL); // 60 minutos (default ESP32 es 180 minutos - 3 horas)
   if (!Estado.connected) return; //si no tenemos wifi no intentamos sincronizar reloj
-  if (Estado.inSetup) lcd.info("sincronizando clock", 2);
+  if (Estado.inSetup || Estado.error) lcd.info("sincronizando clock", 2);
   LOG_DEBUG("Timezone: ", config.TZ, "   NTP server: ", config.ntpServer);
   configTzTime(config.TZ, config.ntpServer); 
   struct tm timeinfo;
@@ -1291,7 +1300,7 @@ void setClock()
     return;
   }
   timeOK = true;
-  if (Estado.inSetup) {
+  if (Estado.inSetup || Estado.error) {
     // Creamos el mensaje para el LCD (ej: "clock OK 14:30")
     strftime(buff, MAXBUFF, "clock OK  %H:%M", &timeinfo);
     lcd.info(buff, 2); // Mostramos la hora en la línea 2

@@ -64,6 +64,10 @@ const char* wifiOKmsg(bool compact = false) {
   return buffer;
 }
 
+//contador de reintentos de reconexion
+static uint8_t wifiRetryCount = 0;
+
+
 // copia los parametros de conexion wifi a los parametros personalizados de WiFiManager (para mostrarlos en el portal AP)
 void copyConfigToCustomParams() {
   custom_SCD_server.setValue(config.SCD_ip, sizeof(config.SCD_ip)-1);
@@ -144,19 +148,30 @@ void preOtaUpdateCallback()
 }
 
 //evento llamado en caso de desconexion de la wifi
-void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
+void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info) {
+  uint8_t reason = info.wifi_sta_disconnected.reason;
   if (Estado.connected) {
-    LOG_ERROR("WiFi lost connection. Reason: ", info.wifi_sta_disconnected.reason);
-    Estado.errorInformado = true; // bloquea futuros LOG_WARN/ERROR
+    LOG_ERROR("WiFi lost connection. Reason: ", reason);
     setConnected(false);
+  } else {
+    // LOG_DEBUG("WiFi lost connection. Reason: ", reason);
   }
-  else LOG_DEBUG("WiFi lost connection. Reason: ", info.wifi_sta_disconnected.reason);
+  // Evaluamos solo los fallos donde el driver detiene la auto-reconexión para forzarla 2 veces
+  bool esFalloAutenticacion = (reason == WIFI_REASON_AUTH_FAIL || 
+                              reason == WIFI_REASON_ASSOC_FAIL || 
+                              reason == WIFI_REASON_HANDSHAKE_TIMEOUT);
+  if (esFalloAutenticacion && wifiRetryCount < 2) {    
+    wifiRetryCount++;
+    LOG_DEBUG("Reintento rápido Wi-Fi #", wifiRetryCount);
+    WiFi.reconnect();
+    if (wifiRetryCount == 2) LOG_WARN("Máximos reintentos rápidos alcanzados. Esperando temporizador.");
+  }
 }
 
 //evento llamado en caso de conexion de la wifi
-void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info){
-  logStatus(wifiOKmsg());
-  Estado.errorInformado = false; //reiniciamos bloqueo futuros LOG_WARN/ERROR
+void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info) {
+  LOG_DEBUG("WiFi connected");
+  wifiRetryCount = 0; // Reiniciamos el contador al conectar con éxito
   setConnected(true);
 }
 
@@ -257,7 +272,7 @@ void setupRedWM(S_initFlags &initFlags)
   }
   else if(!Estado.modoDEMO) {
      statusError(E1, RECUPERABLE); //si no hemos podido conectar a la wifi señalamos error
-     LOG_ERROR("SIN conexion wifi");
+     LOG_WARN("SIN conexion wifi");
   }
   // dejamos led RGB segun la situacion final
   setLedStatus();
@@ -265,7 +280,8 @@ void setupRedWM(S_initFlags &initFlags)
   if (saveConfigRequired) copyCustomParamsToConfig();
   //dejamos activado evento de desconexion o conexion ?? (wifi events):
   WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
-  WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_CONNECTED);
+  WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
+  // WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_CONNECTED);
   // WiFi.removeEvent(WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
 } //fin setupRedWM
 
@@ -286,61 +302,57 @@ void startConfigPortal()
   delay(config.msgdisplaymillis);
 }
 
-//set del estado de la conexion wifi info en display y led indicador si procede
+// Set del estado de la conexion wifi, info en display, led indicador y log si procede
+// Al ser llamada por los callbacks WiFiStation... evitamos incluir delays en ella
 void setConnected(bool state) {
-  LOG_DEBUG("setConnected: ", state, "Estado:", Estado.estado);
-  Estado.connected = state;
-  // Ajusta la UI (led status)
-  setLedStatus();
-  // Ajusta la UI (display) si no estamos en el Setup en caso de conexion
-  if (state && !Estado.inSetup) {
-      if (Estado.estado == STANDBY) {
-          lcd.info(wifiOKmsg(SHORT),2);
-          delay(config.msgdisplaymillis);
-          setUI(STANDBY);  //restaura pantalla (borra msg de reconexion)
-      }
-      else lcd.infoclear(wifiOKmsg(SHORT), 1); // borra pantalla y muestra wifi OK en display primera linea
-      if (!timeOK) setClock(); // sincronizamos reloj al conectar wifi (si no se ha sincronizado ya en el Setup)
-    }        
+  // Solo actuamos si hay un cambio real de estado
+  if (Estado.connected != state) {
+    LOG_DEBUG("setConnected: ", state, "Estado:", Estado.estado);
+    Estado.connected = state;
+    if (state) {
+      // --- transición a: CONECTADO ---
+      logStatus(wifiOKmsg());
+      Estado.errorInformado = false; // Desbloquea futuros logs de error
+      // Ajusta la UI (display) si no estamos en el Setup en caso de conexion
+      if (!Estado.inSetup) Estado.showWifiOK = true; // msg en pantalla fuera de la funcion
+    } else {
+        // --- transición a: DESCONECTADO ---
+        if (!Estado.errorInformado) {
+          LOG_ERROR(" ** [ERROR] No estamos conectados a la wifi");
+          Estado.errorInformado = true; // Bloquea futuros logs redundantes
+        }
+    }      
+    // Ajusta la UI (led status)
+    setLedStatus();
+  }  
 }
 
 // Verificacion estado de la conexion wifi
 // Si level es true devuelve nivel de señal wifi, si es false solo verifica conexion wifi
 // y devuelve true si hay conexion o false si no la hay
 int checkWifi(bool level) {
-  // Hay conexion wifi: si no la habia previamente, informamos recuperacion
-  if(WiFi.status() == WL_CONNECTED) {
-    if (!Estado.connected) {
-      logStatus(wifiOKmsg());
-      Estado.errorInformado = false; // reiniciamos bloqueo futuros LOG_WARN/ERROR
-      setConnected(true);
-    }
-    return level==true ? wm.getRSSIasQuality(WiFi.RSSI()) : true; 
-  }
-  // No hay conexion wifi: informamos error si no se habia informado previamente
-  else {
-    if (Estado.connected) {
-        if (!Estado.errorInformado) {
-          LOG_ERROR(" ** [ERROR] No estamos conectados a la wifi");
-          Estado.errorInformado = true; // bloquea futuros LOG_ERROR
-        }
-        setConnected(false);
-    }      
-    return false;
-  }
+  bool isConnected = (WiFi.status() == WL_CONNECTED);
+  // setConnected solo ejecutará cambios si isConnected != Estado.connected
+  setConnected(isConnected);
+  if (isConnected) return level ? wm.getRSSIasQuality(WiFi.RSSI()) : true;
+  else return false;
 }
 
+// Para los casos en que la reconexion automatica no se dispara
 bool wifiReconnect () {
     LOG_INFO("----  INTENTANDO RECONEXION WIFI  ----");
     setParpadeo(tic_WifiLed, RAPIDO, parpadeoLedPWM, ledWifi);
     if (Estado.estado == STANDBY) lcd.info(MSG_WIFI_CONN,2);
     else {
+      analogWrite(LEDR, 0); // apaga led error
       lcd.info(MSG_WIFI_CONN, 1); // muestra mensaje de reconexion
       lcd.info("",2); // y borra segunda linea
     }
-    WiFi.disconnect();
-    delay(3000);
-    WiFi.begin();
+    wifiRetryCount = 0;
+    WiFi.reconnect();
+    // WiFi.disconnect();
+    // delay(3000);
+    // WiFi.begin();
     delay(3000);
     setLedStatus(); // elimina parpadeo led wifi
     return checkWifi();
@@ -394,4 +406,21 @@ void showWifiLevel(int wifilevel) {
         lcd.printf("%02d%%", wifilevel);
     } 
     else lcd.print("--%"); // Caso de pérdida de señal o wifilevel == 0
+}
+
+void showWifiOK() {
+    LOG_DEBUG("Estado:", Estado.estado);
+    Estado.showWifiOK = false;
+    sonido.bip(1);
+    lcd.displayON(); //por si estuviera parpadeando(apagado) por error en pantalla
+      // muestra el OK en segunda linea
+    if (Estado.estado == STANDBY) {
+      if (Estado.reposo) reposoOFF();
+      lcd.info(wifiOKmsg(SHORT),2);
+      delay(config.msgdisplaymillis);
+      setUI(STANDBY);  //restaura pantalla (borra msg de reconexion)
+    }
+      // borra pantalla y muestra wifi OK en display primera linea
+    if (Estado.estado == ERROR && Estado.recoverableError) lcd.infoclear(wifiOKmsg(SHORT), 1);
+    if (!timeOK) setClock(); //intenta sincronizar clock
 }

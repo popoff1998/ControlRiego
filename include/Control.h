@@ -331,7 +331,8 @@
     bool failedStopRiego = false;
     bool recoverableError = false;
     bool errorInformado = false;  // para no repetir logs del mismo error "silencioso" (fallo wifi en standby o readRemoteTemp)
-  } ;
+    bool showWifiOK = false;  // para refrescar pantalla en procesaEstadoXXXX 
+  } ;  
 
   struct S_timeRiego {
     time_t inicio; 
@@ -743,6 +744,7 @@ void showInfoZona(int);
 void showTemp(void);
 void showTimeLastRiego(S_timeRiego&);
 void showWifiLevel(int wifilevel);
+void showWifiOK();
 void simulaPauseIfEncoderSW(bool initialize = false);
 void startConfigPortal();
 bool startMultirriego();
