@@ -6,6 +6,9 @@
 #define ledWifi  LEDG   
 #define ledAP    LEDB
 
+extern bool hayWifiSalvada;
+// bool activadoAP = false;
+
 Ticker tic_WifiLed;
 Ticker tic_APLed;
 
@@ -31,7 +34,6 @@ const char* custom_head_element =
     "});"
     "</script>";
     
-
 // Pattern para validar IPs y puertos en los campos de configuración (usado en el portal AP de WiFiManager y en el webserver)
 #define RX_OCTETO "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
 #define RX_IP_BASE "^(" RX_OCTETO "\\." RX_OCTETO "\\." RX_OCTETO "\\." RX_OCTETO ")$|^([a-zA-Z0-9\\-]+\\.local)$"
@@ -94,20 +96,28 @@ void copyCustomParamsToConfig() {
   LOG_DEBUG("Config actualizado: SCD_ip=", config.SCD_ip, ", SCD_port=", config.SCD_port, ", ntpServer=", config.ntpServer, ", timeZone=", config.TZ);
 }
 
-//llamado cuando WiFiManager sale del modo configuracion
-void saveWifiCallback() {
-    LOG_INFO("[CALLBACK] fired, should save config");
+//llamado cuando WiFiManager sale del modo configuracion al pulsar SAVE (ANTES de intentar conexion a la wifi)
+void saveParamsCallback() {
+    LOG_DEBUG("[CALLBACK] fired, should save config");
     saveConfigRequired = true;
-    // Eliminamos el temporizador y apagamos el led indicador de modo AP
-    setLed(tic_APLed, APAGA, ledAP);
-    lcd.infoclear(MSG_WIFI_CONN);
-    // Empezamos el temporizador que hará parpadear el LED indicador de wifi
-    setParpadeo(tic_WifiLed, RAPIDO, parpadeoLedPWM, ledWifi);
+    String ssidSubmitted = wm.server->arg("s");
+    if (ssidSubmitted.length() > 0) {
+        // Se seleccionó una red (aunque sea la misma) -> WM va a des/reconectar
+        LOG_DEBUG("[CALLBACK] SAVE con SSID", ssidSubmitted.c_str(),"Cambiando UI...");
+        setLed(tic_APLed, APAGA, ledAP);
+        lcd.infoclear(MSG_WIFI_CONN);
+        setParpadeo(tic_WifiLed, RAPIDO, parpadeoLedPWM, ledWifi);
+    } else {
+        // Solo se guardan los parámetros custom, no hay des/reconexión
+        LOG_DEBUG("[CALLBACK] SAVE sin SSID (solo parámetros). Sin cambio de UI.");
+    }
+    //   wm.stopConfigPortal();
 }
 
-//llamado cuando WiFiManager entra en modo configuracion
-void configModeCallback (WiFiManager *myWiFiManager) {
-  LOG_INFO("[CALLBACK] fired");
+//llamado cuando WiFiManager activa el AP (incluso antes de activar el servidor web)
+void APCallback (WiFiManager *myWiFiManager) {
+  LOG_DEBUG("[CALLBACK] fired");
+  // activadoAP = true; // flag para despues borrar pantalla de AP
   // apagamos el LED indicador de wifi
   setLed(tic_WifiLed, APAGA, ledWifi);
   // Empezamos el temporizador que hará parpadear el LED indicador de AP
@@ -116,19 +126,11 @@ void configModeCallback (WiFiManager *myWiFiManager) {
   lcd.info("\"Ardomo\" activado", 3);
 }
 
-//llamado cuando WiFiManager recibe parametros adicionales (de pagina independiente de parametros)
-// void saveParamCallback()
-// {
-//   LOG_INFO("[CALLBACK] fired");
-//   LOG_INFO("Should save config");
-//   saveConfigRequired = true;
-//   wm.stopConfigPortal();
-// }
 
 //llamado antes de empezar carga del sketch via OTA
 void preOtaUpdateCallback()
 {
-  LOG_INFO("[CALLBACK] fired");
+  LOG_DEBUG("[CALLBACK] fired");
   lcd.infoclear("OTA in progress", BLINKDISPLAY, LOWBIP, 1);
   #ifdef DISPLAYOTA
     // actualizamos el progreso en el display
@@ -154,7 +156,7 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info) {
     LOG_ERROR("WiFi lost connection. Reason: ", reason);
     setConnected(false);
   } else {
-    // LOG_DEBUG("WiFi lost connection. Reason: ", reason);
+    LOG_DEBUG("WiFi lost connection. Reason: ", reason);
   }
   // Evaluamos solo los fallos donde el driver detiene la auto-reconexión para forzarla 2 veces
   bool esFalloAutenticacion = (reason == WIFI_REASON_AUTH_FAIL || 
@@ -187,7 +189,6 @@ void setupRedWM(S_initFlags &initFlags)
   saveConfigRequired = false;
   if(initFlags.initWifi) {
     wm.resetSettings(); //borra wifi guardada
-    //delay(300);
     PRINTLN("[setupRedWM] encoderSW pulsado y multirriego en GRUPO3 --> borramos red WIFI");
     lcd.infoclear("red WIFI borrada", BLINKDISPLAY, LOWBIP, 1); //señala borrado wifi
   }
@@ -197,26 +198,27 @@ void setupRedWM(S_initFlags &initFlags)
   //WiFi.setTxPower(WIFI_POWER_19_5dBm); // ajusta la potencia de transmision wifi al maximo
   wm.setHostname(HOSTNAME); 
   wm.setConfigPortalTimeout(timeout); //sets timeout until configuration portal gets turned off
+  wm.setConnectTimeout(15); // timeout tras 15 segundos intentando conectar a la wifi
   wm.setAPClientCheck(true);  // avoid timeout if client connected to softap
   wm.setMinimumSignalQuality(25);  // set min RSSI (percentage) to show in scans, null = 8%
   // callbacks
-  wm.setAPCallback(configModeCallback);
-  wm.setSaveConfigCallback(saveWifiCallback);
-  // wm.setSaveParamsCallback(saveParamCallback);
+  wm.setAPCallback(APCallback);
+  wm.setSaveParamsCallback(saveParamsCallback);
   wm.setPreOtaUpdateCallback(preOtaUpdateCallback);
+  // wm.setPreSaveConfigCallback(preSaveConfigCallback);
+  // wm.setSaveConfigCallback(saveConfigCallback);
   //if this is set, it will exit after config, even if connection is unsuccessful
   wm.setBreakAfterConfig(true);
   //muestra version en el titulo de la pagina web inicial
   wm.setTitle("Version: " + String(FW_VERSION));
-  wm.setCustomHeadElement(custom_head_element); // custom html to add to head, can be a js script to change styles and text in the page
+  // custom html to add to head -> cambia el texto de los botones del portal AP
+  wm.setCustomHeadElement(custom_head_element);
   // Orden de los ítems del menú principal (no compatible con setParamsPage)
   // menu tokens, "wifi","wifinoscan","info","param","close","sep","erase","restart","exit" (sep is seperator)
   const char* menu[] = {"wifi","exit","sep","info","update","erase"}; // (if param is in menu, params will not show up in wifi page!)
   wm.setMenu(menu,6);
   wm.setShowInfoErase(false); // oculta el botón "erase" de la pagina de informacion (si se muestra en el menu)
   wm.setShowInfoUpdate(false); // oculta el botón "update" de la pagina de informacion (si se muestra en el menu)
-  //parametros adicionales en la misma pagina que la wifi o en una pagina independiente
-  // wm.setParamsPage(false); // muestra los parametros adicionales en la misma pagina que la wifi (default)
   // wm.setParamsPage(true); // muestra los parametros adicionales en una pagina independiente
   wm.addParameter(&custom_SCD_server);
   wm.addParameter(&custom_SCD_port);
@@ -226,63 +228,42 @@ void setupRedWM(S_initFlags &initFlags)
   wm.addParameter(&custom_timezone);
   copyConfigToCustomParams();
   if(Estado.noWIFI) return;
-  lcd.infoclear(MSG_WIFI_CONN);
   ledPWM(LEDR,OFF);   // Apagamos LEDR
-  setParpadeo(tic_WifiLed, RAPIDO, parpadeoLedPWM, ledWifi); // y empezamos el temporizador que hará parpadear el LED indicador de wifi
+  // y empezamos el temporizador que hará parpadear el LED indicador de wifi (si hay wifi salvada)
+  if (wm.getWiFiIsSaved()) { 
+    setParpadeo(tic_WifiLed, RAPIDO, parpadeoLedPWM, ledWifi);
+    lcd.infoclear(MSG_WIFI_CONN);
+  } else {
+    lcd.infoclear("SIN wifi definida");
+    delay(config.msgdisplaymillis);
+  } 
   // activamos conexion wifi y comprobamos si se establece
   if(!wm.autoConnect("Ardomo")) {
-    PRINTLN("[setupRedWM] Fallo en la conexión (timeout)");
-    Estado.recoverableError = true;
-    delay(1000);
+    PRINTLN("[setupRedWM] Fallo en la conexión (exit or hit timeout)");
+    // borramos UI de AP (necesario para el caso de que se haya activado y no hemos entrado y dado save)
+    lcd.clear(); // borra pantalla AP
+    setLed(tic_APLed, APAGA, ledAP); // detenemos parpadeo y apagamos led AP
   }
-  /* 
-    * Podemos continuar hasta aqui por tres razones:
-    *   - nos hemos conectado a la red wifi almacenada
-    *   - nos hemos podido conectara a la red wifi que hemos introducido en la web de configuracion
-    *   - no nos hemos podido conectar a la red wifi almacenada o no habia y el modo configuracion ha 
-    *     dado timeout (Estado.recoverableError=true)
-    */
-  // detenemos parpadeo y apagamos led AP (caso de que se hubiera activado antes AP)
-  setLed(tic_APLed, APAGA, ledAP);
-  //si no hemos podido conectar y existe una red wifi salvada,reintentamos hasta 20 seg.
+  //si no hemos podido conectar y existe una red wifi salvada,reintentamos hasta MAXCONNECTRETRY seg (12 s).
   // (para caso corte de corriente)
-  if (Estado.recoverableError && wm.getWiFiIsSaved()) {
-    lcd.infoclear(MSG_WIFI_CONN);
-    PRINTLN("[setupRedWM] Hay wifi salvada -> reintentamos la conexion");
-    int j=0;
-    Estado.recoverableError = false;
-    setParpadeo(tic_WifiLed, RAPIDO, parpadeoLedPWM, ledWifi);
-    WiFi.reconnect(); // reintentamos conexion a la wifi salvada (asincrono, no bloqueante)
-    while(WiFi.status() != WL_CONNECTED) {
-      Serial.print(F("."));
-      delay(2000);
-      j++;
-      if(j == MAXCONNECTRETRY) {
-        Estado.recoverableError = true;
-        LOG_WARN("Fallo en la reconexión");
-        break;
-      }
-    }
-  }
-  if (checkWifi()) {
+  hayWifiSalvada = wm.getWiFiIsSaved(); // set si habia o se ha definido en el portal AP red wifi
+  if (!checkWifi() && hayWifiSalvada) wifiReconnect();
+  if (Estado.connected) {
     PRINTLN("\n[setupRedWM]  >>  Conectado a SSID: ", WiFi.SSID().c_str());
     PRINTLN(  "[setupRedWM]  >>      IP address: ", WiFi.localIP());
     PRINTLN(  "[setupRedWM]  >>      RSSI:", WiFi.RSSI(), "dBm  (",  wm.getRSSIasQuality(WiFi.RSSI()),"%)\n");
     lcd.info(wifiOKmsg(SHORT), 1);
   }
-  else if(!Estado.modoDEMO) {
-     statusError(E1, RECUPERABLE); //si no hemos podido conectar a la wifi señalamos error
-     LOG_WARN("SIN conexion wifi");
-  }
-  // dejamos led RGB segun la situacion final
-  setLedStatus();
-  // copia parametros del portal AP a la config wifi
+  //si no hemos podido conectar a la wifi activamos el error (recuperable si hay wifi salvada)
+  else if(!Estado.modoDEMO) statusError(E1, hayWifiSalvada);
+  // copia parametros del portal AP a la configuracion en memoria (config)
   if (saveConfigRequired) copyCustomParamsToConfig();
-  //dejamos activado evento de desconexion o conexion ?? (wifi events):
+  //dejamos activado evento de desconexion y conexion (wifi events):
   WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
   WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
   // WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_CONNECTED);
   // WiFi.removeEvent(WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+  LOG_DEBUG("AutoReconnect?:", WiFi.getAutoReconnect() ? "SÍ" : "NO");
 } //fin setupRedWM
 
 /**
@@ -296,10 +277,6 @@ void startConfigPortal()
   }
   // copia parametros del portal AP a la config wifi
   if (saveConfigRequired) copyCustomParamsToConfig();
-  // deja led RGB segun la situacion final
-  setLedStatus();
-  checkWifi();  // TODO ¿es necesario?
-  delay(config.msgdisplaymillis);
 }
 
 // Set del estado de la conexion wifi, info en display, led indicador y log si procede
@@ -323,7 +300,7 @@ void setConnected(bool state) {
         }
     }      
     // Ajusta la UI (led status)
-    setLedStatus();
+    if(Estado.estado != CONFIGURANDO) setLedStatus(); 
   }  
 }
 
@@ -340,6 +317,8 @@ int checkWifi(bool level) {
 
 // Para los casos en que la reconexion automatica no se dispara
 bool wifiReconnect () {
+    if (!hayWifiSalvada) 
+        return false;  // si no hay wifi salvada no es posible reconectar
     LOG_INFO("----  INTENTANDO RECONEXION WIFI  ----");
     setParpadeo(tic_WifiLed, RAPIDO, parpadeoLedPWM, ledWifi);
     if (Estado.estado == STANDBY) lcd.info(MSG_WIFI_CONN,2);
@@ -349,11 +328,17 @@ bool wifiReconnect () {
       lcd.info("",2); // y borra segunda linea
     }
     wifiRetryCount = 0;
+    int j=0;
     WiFi.reconnect();
-    // WiFi.disconnect();
-    // delay(3000);
-    // WiFi.begin();
-    delay(3000);
+    while(WiFi.status() != WL_CONNECTED) {
+      Serial.print(F("."));
+      delay(1000);
+      j++;
+      if(j == MAXCONNECTRETRY) {
+        LOG_INFO("Fallo en la reconexión");
+        break;
+      }
+    }
     setLedStatus(); // elimina parpadeo led wifi
     return checkWifi();
 }    
@@ -421,6 +406,7 @@ void showWifiOK() {
       setUI(STANDBY);  //restaura pantalla (borra msg de reconexion)
     }
       // borra pantalla y muestra wifi OK en display primera linea
-    if (Estado.estado == ERROR && Estado.recoverableError) lcd.infoclear(wifiOKmsg(SHORT), 1);
+    if ((Estado.estado == ERROR && Estado.recoverableError) || Estado.estado == CONFIGURANDO) lcd.infoclear(wifiOKmsg(SHORT), 1);
+    if (Estado.estado == CONFIGURANDO) delay(config.msgdisplaymillis);
     if (!timeOK) setClock(); //intenta sincronizar clock
 }

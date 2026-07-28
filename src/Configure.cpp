@@ -371,7 +371,8 @@ void Configure::procesaSelectMenu()
                 LOG_INFO("[ConF]  activamos AP y portal de configuracion");
                 ledYellow(OFF);
                 startConfigPortal();
-                ledYellow(ON);
+                if (Estado.showWifiOK) showWifiOK(); //muestra en pantalla wifi recuperada
+                setLedStatus(); // detiene parpadeos y activa ledYellow
                 this->menu();  // vuelve a mostrar menu de configuracion
                 break; 
         #ifdef WEBSERVER

@@ -21,6 +21,7 @@
   };
 
   enum m_estados {
+    INITIAL       ,
     STANDBY       ,
     REGANDO       ,
     CONFIGURANDO  ,

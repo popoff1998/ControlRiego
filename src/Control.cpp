@@ -66,7 +66,7 @@ void setup()
   setupEstadoFinal();
   #ifdef DEVELOP
     // filesInfo();
-    printFile(logErrorFile);
+    // printFile(logErrorFile);
   #endif
   Estado.inSetup = false;
   PRINTLN("   *** Setup finalizado *** MS:", millis() , "\n\n");
@@ -236,7 +236,7 @@ void setupEstadoFinal()
           }    
       }
   } else {  //si no estamos conectados a la red pasamos a estado ERROR
-    statusError(E1, RECUPERABLE); //error de conexion wifi recuperable
+    statusError(E1, hayWifiSalvada); //error de conexion wifi recuperable si hay una red wifi salvada
     LOG_ERROR("setupEstadoFinal salida por estado ERROR(E1)"); 
   }
 }  //fin de setupEstadoFinal
@@ -1068,6 +1068,7 @@ void setUI(m_estados estado, int bipcount, estado_tipos tipo, velocidad_parpadeo
 {
     // literales para los estados en el display (Definición estática y vinculada por índice de Enum m_estados)
     static const char* const nEstado[] = {
+        [INITIAL]      = "",
         [STANDBY]      = "STANDBY",
         [REGANDO]      = "REGANDO:",
         [CONFIGURANDO] = "CONFIGURANDO",
@@ -2053,17 +2054,15 @@ void procesaCuentaAtras()
   }
 }
 
-// Verifica la conexion con Domoticz
+// Verifica la conexion con SCD (Domoticz) devuelve TRUE si OK, FALSE  sin conexion
 bool checkSCD()
 {
   if (!Estado.inSetup) {setParpadeo(tic_LedRecon, RAPIDO, parpadeoLedPWM, LEDB); sonido.bip(1);} //parpadeo led recon y bip de aviso
   LOG_INFO("----  VERIFICANDO CONEXION DOMOTICZ  ----");
   bool SCD_OK = getDiaNoche(amanecer, anochecer); //enviamos mandato a Domoticz para comprobar que hay conexion
   setLed(tic_LedRecon, APAGA, LEDB); //paramos parpadeo led recon y lo dejamos apagado
-  if(!SCD_OK) { 
-    return false; }
-  if (Estado.estado == ERROR) setStateMachine(STANDBY); // pasa a STANDBY sin mostrar mensajes en LCD para borrar estado previo de error de conexion
-  return true;
+  if (SCD_OK && Estado.estado == ERROR) setStateMachine(STANDBY); // pasa a STANDBY sin mostrar mensajes en LCD para borrar estado previo de error de conexion
+  return SCD_OK;
 }
 
 //verificamos si el Domoticz esta conectado, solo en este caso reintentamos leer factores de riego

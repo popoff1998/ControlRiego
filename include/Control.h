@@ -73,7 +73,7 @@
   #ifdef RELEASE
     #define DEFAULTMINUTES      10    // * tiempo de riego por defecto (minutos)
     #define DEFAULTSECONDS      0     // * tiempo de riego por defecto (segundos)
-    #define RECONNECTINTERVAL   2     // tiempo en minutos para intentar reconexion a la wifi
+    #define RECONNECTINTERVAL   3     // tiempo en minutos para intentar reconexion a la wifi o al SCD
     #define LONGINTERVAL        15    // tiempo en minutos para verificaciones largo plazo 
     #define COUNTDOWNBIP        30    // segundos restantes inicio diferido para avisar con bip de cuenta atras
     #define COUNTDOWNSHOW       10    // minutos restantes inicio diferido para mostrar en pantalla cuenta atras
@@ -81,7 +81,7 @@
   #ifdef DEVELOP
     #define DEFAULTMINUTES      0
     #define DEFAULTSECONDS      10
-    #define RECONNECTINTERVAL   1      // tiempo en minutos para intentar reconexion a la wifi
+    #define RECONNECTINTERVAL   1      // tiempo en minutos para intentar reconexion a la wifi o al SCD
     #define LONGINTERVAL        2      // tiempo en minutos para verificaciones largo plazo
     #define COUNTDOWNBIP        10     // segundos restantes inicio diferido para avisar con bip de cuenta atras
     #define COUNTDOWNSHOW       1      // minutos restantes inicio diferido para mostrar en pantalla cuenta atras 
@@ -100,7 +100,7 @@
   #define MAXMINUTES          59      // corte automatico de seguridad a los 60 min. en los arduinos
   #define MINSECONDS          5       // minimo de segundos ajustables en el temporizador
   #define HOLDTIME            3000    // mseg que hay que mantener PAUSE pulsado para ciertas acciones
-  #define MAXCONNECTRETRY     10      // numero maximo de reintentos de reconexion a la wifi tras el fallo en inicio
+  #define MAXCONNECTRETRY     12      // timeout en segundos reconexion a la wifi tras el fallo en inicio
   #define VERIFY_INTERVAL     15      // intervalo en segundos entre verificaciones periodicas
   #define HTTPCLIENTCONNECTTIMEOUT  1000  // timeout (ms) para establecer conexion con el servidor Domoticz
   #define HTTPCLIENTRESPONSETIMEOUT 3500  // timeout (ms) para recibir respuesta del servidor Domoticz
@@ -318,7 +318,7 @@
 
   // estructura con el estado general del sistema (State Machine)
   struct S_Estado {
-    m_estados estado = STANDBY; 
+    m_estados estado = INITIAL; 
     estado_tipos tipo   = LOCAL;
     error_tipos error  = NOERROR;
     // Campos de flags/modos de operación
@@ -533,6 +533,7 @@
     bool saveConfigRequired = false;
     bool cancelFromPause = false; // indica si se ha cancelado un riego que estaba en pausa
     bool fsOK = false;  // filesystem ok
+    bool hayWifiSalvada = false; // indica si hay almacenada una wifi/pw en el ESP32
     unsigned long standbyTime;
     int numloops = 0;
     char amanecer[] = "NO TIME";

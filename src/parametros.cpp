@@ -45,7 +45,8 @@ bool saveConfig()
   LOG_INFO("saveConfigRequired=true  --> salvando parametros a fichero");
   saveConfigRequired = false;
   if (writeConfigToFile(parmFile)) {
-    lcd.infoclear("SAVED parameters", BLINKDISPLAY, BIPOK);
+    if (!Estado.inSetup) lcd.infoclear("SAVED parameters", BLINKDISPLAY, BIPOK);
+    else lcd.info("SAVED parameters",1);
     delay(config.msgdisplaymillis);
     config.initialized = true;  // para indicar que ya hay config válida en memoria
     return true;

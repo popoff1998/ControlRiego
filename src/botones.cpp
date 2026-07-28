@@ -192,6 +192,7 @@ void ledWhite(int estado)
 // deja led RGB segun estado wifi y modoDEMO, o estados error y configurando
 void setLedStatus()
 {
+  LOG_DEBUG("");
   extern Ticker tic_LedError;
   extern Ticker tic_APLed;
   extern Ticker tic_WifiLed;
