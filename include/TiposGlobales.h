@@ -32,6 +32,12 @@
     DIFERIDO      ,
     NUM_ESTADOS // numero de estados definidos en el enum
   };
+
+  enum wifi_eventos {
+    WIFI_NOCHANGE = 0,
+    WIFI_DISCONNECTED ,
+    WIFI_CONNECTED,
+  };
   
   enum error_tipos {
     NOERROR       = 0,

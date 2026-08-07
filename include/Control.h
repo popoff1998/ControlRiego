@@ -331,7 +331,6 @@
     bool failedStopRiego = false;
     bool recoverableError = false;
     bool errorInformado = false;  // para no repetir logs del mismo error "silencioso" (fallo wifi en standby o readRemoteTemp)
-    bool showWifiOK = false;  // para refrescar pantalla en procesaEstadoXXXX 
   } ;  
 
   struct S_timeRiego {
@@ -580,6 +579,7 @@ void check(void);
 bool checkAndInitFactorRiegos(bool signalError = true);
 bool checkSCD(void);
 int  checkWifi(bool level=false);
+void checkWifiChange();
 void cleanFS(void);
 String convertFileSize(const size_t);
 bool copyFile(const char *, const char *);
@@ -717,7 +717,7 @@ void scWebserver();
 void scWifiLevel();
 bool serialDetect(void);
 void setClock(void);
-void setConnected(bool);
+void setConnected(bool state, bool force = false);
 void setDiferido();
 void setEncoderMenu(int menuitems, int currentitem = 0);
 void setEncoderRange(int , int , int , int);

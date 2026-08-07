@@ -55,8 +55,6 @@ void setup()
   setupRedWM(initFlags);
   //Obtenemos hora del servidor ntp y ajustamos hora del sistema y timezone
   setClock();
-  //Si se ha modificado alguna opcion de configuracion en el portal AP, la guardamos
-  if (saveConfigRequired) saveConfig();
   //Recuperamos lastRiegos y lastGrupos (registro fecha/hora y riego realizado)
   initLastRiegos();
   initLastGrupos();
@@ -737,11 +735,11 @@ bool procesaDynamic(int znumber)
 void procesaEstadoError()
 {
   // Si se ha recuperado la conexion wifi, iniciamos el recovery sin experar el VERIFY_INTERVAL
-  if (Estado.showWifiOK) {
-    LOG_DEBUG("showWiFiOK"); 
-    showWifiOK(); //muestra en pantalla wifi recuperada
-    VerifyRecoveryWifi(false); //inicia proceso de recuperacion
-  }  
+  // if (Estado.showWifiOK) {
+  //   LOG_DEBUG("showWiFiOK"); 
+  //   showWifiOK(); //muestra en pantalla wifi recuperada
+  //   VerifyRecoveryWifi(false); //inicia proceso de recuperacion
+  // }  
   // gestion del tamano del fichero de log de errores cada LONGINTERVAL minutos
   if (checkLogSize) {
     gestionarTamanoLog(); // Borra/rota fichero de log de errores si su tamano es excesivo
@@ -856,7 +854,7 @@ void procesaEstadoStandby()
 {
   if (multi.riegoON)  //no se hacen verificaciones/acciones con multirriego en curso
       return;
-  if (Estado.showWifiOK) showWifiOK(); //muestra en pantalla wifi recuperada    
+  // if (Estado.showWifiOK) showWifiOK(); //muestra en pantalla wifi recuperada    
   //Apagamos el display y atenuamos led status si ha pasado el lapso STANDBYSECS sin actividad
   if (!Estado.reposo && (millis() - standbyTime >= (1000UL * STANDBYSECS))) reposoON();
   // leemos encoder
@@ -1051,7 +1049,6 @@ void setStateMachine(m_estados estado, estado_tipos tipo)
   Estado.failedStopRiego = false;
   Estado.recoverableError = false;
   Estado.errorInformado = false;
-  Estado.showWifiOK = false;
   getBotonPointer(bPAUSE)->flags.holddisabled = true; //Deshabilitamos el hold de Pause
   rotaryEncoder.disable();  // para que no cuente pasos salvo que lo habilitemos
   if(Estado.reposo) reposoOFF();     //por si salimos de stop antinenes
@@ -1930,7 +1927,6 @@ void resetLeds()
   for(unsigned int i=0;i<NUMZONAS;i++) {
     led(getBotonPointer(Zonas[i])->led,OFF);
   }
-  //restablece led RGB
   setLedStatus();  //restablece led RGB a estado actual  
 }
 
@@ -2101,6 +2097,8 @@ void Verificaciones()
   // Reiniciamos flags de verificaciones
   flagV = OFF;
   checkRecon = false;
+  // Verificamos si ha habido cambios en la conexion wifi
+  checkWifiChange();
   // Si no activada por Ticker salimos sin hacer nada mas
   if (!flagVtimer) 
       return;  
