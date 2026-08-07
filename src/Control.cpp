@@ -1599,7 +1599,7 @@ void setReposo(bool status) {
 void reposoOFF()
 {
   // setCpuFrequencyMhz(240); // volvemos frecuencia CPU a 240Mhz
-  // WiFi.setSleep(WIFI_PS_MIN_MODEM); // ponemos wifi en modo ahorro energia minimo (default)
+  WiFi.setSleep(WIFI_PS_NONE); // desactivamos modo ahorro energia de la radio wifi
   LOG_INFO(" salimos de reposo");
   setReposo(false);
   standbyTime = millis();
@@ -1609,7 +1609,7 @@ void reposoON()
 {
   LOG_INFO(" entramos en reposo");
   setReposo(true);
-  // WiFi.setSleep(WIFI_PS_MAX_MODEM); // ponemos wifi en modo ahorro energia maximo
+  WiFi.setSleep(WIFI_PS_MIN_MODEM); // ponemos wifi en modo ahorro energia minimo
   // setCpuFrequencyMhz(80); // bajamos frecuencia CPU a 80Mhz para ahorrar energia
 }  
 

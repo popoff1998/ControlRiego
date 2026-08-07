@@ -178,7 +178,7 @@ void setupRedWM(S_initFlags &initFlags)
   }
   // explicitly set mode, esp defaults to STA+AP   
   WiFi.mode(WIFI_STA);
-  //esp_wifi_set_ps( WIFI_PS_NONE );  // Set current WiFi power save type (Default is WIFI_PS_MIN_MODEM)
+  WiFi.setSleep(WIFI_PS_NONE); // desactivamos modo ahorro energia de la radio wifi
   //WiFi.setTxPower(WIFI_POWER_19_5dBm); // ajusta la potencia de transmision wifi al maximo
   wm.setHostname(HOSTNAME); 
   wm.setConfigPortalTimeout(timeout); //sets timeout until configuration portal gets turned off
