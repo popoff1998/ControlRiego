@@ -2004,7 +2004,7 @@ void timerTick() {
 // Actualiza UI: alertas sonoras y modo reposo según el tiempo restante de la cuenta atrás
 void actualizarAlertasYReposo()
 { 
-  uint8_t minRestantes = timer.ShowMinutes();
+  uint16_t minRestantes = timer.ShowMinutes() + timer.ShowHours() * 60;
   uint8_t segRestantes = timer.ShowSeconds();
   // Alerta visual y sonora: al llegar a COUNTDOWNBIP segundos fija pantalla y parpadeo rapido led white
   if (!minRestantes && segRestantes == COUNTDOWNBIP+2) {

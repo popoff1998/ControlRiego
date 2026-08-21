@@ -122,6 +122,7 @@ void APCallback (WiFiManager *myWiFiManager) {
   setParpadeo(tic_APLed, NORMAL, parpadeoLedPWM, ledAP);
   lcd.infoclear("   modo -AP- :", 1, LOWBIP, 1); //lo señalamos en display
   lcd.info("\"Ardomo\" activado", 3);
+  lcd.info("(12345678)", 4);
 }
 
 
@@ -233,7 +234,7 @@ void setupRedWM(S_initFlags &initFlags)
     delay(config.msgdisplaymillis);
   } 
   // activamos conexion wifi y comprobamos si se establece
-  if(!wm.autoConnect("Ardomo")) {
+  if(!wm.autoConnect("Ardomo", "12345678")) {
     PRINTLN("[setupRedWM] Fallo en la conexión (exit or hit timeout)");
     // borramos UI de AP (necesario para el caso de que se haya activado y no hemos entrado y dado save)
     lcd.clear(); // borra pantalla AP
@@ -274,7 +275,7 @@ void startConfigPortal()
   wm.setConfigPortalTimeout(timeout);
   ssidWasSubmitted = false;
   saveAPparmsRequired = false; 
-  if (!wm.startConfigPortal("Ardomo")) LOG_INFO("Exit or hit timeout");
+  if (!wm.startConfigPortal("Ardomo", "12345678")) LOG_INFO("Exit or hit timeout");
   // Restaurar LEDs y limpiar display del modo AP
   setLedStatus(); 
   lcd.clear(); 
