@@ -88,7 +88,7 @@
 - Si error en parámetros (E0) Stop activa webserver V3.3
 - Si parametro dynamic=true tambien se permite modificar multiriego de grupo pasandolo a temporal V3.3
 - Configurando grupo temporal: un segundo PAUSE en lugar de liberar STOP reinicia el proceso de definirlo V3.3
-- En modo AP el portal de configuración wifi no se cierra pasado el timeout si hay un cliente conectado. V3.3 
+- En modo AP el portal de configuración wifi no se cierra pasado el timeout si hay un cliente conectado. Acceso con password.V3.3 
 - Menu de portal AP: Parametros pasan a pagina de Configuración Wifi y campos user/pw SCD V3.3
 - Identificacion (opcional) con user/pw al SCD (Domoticz) usando httpclient.setAuthorization V3.3
 - Fecha de ultimo riego: muestra tiempo pasado desde que se produjo si no hay fecha valida (no se salva) V3.3
@@ -100,5 +100,6 @@
 - Log del Domoticz consultable desde el webserver V3.3
 - Webserver: opcion de seleccionar una carpeta en el PC para subir todos sus ficheros V3.3
 - Riego diferido: se puede ajustar el comienzo del riego de una zona o grupo despues de un tiempo hh:mm V3.3
-
+- Refactorizado conexión wifi en wifiWM.cpp. Ahorro energía wifi solo en reposo V3.3
+- En arranque si E0 y Stop anclado, se activa webserver. V3.3
 
