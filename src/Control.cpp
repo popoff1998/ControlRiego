@@ -734,12 +734,6 @@ bool procesaDynamic(int znumber)
 
 void procesaEstadoError()
 {
-  // Si se ha recuperado la conexion wifi, iniciamos el recovery sin experar el VERIFY_INTERVAL
-  // if (Estado.showWifiOK) {
-  //   LOG_DEBUG("showWiFiOK"); 
-  //   showWifiOK(); //muestra en pantalla wifi recuperada
-  //   VerifyRecoveryWifi(false); //inicia proceso de recuperacion
-  // }  
   // gestion del tamano del fichero de log de errores cada LONGINTERVAL minutos
   if (checkLogSize) {
     gestionarTamanoLog(); // Borra/rota fichero de log de errores si su tamano es excesivo
@@ -854,7 +848,6 @@ void procesaEstadoStandby()
 {
   if (multi.riegoON)  //no se hacen verificaciones/acciones con multirriego en curso
       return;
-  // if (Estado.showWifiOK) showWifiOK(); //muestra en pantalla wifi recuperada    
   //Apagamos el display y atenuamos led status si ha pasado el lapso STANDBYSECS sin actividad
   if (!Estado.reposo && (millis() - standbyTime >= (1000UL * STANDBYSECS))) reposoON();
   // leemos encoder
@@ -888,8 +881,12 @@ void procesaEstadoStop()
 {
   // En stop activamos el comportamiento hold de pausa
   getBotonPointer(bPAUSE)->flags.holddisabled = false;
-  // Si se muestra nivel wifi, lo actualizamos cada intervalo de verificaciones
-  if (config.showwifilevel && flagV) showWifiLevel(checkWifi(true));
+  // Actualizacion en display cada intervalo de verificaciones de temperatura y wifi si se muestra
+  if (flagV) { 
+    if (config.showwifilevel) showWifiLevel(checkWifi(true));
+    showTemp(); // actualiza y muestra temperatura ambiente
+  }
+
   // Apagamos el display y atenuamos led status pasado 4 x STANDBYSECS
   if (!Estado.reposo && (millis() - standbyTime >= (4 * 1000UL * STANDBYSECS))) reposoON();
 };
@@ -2121,19 +2118,20 @@ void Verificaciones()
   // Si llevamos 1 dia "vivos", limpiamos el contador de rearranques
   if (millis() > 24*60*60*1000UL && bootCount > 0) bootCount = 0; 
   /*
-    Con flagV activado, se realizan las siguientes verificaciones periodicas:
+    Se realizan las siguientes acciones periodicamente:
+    Con flagV activado:
       - estado de la wifi y recuperacion de la conexion si no la hay (en procesaEstadoStandby y procesaEstadoError)
       - actualiza y muestra nivel señal wifi si procede (en procesaEstadoStandby y procesaEstadoStop)
-      - actualizacion de hora por NTP si no se hubiera hecho ya (en procesaEstadoStandby)
-      - actualiza y muestra temperatura ambiente (en procesaEstadoStandby)
+      - actualiza y muestra temperatura ambiente (en procesaEstadoStandby y procesaEstadoStop)
       - recordatorio error grave al parar un riego (en procesaEstadoError)
       - si config.verify=true, verifica que el estado de la zona en RIEGO coincide con el de Domoticz (en procesaEstadoRegando)
       - si config.verify=true, verifica que el estado de la zona en PAUSA coincide con el de Domoticz (en procesaEstadoPause)
-    Con checkRecon activado, se realizan las siguientes verificaciones periodicas:
-       - intento de recuperacion de la conexion wifi si no la hay (en procesaEstadoError)
-       - intento de recuperacion de la conexion con Domoticz (en procesaEstadoError)
-    Con checkLogSize activado, se realiza la verificacion del tamaño del log y rotacion si procede
-       (en procesaEstadoStandby y procesaEstadoError)   
+    Con checkRecon activado:
+      - intento de recuperacion de la conexion wifi si no la hay (en procesaEstadoError)
+      - intento de recuperacion de la conexion con Domoticz si no la hay (en procesaEstadoError)
+    Con checkLogSize activado:
+      - verificacion del tamaño del log y rotacion si procede (en procesaEstadoStandby y procesaEstadoError)   
+      - actualizacion de hora por NTP si no se hubiera hecho ya (en procesaEstadoStandby)
   */
 }
 

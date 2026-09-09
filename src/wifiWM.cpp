@@ -324,7 +324,7 @@ void setConnected(bool state, bool force) {
     logStatus(wifiOKmsg());
     wifiRetryCount = 0;
     Estado.errorInformado = false;
-    // Ajusta la UI (display) en caso de conexion
+    // Ajusta la UI (display) en caso de conexion (se incluye CONFIGURANDO para informar de wifi OK tras salir modo AP)
     if (Estado.estado == STANDBY || Estado.estado == ERROR || Estado.estado == CONFIGURANDO) showWifiOK();
   } else {
       // --- transición a: DESCONECTADO ---
@@ -382,8 +382,8 @@ bool VerifyRecoveryWifi(bool checkRecon) {
   /*
     Si no estamos conectados a la wifi, intentamos reconexion cada RECONNECTINTERVAL minutos.
     El evento WiFiStationConnected se deberia ejecutar cuando se recupere la conexion a la wifi,
-    pero no siempre es asi (algunos fallos wifi del ESP32
-    no generan el evento de conexion y no se recupera la conexion automaticamente).
+    pero no siempre es asi (algunos fallos wifi del ESP32 no generan el evento de conexion
+    al no recuperar la conexion automaticamente).
   */
     if(!Estado.connected && checkRecon) {
       if(wifiReconnect()) {
@@ -395,7 +395,7 @@ bool VerifyRecoveryWifi(bool checkRecon) {
     }
   //  Verificamos estado actual de la wifi (y display wifi level si procede)
     int wifilevel = checkWifi(config.showwifilevel); // conectado a wifi?
-    if(Estado.estado == STANDBY) showWifiLevel(wifilevel); // muestra nivel wifi en standby si se ha configurado para mostrarlo{
+    if(Estado.estado == STANDBY || Estado.estado == STOP) showWifiLevel(wifilevel); // muestra nivel wifi en standby si se ha configurado para mostrarlo{
     /*
       Caso de haber recuperado la conexion wifi despues del Setup leemos factor riegos.
       Si este diese error de conexion con Domoticz, se dejara el flag Estado.recoverableError activado
