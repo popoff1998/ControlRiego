@@ -270,6 +270,7 @@ bool deviceSwitch(uint8_t zona, const char *msg, int retries)
     }
     // 5. Caso OK
     Estado.error = NOERROR;
+    resetVerificaciones(RESET_FLAGV); // Reiniciamos timer de verificaciones tras conmutación correcta
     return true;
 }
 

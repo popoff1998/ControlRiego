@@ -334,7 +334,9 @@ void setConnected(bool state, bool force) {
       }
   }      
   // Ajusta la UI (led status)
-  setLedStatus(); 
+  setLedStatus();
+  // Reiniciamos temporizadores de verificaciones y reconexion wifi
+  resetVerificaciones(RESET_FLAGV | RESET_RECONNECT);
 }
 
 // Verificacion estado de la conexion wifi

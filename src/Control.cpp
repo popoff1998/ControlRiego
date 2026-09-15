@@ -2089,8 +2089,6 @@ void Verificaciones()
     debugloops();
   #endif
   
-  static unsigned long lastmillisReconnect = 0;
-  static unsigned long lastmillisLargo = 0;
   // Reiniciamos flags de verificaciones
   flagV = OFF;
   checkRecon = false;
@@ -2133,6 +2131,31 @@ void Verificaciones()
       - verificacion del tamaño del log y rotacion si procede (en procesaEstadoStandby y procesaEstadoError)   
       - actualizacion de hora por NTP si no se hubiera hecho ya (en procesaEstadoStandby)
   */
+}
+
+// Reinicia los timers de verificaciones periodicas
+void resetVerificaciones(uint8_t flags)
+{
+    unsigned long now = millis();
+
+    if (flags & RESET_FLAGV) {
+        tic_verificaciones.detach();
+        tic_verificaciones.attach(VERIFY_INTERVAL, flagVerificaciones);
+        flagVtimer = OFF;  // Cancela cualquier disparo pendiente del ticker
+        flagV = OFF;
+    }
+
+    if (flags & RESET_RECONNECT) {
+        lastmillisReconnect = now;
+        checkRecon = false; // Garantiza que no se procese reconexión en este ciclo
+    }
+
+    if (flags & RESET_LARGO) {
+        lastmillisLargo = now;
+        checkLogSize = false;
+    }
+
+    LOG_DEBUG("flags:", flags);
 }
 
 // Lee la temperatura ambiente (sensor local o remoto segun config). Devuelve 999 si error de lectura.

@@ -59,6 +59,12 @@
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0])) // calcula el numero de elementos de un array
   #define UMBRAL_EPOCH 1767225600 // fecha 1/1/2026 en formato epoch (si la fecha es anterior se considera no valida)
   #define SECS_PER_DAY 86400UL
+  #define SIZEBUFF  2048 // tamaño de buffer para almacenar JSON de Domoticz (maximo 512 bytes)
+  // Flags de qué verificaciones reiniciar su contador (flagv, reconexión wifi, verificación largo plazo)
+  #define RESET_FLAGV     (1 << 0) // decimal 1 (binario 0001)
+  #define RESET_RECONNECT (1 << 1) // decimal 2 (binario 0010)
+  #define RESET_LARGO     (1 << 2) // decimal 4 (binario 0100)
+  #define RESET_ALL       (RESET_FLAGV | RESET_RECONNECT | RESET_LARGO) // decimal 7 (binario 0111)
 
        
   //-------------------------------------------------------------------------------------
@@ -515,6 +521,8 @@
     Ticker tic_LedZona;      //para parpadeo led zona de riego
     Ticker tic_LedZonas24h;  //para parpadeo led zonas regadas ultimas 24h
     Ticker tic_verificaciones;       //para verificaciones periodicas
+    static unsigned long lastmillisReconnect = 0; // contador para verificar cada RECONNECTINTERVAL minutos
+    static unsigned long lastmillisLargo    = 0; // contador para verificar cada LONGINTERVAL minutos
     timeval tv;
     S_timeRiego lastRiegos[NUMZONAS];
     S_timeRiego lastGrupos[NUMGRUPOS];
@@ -538,7 +546,11 @@
     char amanecer[] = "NO TIME";
     char anochecer[] = "NO TIME";
     char buff[MAXBUFF];
-    
+
+    #ifdef DEBUGPAUSAREM
+    char ultimoJSON_Domoticz[SIZEBUFF] = {0}; // para debug, almacena el ultimo JSON recibido de Domoticz
+    #endif
+
     #ifdef TEMPLOCAL 
     DHT dht(DHTPIN, TEMPLOCAL);
     #endif
@@ -765,6 +777,7 @@ void ultimosRiegos(int);
 void updateZoneDescription(int i);
 bool validaBoton();
 void Verificaciones(void);
+void resetVerificaciones(uint8_t flags = RESET_ALL);
 bool VerifyRecoveryWifi(bool checkRecon);
 void VerifyRecoverySCD(void);
 void wifiClearSignal(uint);
