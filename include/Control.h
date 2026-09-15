@@ -59,7 +59,6 @@
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0])) // calcula el numero de elementos de un array
   #define UMBRAL_EPOCH 1767225600 // fecha 1/1/2026 en formato epoch (si la fecha es anterior se considera no valida)
   #define SECS_PER_DAY 86400UL
-  #define SIZEBUFF  2048 // tamaño de buffer para almacenar JSON de Domoticz (maximo 512 bytes)
   // Flags de qué verificaciones reiniciar su contador (flagv, reconexión wifi, verificación largo plazo)
   #define RESET_FLAGV     (1 << 0) // decimal 1 (binario 0001)
   #define RESET_RECONNECT (1 << 1) // decimal 2 (binario 0010)
@@ -547,10 +546,6 @@
     char anochecer[] = "NO TIME";
     char buff[MAXBUFF];
 
-    #ifdef DEBUGPAUSAREM
-    char ultimoJSON_Domoticz[SIZEBUFF] = {0}; // para debug, almacena el ultimo JSON recibido de Domoticz
-    #endif
-
     #ifdef TEMPLOCAL 
     DHT dht(DHTPIN, TEMPLOCAL);
     #endif
@@ -721,6 +716,7 @@ void resetESP32();
 void resetFlags(void);
 void resetLCD(void);
 void resetLeds(void);
+void resetVerificaciones(uint8_t flags = RESET_ALL);
 void restoreRiego(void);
 bool saveConfig(void);
 void saveRiego(int znumber, S_BOTON* boton, int minutes, int seconds);
@@ -778,7 +774,7 @@ void ultimosRiegos(int);
 void updateZoneDescription(int i);
 bool validaBoton();
 void Verificaciones(void);
-void resetVerificaciones(uint8_t flags = RESET_ALL);
+bool verificaPausaRemota(time_t inicioRiego);
 bool VerifyRecoveryWifi(bool checkRecon);
 void VerifyRecoverySCD(void);
 void wifiClearSignal(uint);
