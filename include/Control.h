@@ -546,10 +546,7 @@
     char amanecer[] = "NO TIME";
     char anochecer[] = "NO TIME";
     char buff[MAXBUFF];
-
-    #ifdef DEBUGPAUSAREM
-    char ultimoJSON_Domoticz[SIZEBUFF] = {0}; // para debug, almacena el ultimo JSON recibido de Domoticz
-    #endif
+    char ultimoJSON_Domoticz[SIZEBUFF] = {0}; // almacena el ultimo JSON recibido de Domoticz
 
     #ifdef TEMPLOCAL 
     DHT dht(DHTPIN, TEMPLOCAL);
@@ -720,6 +717,7 @@ void resetESP32();
 void resetFlags(void);
 void resetLCD(void);
 void resetLeds(void);
+void resetVerificaciones(uint8_t flags = RESET_ALL);
 void restoreRiego(void);
 bool saveConfig(void);
 void saveRiego(int znumber, S_BOTON* boton, int minutes, int seconds);
@@ -777,7 +775,7 @@ void ultimosRiegos(int);
 void updateZoneDescription(int i);
 bool validaBoton();
 void Verificaciones(void);
-void resetVerificaciones(uint8_t flags = RESET_ALL);
+bool verificaPausaRemota(time_t inicioRiego);
 bool VerifyRecoveryWifi(bool checkRecon);
 void VerifyRecoverySCD(void);
 void wifiClearSignal(uint);

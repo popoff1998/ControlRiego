@@ -768,20 +768,30 @@ void procesaEstadoRegando()
         else setParpadeo(tic_LedZona, LENTO, parpadeoLedZona, zonaEnCurso.pBoton->led); //si remoto: parpadeo lento led zona
         return;
     }
-    // Escenario 1: queryStatus falló
+    // Si queryStatus devuelve false, se ha producido un error al verificar el estado del riego o el riego se ha parado remotamente.
+    // ESCENARIO 1: No hemos podido verificar estado, señalamos zona con parpadeo rapido e ignoramos el error continuando con el riego
     if (Estado.error) {
-        // Si no hemos podido verificar estado, señalamos zona con parpadeo rapido e ignoramos el error
         setParpadeo(tic_LedZona, RAPIDO, parpadeoLedZona, zonaEnCurso.pBoton->led);
         sonido.bip(2);
         Estado.error = NOERROR; 
         LOG_WARN("** SE HA DEVUELTO ERROR al verificar estado riego");
         return;
     }
-    // Escenario 2: El riego se ha parado remotamente,
+    // ESCENARIO 2: Domoticz ha respondido "Off". Evaluamos si es una Pausa Remota real o falsa
+    if (!verificaPausaRemota(lastRiegos[zonaEnCurso.zindex].reinicio)) {
+        // Es un "Off" antiguo / desfasado. Ignoramos este ciclo y seguimos regando sin cortar la EV
+        setParpadeo(tic_LedZona, RAPIDO, parpadeoLedZona, zonaEnCurso.pBoton->led);
+        sonido.lowbip(2);
+        return; 
+    }
+    // --- PAUSA REMOTA REAL Y CONFIRMADA ---
     // paramos el temporizador y pasamos a estado PAUSE señalando con parpadeo lento led zona
     timer.PauseTimer();
     finalTimeLastRiego(lastRiegos[zonaEnCurso.zindex]);
-    LOG_WARN(">>>>>>>>>> procesaEstadoRegando zona:", config.zona[zonaEnCurso.zindex].desc, "en PAUSA remota <<<<<<<<");
+    LOG_WARN(">>>>>>>> zona:", config.zona[zonaEnCurso.zindex].desc, "en PAUSA remota <<<<<<<<");
+    // Enviamos Off explícito por salvaguarda y cambiamos estado
+    LOG_WARN("Enviando Off de seguridad a EV zona:", zonaEnCurso.znumber);
+    deviceSwitch(zonaEnCurso.znumber, "Off", 1); 
     setEstado(PAUSE, 1, REMOTO, LENTO);
 }   //fin de procesaEstadoRegando
 

@@ -19,6 +19,10 @@
   #define GETSETTINGS   "getsettings"
   //---------------------------------------------------------------------------------------
   
+  #ifdef DEBUGPAUSAREM
+  extern char ultimoJSON_Domoticz[]; // para debug, almacena el ultimo JSON recibido de Domoticz
+  #endif
+
 //==================================================================================================//
 //=================== Funciones primarias basicas y de ayuda     ===================================//
 //==================================================================================================//
@@ -40,7 +44,29 @@ uint16_t getSCD_ID(uint8_t zonaNumber) {
 String returnErr3(const String &fullResponse, const char* msg1, const char* msg2 = "", const char* msg3 = "") {
     LOG_DEBUG(" ** [ERROR] ", msg1, msg2, msg3); 
     LOG_DEBUG(" ** [ERROR] JSON de entrada: ", fullResponse.c_str());
-    return "Err3";
+    return "Err3 " + String(msg1) + String(msg2) + String(msg3);
+}
+
+/**
+ * Convierte una fecha en formato "YYYY-MM-DD HH:MM:SS" a time_t neutro (no depende del huso horario).
+ * Devuelve 0 si la cadena es inválida o demasiado corta.
+ * Para comparar directamente con los timestamps generados por tLoc() que estan en hora local.
+ */
+time_t dateStrToTloc(const char* dateStr) {
+    if (dateStr == nullptr || strlen(dateStr) < 19) return 0;
+    int year, mon, mday, hour, min, sec;
+    if (sscanf(dateStr, "%d-%d-%d %d:%d:%d", &year, &mon, &mday, &hour, &min, &sec) == 6) {
+        // Ajuste para el algoritmo de días julianos (Enero=13, Febrero=14 del año anterior)
+        if (mon <= 2) {
+            mon += 12;
+            year -= 1;
+        }
+        // Cálculo directo de días transcurridos desde el Epoch Unix (01-01-1970)
+        long days = (365L * year) + (year / 4) - (year / 100) + (year / 400)
+                    + (306L * (mon + 1) / 10) + mday - 719591L;
+        return (time_t)(days * 86400L + hour * 3600L + min * 60L + sec);
+    }
+    return 0;
 }
 
 /**------------------------------------------------------------------------------------
@@ -82,9 +108,43 @@ String parseResponse(const String &response, const char *campo, JsonLevel level)
     if (field.isNull()) return returnErr3(respTrim, "parseResponse: campo '", campo, "' no encontrado o NULL");
     String contenido = field.as<String>();
     contenido.trim();
-    if (contenido.isEmpty()) LOG_DEBUG(" ** [WARNING] parseResponse: campo '", campo, "' vacío");
+    if (contenido.isEmpty()) LOG_DEBUG(" ** campo '", campo, "' vacío");
     else LOG_DEBUG("Campo '", campo, "': ", contenido);
     return contenido;
+}
+
+/**
+ * Verifica si un estado OFF reportado por Domoticz es un apagado real o un desfasaje de su BBDD.
+ * Devuelve true si la Pausa Remota es VÁLIDA (se debe pausar).
+ * Devuelve false si el registro de Domoticz es antiguo (se debe ignorar).
+ */
+bool verificaPausaRemota(time_t inicioRiego)
+{
+    // Extraemos LastUpdate del último JSON recibido
+    String lastUpdateStr = parseResponse(ultimoJSON_Domoticz, "LastUpdate", RESULT_ARRAY_0);
+    time_t lastUpdateEpoch = dateStrToTloc(lastUpdateStr.c_str());
+    #ifdef DEBUGPAUSAREM
+        LOG_WARN("--- DIAGNÓSTICO PAUSA REMOTA ---");
+        LOG_WARN("JSON recibido de Domoticz:", ultimoJSON_Domoticz);
+        char lastOnTime[64];
+        struct tm tmON = getTimeStruct(inicioRiego);
+        strftime(lastOnTime, sizeof(lastOnTime), "%Y-%m-%d %H:%M:%S", &tmON);
+        LOG_WARN("Fecha Inicio Riego (CCR):", lastOnTime, "(Epoch:", inicioRiego, ")");
+        LOG_WARN("Fecha LastUpdate (Domoticz):", lastUpdateStr.c_str(), "(Epoch:", lastUpdateEpoch, ")");
+    #endif
+    // Limpiamos el buffer tras procesarlo
+    ultimoJSON_Domoticz[0] = '\0';
+    if (lastUpdateEpoch == 0) {
+        LOG_WARN(">> LastUpdate inválido, no se puede confirmar pausa. Se ignora.");
+        return false; // Ante la duda, no pausar
+    }
+    // Si la última actualización en Domoticz es ANTERIOR a la orden de encendido de la CCR
+    if (lastUpdateEpoch < inicioRiego) {
+        LOG_ERROR(">> FALSO OFF DETECTADO: LastUpdate de Domoticz es anterior al inicio del riego. Se ignora la Pausa.");
+        return false; // Pausa Falsa -> No pausar
+    }
+    LOG_INFO(">> PAUSA REMOTA CONFIRMADA: La orden de apagado es posterior al inicio del riego.");
+    return true; // Pausa Real -> Proceder con la pausa
 }
 
 /**
@@ -216,8 +276,12 @@ String deviceInfo(int idx, const char *campo)
     snprintf(message, sizeof(message), QUERYDEVICE, idx);
     // 1. Comunicación: Obtener la respuesta JSON
     String response = cmdtoSCD(message);
+    // Guardamos el JSON recibido completo (para verificacion caso de pausa remota) si se consulta estado de la zona en curso de riego
+    if (Estado.estado == REGANDO && idx == getSCD_ID(zonaEnCurso.znumber) && campo != nullptr && strcmp(campo, "Status") == 0) {
+        snprintf(ultimoJSON_Domoticz, SIZEBUFF, "%s", response.c_str());
+    }
     if (response.startsWith("Err")) {
-        LOG_WARN(" ** [ERROR] IDX: ", idx, " [HTTP] GET... failed");
+        LOG_WARN(" ** IDX:", idx, "info not obtained (see previous msgs)");
         return response; 
     }
     // 2. Procesamiento: Usar parseResponse, especificando que el campo está en RESULT_ARRAY_0
@@ -397,7 +461,7 @@ bool queryStatus(uint8_t zona, const char *status)
   LOG_DEBUG("response:", response);
   //procesamos la respuesta para ver si se ha producido error:
   if (response.startsWith("Err")) {
-      return isErrorIgnorable(response); // Set status error y return FALSE.
+      return isErrorIgnorable(response); // Set status error y return FALSE (salvo en modo DEMO).
   }
   #ifdef EXTRADEBUG
     Serial.printf( "queryStatus verificando, status=%s / actual=%s \n" , status, response);
