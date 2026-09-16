@@ -19,9 +19,7 @@
   #define GETSETTINGS   "getsettings"
   //---------------------------------------------------------------------------------------
   
-  #ifdef DEBUGPAUSAREM
   extern char ultimoJSON_Domoticz[]; // para debug, almacena el ultimo JSON recibido de Domoticz
-  #endif
 
 //==================================================================================================//
 //=================== Funciones primarias basicas y de ayuda     ===================================//
@@ -45,28 +43,6 @@ String returnErr3(const String &fullResponse, const char* msg1, const char* msg2
     LOG_DEBUG(" ** [ERROR] ", msg1, msg2, msg3); 
     LOG_DEBUG(" ** [ERROR] JSON de entrada: ", fullResponse.c_str());
     return "Err3 " + String(msg1) + String(msg2) + String(msg3);
-}
-
-/**
- * Convierte una fecha en formato "YYYY-MM-DD HH:MM:SS" a time_t neutro (no depende del huso horario).
- * Devuelve 0 si la cadena es inválida o demasiado corta.
- * Para comparar directamente con los timestamps generados por tLoc() que estan en hora local.
- */
-time_t dateStrToTloc(const char* dateStr) {
-    if (dateStr == nullptr || strlen(dateStr) < 19) return 0;
-    int year, mon, mday, hour, min, sec;
-    if (sscanf(dateStr, "%d-%d-%d %d:%d:%d", &year, &mon, &mday, &hour, &min, &sec) == 6) {
-        // Ajuste para el algoritmo de días julianos (Enero=13, Febrero=14 del año anterior)
-        if (mon <= 2) {
-            mon += 12;
-            year -= 1;
-        }
-        // Cálculo directo de días transcurridos desde el Epoch Unix (01-01-1970)
-        long days = (365L * year) + (year / 4) - (year / 100) + (year / 400)
-                    + (306L * (mon + 1) / 10) + mday - 719591L;
-        return (time_t)(days * 86400L + hour * 3600L + min * 60L + sec);
-    }
-    return 0;
 }
 
 /**------------------------------------------------------------------------------------
@@ -122,12 +98,13 @@ bool verificaPausaRemota(time_t inicioRiego)
 {
     // Extraemos LastUpdate del último JSON recibido
     String lastUpdateStr = parseResponse(ultimoJSON_Domoticz, "LastUpdate", RESULT_ARRAY_0);
-    time_t lastUpdateEpoch = dateStrToTloc(lastUpdateStr.c_str());
+    time_t lastUpdateEpoch = dateStrToEpochUTC(lastUpdateStr.c_str());
     #ifdef DEBUGPAUSAREM
         LOG_WARN("--- DIAGNÓSTICO PAUSA REMOTA ---");
         LOG_WARN("JSON recibido de Domoticz:", ultimoJSON_Domoticz);
         char lastOnTime[64];
-        struct tm tmON = getTimeStruct(inicioRiego);
+        struct tm tmON;
+        localtime_r(&inicioRiego, &tmON);
         strftime(lastOnTime, sizeof(lastOnTime), "%Y-%m-%d %H:%M:%S", &tmON);
         LOG_WARN("Fecha Inicio Riego (CCR):", lastOnTime, "(Epoch:", inicioRiego, ")");
         LOG_WARN("Fecha LastUpdate (Domoticz):", lastUpdateStr.c_str(), "(Epoch:", lastUpdateEpoch, ")");

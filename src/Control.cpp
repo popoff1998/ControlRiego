@@ -1320,29 +1320,55 @@ void setClock()
 }
 
 
-// devuelve time_t en hora local a partir del time_t del sistema (UTC)
-time_t tLoc()
+/**
+ * Devuelve el tiempo actual como Epoch UTC estándar (time_t).
+ * Si no hay sincronización de hora (!timeOK), devuelve los segundos 
+ * transcurridos desde el arranque (millis() / 1000).
+ */
+time_t tUTC()
 {
-  if (!timeOK) return (millis() / 1000); //no tenemos time, devolvemos segundos transcurridos desde el arranque 
-  time_t t = time(NULL); // time() devuelve el tiempo UTC actual (epoch time en segundos desde 00:00 1/1/1970) 
-  struct tm tm_loc;
-  localtime_r(&t, &tm_loc); 
-  // _timezone en ESP32 guarda el desfase ESTÁNDAR (invierno) cambiado de signo.
-  // Para España (UTC+1), _timezone vale -3600. Por eso usamos el signo menos (-_timezone).
-  // Si tm_isdst > 0, significa que actualmente estamos en horario de verano (+1 hora extra = 3600s).
-  long desfaseTotal = -_timezone + (tm_loc.tm_isdst > 0 ? 3600 : 0);
-  return t + desfaseTotal;
+    if (!timeOK) return (millis() / 1000); 
+    return time(NULL); // Devuelve el time_t UTC nativo del sistema
 }
 
+/**
+ * Convierte una fecha en formato "YYYY-MM-DD HH:MM:SS" (Hora Local)
+ * a un Epoch UTC real considerando la zona horaria y el DST (horario de verano).
+ * Devuelve 0 si la cadena es inválida o falla el parseo.
+ */
+time_t dateStrToEpochUTC(const char* dateStr) {
+    if (dateStr == nullptr || strlen(dateStr) < 19) return 0;
+    struct tm tm = {0};
+    // Extracción de datos del texto
+    if (sscanf(dateStr, "%d-%d-%d %d:%d:%d", 
+               &tm.tm_year, &tm.tm_mon, &tm.tm_mday, 
+               &tm.tm_hour, &tm.tm_min, &tm.tm_sec) == 6) {
+        // Ajuste a la especificación de struct tm de C
+        tm.tm_year -= 1900; // tm_year es el año desde 1900
+        tm.tm_mon -= 1;     // tm_mon va de 0 (Enero) a 11 (Diciembre)
+        // -1 le indica a mktime que determine AUTOMÁTICAMENTE si esa fecha/hora cayó en Horario de Verano o de Invierno
+        tm.tm_isdst = -1; 
+        // mktime interpreta 'tm' en la hora local del sistema y devuelve el time_t (Epoch UTC)
+        return mktime(&tm);
+    }
+    return 0;
+}
 
-// Devuelve el timestamp del último inicio de día (00:00:00) para un timestamp dado
-time_t previousMidnight(time_t tLocal) {
-    struct tm tm_s = getTimeStruct(tLocal);
-    // Calculamos cuántos segundos han pasado desde las 00:00:00 de hoy
-    uint32_t segundosHoy = (tm_s.tm_hour * 3600UL) + (tm_s.tm_min * 60UL) + tm_s.tm_sec;
-    return tLocal - segundosHoy;
-}  
-
+/**
+ * Devuelve el timestamp Epoch UTC correspondiente a la última medianoche (00:00:00 hora local) 
+ * anterior al timestamp UTC dado.
+ */
+time_t previousMidnight(time_t tUTC) {
+    struct tm tm_loc;
+    // 1. Convertimos el timestamp UTC a la representación de fecha/hora LOCAL del sistema
+    localtime_r(&tUTC, &tm_loc);
+    // 2. Forzamos los campos de hora, minuto y segundo al inicio del día (00:00:00 hora local)
+    tm_loc.tm_hour = tm_loc.tm_min = tm_loc.tm_sec  = 0;
+    // 3. Indicamos a mktime que evalúe automáticamente si correspondía horario de verano o invierno
+    tm_loc.tm_isdst = -1;
+    // 4. mktime convierte la estructura local ajustada de vuelta a Epoch UTC
+    return mktime(&tm_loc);
+}
 
 void initEncoder() {
     LOG_TRACE("");
@@ -1388,10 +1414,11 @@ void ultimosRiegos(int modo) {
       lcd.infoclear("Hora actual:");
       // Si no tenemos hora, mostramos mensaje de error y salimos
       if (!timeOK) { lcd.info("   <<< NO TIME >>>", 3); sonido.bipKO(); return; }
-      time_t t = tLoc();
+      time_t t = tUTC();
       // Si la fecha actual es invalida (anterior al 1/1/2026) mensaje de error y salimos 
       if (t < UMBRAL_EPOCH) { lcd.info(" << INVALID DATE >>", 3); sonido.bipKO(); return; }
-      struct tm tm_now = getTimeStruct(t);  // obtenemos estructura tm con la fecha y hora local
+      struct tm tm_now;
+      localtime_r(&t, &tm_now);  // obtenemos estructura tm con la fecha y hora local
       sprintf(buff, " %d", tm_now.tm_mday);
       lcd.info(buff, 3);
       lcd.info(MESES[tm_now.tm_mon], 4); // tm_mon ya es 0-11, perfecto para el array
@@ -1423,7 +1450,7 @@ void ultimosRiegos(int modo) {
 
 void inicioTimeLastRiego(S_timeRiego &timeRiego, bool resume) 
 {
-  time_t t = tLoc();
+  time_t t = tUTC();
   if (resume)
   {
     // si estamos reanudando un riego, mantenemos el inicio del riego anterior
@@ -1443,7 +1470,7 @@ void inicioTimeLastRiego(S_timeRiego &timeRiego, bool resume)
 
 void finalTimeLastRiego(S_timeRiego &timeRiego) 
 {
-  time_t t = tLoc();
+  time_t t = tUTC();
   LOG_DEBUG("actualizo lastriegos fin Zona", zonaEnCurso.znumber, "timestamp:", t);
   timeRiego.final = t;
   timeRiego.total = timeRiego.total + (timeRiego.final - timeRiego.reinicio); //acumulado = acumulado + (intervalo regado)
@@ -1459,7 +1486,7 @@ void finalTimeGrupo(S_timeRiego &timeRiego, time_t tZona)
   }
   // si tZona es 0, significa que estamos en fin de riego de grupo -> registramos el timestamp final del grupo
   else {
-    time_t t = tLoc();
+    time_t t = tUTC();
     LOG_DEBUG("actualizo lastriegos fin Grupo", multi.ngrupo, "timestamp:", t);
     timeRiego.final = t;
     LOG_DEBUG("total riego Grupo", multi.ngrupo, ":", timeRiego.total / 60.0, "minutos");
@@ -1471,7 +1498,7 @@ void showTimeLastRiego(S_timeRiego &timeRiego)
 {
   time_t t1=timeRiego.inicio;
   time_t t2=timeRiego.final;
-  time_t tnow = tLoc(); // timestamp local actual en segundos desde 1/1/1970
+  time_t tnow = tUTC(); // timestamp UTC actual (segundos desde 1/1/1970 o desde arranque si no hay NTP)
   LOG_DEBUG("time.inicio", t1, "time.final", t2, "time.now", tnow, "time.total (seg)", timeRiego.total);
   // Caso 1: Si tenemos inicio y finalizacion del riego mostramos la duración del riego en minutos 
   if (t1 && t2-t1 > 0) {  // si t2>t1>0, tenemos un riego registrado con inicio y fin correcto (real o arranque)
@@ -1482,8 +1509,9 @@ void showTimeLastRiego(S_timeRiego &timeRiego)
     // por lo que se contemplan varios subcasos:
     // CASO 1.A: El riego se grabó con fecha real, la mostramos (ej: " 15/09 18:30 (18:45)")
     if (t1 >= UMBRAL_EPOCH) {
-      struct tm tm1 = getTimeStruct(t1);
-      struct tm tm2 = getTimeStruct(t2);
+      struct tm tm1, tm2;
+      localtime_r(&t1, &tm1);
+      localtime_r(&t2, &tm2);      
       snprintf(buff, MAXBUFF, " %d/%02d %d:%02d (%d:%02d)",
              tm1.tm_mday, tm1.tm_mon + 1, 
              tm1.tm_hour, tm1.tm_min, 

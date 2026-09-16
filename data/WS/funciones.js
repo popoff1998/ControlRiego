@@ -90,7 +90,7 @@ function createTableRow(file, tableId, config) {
     row.innerHTML = `
         <td class="filename ${isDir?'dirclass':''}" data-label="${esEng?'Filepath':'Nombre'}">${nameHtml}</td>
         <td class="col-size ${isDir?'dirclass':''}" data-label="${esEng?'Size':'Tamaño'}">${isDir?'directory':file.size}</td>
-        <td class="col-time" data-label="${esEng?'Timestamp':'Fecha'}">${formatDateLocal(file.time, true)}</td>
+        <td class="col-time" data-label="${esEng?'Timestamp':'Fecha'}">${formatDateLocal(file.time)}</td>
         <td class="col-actions" data-label="Acciones"><div class="button-group">${btnsHtml}</div></td>`;
     return row;
 }
@@ -168,7 +168,7 @@ function handleFileDelete(f) {
 const apiGetJson = p => fetch(p).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
 
 // isUtc=true: ts en UTC, mostrar en hora local. isUtc=false: ts ya en local, no reconvertir.
-function formatDateLocal(ts, isUtc = false) {
+function formatDateLocal(ts, isUtc = true) {
     if (!ts) return "-";
     const d = new Date(ts * 1000), f = n => n.toString().padStart(2, '0'), u = isUtc ? 'get' : 'getUTC';
     return `${f(d[u+'Date']())}/${f(d[u+'Month']()+1)}/${d[u+'FullYear']()}\u2003${f(d[u+'Hours']())}:${f(d[u+'Minutes']())}`;

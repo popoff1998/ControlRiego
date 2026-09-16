@@ -592,6 +592,7 @@ void checkWifiChange();
 void cleanFS(void);
 String convertFileSize(const size_t);
 bool copyFile(const char *, const char *);
+time_t dateStrToEpochUTC(const char *dateStr);
 void debugloops(void);
 bool deleteDatos(void);
 void deleteParmSignal(uint);
@@ -768,7 +769,7 @@ void stopHW(const char* msg);
 bool stopRiego(const S_BOTON* pBoton, bool update = true, bool alertIfFails = true, int retries = SWITCH_RETRIES);
 String sysInfo(void);
 bool testButton(uint16_t, bool);
-time_t tLoc(void);
+time_t tUTC(void);
 void timeByFactor(int,uint8_t *,uint8_t *);
 void timerTick(void);
 void ultimosRiegos(int);
@@ -803,30 +804,5 @@ void zeroConfig();
 //     r.total = 0;
 //     Serial.println("Elemento reseteado");
 // });
-
-
-
-// *****************************************************************************************
-// Funciones de tiempo para evitar usar TimeLib.h
-// ***************************************************************************************** 
-
-// Sustitutos directos para TimeLib
-// #define day(t)    getDay(t)
-// #define month(t)  getMonth(t)
-// #define hour(t)   getHour(t)
-// #define minute(t) getMinute(t)
-
-// Función interna para obtener la estructura tm de una variable time_t, usando gmtime_r para que NO tenga en cuenta TZ
-inline struct tm getTimeStruct(time_t t) {
-  struct tm tm_struct;
-  gmtime_r(&t, &tm_struct);
-  LOG_DEBUG("estructura devuelta:", asctime(&tm_struct));
-  return tm_struct;
-}
-
-// static inline int getDay(time_t t)    { return getTimeStruct(t).tm_mday; }
-// static inline int getMonth(time_t t)  { return getTimeStruct(t).tm_mon + 1; }
-// static inline int getHour(time_t t)   { return getTimeStruct(t).tm_hour; }
-// static inline int getMinute(time_t t) { return getTimeStruct(t).tm_min; }
 
 #endif  // control_h
