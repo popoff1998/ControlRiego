@@ -113,16 +113,19 @@ bool verificaPausaRemota(time_t inicioRiego)
         ultimoJSON_Domoticz[0] = '\0'; // Limpiamos el buffer tras procesarlo
     #endif
     ultimoLastUpdate_Domoticz[0] = '\0'; // Limpiamos el buffer tras procesarlo
-    if (lastUpdateEpoch == 0) {
-        LOG_WARN(">> LastUpdate inválido, no se puede confirmar pausa. Se ignora.");
+    if (lastUpdateEpoch == 0 ) {
+        if (!Estado.errorInformado) LOG_WARN(">> LastUpdate inválido, no se puede confirmar pausa. Se ignora.");
+        Estado.errorInformado = true; // Evitamos repetir el log de error
         return false; // Ante la duda, no pausar
     }
     // Si la última actualización en Domoticz es ANTERIOR a la orden de encendido de la CCR
     if (lastUpdateEpoch < inicioRiego) {
-        LOG_ERROR(">> FALSO OFF DETECTADO: LastUpdate de Domoticz es anterior al inicio del riego. Se ignora la Pausa.");
+        if (!Estado.errorInformado) LOG_ERROR(">> FALSO OFF DETECTADO: LastUpdate de Domoticz es anterior al inicio del riego. Se ignora la Pausa.");
+        Estado.errorInformado = true; // Evitamos repetir el log de error
         return false; // Pausa Falsa -> No pausar
     }
     LOG_INFO(">> PAUSA REMOTA CONFIRMADA: La orden de apagado es posterior al inicio del riego.");
+    Estado.errorInformado = false; // Reiniciamos el flag de error para futuros logs
     return true; // Pausa Real -> Proceder con la pausa
 }
 
@@ -265,7 +268,7 @@ String deviceInfo(int idx, const char *campo)
       strlcpy(ultimoJSON_Domoticz, response.c_str(), sizeof(ultimoJSON_Domoticz));
       #endif
     }
-    if (response.startsWith("Err")) {
+    if (response.startsWith("Err") && !Estado.errorInformado) {
         LOG_WARN(" ** IDX:", idx, "info not obtained (see previous msgs)");
         return response; 
     }

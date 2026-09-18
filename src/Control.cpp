@@ -774,7 +774,10 @@ void procesaEstadoRegando()
         setParpadeo(tic_LedZona, RAPIDO, parpadeoLedZona, zonaEnCurso.pBoton->led);
         sonido.bip(2);
         Estado.error = NOERROR; 
-        LOG_WARN("** SE HA DEVUELTO ERROR al verificar estado riego");
+        if (!Estado.errorInformado) {
+            Estado.errorInformado = true;
+            LOG_WARN("** SE HA DEVUELTO ERROR al verificar estado riego");
+        }    
         return;
     }
     // ESCENARIO 2: Domoticz ha respondido "Off". Evaluamos si es una Pausa Remota real o falsa
@@ -1886,7 +1889,7 @@ bool stopRiego(const S_BOTON* pBoton, bool update, bool alertIfFails, int retrie
     } else { 
         // Error al apagar la EV
         if (alertIfFails) {  // Recordatorio de EV no cerrada.
-          LOG_ERROR( "Error al detener riego de: ", config.zona[zIndex].desc );
+          LOG_ERROR( "*** ERROR al detener riego de: ", config.zona[zIndex].desc, "***");
           Estado.failedStopRiego = true; // El riego NO se detuvo, activar el recordatorio de error
           //disparamos alerta con el error ya establecido y parpadeos de los leds de la zona y del RGB 
           statusError(Estado.error,NORECUPERABLE,RAPIDO,RAPIDO); 
