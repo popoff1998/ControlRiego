@@ -713,7 +713,7 @@ String registrarArranqueSistema();
 void reposoOFF(void);
 void reposoON(void);
 void resetESP32();
-void resetFlags(void);
+void resetFlags(bool conservarZona = false);
 void resetLCD(void);
 void resetLeds(void);
 void resetVerificaciones(uint8_t flags = RESET_ALL);
