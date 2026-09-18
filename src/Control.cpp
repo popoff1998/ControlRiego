@@ -1166,29 +1166,29 @@ void statusError(error_tipos errorID, bool recoverable, velocidad_parpadeo zonab
   gestionarTamanoLog(); // gestionamos tamaño log tras escritura (previa) del nuevo error
   LOG_DEBUG( "recibido errorID:", errorID, "recuperable:", recoverable, "zonablinkvel:", zonablinkvel, "errorblinkvel:", errorblinkvel);
   // set state (FSM): 
-      Estado.estado = ERROR;
-      Estado.recoverableError = recoverable; //error recuperable o no
-      Estado.error = errorID;
-      Estado.tipo = LOCAL;
-      resetFlags(); // reseteamos flags varios
-      rotaryEncoder.disable();
+  Estado.estado = ERROR;
+  Estado.recoverableError = recoverable; //error recuperable o no
+  Estado.error = errorID;
+  Estado.tipo = LOCAL;
+  resetFlags(zonablinkvel); // reseteamos flags varios
+  rotaryEncoder.disable();
   // set user interfase (UI):
-      lcd.clear(BORRA2H);
-      lcd.setCursor(2,2);
-      lcd.print(">>>  Error");
-      lcd.print(errorID == E0 ? 0 : (int)errorID); // Imprime 0 si es E0, o el ID
-      lcd.print(recoverable ? " >>> R" : " <<<");
-      lcd.setCursor(0,3);
-      lcd.print(errorToString(errorID));  // mostramos explicacion del error en pantalla
-      setLedStatus(); // led RGB rojo
-      sonido.bipKO();
-      if (zonablinkvel) {  // señalamos parpadeando zona que ha fallado (por stop o getfactor)
-        setParpadeo(tic_LedZona, zonablinkvel, parpadeoLedZona, zonaEnCurso.pBoton->led);
-      }
-      if (errorblinkvel) {  // parpadeo del led RGB de error
-        setParpadeo(tic_LedError, errorblinkvel, parpadeoLedPWM, LEDR);
-        sonido.longbip(5); // resaltamos error al parar riego
-      }
+  lcd.clear(BORRA2H);
+  lcd.setCursor(2,2);
+  lcd.print(">>>  Error");
+  lcd.print(errorID == E0 ? 0 : (int)errorID); // Imprime 0 si es E0, o el ID
+  lcd.print(recoverable ? " >>> R" : " <<<");
+  lcd.setCursor(0,3);
+  lcd.print(errorToString(errorID));  // mostramos explicacion del error en pantalla
+  setLedStatus(); // led RGB rojo
+  sonido.bipKO();
+  if (zonablinkvel && zonaEnCurso.pBoton != nullptr) {  // señalamos parpadeando zona que ha fallado (por stop o getfactor)
+    setParpadeo(tic_LedZona, zonablinkvel, parpadeoLedZona, zonaEnCurso.pBoton->led);
+  }
+  if (errorblinkvel) {  // parpadeo del led RGB de error
+    setParpadeo(tic_LedError, errorblinkvel, parpadeoLedPWM, LEDR);
+    sonido.longbip(5); // resaltamos error al parar riego
+  }
 }  //fin statusError
 
 
@@ -1887,8 +1887,9 @@ bool stopRiego(const S_BOTON* pBoton, bool update, bool alertIfFails, int retrie
         // Error al apagar la EV
         if (alertIfFails) {  // Recordatorio de EV no cerrada.
           LOG_ERROR( "Error al detener riego de: ", config.zona[zIndex].desc );
-          statusError(Estado.error,NORECUPERABLE,RAPIDO,RAPIDO); //disparamos alerta con el error ya establecido
-          Estado.failedStopRiego = true; // El riego NO se detuvo, activar el recordatorio de error 
+          Estado.failedStopRiego = true; // El riego NO se detuvo, activar el recordatorio de error
+          //disparamos alerta con el error ya establecido y parpadeos de los leds de la zona y del RGB 
+          statusError(Estado.error,NORECUPERABLE,RAPIDO,RAPIDO); 
         } else {
             LOG_WARN( "Error al detener riego de: ", config.zona[zIndex].desc);
             statusError(Estado.error);
@@ -1966,12 +1967,12 @@ void resetLeds()
 }
 
 //Reset diversos flags de estado a valores por defecto
-void resetFlags()
+void resetFlags(bool conservarZona)
 {
   LOG_TRACE("");
   multi = S_MULTI{}; // reset estado de multirriego
   riegoSaved = S_Riego_estado{}; // reset estado de riego salvado
-  zonaEnCurso = S_zonaEnCurso{}; // reset zona en curso
+  if (!conservarZona) zonaEnCurso = S_zonaEnCurso{}; // reset zona en curso
   Estado.botonSemaforo = false; 
   cancelFromPause = false;
   webServerAct = false;
