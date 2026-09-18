@@ -101,7 +101,9 @@ bool verificaPausaRemota(time_t inicioRiego)
 {
     // Extraemos LastUpdate del último JSON recibido
     time_t lastUpdateEpoch = dateStrToEpochUTC(ultimoLastUpdate_Domoticz);
+    if (simular.ErrorLastUp) lastUpdateEpoch = inicioRiego - 10; // Simula un LastUpdate anterior al inicio del riego
     #ifdef DEBUGPAUSAREM
+      if (!ERRINF_IS_SET(ERR_INF_VERIFY | ERR_INF_LASTUPDATE)) {
         LOG_WARN("--- DIAGNÓSTICO PAUSA REMOTA ---");
         LOG_WARN("JSON recibido de Domoticz:", ultimoJSON_Domoticz);
         char lastOnTime[64];
@@ -110,19 +112,23 @@ bool verificaPausaRemota(time_t inicioRiego)
         strftime(lastOnTime, sizeof(lastOnTime), "%Y-%m-%d %H:%M:%S", &tmON);
         LOG_WARN("Fecha Inicio Riego (CCR):", lastOnTime, "(Epoch:", inicioRiego, ")");
         LOG_WARN("Fecha LastUpdate (Domoticz):", ultimoLastUpdate_Domoticz, "(Epoch:", lastUpdateEpoch, ")");
-        ultimoJSON_Domoticz[0] = '\0'; // Limpiamos el buffer tras procesarlo
+      }
+      ultimoJSON_Domoticz[0] = '\0'; // Limpiamos el buffer tras procesarlo
     #endif
     ultimoLastUpdate_Domoticz[0] = '\0'; // Limpiamos el buffer tras procesarlo
-    if (lastUpdateEpoch == 0) {
-        LOG_WARN(">> LastUpdate inválido, no se puede confirmar pausa. Se ignora.");
+    if (lastUpdateEpoch == 0 ) {
+        if (!ERRINF_IS_SET(ERR_INF_VERIFY)) LOG_WARN(">> LastUpdate inválido, no se puede confirmar pausa. Se ignora.");
+        ERRINF_SET(ERR_INF_VERIFY); // Evitamos repetir el log de error
         return false; // Ante la duda, no pausar
     }
     // Si la última actualización en Domoticz es ANTERIOR a la orden de encendido de la CCR
     if (lastUpdateEpoch < inicioRiego) {
-        LOG_ERROR(">> FALSO OFF DETECTADO: LastUpdate de Domoticz es anterior al inicio del riego. Se ignora la Pausa.");
+        if (!ERRINF_IS_SET(ERR_INF_LASTUPDATE)) LOG_ERROR(">> FALSO OFF DETECTADO: LastUpdate de Domoticz es anterior al inicio del riego. Se ignora la Pausa.");
+        ERRINF_SET(ERR_INF_LASTUPDATE); // Evitamos repetir el log de error
         return false; // Pausa Falsa -> No pausar
     }
     LOG_INFO(">> PAUSA REMOTA CONFIRMADA: La orden de apagado es posterior al inicio del riego.");
+    ERRINF_CLEAR(ERR_INF_VERIFY | ERR_INF_LASTUPDATE); // Reiniciamos los flags de error para futuros logs
     return true; // Pausa Real -> Proceder con la pausa
 }
 
@@ -195,8 +201,8 @@ String httpGetDomoticz(const String &message) {
       #endif
       // Valida si el JSON reporta un error de ejecución en Domoticz
       if (response.indexOf("\"status\" : \"ERR") != -1) {
-          if (!Estado.errorInformado) LOG_WARN("Domoticz informó error interno:", response.c_str());
-          Estado.errorInformado = true;  // para no repetir logs del mismo error
+          if (!ERRINF_IS_SET(ERR_INF_DOMOTICZ)) LOG_WARN("Domoticz informó error interno:", response.c_str());
+          ERRINF_SET(ERR_INF_DOMOTICZ);  // para no repetir logs del mismo error
           response = "ErrX";
       }
   } 
@@ -266,7 +272,7 @@ String deviceInfo(int idx, const char *campo)
       #endif
     }
     if (response.startsWith("Err")) {
-        LOG_WARN(" ** IDX:", idx, "info not obtained (see previous msgs)");
+        if (ERRINF_NONE()) LOG_WARN(" ** IDX:", idx, "info not obtained (see previous msgs)");
         return response; 
     }
     // 2. Procesamiento: Usar parseResponse, especificando que el campo está en RESULT_ARRAY_0
@@ -405,7 +411,7 @@ float getRemoteTemperature()
   LOG_DEBUG("Temperatura recibida del Domoticz: ", response);
   //procesamos la respuesta para ver si se ha producido error:
   if (response.startsWith("Err")) {
-    if (!Estado.errorInformado) LOG_WARN("IDX: ", idx, " respuesta recibida: ", response.c_str());
+    if (!ERRINF_IS_SET(ERR_INF_TEMPERATURA)) LOG_WARN("IDX: ", idx, " respuesta recibida: ", response.c_str());
     return 999;  //devolvemos 999 para indicar temperatura no valida
   }
   //devolvemos la temperatura del sensor en Domoticz del json (campo Data)
@@ -433,9 +439,9 @@ void updateZoneDescription(int i) {
 bool queryStatus(uint8_t zona, const char *status)
 {
   uint16_t idx = getSCD_ID(zona);
-  LOG_DEBUG("idx:", idx, "status:", status, "allSimFlags:", simular.all_simFlags);
+  LOG_DEBUG("idx:", idx, "estado a verificar:", status, "allSimFlags:", simular.all_simFlags);
   // simulacion de error en la verificacion:
-  if (simular.ErrorVerifyON  && (strcmp(status, "On") == 0)) return false; 
+  if ((simular.ErrorVerifyON || simular.ErrorLastUp)  && (strcmp(status, "On") == 0)) return false; 
   if (simular.ErrorVerifyOFF && (strcmp(status, "Off") == 0)) return false;
   if (Estado.modoDEMO) return true; //en modoDEMO no se verifica status
   if (!Estado.connected) {

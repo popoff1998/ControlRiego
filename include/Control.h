@@ -59,11 +59,24 @@
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0])) // calcula el numero de elementos de un array
   #define UMBRAL_EPOCH 1767225600 // fecha 1/1/2026 en formato epoch (si la fecha es anterior se considera no valida)
   #define SECS_PER_DAY 86400UL
-  // Flags de qué verificaciones reiniciar su contador (flagv, reconexión wifi, verificación largo plazo)
+  // Flags de verificaciones a reiniciar su contador (flagv, reconexión wifi, verificación largo plazo)
   #define RESET_FLAGV     (1 << 0) // decimal 1 (binario 0001)
   #define RESET_RECONNECT (1 << 1) // decimal 2 (binario 0010)
   #define RESET_LARGO     (1 << 2) // decimal 4 (binario 0100)
   #define RESET_ALL       (RESET_FLAGV | RESET_RECONNECT | RESET_LARGO) // decimal 7 (binario 0111)
+  // Defines para cada tipo de error informado (para no repetir logs del mismo error)
+  #define ERR_INF_WIFI        (1 << 0)  // Err1: fallo conexión wifi
+  #define ERR_INF_DOMOTICZ    (1 << 1)  // Err2/3/X: error Domoticz
+  #define ERR_INF_VERIFY      (1 << 2)  // error verificación estado riego
+  #define ERR_INF_LASTUPDATE  (1 << 3)  // LastUpdate inválido/falso off
+  #define ERR_INF_TEMPERATURA (1 << 4)  // error lectura temperatura remota
+  // Macros de uso
+  #define ERRINF_IS_SET(flag)   (Estado.errorInformado & (flag))
+  #define ERRINF_SET(flag)      (Estado.errorInformado |= (flag))
+  #define ERRINF_CLEAR(flag)    (Estado.errorInformado &= ~(flag))
+  #define ERRINF_CLEAR_ALL()    (Estado.errorInformado = 0)
+  #define ERRINF_NONE()         (Estado.errorInformado == 0)
+  #define ERRINF_ANY()          (Estado.errorInformado != 0)
 
        
   //-------------------------------------------------------------------------------------
@@ -296,7 +309,8 @@
             ErrorON        : 1,
             ErrorVerifyON  : 1,
             ErrorVerifyOFF : 1,
-            ErrorPause     : 1;
+            ErrorPause     : 1,
+            ErrorLastUp    : 1;
     };
   } ;
 
@@ -335,7 +349,7 @@
     bool reposo = false;    
     bool failedStopRiego = false;
     bool recoverableError = false;
-    bool errorInformado = false;  // para no repetir logs del mismo error "silencioso" (fallo wifi en standby o readRemoteTemp)
+    uint8_t errorInformado = 0;  // para no repetir logs del mismo error (bip mask)
   } ;  
 
   struct S_timeRiego {

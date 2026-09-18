@@ -766,6 +766,7 @@ void procesaEstadoRegando()
     if (queryStatus(zonaEnCurso.znumber, "On")) {
         if (Estado.tipo != REMOTO) setLed(tic_LedZona, ENCIENDE, zonaEnCurso.pBoton->led); //si local: led zona encendido fijo
         else setParpadeo(tic_LedZona, LENTO, parpadeoLedZona, zonaEnCurso.pBoton->led); //si remoto: parpadeo lento led zona
+        ERRINF_CLEAR(ERR_INF_VERIFY | ERR_INF_LASTUPDATE); // Reiniciamos el flag de error para futuros logs
         return;
     }
     // Si queryStatus devuelve false, se ha producido un error al verificar el estado del riego o el riego se ha parado remotamente.
@@ -774,7 +775,10 @@ void procesaEstadoRegando()
         setParpadeo(tic_LedZona, RAPIDO, parpadeoLedZona, zonaEnCurso.pBoton->led);
         sonido.bip(2);
         Estado.error = NOERROR; 
-        LOG_WARN("** SE HA DEVUELTO ERROR al verificar estado riego");
+        if (!ERRINF_IS_SET(ERR_INF_VERIFY)) {
+            ERRINF_SET(ERR_INF_VERIFY);
+            LOG_WARN("** SE HA DEVUELTO ERROR al verificar estado riego");
+        }    
         return;
     }
     // ESCENARIO 2: Domoticz ha respondido "Off". Evaluamos si es una Pausa Remota real o falsa
@@ -907,8 +911,10 @@ void procesaEstadoPause() {
   // Solo verificamos si toca, VERIFY ON y no estamos en modoDEMO (o estamos en modo simulacion)
   if(flagV && config.verify && (!Estado.modoDEMO || simular.all_simFlags)) {  
     // Verificamos que el riego sigue parado en Domoticz, si es así salimos sin hacer nada.
-    if(queryStatus(zonaEnCurso.znumber, "Off")) 
+    if(queryStatus(zonaEnCurso.znumber, "Off")) {
+      ERRINF_CLEAR(ERR_INF_VERIFY | ERR_INF_LASTUPDATE); // Reiniciamos el flag de error para futuros logs
       return;
+    }  
     // Hemos detectado riego zona activo: salimos del PAUSE y blink lento zona activada remotamente  
     if(!Estado.error) {  
       sonido.bip(2);
@@ -1055,7 +1061,7 @@ void setStateMachine(m_estados estado, estado_tipos tipo)
   Estado.tipo = tipo;
   Estado.failedStopRiego = false;
   Estado.recoverableError = false;
-  Estado.errorInformado = false;
+  Estado.errorInformado = 0; // reset todos los flags de error informado (equivalente a ERRINF_CLEAR_ALL())
   getBotonPointer(bPAUSE)->flags.holddisabled = true; //Deshabilitamos el hold de Pause
   rotaryEncoder.disable();  // para que no cuente pasos salvo que lo habilitemos
   if(Estado.reposo) reposoOFF();     //por si salimos de stop antinenes
@@ -1886,7 +1892,7 @@ bool stopRiego(const S_BOTON* pBoton, bool update, bool alertIfFails, int retrie
     } else { 
         // Error al apagar la EV
         if (alertIfFails) {  // Recordatorio de EV no cerrada.
-          LOG_ERROR( "Error al detener riego de: ", config.zona[zIndex].desc );
+          LOG_ERROR( "*** ERROR al detener riego de: ", config.zona[zIndex].desc, "***");
           Estado.failedStopRiego = true; // El riego NO se detuvo, activar el recordatorio de error
           //disparamos alerta con el error ya establecido y parpadeos de los leds de la zona y del RGB 
           statusError(Estado.error,NORECUPERABLE,RAPIDO,RAPIDO); 
@@ -2225,7 +2231,7 @@ void showTemp() {
     if (tiempoExcedido) {
         if (config.tempRemote>0) {
           config.tempRemote = -1; // si fallo lectura temp remota, pasamos a temp local temporal
-          Estado.errorInformado = false; // reseteamos flag para informar si error en temp local
+          ERRINF_CLEAR(ERR_INF_TEMPERATURA); // reseteamos flag para informar si error en temp local
           LOG_WARN("Tiempo excedido sin lectura valida de temperatura, cambiando a sensor local");
         }   
         lastValidTempMillis = millis();
@@ -2237,15 +2243,15 @@ void showTemp() {
       LOG_TRACE("temp OFFSET=",config.tempOffset,"TEMP_OFFSET_FACTOR %=",TEMP_OFFSET_FACTOR,"temperatura corregida=",temperatura);
       temperatura = (temperatura < 0 ? (temperatura - 0.5) : (temperatura + 0.5)); //redondeo al entero mas cercano
       if (prev_temp == 999) { 
-        Estado.errorInformado = false; // si antes habia error de temperatura, reseteamos flag
+        ERRINF_CLEAR(ERR_INF_TEMPERATURA); // si antes habia error de temperatura, reseteamos flag
         logStatusF("Temperature sensor OK (%s)", config.tempRemote>0? "remote" : "local");
       }
       lastValidTempMillis = millis(); // actualizamos tiempo ultima lectura valida
     }  
     else {
-      if (!Estado.errorInformado) {
+      if (!ERRINF_IS_SET(ERR_INF_TEMPERATURA)) { // si no se ha informado ya del error de temperatura
+        ERRINF_SET(ERR_INF_TEMPERATURA); // marcamos flag de error de temperatura para no repetir el mensaje hasta que se recupere
         LOG_WARN("Read", config.tempRemote>0? "remote" : "local", "temperature sensor failed");
-        Estado.errorInformado = true; // para no repetir el mensaje hasta que se recupere
       }
     }
     lcd.displayTemp((int)temperatura);
@@ -2680,6 +2686,7 @@ void setDiferido() {
           Serial.println(F("   5 - simular EV no esta OFF en Domoticz"));
           Serial.println(F("   6 - simular error al salir del PAUSE"));
           Serial.println(F("   7 - simular fecha erronea de NTP"));
+          Serial.println(F("   8 - simular fecha lastupdate EV erronea en Domoticz"));
           Serial.println(F("   9 - simular crash de sw"));
       }
       switch (inputNumber) {
@@ -2712,6 +2719,10 @@ void setDiferido() {
                 tv.tv_sec = 0; // fecha 1/1/1970
                 settimeofday(&tv, NULL);
                 timeOK = true;
+                break;
+            case 8:
+                Serial.println(F("recibido:   8 - simular error lastUpdate"));
+                simular.ErrorLastUp = true;
                 break;
             case 9:
                 Serial.println(F("recibido:   9 - simular crash de sw"));
