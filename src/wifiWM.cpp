@@ -323,14 +323,14 @@ void setConnected(bool state, bool force) {
     // --- transición a: CONECTADO ---
     logStatus(wifiOKmsg());
     wifiRetryCount = 0;
-    Estado.errorInformado = false;
+    Estado.errorInformado.wifi = false; // borramos flag de error wifi ya informado
     // Ajusta la UI (display) en caso de conexion (se incluye CONFIGURANDO para informar de wifi OK tras salir modo AP)
     if (Estado.estado == STANDBY || Estado.estado == ERROR || Estado.estado == CONFIGURANDO) showWifiOK();
   } else {
       // --- transición a: DESCONECTADO ---
-      if (!Estado.errorInformado) {
+      if (!Estado.errorInformado.wifi) {
         LOG_ERROR(" ** [ERROR] No estamos conectados a la wifi. Reason: ", wifiDisconnectReason);
-        Estado.errorInformado = true; // Bloquea futuros logs redundantes
+        Estado.errorInformado.wifi = true; // Bloquea futuros logs redundantes
       }
   }      
   // Ajusta la UI (led status)
@@ -389,10 +389,10 @@ bool VerifyRecoveryWifi(bool checkRecon) {
   */
     if(!Estado.connected && checkRecon) {
       if(wifiReconnect()) {
-        Estado.errorInformado = false; //reiniciamos bloqueo futuros LOG_WARN/ERROR 
-      } else if (!Estado.errorInformado) {
+        Estado.errorInformado.wifi = false; //reiniciamos bloqueo futuros LOG_WARN/ERROR 
+      } else if (!Estado.errorInformado.wifi) {
                 LOG_WARN("Reconnect failed, reintentando cada ", RECONNECTINTERVAL, " minutos");
-                Estado.errorInformado = true; 
+                Estado.errorInformado.wifi = true; // bloquea futuros logs redundantes 
             }
     }
   //  Verificamos estado actual de la wifi (y display wifi level si procede)

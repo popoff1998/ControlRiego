@@ -59,7 +59,7 @@
   #define ELEMENTCOUNT(x)  (sizeof(x) / sizeof(x[0])) // calcula el numero de elementos de un array
   #define UMBRAL_EPOCH 1767225600 // fecha 1/1/2026 en formato epoch (si la fecha es anterior se considera no valida)
   #define SECS_PER_DAY 86400UL
-  // Flags de qué verificaciones reiniciar su contador (flagv, reconexión wifi, verificación largo plazo)
+  // Flags de verificaciones a reiniciar su contador (flagv, reconexión wifi, verificación largo plazo)
   #define RESET_FLAGV     (1 << 0) // decimal 1 (binario 0001)
   #define RESET_RECONNECT (1 << 1) // decimal 2 (binario 0010)
   #define RESET_LARGO     (1 << 2) // decimal 4 (binario 0100)
@@ -284,7 +284,7 @@
     uint8_t preinitParm   : 1,
             initParm      : 1,
             initWifi      : 1,
-            spare1        : 1;
+            _spares       : 5; // Bits no usados
   };
 
   // flags de simulacion en modo DEVELOP
@@ -296,11 +296,36 @@
             ErrorON        : 1,
             ErrorVerifyON  : 1,
             ErrorVerifyOFF : 1,
-            ErrorPause     : 1;
+            ErrorPause     : 1,
+            ErrorLastUp    : 1,
+            _padding       : 2; // Bits no usados
     };
   } ;
 
-  void panicNotFound(const char*, uint16_t); // solo declaracion, implementacion en botones.cpp
+  union FlagsErrorInformado {
+      struct {
+        uint8_t wifi        : 1, 
+                domoticz    : 1, 
+                verify      : 1, 
+                lastUpdate  : 1, 
+                temperatura : 1, 
+                _padding    : 3; // Bits no usados
+      };
+      uint8_t raw = 0; // Acceso directo al byte completo (inicializado a 0)
+      // Limpia todos los bits de una sola vez
+      void clearAll() { raw = 0; }
+      // Equivalente a (errorInformado != 0)
+      bool any() const { return raw != 0; }
+      // Equivalente a (errorInformado == 0)
+      bool none() const { return raw == 0; }
+      // Método específico para limpiar los flags de errores de verificación de pausa
+      void resetPausaFlags() {
+        verify = false;
+        lastUpdate = false;
+      }
+  };
+
+  void panicNotFound(const char*, uint16_t); // solo declaracion para uso en S_BOTON, implementacion en botones.cpp
 
   struct S_BOTON {
     const uint16_t bID;     // Fijo: Identificador de bit del boton (bitmask)
@@ -335,7 +360,7 @@
     bool reposo = false;    
     bool failedStopRiego = false;
     bool recoverableError = false;
-    bool errorInformado = false;  // para no repetir logs del mismo error "silencioso" (fallo wifi en standby o readRemoteTemp)
+    FlagsErrorInformado errorInformado{};  // para no repetir logs del mismo error (bip mask)
   } ;  
 
   struct S_timeRiego {
