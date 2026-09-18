@@ -19,7 +19,10 @@
   #define GETSETTINGS   "getsettings"
   //---------------------------------------------------------------------------------------
   
-  extern char ultimoJSON_Domoticz[]; // para debug, almacena el ultimo JSON recibido de Domoticz
+  char ultimoLastUpdate_Domoticz[25] = {0}; // almacena la fecha/hora de la ultima actualizacion de datos desde Domoticz (para mostrar en display) 
+  #ifdef DEBUGPAUSAREM
+  char ultimoJSON_Domoticz[2048] = {0};
+  #endif
 
 //==================================================================================================//
 //=================== Funciones primarias basicas y de ayuda     ===================================//
@@ -97,8 +100,7 @@ String parseResponse(const String &response, const char *campo, JsonLevel level)
 bool verificaPausaRemota(time_t inicioRiego)
 {
     // Extraemos LastUpdate del último JSON recibido
-    String lastUpdateStr = parseResponse(ultimoJSON_Domoticz, "LastUpdate", RESULT_ARRAY_0);
-    time_t lastUpdateEpoch = dateStrToEpochUTC(lastUpdateStr.c_str());
+    time_t lastUpdateEpoch = dateStrToEpochUTC(ultimoLastUpdate_Domoticz);
     #ifdef DEBUGPAUSAREM
         LOG_WARN("--- DIAGNÓSTICO PAUSA REMOTA ---");
         LOG_WARN("JSON recibido de Domoticz:", ultimoJSON_Domoticz);
@@ -107,10 +109,10 @@ bool verificaPausaRemota(time_t inicioRiego)
         localtime_r(&inicioRiego, &tmON);
         strftime(lastOnTime, sizeof(lastOnTime), "%Y-%m-%d %H:%M:%S", &tmON);
         LOG_WARN("Fecha Inicio Riego (CCR):", lastOnTime, "(Epoch:", inicioRiego, ")");
-        LOG_WARN("Fecha LastUpdate (Domoticz):", lastUpdateStr.c_str(), "(Epoch:", lastUpdateEpoch, ")");
+        LOG_WARN("Fecha LastUpdate (Domoticz):", ultimoLastUpdate_Domoticz, "(Epoch:", lastUpdateEpoch, ")");
+        ultimoJSON_Domoticz[0] = '\0'; // Limpiamos el buffer tras procesarlo
     #endif
-    // Limpiamos el buffer tras procesarlo
-    ultimoJSON_Domoticz[0] = '\0';
+    ultimoLastUpdate_Domoticz[0] = '\0'; // Limpiamos el buffer tras procesarlo
     if (lastUpdateEpoch == 0) {
         LOG_WARN(">> LastUpdate inválido, no se puede confirmar pausa. Se ignora.");
         return false; // Ante la duda, no pausar
@@ -253,9 +255,15 @@ String deviceInfo(int idx, const char *campo)
     snprintf(message, sizeof(message), QUERYDEVICE, idx);
     // 1. Comunicación: Obtener la respuesta JSON
     String response = cmdtoSCD(message);
-    // Guardamos el JSON recibido completo (para verificacion caso de pausa remota) si se consulta estado de la zona en curso de riego
+    ultimoLastUpdate_Domoticz[0] = '\0';
     if (Estado.estado == REGANDO && idx == getSCD_ID(zonaEnCurso.znumber) && campo != nullptr && strcmp(campo, "Status") == 0) {
-        snprintf(ultimoJSON_Domoticz, SIZEBUFF, "%s", response.c_str());
+      // Extraemos y guardamos la fecha de actualización (ocupa solo ~20 bytes)
+      String lu = parseResponse(response, "LastUpdate", RESULT_ARRAY_0);
+      strlcpy(ultimoLastUpdate_Domoticz, lu.c_str(), sizeof(ultimoLastUpdate_Domoticz));
+      #ifdef DEBUGPAUSAREM
+      // Guardamos el JSON recibido completo (para verificacion caso de pausa remota) si se consulta estado de la zona en curso de riego
+      strlcpy(ultimoJSON_Domoticz, response.c_str(), sizeof(ultimoJSON_Domoticz));
+      #endif
     }
     if (response.startsWith("Err")) {
         LOG_WARN(" ** IDX:", idx, "info not obtained (see previous msgs)");
